@@ -1,0 +1,4 @@
+name = "ClimaSeaIce"
+uuid = "6ba0ff68-24e6-4315-936c-2e99227c95a4"
+authors = ["Gregory Wagner <wagner.greg@gmail.com>"]
+version = "0.1.0"
