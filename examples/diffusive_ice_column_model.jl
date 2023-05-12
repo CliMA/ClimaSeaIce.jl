@@ -1,53 +1,43 @@
+using ClimaSeaIce: ThermodynamicIceModel, ConstantIceDiffusivity
 using Oceananigans
 using Oceananigans.Units
-using Oceananigans.TurbulenceClosures: VerticallyImplicitTimeDiscretization
 using GLMakie
 
-# Diffusivity profile within the snow/ice
-Nx = 1
-Nx = 1
-Nz = 10 # one snow, two ice layers
+# Build a grid with 10 cm resolution
+grid = RectilinearGrid(size=10, z=(-1, 0), topology=(Flat, Flat, Bounded))
 
-#=
-grid = RectilinearGrid(size = (Nx, Ny, Nz),
-                       x = (0, 100kilometers),
-                       y = (0, 100kilometers),
-                       z = (0, 2))
-=#
+# Set up a simple problem and build the ice model
+atmosphere_temperature      = -10  # ᵒC
+ocean_temperature           = 0    # ᵒC
+ice_temperature_diffusivity = 1e-6 # m² s⁻¹
+closure = ConstantIceDiffusivity(ice_temperature_diffusivity)
+model = ThermodynamicIceModel(; grid, closure, atmosphere_temperature, ocean_temperature)
 
-grid = RectilinearGrid(size=Nz, z=(0, 2), topology=(Flat, Flat, Bounded))
+# Initialize and run
+model.temperature .= 0 
 
-vitd = VerticallyImplicitTimeDiscretization()
-κ = zeros(size(grid)...)
-κ .= 1e-4
-
-closure = VerticalScalarDiffusivity(vitd, κ=κ)
-
-ρ = 1000
-Cᵖ = 4000
-Qʰ = 1000 # W m⁻²
-Qᵀ = Qʰ / (ρ * Cᵖ)
-
-top_T_bc = FluxBoundaryCondition(Qᵀ)
-T_bcs = FieldBoundaryConditions(top=top_T_bc)
-
-# Note: this means we solve
+# We're using explicit time stepping. The CFL condition is
 #
-# ∂T/∂t = ∂/∂z (κ ∂T/∂z)
-model = HydrostaticFreeSurfaceModel(; grid, closure,
-                                    velocities = PrescribedVelocityFields(),
-                                    tracers = :T,
-                                    boundary_conditions = (; T=T_bcs),
-                                    buoyancy = nothing)
+#   Δt < Δz² / κ ≈ 0.1² / 1e-6 ≈ 1e4,
+#
+# So Δt=1minute is well within CFL.
+simulation = Simulation(model, Δt=1minute)
 
-set!(model, T=-2)
-simulation = Simulation(model, Δt=1minute, stop_iteration=3)
-run!(simulation)
-
-T = model.tracers.T
-Tn = interior(T, 1, 1, :)
-z = znodes(T)
 fig = Figure()
-ax = Axis(fig[1, 1])
-lines!(ax, Tn, z)
+ax = Axis(fig[1, 1], xlabel="Temperature (ᵒC)", ylabel="z (m)")
+
+for stop_time in (10minutes, 30minutes, 1hour)
+    simulation.stop_time = stop_time
+    run!(simulation)
+
+    T = model.temperature
+    Tn = interior(T, 1, 1, :)
+    z = znodes(T)
+
+    label = "t = " * prettytime(model.clock.time)
+    lines!(ax, Tn, z; label)
+end
+
+axislegend(ax, position=:lb)
 display(fig)
+
