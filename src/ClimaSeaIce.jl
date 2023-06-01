@@ -77,8 +77,8 @@ function ThermodynamicIceModel(; grid,
     T_bcs = FieldBoundaryConditions(grid, T_location, top=top_T_bc, bottom=bottom_T_bc)
     temperature = CenterField(grid, boundary_conditions=T_bcs)
     enthalpy = CenterField(grid)
-    porosity = CenterField(grid)
-    state = (T=temperature, H=enthalpy, ϕ=porosity)
+    solid_fraction = CenterField(grid)
+    state = (T=temperature, H=enthalpy, ϕ=solid_fraction)
 
     tendencies = (; H=CenterField(grid))
     clock = Clock{eltype(grid)}(0, 0, 1)
@@ -125,16 +125,16 @@ prognostic_fields(model::TIM) = (; model.state.H)
 ##### Time-stepping
 #####
 
-function update_porosity!(model)
+function update_solid_fraction!(model)
     T = model.state.T
     ϕ = model.state.ϕ
     grid = model.grid
     arch = grid.architecture
-    launch!(arch, grid, :xyz, _compute_porosity!, ϕ, grid, T)
+    launch!(arch, grid, :xyz, _compute_solid_fraction!, ϕ, grid, T)
     return nothing
 end
 
-@kernel function _compute_porosity!(ϕ, grid, T)   
+@kernel function _compute_solid_fraction!(ϕ, grid, T)   
     i, j, k = @index(Global, NTuple) 
 
     FT = eltype(grid)
@@ -179,7 +179,8 @@ function update_state!(model::TIM)
     arch = grid.architecture
     args = (model.clock, fields(model))
     update_temperature!(model)
-    update_porosity!(model)
+    update_solid_fraction!(model)
+    update_diffusivity!(model.closure, model)
     return nothing
 end
 
@@ -215,15 +216,37 @@ end
     @inbounds G.H[i, j, k] = ∂z_κ_∂z_T(i, j, k, grid, closure, U.T)
 end
 
-struct ScalarIceDiffusivity{C}
+struct MolecularDiffusivity{C}
+    κ_ice :: Float64
+    κ_water :: Float64
     κ :: C
 end
 
-@inbounds κ_∂zᶜᶜᶠ(i, j, k, grid, κ::Number, T) = κ * ∂zᶜᶜᶠ(i, j, k, grid, T)
-@inbounds κ_∂zᶜᶜᶠ(i, j, k, grid, κ::AbstractArray{<:Any, 3}, T) = @inbounds κ[i, j, k] * ∂zᶜᶜᶠ(i, j, k, grid, T)
-@inbounds κ_∂zᶜᶜᶠ(i, j, k, grid, κ::AbstractArray{<:Any, 1}, T) = @inbounds κ[k] * ∂zᶜᶜᶠ(i, j, k, grid, T)
 
-@inline ∂z_κ_∂z_T(i, j, k, grid, closure::ScalarIceDiffusivity, T) = ∂zᶜᶜᶜ(i, j, k, grid, κ_∂zᶜᶜᶠ, closure.κ, T)
+function MolecularDiffusivity(grid; κ_ice=1e-5, κ_water=1e-6)
+    κ = CenterField(grid)
+    return MolecularDiffusivity(κ_ice, κ_water, κ)
+end
+
+function update_diffusivity!(closure::MolecularDiffusivity, model)
+    κ = closure.κ
+    κ_ice = closure.κ_ice
+    κ_water = closure.κ_water
+    ϕ = model.state.ϕ
+    grid = model.grid
+    arch = grid.architecture
+    launch!(arch, grid, :xyz, _compute_molecular_diffusivity!, κ, κ_ice, κ_water, ϕ)
+    fill_halo_regions!(κ)
+    return nothing
+end
+
+@kernel function _compute_molecular_diffusivity!(κ, κ_ice, κ_water, ϕ)
+    i, j, k = @index(Global, NTuple) 
+    @inbounds κ[i, j, k] = κ_ice * ϕ[i, j, k] + κ_water * (1 - ϕ[i, j, k])
+end
+
+@inbounds κᶜᶜᶜ_∂zᶜᶜᶠ(i, j, k, grid, κ, T) = ℑzᵃᵃᶠ(i, j, k, grid, κ) * ∂zᶜᶜᶠ(i, j, k, grid, T)
+@inline ∂z_κ_∂z_T(i, j, k, grid, closure::MolecularDiffusivity, T) = ∂zᶜᶜᶜ(i, j, k, grid, κᶜᶜᶜ_∂zᶜᶜᶠ, closure.κ, T)
 
 end # module
 
