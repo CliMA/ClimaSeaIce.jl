@@ -36,6 +36,7 @@ mutable struct ThermodynamicIceModel{Grid,
     closure :: Clo
     state :: State
     ice_heat_capacity :: Cp
+    water_heat_capacity :: Cp
     fusion_enthalpy :: Fu
     ocean_temperature :: Ocean
     tendencies :: Tend
@@ -50,7 +51,7 @@ function Base.show(io::IO, model::TIM)
     print(io, "    ocean_temperature: ", model.ocean_temperature)
 end
 
-const reference_density = 1035.0 # kg m⁻³
+const reference_density = 999.8 # kg m⁻³
 
 function default_closure(grid)
     κ = ZFaceField(grid)
@@ -65,8 +66,9 @@ Return a thermodynamic model for ice sandwiched between an atmosphere and ocean.
 """
 function ThermodynamicIceModel(; grid,
                                  closure = default_closure(grid),
-                                 ice_heat_capacity = 1.0, #2090.0 / reference_density,
-                                 fusion_enthalpy = 333.55 / reference_density,
+                                 ice_heat_capacity = 2090.0 / reference_density,
+                                 water_heat_capacity = 3991.0 / reference_density,
+                                 fusion_enthalpy = 3.3e5 / reference_density,
                                  atmosphere_temperature = -10, # ᵒC
                                  ocean_temperature = 0) # ᵒC
 
@@ -77,8 +79,8 @@ function ThermodynamicIceModel(; grid,
     T_bcs = FieldBoundaryConditions(grid, T_location, top=top_T_bc, bottom=bottom_T_bc)
     temperature = CenterField(grid, boundary_conditions=T_bcs)
     enthalpy = CenterField(grid)
-    solid_fraction = CenterField(grid)
-    state = (T=temperature, H=enthalpy, ϕ=solid_fraction)
+    porosity = CenterField(grid)
+    state = (T=temperature, H=enthalpy, ϕ=porosity)
 
     tendencies = (; H=CenterField(grid))
     clock = Clock{eltype(grid)}(0, 0, 1)
@@ -89,6 +91,7 @@ function ThermodynamicIceModel(; grid,
                                  closure,
                                  state,
                                  ice_heat_capacity,
+                                 water_heat_capacity,
                                  fusion_enthalpy,
                                  ocean_temperature,
                                  tendencies)
@@ -125,16 +128,16 @@ prognostic_fields(model::TIM) = (; model.state.H)
 ##### Time-stepping
 #####
 
-function update_solid_fraction!(model)
+function update_porosity!(model)
     T = model.state.T
     ϕ = model.state.ϕ
     grid = model.grid
     arch = grid.architecture
-    launch!(arch, grid, :xyz, _compute_solid_fraction!, ϕ, grid, T)
+    launch!(arch, grid, :xyz, _compute_porosity!, ϕ, grid, T)
     return nothing
 end
 
-@kernel function _compute_solid_fraction!(ϕ, grid, T)   
+@kernel function _compute_porosity!(ϕ, grid, T)   
     i, j, k = @index(Global, NTuple) 
 
     FT = eltype(grid)
@@ -163,10 +166,12 @@ end
 function update_enthalpy!(model)
     H = model.state.H
     T = model.state.T
+    ϕ = model.state.ϕ
     c = model.ice_heat_capacity
+    ℒ = model.fusion_enthalpy
 
-    # set temperature from enthalpy via dH = c dT
-    interior(H) .= c .* interior(T)
+    # set temperature from enthalpy via dH = c dT + ℒ ϕ
+    interior(H) .= c .* interior(T) + ℒ * interior(ϕ)
 
     arch = model.grid.architecture
     fill_halo_regions!(H, arch, model.clock, fields(model))
@@ -179,7 +184,7 @@ function update_state!(model::TIM)
     arch = grid.architecture
     args = (model.clock, fields(model))
     update_temperature!(model)
-    update_solid_fraction!(model)
+    update_porosity!(model)
     update_diffusivity!(model.closure, model)
     return nothing
 end
@@ -242,11 +247,14 @@ end
 
 @kernel function _compute_molecular_diffusivity!(κ, κ_ice, κ_water, ϕ)
     i, j, k = @index(Global, NTuple) 
-    @inbounds κ[i, j, k] = κ_ice * ϕ[i, j, k] + κ_water * (1 - ϕ[i, j, k])
+    @inbounds begin
+        ϕᵢ = ϕ[i, j, k] # porosity or liquid fraction
+        κ[i, j, k] = κ_ice * (1 - ϕᵢ) + κ_water * ϕᵢ
+    end
 end
 
-@inbounds κᶜᶜᶜ_∂zᶜᶜᶠ(i, j, k, grid, κ, T) = ℑzᵃᵃᶠ(i, j, k, grid, κ) * ∂zᶜᶜᶠ(i, j, k, grid, T)
-@inline ∂z_κ_∂z_T(i, j, k, grid, closure::MolecularDiffusivity, T) = ∂zᶜᶜᶜ(i, j, k, grid, κᶜᶜᶜ_∂zᶜᶜᶠ, closure.κ, T)
+@inbounds κᶜᶜᶜ_∂zᶜᶜᶠT(i, j, k, grid, κ, T) = ℑzᵃᵃᶠ(i, j, k, grid, κ) * ∂zᶜᶜᶠ(i, j, k, grid, T)
+@inline ∂z_κ_∂z_T(i, j, k, grid, closure::MolecularDiffusivity, T) = ∂zᶜᶜᶜ(i, j, k, grid, κᶜᶜᶜ_∂zᶜᶜᶠT, closure.κ, T)
 
 end # module
 

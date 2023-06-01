@@ -6,12 +6,13 @@ using Oceananigans.Grids: znode
 using GLMakie
 
 # Build a grid with 10 cm resolution
-grid = RectilinearGrid(size=30, z=(-1, 0), topology=(Flat, Flat, Bounded))
+grid = RectilinearGrid(size=20, z=(-1, 0), topology=(Flat, Flat, Bounded))
 
 # Set up a simple problem and build the ice model
-atmosphere_temperature      = -10  # ᵒC
-ocean_temperature           = 1    # ᵒC
-closure = MolecularDiffusivity(grid)
+atmosphere_temperature = -10  # ᵒC
+ocean_temperature      = 0.1  # ᵒC
+#closure = MolecularDiffusivity(grid, κ_ice=1.2e-6, κ_water=1e-6)
+closure = MolecularDiffusivity(grid, κ_ice=1e-5, κ_water=1e-6)
 model = ThermodynamicIceModel(; grid, closure, atmosphere_temperature, ocean_temperature)
 
 # Initialize and run
@@ -34,7 +35,7 @@ const c = Center()
 ht = Float64[]
 th = Float64[]
 
-function compute_ice_thickness(sim; melting_temperature=0.0)
+function compute_ice_thickness(sim; melting_temperature=-0.1)
     Nz = size(grid, 3)
     T = sim.model.state.T # model temperature
     Ti = interior(T, 1, 1, :)
@@ -95,21 +96,32 @@ run!(simulation)
 fig = Figure()
 
 axT = Axis(fig[1, 1], xlabel="Temperature (ᵒC)", ylabel="z (m)")
-axϕ = Axis(fig[1, 2], xlabel="Solid fraction", ylabel="z (m)")
-axκ = Axis(fig[1, 3], xlabel="Diffusivity", ylabel="z (m)")
-axh = Axis(fig[2, 1:3], xlabel="Time (hours)", ylabel="Ice thickness (m)")
+axH = Axis(fig[1, 2], xlabel="Enthalpy (J m⁻³)", ylabel="z (m)")
+axϕ = Axis(fig[1, 3], xlabel="Porosity", ylabel="z (m)")
+axκ = Axis(fig[1, 4], xlabel="Diffusivity", ylabel="z (m)")
+axh = Axis(fig[2, 1:4], xlabel="Time (hours)", ylabel="Ice thickness (m)")
 
 z = znodes(model.state.T)
+
+#=
+# TODO: calculate analytical solution
+ℒ = model.fusion_enthalpy
+ΔT = ocean_temperature - atmosphere_temperature 
+c = ice_heat_capacity 
+f(λ) = λ * exp(λ^2) * erf(λ) - St / sqrt(π)
+=#
 
 for n = 1:length(tt)
     tn = tt[n]
     Tn = Tt[n]
+    Hn = Ht[n]
     ϕn = ϕt[n]
     κn = κt[n]
     label = "t = " * prettytime(tn)
-    lines!(axT, Tn, z; label)
-    lines!(axϕ, ϕn, z; label)
-    lines!(axκ, κn, z; label)
+    scatterlines!(axT, Tn, z; label)
+    scatterlines!(axH, Hn, z; label)
+    scatterlines!(axϕ, ϕn, z; label)
+    scatterlines!(axκ, κn, z; label)
 end
 
 lines!(axh, th ./ hour, ht)
