@@ -1,13 +1,9 @@
-using ClimaSeaIce: ThermodynamicSeaIceModel, MolecularDiffusivity
+using ClimaSeaIce: ThermodynamicIceModel, MolecularDiffusivity
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators: Δzᶜᶜᶠ
 using Oceananigans.Grids: znode
 using GLMakie
-
-#####
-##### Set up a ThermodynamicSeaIceModel
-#####
 
 # Build a grid with 10 cm resolution
 grid = RectilinearGrid(size=20, z=(-1, 0), topology=(Flat, Flat, Bounded))
@@ -15,8 +11,9 @@ grid = RectilinearGrid(size=20, z=(-1, 0), topology=(Flat, Flat, Bounded))
 # Set up a simple problem and build the ice model
 atmosphere_temperature = -10  # ᵒC
 ocean_temperature      = 0.1  # ᵒC
+#closure = MolecularDiffusivity(grid, κ_ice=1.2e-6, κ_water=1e-6)
 closure = MolecularDiffusivity(grid, κ_ice=1e-5, κ_water=1e-6)
-model = ThermodynamicSeaIceModel(; grid, closure, atmosphere_temperature, ocean_temperature)
+model = ThermodynamicIceModel(; grid, closure, atmosphere_temperature, ocean_temperature)
 
 # Initialize and run
 set!(model, T=ocean_temperature)
@@ -32,12 +29,6 @@ H = model.state.H
 Δz = Δzᶜᶜᶠ(1, 1, 1, grid)
 Δt = 0.1 * Δz^2 / κ
 simulation = Simulation(model; Δt)
-
-@show simulation
-
-#####
-##### Set up diagnostics
-#####
 
 const c = Center()
 
@@ -97,11 +88,6 @@ function grab_profiles!(sim)
 end
 
 simulation.callbacks[:grabber] = Callback(grab_profiles!, SpecifiedTimes(10minutes, 30minutes, 1hour))
-
-#####
-##### Run the simulation
-#####
-
 simulation.stop_time = 1hour
 run!(simulation)
 
