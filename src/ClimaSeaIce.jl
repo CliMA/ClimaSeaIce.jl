@@ -21,15 +21,15 @@ import Oceananigans.Fields: set!
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Simulations: reset!
 
-mutable struct ThermodynamicIceModel{Grid,
-                                     Tim,
-                                     Clk,
-                                     Clo,
-                                     State,
-                                     Cp,
-                                     Fu,
-                                     Ocean,
-                                     Tend} <: AbstractModel{Nothing}
+mutable struct ThermodynamicSeaIceModel{Grid,
+                                        Tim,
+                                        Clk,
+                                        Clo,
+                                        State,
+                                        Cp,
+                                        Fu,
+                                        Ocean,
+                                        Tend} <: AbstractModel{Nothing}
     grid :: Grid
     timestepper :: Tim # unused placeholder for now
     clock :: Clk
@@ -42,35 +42,29 @@ mutable struct ThermodynamicIceModel{Grid,
     tendencies :: Tend
 end
 
-const TIM = ThermodynamicIceModel
+const TSIM = ThermodynamicSeaIceModel
 
-function Base.show(io::IO, model::TIM)
+function Base.show(io::IO, model::TSIM)
     clock = model.clock
-    print(io, "ThermodynamicIceModel(t=", prettytime(clock.time), ", iteration=", clock.iteration, ")", '\n')
+    print(io, "ThermodynamicSeaIceModel(t=", prettytime(clock.time), ", iteration=", clock.iteration, ")", '\n')
     print(io, "    grid: ", summary(model.grid), '\n')
     print(io, "    ocean_temperature: ", model.ocean_temperature)
 end
 
 const reference_density = 999.8 # kg m⁻³
 
-function default_closure(grid)
-    κ = ZFaceField(grid)
-    parent(κ) .= 1e-6
-    return ScalarIceDiffusivty(κ)
-end
-
 """
-    ThermodynamicIceModel(; grid, kw...)
+    ThermodynamicSeaIceModel(; grid, kw...)
 
 Return a thermodynamic model for ice sandwiched between an atmosphere and ocean.
 """
-function ThermodynamicIceModel(; grid,
-                                 closure = default_closure(grid),
-                                 ice_heat_capacity = 2090.0 / reference_density,
-                                 water_heat_capacity = 3991.0 / reference_density,
-                                 fusion_enthalpy = 3.3e5 / reference_density,
-                                 atmosphere_temperature = -10, # ᵒC
-                                 ocean_temperature = 0) # ᵒC
+function ThermodynamicSeaIceModel(; grid,
+                                  closure = default_closure(grid),
+                                  ice_heat_capacity = 2090.0 / reference_density,
+                                  water_heat_capacity = 3991.0 / reference_density,
+                                  fusion_enthalpy = 3.3e5 / reference_density,
+                                  atmosphere_temperature = -10, # ᵒC
+                                  ocean_temperature = 0) # ᵒC
 
     # Build temperature field
     top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
@@ -85,19 +79,19 @@ function ThermodynamicIceModel(; grid,
     tendencies = (; H=CenterField(grid))
     clock = Clock{eltype(grid)}(0, 0, 1)
 
-    return ThermodynamicIceModel(grid,
-                                 nothing,
-                                 clock,
-                                 closure,
-                                 state,
-                                 ice_heat_capacity,
-                                 water_heat_capacity,
-                                 fusion_enthalpy,
-                                 ocean_temperature,
-                                 tendencies)
+    return ThermodynamicSeaIceModel(grid,
+                                    nothing,
+                                    clock,
+                                    closure,
+                                    state,
+                                    ice_heat_capacity,
+                                    water_heat_capacity,
+                                    fusion_enthalpy,
+                                    ocean_temperature,
+                                    tendencies)
 end
 
-function set!(model::TIM; T=nothing, H=nothing)
+function set!(model::TSIM; T=nothing, H=nothing)
 
     setting_temperature = !isnothing(T)
     setting_enthalpy = !isnothing(H)
@@ -121,8 +115,8 @@ end
 ##### Utilities
 #####
 
-fields(model::TIM) = model.state
-prognostic_fields(model::TIM) = (; model.state.H)
+fields(model::TSIM) = model.state
+prognostic_fields(model::TSIM) = (; model.state.H)
 
 #####
 ##### Time-stepping
@@ -179,7 +173,7 @@ function update_enthalpy!(model)
     return nothing
 end
 
-function update_state!(model::TIM)
+function update_state!(model::TSIM)
     grid = model.grid
     arch = grid.architecture
     args = (model.clock, fields(model))
