@@ -38,7 +38,6 @@ mutable struct ThermodynamicSeaIceModel{Grid,
     ice_heat_capacity :: Cp
     water_heat_capacity :: Cp
     fusion_enthalpy :: Fu
-    ocean_temperature :: Ocean
     tendencies :: Tend
 end
 
@@ -47,8 +46,7 @@ const TSIM = ThermodynamicSeaIceModel
 function Base.show(io::IO, model::TSIM)
     clock = model.clock
     print(io, "ThermodynamicSeaIceModel(t=", prettytime(clock.time), ", iteration=", clock.iteration, ")", '\n')
-    print(io, "    grid: ", summary(model.grid), '\n')
-    print(io, "    ocean_temperature: ", model.ocean_temperature)
+    print(io, "    grid: ", summary(model.grid))
 end
 
 const reference_density = 999.8 # kg m⁻³
@@ -63,26 +61,16 @@ function ThermodynamicSeaIceModel(; grid,
                                   ice_heat_capacity = 2090.0 / reference_density,
                                   water_heat_capacity = 3991.0 / reference_density,
                                   fusion_enthalpy = 3.3e5 / reference_density,
-                                  boundary_conditions = NamedTuple(),
-                                  atmosphere_temperature = -10, # ᵒC
-                                  ocean_temperature = 0) # ᵒC
+                                  boundary_conditions = NamedTuple())
 
-    # Prognostic fields: enthalpy
+    # Prognostic fields: temperature, enthalpy, porosity
     field_names = (:T, :H, :ϕ)
-    boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
-    state = TracerFields(field_names, grid, user_boundary_conditions)
 
-    #=
-    # Build temperature field
-    top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
-    bottom_T_bc = ValueBoundaryCondition(ocean_temperature)
-    T_location = (Center, Center, Center)
-    T_bcs = FieldBoundaryConditions(grid, T_location, top=top_T_bc, bottom=bottom_T_bc)
-    temperature = CenterField(grid, boundary_conditions=T_bcs)
-    enthalpy = CenterField(grid)
-    porosity = CenterField(grid)
-    state = (T=temperature, H=enthalpy, ϕ=porosity)
-    =#
+    # Build user-defined boundary conditions
+    user_boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
+
+    # Initialize the `state` NamedTuple
+    state = TracerFields(field_names, grid, user_boundary_conditions)
 
     tendencies = (; H=CenterField(grid))
     clock = Clock{eltype(grid)}(0, 0, 1)
@@ -95,7 +83,6 @@ function ThermodynamicSeaIceModel(; grid,
                                     ice_heat_capacity,
                                     water_heat_capacity,
                                     fusion_enthalpy,
-                                    ocean_temperature,
                                     tendencies)
 end
 

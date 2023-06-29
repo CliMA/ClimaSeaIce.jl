@@ -20,8 +20,7 @@ atmosphere_temperature = -10  # ᵒC
 ocean_temperature      = 0.1  # ᵒC
 top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
 bottom_T_bc = ValueBoundaryCondition(ocean_temperature)
-T_location = (Center, Center, Center)
-T_bcs = FieldBoundaryConditions(grid, T_location, top=top_T_bc, bottom=bottom_T_bc)
+T_bcs = FieldBoundaryConditions(top=top_T_bc, bottom=bottom_T_bc)
 
 model = ThermodynamicSeaIceModel(; grid, closure, boundary_conditions=(; T=T_bcs))
 
