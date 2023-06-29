@@ -146,7 +146,7 @@ function update_temperature!(model)
     interior(T) .= interior(H) ./ c
 
     arch = model.grid.architecture
-    fill_halo_regions!(T, arch, model.clock, fields(model))
+    fill_halo_regions!(T, model.clock, fields(model))
 
     return nothing
 end
@@ -162,7 +162,7 @@ function update_enthalpy!(model)
     interior(H) .= c .* interior(T) + ℒ * interior(ϕ)
 
     arch = model.grid.architecture
-    fill_halo_regions!(H, arch, model.clock, fields(model))
+    fill_halo_regions!(H, model.clock, fields(model))
 
     return nothing
 end

@@ -15,20 +15,46 @@ grid = RectilinearGrid(size=20, z=(-1, 0), topology=(Flat, Flat, Bounded))
 # Set up a simple problem and build the ice model
 closure = MolecularDiffusivity(grid, κ_ice=1e-5, κ_water=1e-6)
 
-# Temperature boundary conditions
-atmosphere_temperature = -10  # ᵒC
-ocean_temperature      = 0.1  # ᵒC
-top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
-bottom_T_bc = ValueBoundaryCondition(ocean_temperature)
+#####
+##### Create temperature boundary conditions
+#####
+
+initial_air_ice_temperature = -5
+top_T_amplitude = 5
+top_T_slope = -0.5 / day # ᵒC s⁻¹
+
+# Information about ocean cooling
+initial_ice_ocean_temperature = 1.1
+bottom_T_slope = -0.1 / day # ᵒC s⁻¹
+
+# Calculate BCs
+air_ice_temperature(x, y, t) = top_T_slope * t + top_T_amplitude * sin(2π*t/day) + initial_air_ice_temperature
+ice_ocean_temperature(x, y, t) = bottom_T_slope * t + initial_ice_ocean_temperature
+
+# Plot boundary condition functions
+dt = 10minutes
+tf = 10days
+t = 0:dt:tf
+
+set_theme!(Theme(fontsize=24, linewidth=3))
+fig = Figure()
+ax = Axis(fig[1, 1], title="Boundary Conditions", xlabel="Time (s)", ylabel="Temperature (ᵒC)")
+lines!(ax, t, air_ice_temperature.(0, 0, t), label="Air-ice surface temperature")
+lines!(ax, t, ice_ocean_temperature.(0, 0, t), label="Ice-ocean temperature")
+axislegend(ax)
+     
+display(fig)
+
+top_T_bc = ValueBoundaryCondition(air_ice_temperature)
+bottom_T_bc = ValueBoundaryCondition(ice_ocean_temperature)
 T_bcs = FieldBoundaryConditions(top=top_T_bc, bottom=bottom_T_bc)
 
 model = ThermodynamicSeaIceModel(; grid, closure, boundary_conditions=(; T=T_bcs))
 
 # Initialize and run
-set!(model, T=ocean_temperature)
+set!(model, T=initial_ice_ocean_temperature)
 
 H = model.state.H
-@show H
 
 # We're using explicit time stepping. The CFL condition is
 #
@@ -38,8 +64,6 @@ H = model.state.H
 Δz = Δzᶜᶜᶠ(1, 1, 1, grid)
 Δt = 0.1 * Δz^2 / κ
 simulation = Simulation(model; Δt)
-
-@show simulation
 
 #####
 ##### Set up diagnostics
@@ -102,13 +126,13 @@ function grab_profiles!(sim)
     return nothing
 end
 
-simulation.callbacks[:grabber] = Callback(grab_profiles!, SpecifiedTimes(10minutes, 30minutes, 1hour))
+simulation.callbacks[:grabber] = Callback(grab_profiles!, TimeInterval(1hour)) #SpecifiedTimes(10minutes, 30minutes, 1hour))
 
 #####
 ##### Run the simulation
 #####
 
-simulation.stop_time = 1hour
+simulation.stop_time = 10days
 run!(simulation)
 
 # Make a plot
@@ -120,6 +144,15 @@ axH = Axis(fig[1, 2], xlabel="Enthalpy (J m⁻³)", ylabel="z (m)")
 axϕ = Axis(fig[1, 3], xlabel="Porosity", ylabel="z (m)")
 axκ = Axis(fig[1, 4], xlabel="Diffusivity", ylabel="z (m)")
 axh = Axis(fig[2, 1:4], xlabel="Time (hours)", ylabel="Ice thickness (m)")
+axq = Axis(fig[3, 1:4], xlabel="Time (hours)", ylabel="Ice thickness (m)")
+
+xlims!(axT, -15, 1)
+xlims!(axH, -30, 10)
+xlims!(axϕ, -0.05, 1.05)
+
+Nt = length(tt)
+slider = Slider(fig[4, 1:4], range=1:Nt, startvalue=1)
+n = slider.value
 
 z = znodes(model.state.T)
 
@@ -131,21 +164,34 @@ c = ice_heat_capacity
 f(λ) = λ * exp(λ^2) * erf(λ) - St / sqrt(π)
 =#
 
-for n = 1:length(tt)
-    tn = tt[n]
-    Tn = Tt[n]
-    Hn = Ht[n]
-    ϕn = ϕt[n]
-    κn = κt[n]
-    label = "t = " * prettytime(tn)
-    scatterlines!(axT, Tn, z; label)
-    scatterlines!(axH, Hn, z; label)
-    scatterlines!(axϕ, ϕn, z; label)
-    scatterlines!(axκ, κn, z; label)
-end
+tn = @lift tt[$n]
+tnh = @lift tt[$n] / hour
+Tn = @lift Tt[$n]
+Hn = @lift Ht[$n]
+ϕn = @lift ϕt[$n]
+κn = @lift κt[$n]
+label = @lift "t = " * prettytime(tt[$n])
+scatterlines!(axT, Tn, z; label)
+scatterlines!(axH, Hn, z; label)
+scatterlines!(axϕ, ϕn, z; label)
+scatterlines!(axκ, κn, z; label)
 
 lines!(axh, th ./ hour, ht)
+lines!(axh, th ./ hour, ht)
+
+hn = @lift begin
+    m = searchsortedfirst(th, tt[$n])
+    ht[m]
+end
+
+scatter!(axh, tnh, hn, markersize=30, color=(:red, 0.5))
+
+lines!(axq, th ./ hour, air_ice_temperature.(0, 0, th), label="Air-ice surface temperature")
+lines!(axq, th ./ hour, ice_ocean_temperature.(0, 0, th), label="Ice-ocean temperature")
+vlines!(axq, tnh)
+axislegend(axq, position=:lb)
 
 axislegend(axT, position=:lb)
+
 display(fig)
 
