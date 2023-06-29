@@ -4,13 +4,13 @@ using Oceananigans.BoundaryConditions:
     fill_halo_regions!,
     regularize_field_boundary_conditions,
     FieldBoundaryConditions,
+    apply_z_bcs!,
     ValueBoundaryCondition
 
-using Oceananigans.Utils: prettysummary, prettytime
+using Oceananigans.Utils: prettysummary, prettytime, launch!
 using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior, TracerFields
 using Oceananigans.Models: AbstractModel
 using Oceananigans.TimeSteppers: Clock, tick!
-using Oceananigans.Utils: launch!
 using Oceananigans.Operators
 
 using KernelAbstractions: @kernel, @index
@@ -180,21 +180,25 @@ end
 function time_step!(model, Δt; callbacks=nothing)
     grid = model.grid
     arch = grid.architecture
-    U = model.state
+    Ψ = model.state
     G = model.tendencies
     closure = model.closure
 
-    launch!(arch, grid, :xyz, compute_tendencies!, G, grid, closure, U)
-    launch!(arch, grid, :xyz, step_fields!, U, G, Δt)
+    launch!(arch, grid, :xyz, compute_tendencies!, G, grid, closure, Ψ)
+
+    # Calculate fluxes
+    apply_z_bcs!(G.H, Ψ.H, arch, model.clock, model.state)
+
+    launch!(arch, grid, :xyz, step_fields!, Ψ, G, Δt)
     update_state!(model)
     tick!(model.clock, Δt)
 
     return nothing
 end
 
-@kernel function step_fields!(U, G, Δt)
+@kernel function step_fields!(Ψ, G, Δt)
     i, j, k = @index(Global, NTuple)
-    @inbounds U.H[i, j, k] += Δt * G.H[i, j, k]
+    @inbounds Ψ.H[i, j, k] += Δt * G.H[i, j, k]
 end
 
 #####
@@ -202,11 +206,11 @@ end
 #####
 
 """ Calculate the right-hand-side of the free surface displacement (η) equation. """
-@kernel function compute_tendencies!(G, grid, closure, U)
+@kernel function compute_tendencies!(G, grid, closure, Ψ)
     i, j, k = @index(Global, NTuple)
 
     # Temperature tendency
-    @inbounds G.H[i, j, k] = ∂z_κ_∂z_T(i, j, k, grid, closure, U.T)
+    @inbounds G.H[i, j, k] = ∂z_κ_∂z_T(i, j, k, grid, closure, Ψ.T)
 end
 
 struct MolecularDiffusivity{C}
