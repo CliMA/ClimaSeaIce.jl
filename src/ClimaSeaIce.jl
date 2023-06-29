@@ -28,7 +28,6 @@ mutable struct ThermodynamicSeaIceModel{Grid,
                                         State,
                                         Cp,
                                         Fu,
-                                        Ocean,
                                         Tend} <: AbstractModel{Nothing}
     grid :: Grid
     timestepper :: Tim # unused placeholder for now
