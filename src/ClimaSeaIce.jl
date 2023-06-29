@@ -7,7 +7,7 @@ using Oceananigans.BoundaryConditions:
     ValueBoundaryCondition
 
 using Oceananigans.Utils: prettysummary, prettytime
-using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior
+using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior, TracerFields
 using Oceananigans.Models: AbstractModel
 using Oceananigans.TimeSteppers: Clock, tick!
 using Oceananigans.Utils: launch!
@@ -63,9 +63,16 @@ function ThermodynamicSeaIceModel(; grid,
                                   ice_heat_capacity = 2090.0 / reference_density,
                                   water_heat_capacity = 3991.0 / reference_density,
                                   fusion_enthalpy = 3.3e5 / reference_density,
+                                  boundary_conditions = NamedTuple(),
                                   atmosphere_temperature = -10, # ᵒC
                                   ocean_temperature = 0) # ᵒC
 
+    # Prognostic fields: enthalpy
+    field_names = (:T, :H, :ϕ)
+    boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
+    state = TracerFields(field_names, grid, user_boundary_conditions)
+
+    #=
     # Build temperature field
     top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
     bottom_T_bc = ValueBoundaryCondition(ocean_temperature)
@@ -75,6 +82,7 @@ function ThermodynamicSeaIceModel(; grid,
     enthalpy = CenterField(grid)
     porosity = CenterField(grid)
     state = (T=temperature, H=enthalpy, ϕ=porosity)
+    =#
 
     tendencies = (; H=CenterField(grid))
     clock = Clock{eltype(grid)}(0, 0, 1)

@@ -13,10 +13,17 @@ using GLMakie
 grid = RectilinearGrid(size=20, z=(-1, 0), topology=(Flat, Flat, Bounded))
 
 # Set up a simple problem and build the ice model
+closure = MolecularDiffusivity(grid, κ_ice=1e-5, κ_water=1e-6)
+
+# Temperature boundary conditions
 atmosphere_temperature = -10  # ᵒC
 ocean_temperature      = 0.1  # ᵒC
-closure = MolecularDiffusivity(grid, κ_ice=1e-5, κ_water=1e-6)
-model = ThermodynamicSeaIceModel(; grid, closure, atmosphere_temperature, ocean_temperature)
+top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
+bottom_T_bc = ValueBoundaryCondition(ocean_temperature)
+T_location = (Center, Center, Center)
+T_bcs = FieldBoundaryConditions(grid, T_location, top=top_T_bc, bottom=bottom_T_bc)
+
+model = ThermodynamicSeaIceModel(; grid, closure, boundary_conditions=(; T=T_bcs))
 
 # Initialize and run
 set!(model, T=ocean_temperature)
