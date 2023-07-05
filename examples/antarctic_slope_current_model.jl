@@ -1,6 +1,8 @@
-using Oceananigans
 
-# This files sets up a model that resembles the Antarctic Slope Current (ASC) model in the
+using Oceananigans
+using SeawaterPolynomials.TEOS10
+
+# This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Ian Eisenman
 
 arch = CPU()
@@ -14,6 +16,8 @@ Lz = 4000
 Nx = 400
 Ny = 450
 Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
+
+sponge_width = 20000
 
 #
 # Setting up the grid and bathymetry:
@@ -51,7 +55,21 @@ println(grid)
 #
 
 # Forcings:
-u_forcing(x, y, z, t) = exp(z) * cos(x) * sin(t)
+u_forcing(x, y, z, t) = exp(z) * cos(x) * sin(t) # Not actual forcing, just example
+
+# TODO: need to use forcings to enact the sponge layers. Their support is within 20000 m
+# of the N/S boundaries, they impose a cross-slope buoyancy gradient, and the relaxation
+# tiem scales decrease linearly with distance from the interior termination of the sponge layers
+
+# We'll use Relaxation() to impose a sponge layer forcing on velocity, temperature, and salinity
+damping_rate       = 1 / 100 # Relaxation time scale of 100s, need to make this decrease linearly toward outermost boundary
+south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
+north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
+south_sponge_layer = Relaxation(; rate=damping_rate, mask=south_mask)
+north_sponge_layer = Relaxation(; rate=damping_rate, mask=north_mask)
+sponge_layers      = south_sponge_layer
+# TODO: compose north_mask and south_mask together into one sponge layer, OR compose north/south sponge layers
+
 
 # Boundary Conditions:
 no_slip_bc   = ValueBoundaryCondition(0.0)
@@ -60,16 +78,21 @@ free_slip_bc = FluxBoundaryCondition(nothing)
 free_slip_surface_bcs = FieldBoundaryConditions(no_slip_bc, top=FluxBoundaryCondition(nothing))
 no_slip_field_bcs     = FieldBoundaryConditions(no_slip_bc)
 
+# Buoyancy Equations of State - we want high order polynomials, so we'll use TEOS-10
+eos = TEOS10EquationOfState()
+
+# Coriolis Effect, using basic f-plane
+coriolis = FPlane(f=-1.3e14)
 
 # Assuming no particles or biogeochemistry
 model = HydrostaticFreeSurfaceModel(; grid,
                                          clock = Clock{eltype(grid)}(0, 0, 1),
                             momentum_advection = CenteredSecondOrder(),
                               tracer_advection = CenteredSecondOrder(),
-                                      buoyancy = SeawaterBuoyancy(eltype(grid)),
-                                      coriolis = nothing,
+                                      buoyancy = SeawaterBuoyancy(equation_of_state=eos),
+                                      coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
-                                       #forcing = (,), # NamedTuple(),
+                                       forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
                                        closure = nothing,
                            boundary_conditions = (u=free_slip_surface_bcs, v=free_slip_surface_bcs, w=no_slip_field_bcs), # NamedTuple(),
                                        tracers = (:T, :S),
