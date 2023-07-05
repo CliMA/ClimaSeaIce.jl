@@ -67,7 +67,7 @@ south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
 north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
 south_sponge_layer = Relaxation(; rate=damping_rate, mask=south_mask)
 north_sponge_layer = Relaxation(; rate=damping_rate, mask=north_mask)
-sponge_layers      = south_sponge_layer
+sponge_layers      = (south_sponge_layer, north_sponge_layer)
 # TODO: compose north_mask and south_mask together into one sponge layer, OR compose north/south sponge layers
 
 
@@ -81,8 +81,13 @@ no_slip_field_bcs     = FieldBoundaryConditions(no_slip_bc)
 # Buoyancy Equations of State - we want high order polynomials, so we'll use TEOS-10
 eos = TEOS10EquationOfState()
 
-# Coriolis Effect, using basic f-plane
+# Coriolis Effect, using basic f-plane with precribed reference Coriolis parameter
 coriolis = FPlane(f=-1.3e14)
+
+# Diffusivities as part of closure
+# TODO: make sure this works for biharmonic diffusivities as the horizontal, 
+horizontal_closure = HorizontalScalarDiffusivity(ν=0.1, κ=0.1)
+vertical_closure   = VerticalScalarDiffusivity(ν=3e-4, κ=1e-5)
 
 # Assuming no particles or biogeochemistry
 model = HydrostaticFreeSurfaceModel(; grid,
@@ -93,7 +98,7 @@ model = HydrostaticFreeSurfaceModel(; grid,
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
                                        forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
-                                       closure = nothing,
+                                       closure = (horizontal_closure, vertical_closure),
                            boundary_conditions = (u=free_slip_surface_bcs, v=free_slip_surface_bcs, w=no_slip_field_bcs), # NamedTuple(),
                                        tracers = (:T, :S),
                                     velocities = nothing,
