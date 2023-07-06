@@ -5,7 +5,7 @@ using SeawaterPolynomials.TEOS10
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Ian Eisenman
 
-arch = CPU()
+arch = GPU()
 
 g_Earth = 9.80665
 
@@ -62,7 +62,7 @@ u_forcing(x, y, z, t) = exp(z) * cos(x) * sin(t) # Not actual forcing, just exam
 # tiem scales decrease linearly with distance from the interior termination of the sponge layers
 
 # We'll use Relaxation() to impose a sponge layer forcing on velocity, temperature, and salinity
-damping_rate       = 1 / 100 # Relaxation time scale of 100s, need to make this decrease linearly toward outermost boundary
+damping_rate       = 1 / 43200 # Relaxation time scale in seconds, need to make this decrease linearly toward outermost boundary
 south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
 north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
 south_sponge_layer = Relaxation(; rate=damping_rate, mask=south_mask)
@@ -121,5 +121,5 @@ println(model.velocities.w.boundary_conditions)
 # Now create a simulation and run the model
 #
 
-simulation = Simulation(model; Δt=0.01, stop_iteration=100)
+simulation = Simulation(model; Δt=100.0, stop_iteration=100)
 run!(simulation)
