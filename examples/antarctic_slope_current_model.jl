@@ -51,7 +51,7 @@ println(grid)
 # TODO: add underwater slope at y = 0 with troughs
 
 #
-# Running the Hydrostatic model:
+# Creating the Hydrostatic model:
 #
 
 # Forcings:
@@ -108,10 +108,18 @@ model = HydrostaticFreeSurfaceModel(; grid,
 )
 
 println(model)
-
+#=
 println("u boundary conditions:")
 println(model.velocities.u.boundary_conditions)
 println("v boundary conditions:")
 println(model.velocities.v.boundary_conditions)
 println("w boundary conditions:")
 println(model.velocities.w.boundary_conditions)
+=#
+
+#
+# Now create a simulation and run the model
+#
+
+simulation = Simulation(model; Δt=0.01, stop_iteration=100)
+run!(simulation)
