@@ -1,11 +1,13 @@
 
+using CairoMakie
 using Oceananigans
+using Oceananigans.Units: minute, minutes, hour
 using SeawaterPolynomials.TEOS10
 
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Ian Eisenman
 
-arch = GPU()
+arch = CPU()
 
 g_Earth = 9.80665
 
@@ -18,7 +20,7 @@ Ny = 450
 Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 sponge_width = 20000
-
+#=
 #
 # Setting up the grid and bathymetry:
 #
@@ -29,13 +31,28 @@ linear_slope(k) = (0.5*(100-10)/(Nz-1))*(k)^2 + (10 - (100-10)/(Nz-1))*(k) - ini
 spacing_adjustment      = Lz / linear_slope(Nz+1)
 linear_slope_z_faces(k) = -spacing_adjustment * linear_slope(k)
 # Can reverse this to get grid from -4000 to 0 later
+=#
+refinement = 20.0 # controls spacing near surface (higher means finer spaced), 12.0
+stretching = 3  # controls rate of stretching at bottom, 3
+
+# Normalized height ranging from 0 to 1
+h(k) = (k - 1) / Nz
+
+# Linear near-surface generator
+ζ₀(k) = 1 + (h(k) - 1) / refinement
+
+# Bottom-intensified stretching function
+Σ(k) = (1 - exp(-stretching * h(k))) / (1 - exp(-stretching))
+
+# Generating function
+z_faces(k) = Lz * (ζ₀(k) * Σ(k) - 1)
 
 underlying_grid = RectilinearGrid(arch,
                                   size = (Nx, Ny, Nz),
                                   topology = (Periodic, Bounded, Bounded),
                                   x = (-Lx/2, Lx/2),
                                   y = (0, Ly),
-                                  z = linear_slope_z_faces)
+                                  z = z_faces)
 
 println(underlying_grid)
 
@@ -108,20 +125,31 @@ model = HydrostaticFreeSurfaceModel(; grid,
 )
 
 println(model)
-#=
+
 println("u boundary conditions:")
 println(model.velocities.u.boundary_conditions)
 println("v boundary conditions:")
 println(model.velocities.v.boundary_conditions)
 println("w boundary conditions:")
 println(model.velocities.w.boundary_conditions)
-=#
 
 #
 # Now create a simulation and run the model
 #
+simulation = Simulation(model; Δt=100.0, stop_time=10hours)
 
-simulation = Simulation(model; Δt=100.0, stop_iteration=100)
+# Create a NamedTuple with eddy viscosity
+eddy_viscosity = (; νₑ = model.diffusivity_fields.νₑ)
+
+filename = "asc_model_run"
+
+simulation.output_writers[:slices] =
+    JLD2OutputWriter(model, merge(model.velocities, model.tracers, eddy_viscosity),
+                     filename = filename * ".jld2",
+                     indices = (:, grid.Ny/2, :),
+                     schedule = TimeInterval(1minute),
+                     overwrite_existing = true)
+
 run!(simulation)
 
 println(simulation)
