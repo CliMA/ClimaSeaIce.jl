@@ -123,3 +123,5 @@ println(model.velocities.w.boundary_conditions)
 
 simulation = Simulation(model; Δt=100.0, stop_iteration=100)
 run!(simulation)
+
+println(simulation)
