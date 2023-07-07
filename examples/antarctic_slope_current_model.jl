@@ -1,5 +1,5 @@
 
-using CairoMakie
+#using CairoMakie
 using Oceananigans
 using Oceananigans.Units: minute, minutes, hour
 using SeawaterPolynomials.TEOS10
@@ -7,7 +7,7 @@ using SeawaterPolynomials.TEOS10
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Ian Eisenman
 
-arch = CPU()
+arch = GPU()
 
 g_Earth = 9.80665
 
@@ -136,15 +136,14 @@ println(model.velocities.w.boundary_conditions)
 #
 # Now create a simulation and run the model
 #
-simulation = Simulation(model; Δt=100.0, stop_time=10hours)
+simulation = Simulation(model; Δt=100.0, stop_time=600minutes)
 
-# Create a NamedTuple with eddy viscosity
-eddy_viscosity = (; νₑ = model.diffusivity_fields.νₑ)
+# Create a NamedTuple
 
 filename = "asc_model_run"
 
 simulation.output_writers[:slices] =
-    JLD2OutputWriter(model, merge(model.velocities, model.tracers, eddy_viscosity),
+    JLD2OutputWriter(model, merge(model.velocities, model.tracers),
                      filename = filename * ".jld2",
                      indices = (:, grid.Ny/2, :),
                      schedule = TimeInterval(1minute),
