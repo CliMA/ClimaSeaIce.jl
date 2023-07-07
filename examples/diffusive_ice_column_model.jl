@@ -144,7 +144,7 @@ axH = Axis(fig[1, 2], xlabel="Enthalpy (J m⁻³)", ylabel="z (m)")
 axϕ = Axis(fig[1, 3], xlabel="Porosity", ylabel="z (m)")
 axκ = Axis(fig[1, 4], xlabel="Diffusivity", ylabel="z (m)")
 axh = Axis(fig[2, 1:4], xlabel="Time (hours)", ylabel="Ice thickness (m)")
-axq = Axis(fig[3, 1:4], xlabel="Time (hours)", ylabel="Ice thickness (m)")
+axq = Axis(fig[3, 1:4], xlabel="Time (hours)", ylabel="Surface temperatures (ᵒC)")
 
 xlims!(axT, -15, 1)
 xlims!(axH, -30, 10)
@@ -190,7 +190,6 @@ lines!(axq, th ./ hour, air_ice_temperature.(0, 0, th), label="Air-ice surface t
 lines!(axq, th ./ hour, ice_ocean_temperature.(0, 0, th), label="Ice-ocean temperature")
 vlines!(axq, tnh)
 axislegend(axq, position=:lb)
-
 axislegend(axT, position=:lb)
 
 display(fig)
