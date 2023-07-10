@@ -160,4 +160,4 @@ simulation.output_writers[:slices] =
 
 run!(simulation)
 
-println(simulation)
+@show simulation
