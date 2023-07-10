@@ -124,7 +124,7 @@ model = HydrostaticFreeSurfaceModel(; grid,
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
                                        forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
-                                       closure = (horizontal_closure, vertical_closure),
+                                       closure = CATKEVerticalDiffusivity(),
                            boundary_conditions = (u=free_slip_surface_bcs, v=free_slip_surface_bcs, w=no_slip_field_bcs), # NamedTuple(),
                                        tracers = (:T, :S),
                                     velocities = nothing,
