@@ -72,7 +72,7 @@ underwater_slope(x, y) = -slope_depth + (slope_depth - basin_depth) * tanh((y - 
 
 grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(underwater_slope))
 
-println(grid)
+@show grid
 
 # TODO: add underwater slope at y = 0 with troughs
 
