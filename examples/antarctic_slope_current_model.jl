@@ -54,7 +54,7 @@ underlying_grid = RectilinearGrid(arch,
                                   y = (0, Ly),
                                   z = z_faces)
 
-println(underlying_grid)
+@show underlying_grid
 
 # We want the underwater slope to provide a depth of 500 m at y = 0 and the full 4 km by y =200. It follows
 # a hyperbolic tangent curve with its center at y ~= 150 at a depth of ~ -4000 + (4000 - 500)/2 = -2250 m
