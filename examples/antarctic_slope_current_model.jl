@@ -12,7 +12,7 @@ arch = GPU()
 g_Earth = 9.80665
 
 Lx = 400kilometers
-Ly = 450000
+Ly = 450kilometers
 Lz = 4000
 
 Nx = 400
