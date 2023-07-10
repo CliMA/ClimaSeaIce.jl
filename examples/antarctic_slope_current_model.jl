@@ -111,7 +111,7 @@ model = HydrostaticFreeSurfaceModel(; grid,
                                          clock = Clock{eltype(grid)}(0, 0, 1),
                             momentum_advection = CenteredSecondOrder(),
                               tracer_advection = CenteredSecondOrder(),
-                                      buoyancy = SeawaterBuoyancy(equation_of_state=eos),
+                                      buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
                                        forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
