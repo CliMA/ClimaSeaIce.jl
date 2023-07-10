@@ -1,13 +1,14 @@
 
 #using CairoMakie
 using Oceananigans
-using Oceananigans.Units: minute, minutes, hour
+using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities # FIND submodule with CATKE
+using Oceananigans.Units: minute, minutes, hour, kilometers
 using SeawaterPolynomials.TEOS10
 
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Ian Eisenman
 
-arch = GPU()
+arch = CPU()
 
 g_Earth = 9.80665
 
@@ -126,15 +127,11 @@ model = HydrostaticFreeSurfaceModel(; grid,
                                        forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
                                        closure = CATKEVerticalDiffusivity(),
                            boundary_conditions = (u=free_slip_surface_bcs, v=free_slip_surface_bcs, w=no_slip_field_bcs), # NamedTuple(),
-                                       tracers = (:T, :S),
-                                    velocities = nothing,
-                                      pressure = nothing,
-                            diffusivity_fields = nothing,
-                              #auxiliary_fields = nothing, # NamedTuple(),
+                                       tracers = (:T, :S)
 )
 
-println(model)
-
+@show model
+#=
 println("u boundary conditions:")
 println(model.velocities.u.boundary_conditions)
 println("v boundary conditions:")
@@ -154,10 +151,11 @@ filename = "asc_model_run"
 simulation.output_writers[:slices] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers),
                      filename = filename * ".jld2",
-                     indices = (:, grid.Ny/2, :),
+                     indices = (:, :, grid.Nz),
                      schedule = TimeInterval(1minute),
                      overwrite_existing = true)
 
 run!(simulation)
 
 @show simulation
+=#
