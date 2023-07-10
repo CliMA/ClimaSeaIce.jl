@@ -19,7 +19,7 @@ Nx = 400
 Ny = 450
 Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
-sponge_width = 20000
+sponge_width = 20kilometers
 #=
 #
 # Setting up the grid and bathymetry:
