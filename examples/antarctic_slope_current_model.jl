@@ -118,8 +118,8 @@ vertical_closure   = VerticalScalarDiffusivity(ν=3e-4, κ=1e-5)
 # Assuming no particles or biogeochemistry
 model = HydrostaticFreeSurfaceModel(; grid,
                                          clock = Clock{eltype(grid)}(0, 0, 1),
-                            momentum_advection = CenteredSecondOrder(),
-                              tracer_advection = CenteredSecondOrder(),
+                            momentum_advection = WENO(),
+                              tracer_advection = WENO(),
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
