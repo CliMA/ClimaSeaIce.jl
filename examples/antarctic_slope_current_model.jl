@@ -58,7 +58,16 @@ println(underlying_grid)
 
 # We want the underwater slope to provide a depth of 500 m at y = 0 and the full 4 km by y =200. It follows
 # a hyperbolic tangent curve with its center at y ~= 150 at a depth of ~ -4000 + (4000 - 500)/2 = -2250 m
-underwater_slope(x, y) = -1750tanh(0.00004*(y - 150000)) - 2250
+y₀ = 150kilometers
+Δy = 25kilometers
+
+slope_depth = 500
+basin_depth = 4000
+
+""" Varies smoothly between 0 when y << y₀ to 1 when y >> y₀ + Δy, over a region of width Δy. """
+step(y, y₀, Δy) = (1 + tanh((y - y₀) / Δy)) / 2
+
+underwater_slope(x, y) = -slope_depth + (slope_depth - basin_depth) * tanh((y - y₀) / Δy) 
 # TODO: add 50km troughs to the slope, dependent on x and y. Use appendix C to add detail here
 
 grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(underwater_slope))
