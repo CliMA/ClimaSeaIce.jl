@@ -2,7 +2,7 @@
 #using CairoMakie
 using Oceananigans
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity # FIND submodule with CATKE
-using Oceananigans.Units: minute, minutes, hour, kilometers
+using Oceananigans.Units: minute, minutes, hour, days, kilometers
 using SeawaterPolynomials.TEOS10
 
 using GLMakie
@@ -191,7 +191,7 @@ fig
 #
 # Now create a simulation and run the model
 #
-simulation = Simulation(model; Δt=100.0, stop_iteration=100)
+simulation = Simulation(model; Δt=100.0, stop_time=5days)
 
 # Create a NamedTuple
 
@@ -255,22 +255,23 @@ ax_u  = Axis(fig[3, 3]; title = "Zonal velocity", axis_kwargs...)
 
 title = @lift @sprintf("t = %s", prettytime(times[$n]))
 
-wlims = (-3e-6, 3e-6)
-Tlims = (-1.0, 1.0)
+wlims = (-0.002, 0.002)
+Tlims = (-0.02, 0.02)
 Slims = (35, 35.005)
-ulims = (-0.0005, 0.0005)
+ulims = (-0.08, 0.08)
+vlims = (-0.08, 0.08)
 
 
 hm_w = heatmap!(ax_w, xw, yw, wₙ; colormap = :balance, colorrange = wlims)
 Colorbar(fig[2, 2], hm_w; label = "m s⁻¹")
 
-hm_T = heatmap!(ax_T, xT, yT, Tₙ; colormap = :thermal)#, colorrange = Tlims)
+hm_T = heatmap!(ax_T, xT, yT, Tₙ; colormap = :thermal, colorrange = Tlims)
 Colorbar(fig[2, 4], hm_T; label = "ᵒC")
 
 #hm_S = heatmap!(ax_S, xT, yT, Sₙ; colormap = :haline)#, colorrange = Slims)
 #Colorbar(fig[3, 2], hm_S; label = "g / kg")
 
-hm_v = heatmap!(ax_v, xw, yw, vₙ; colormap = :balance, colorrange = ulims)
+hm_v = heatmap!(ax_v, xw, yw, vₙ; colormap = :balance, colorrange = vlims)
 Colorbar(fig[3, 2], hm_v; label = "m s⁻¹")
 
 hm_u = heatmap!(ax_u, xw, yw, uₙ; colormap = :balance, colorrange = ulims)
