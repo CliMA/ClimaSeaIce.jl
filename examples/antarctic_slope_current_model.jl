@@ -11,7 +11,7 @@ using Printf
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Si, Stewart, and Eisenman
 
-arch = CPU()
+arch = GPU()
 
 g_Earth = 9.80665
 
@@ -24,18 +24,10 @@ Ny = 64 #450
 Nz = 32 #70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 sponge_width = 20kilometers
-#=
+
 #
 # Setting up the grid and bathymetry:
 #
-# Using a linear slope that approximates the min and max spacings in the paper:
-init_adjustment = (0.5*(100-10)/(Nz-1)) + (10 - (100-10)/(Nz-1))
-linear_slope(k) = (0.5*(100-10)/(Nz-1))*(k)^2 + (10 - (100-10)/(Nz-1))*(k) - init_adjustment
-
-spacing_adjustment      = Lz / linear_slope(Nz+1)
-linear_slope_z_faces(k) = -spacing_adjustment * linear_slope(k)
-# Can reverse this to get grid from -4000 to 0 later
-=#
 refinement = 20.0 # controls spacing near surface (higher means finer spaced), 12.0
 stretching = 3  # controls rate of stretching at bottom, 3
 
@@ -93,7 +85,9 @@ u_forcing(x, y, z, t) = exp(z) * cos(x) * sin(t) # Not actual forcing, just exam
 # of the N/S boundaries, they impose a cross-slope buoyancy gradient, and the relaxation
 # tiem scales decrease linearly with distance from the interior termination of the sponge layers
 
+#
 # We'll use Relaxation() to impose a sponge layer forcing on velocity, temperature, and salinity
+#
 damping_rate       = 1 / 43200 # Relaxation time scale in seconds, need to make this decrease linearly toward outermost boundary
 south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
 north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
@@ -102,15 +96,40 @@ north_sponge_layer = Relaxation(; rate=damping_rate, mask=north_mask)
 sponge_layers      = (south_sponge_layer, north_sponge_layer)
 # TODO: compose north_mask and south_mask together into one sponge layer, OR compose north/south sponge layers
 
-#= Currently not used
+#
 # Boundary Conditions:
-# Eventually want open boundary conditions with tides, but can add that in later
-no_slip_bc   = ValueBoundaryCondition(0.0)
-free_slip_bc = FluxBoundaryCondition(nothing)
+# (from ocean wind mixing and convection example,
+# https://clima.github.io/OceananigansDocumentation/stable/generated/ocean_wind_mixing_and_convection/)
+#
 
-free_slip_surface_bcs = FieldBoundaryConditions(no_slip_bc, top=FluxBoundaryCondition(nothing))
-no_slip_field_bcs     = FieldBoundaryConditions(no_slip_bc)
-=#
+"""
+    boundary_ramp(y, Δy)
+
+Linear ramp from 1 to 0 between y = 0 and y = δy
+
+For example:
+```
+                y=0 => boundary_ramp = 1
+         0 < y < δy => boundary_ramp = (δy - y) / δy
+             y > δy => boundary_ramp = 0
+```
+"""
+δy = 10kilometers
+boundary_ramp(y, δy) = min(max(0, (δy - y)/δy), 1)
+
+u₁₀ = -6    # m s⁻¹, average zonal wind velocity 10 meters above the ocean at the southern boundary
+v₁₀ = 6    # m s⁻¹, average meridional wind velocity 10 meters above the ocean at the southern boundary
+cᴰ  = 2.5e-3 # dimensionless drag coefficient
+ρₐ  = 1.225  # kg m⁻³, average density of air at sea-level
+ρₒ  = 1026.0 # kg m⁻³, average density at the surface of the world ocean
+
+# TODO: make this only apply at Southern boundary and decay to 0 elsewhere
+Qᵘ(x, y, z) = - ρₐ / ρₒ * cᴰ * u₁₀ * abs(u₁₀) * boundary_ramp(y, δy) # m² s⁻²
+Qᵛ(x, y, z) = - ρₐ / ρₒ * cᴰ * v₁₀ * abs(v₁₀) * boundary_ramp(y, δy) # m² s⁻²
+
+u_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵘ))
+v_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵛ))
+
 # Buoyancy Equations of State - we want high order polynomials, so we'll use TEOS-10
 eos = TEOS10EquationOfState() # can compare to linear EOS later (linear not recommended for polar regions)
 
@@ -122,7 +141,9 @@ coriolis = FPlane(latitude=-60)
 horizontal_closure = HorizontalScalarDiffusivity(ν=0.1, κ=0.1)
 vertical_closure   = VerticalScalarDiffusivity(ν=3e-4, κ=1e-5)
 
+#
 # Assuming no particles or biogeochemistry
+#
 model = HydrostaticFreeSurfaceModel(;     grid = grid,
                             momentum_advection = WENO(),
                               tracer_advection = WENO(),
@@ -131,7 +152,7 @@ model = HydrostaticFreeSurfaceModel(;     grid = grid,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
                                        #forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
                                        closure = CATKEVerticalDiffusivity(),
-                           #boundary_conditions = (u=free_slip_surface_bcs, v=free_slip_surface_bcs), # NamedTuple(),
+                           boundary_conditions = (u=u_bcs, v=v_bcs),
                                        tracers = (:T, :S, :e)
 )
 
@@ -161,32 +182,13 @@ Tᵢ(x, y, z) = N² * z + ΔT * ramp(y, Δy) + ϵT * randn()
 
 set!(model, T=Tᵢ)
 
-#=
-using GLMakie
-
-# Build coordinates with units of kilometers
-x, y, z = 1e-3 .* nodes(grid, (Center(), Center(), Center()))
-
-T = model.tracers.T
-
-fig, ax, hm = heatmap(y, z, interior(T)[1, :, :],
-                      colormap=:deep,
-                      axis = (xlabel = "y [km]",
-                              ylabel = "z [km]",
-                              title = "T(x=0, y, z, t=0)",
-                              titlesize = 24))
-
-Colorbar(fig[1, 2], hm, label = "[m s⁻²]")
-
-current_figure() # hide
-fig
-=#
-
 # TODO: impose a temperature restoring at the surface that corresponds to Si/Stewart to help get baroclinic eddies
 # Add initial condition to get turbulence running (should be doable on a laptop), then:
 # Buoyancy gradient imposed at North/South boundary, surface temp as freezing temperature imposed
 
 @show model
+
+@show u_bcs
 
 #
 # Now create a simulation and run the model
@@ -195,13 +197,13 @@ simulation = Simulation(model; Δt=100.0, stop_time=5days)
 
 # Create a NamedTuple
 
-filename = "asc_model_run"
+filename = "asc_model_run_wind10k_stress_5_days"
 
 simulation.output_writers[:slices] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers),
                      filename = filename * ".jld2",
                      indices = (:, :, grid.Nz),
-                     schedule = IterationInterval(1),
+                     schedule = IterationInterval(10),
                      overwrite_existing = true)
 
 run!(simulation)
@@ -211,7 +213,7 @@ run!(simulation)
 #
 # Make a figure and plot it
 #
-
+#=
 filepath = filename * ".jld2"
 
 time_series = (u = FieldTimeSeries(filepath, "u"),
@@ -262,19 +264,19 @@ ulims = (-0.08, 0.08)
 vlims = (-0.08, 0.08)
 
 
-hm_w = heatmap!(ax_w, xw, yw, wₙ; colormap = :balance, colorrange = wlims)
+hm_w = heatmap!(ax_w, xw, yw, wₙ; colormap = :balance)#, colorrange = wlims)
 Colorbar(fig[2, 2], hm_w; label = "m s⁻¹")
 
-hm_T = heatmap!(ax_T, xT, yT, Tₙ; colormap = :thermal, colorrange = Tlims)
+hm_T = heatmap!(ax_T, xT, yT, Tₙ; colormap = :thermal)#, colorrange = Tlims)
 Colorbar(fig[2, 4], hm_T; label = "ᵒC")
 
 #hm_S = heatmap!(ax_S, xT, yT, Sₙ; colormap = :haline)#, colorrange = Slims)
 #Colorbar(fig[3, 2], hm_S; label = "g / kg")
 
-hm_v = heatmap!(ax_v, xw, yw, vₙ; colormap = :balance, colorrange = vlims)
+hm_v = heatmap!(ax_v, xw, yw, vₙ; colormap = :balance)#, colorrange = vlims)
 Colorbar(fig[3, 2], hm_v; label = "m s⁻¹")
 
-hm_u = heatmap!(ax_u, xw, yw, uₙ; colormap = :balance, colorrange = ulims)
+hm_u = heatmap!(ax_u, xw, yw, uₙ; colormap = :balance)#, colorrange = ulims)
 Colorbar(fig[3, 4], hm_u; label = "m s⁻¹")
 
 fig[1, 1:4] = Label(fig, title, fontsize=24, tellwidth=false)
@@ -289,3 +291,4 @@ frames = intro:length(times)
 record(fig, filename * ".mp4", frames, framerate=8) do i
     n[] = i
 end
+=#
