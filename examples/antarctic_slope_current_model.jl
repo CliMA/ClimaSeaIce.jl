@@ -188,14 +188,13 @@ set!(model, T=Tᵢ)
 
 @show model
 
-@show u_bcs
-
 #
 # Now create a simulation and run the model
 #
-simulation = Simulation(model; Δt=100.0, stop_time=100minutes)
+# Full resolution is 100 sec
+simulation = Simulation(model; Δt=20minutes, stop_time=60days)
 
-filename = "asc_model_5_days"
+filename = "asc_model_60_days"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -206,7 +205,7 @@ avgW = Average(w, dims=1)
 
 simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
                                                      filename = filename * "_zonal_average.jld2",
-                                                     schedule = IterationInterval(1),
+                                                     schedule = IterationInterval(120),
                                                      overwrite_existing = true)
 
 
@@ -214,7 +213,7 @@ simulation.output_writers[:slices] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers),
                      filename = filename * "_surface.jld2",
                      indices = (:, :, grid.Nz),
-                     schedule = IterationInterval(1),
+                     schedule = IterationInterval(120),
                      overwrite_existing = true)
 
 run!(simulation)
@@ -225,7 +224,7 @@ run!(simulation)
 #
 # Make a figure and plot it
 #
-#=
+
 surface_filepath = filename * "_surface.jld2"
 average_filepath = filename * "_zonal_average.jld2"
 
@@ -235,10 +234,10 @@ surface_time_series = (u = FieldTimeSeries(surface_filepath, "u"),
                        T = FieldTimeSeries(surface_filepath, "T"),
                        S = FieldTimeSeries(surface_filepath, "S"))
 
-@show surface_time_series.u
-@show surface_time_series.w
-@show surface_time_series.T
-@show surface_time_series.S
+#@show surface_time_series.u
+#@show surface_time_series.w
+#@show surface_time_series.T
+#@show surface_time_series.S
 
 # Coordinate arrays
 srf_xw, srf_yw, srf_zw = nodes(surface_time_series.w)
@@ -314,10 +313,10 @@ average_time_series = (u = FieldTimeSeries(average_filepath, "u"),
                        w = FieldTimeSeries(average_filepath, "w"),
                        T = FieldTimeSeries(average_filepath, "T"))
 
-@show average_time_series.u
-@show average_time_series.w
-@show average_time_series.T
-@show average_time_series.v
+#@show average_time_series.u
+#@show average_time_series.w
+#@show average_time_series.T
+#@show average_time_series.v
 
 # Coordinate arrays
 avg_xw, avg_yw, avg_zw = nodes(average_time_series.w)
@@ -350,25 +349,25 @@ ax_u  = Axis(fig[3, 3]; title = "Zonal velocity", axis_kwargs...)
 title = @lift @sprintf("t = %s", prettytime(times[$n]))
 
 wlims = (-0.002, 0.002)
-Tlims = (-0.02, 0.02)
+Tlims = (-0.04, 0.04)
 Slims = (35, 35.005)
-ulims = (-0.08, 0.08)
-vlims = (-0.08, 0.08)
+ulims = (-0.004, 0.004)
+vlims = (-0.004, 0.004)
 
 
-hm_w = heatmap!(ax_w, avg_yw, avg_zw, avg_wₙ; colormap = :balance)#, colorrange = wlims)
+hm_w = heatmap!(ax_w, avg_yw, avg_zw, avg_wₙ; colormap = :balance) #, colorrange = wlims)
 Colorbar(fig[2, 2], hm_w; label = "m s⁻¹")
 
-hm_T = heatmap!(ax_T, avg_yT, avg_zT, avg_Tₙ; colormap = :thermal)#, colorrange = Tlims)
+hm_T = heatmap!(ax_T, avg_yT, avg_zT, avg_Tₙ; colormap = :thermal) #, colorrange = Tlims)
 Colorbar(fig[2, 4], hm_T; label = "ᵒC")
 
 #hm_S = heatmap!(ax_S, srf_xT, srf_yT, srf_Sₙ; colormap = :haline)#, colorrange = Slims)
 #Colorbar(fig[3, 2], hm_S; label = "g / kg")
 
-hm_v = heatmap!(ax_v, avg_yw, avg_zw, avg_vₙ; colormap = :balance)#, colorrange = vlims)
+hm_v = heatmap!(ax_v, avg_yw, avg_zw, avg_vₙ; colormap = :balance) #, colorrange = vlims)
 Colorbar(fig[3, 2], hm_v; label = "m s⁻¹")
 
-hm_u = heatmap!(ax_u, avg_yw, avg_zw, avg_uₙ; colormap = :balance)#, colorrange = ulims)
+hm_u = heatmap!(ax_u, avg_yw, avg_zw, avg_uₙ; colormap = :balance) #, colorrange = ulims)
 Colorbar(fig[3, 4], hm_u; label = "m s⁻¹")
 
 fig[1, 1:4] = Label(fig, title, fontsize=24, tellwidth=false)
@@ -380,7 +379,6 @@ frames = intro:length(times)
 
 @info "Making a motion picture of ocean wind mixing and convection..."
 
-record(fig, filename * "_average.mp4", frames, framerate=8) do i
+record(fig, filename * "_average_steady_bar.mp4", frames, framerate=8) do i
     n[] = i
 end
-=#
