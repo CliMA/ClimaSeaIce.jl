@@ -189,9 +189,9 @@ set!(model, T=Tᵢ)
 # Now create a simulation and run the model
 #
 # Full resolution is 100 sec
-simulation = Simulation(model; Δt=20minutes, stop_time=30days)
+simulation = Simulation(model; Δt=20minutes, stop_time=60days)
 
-filename = "asc_model_30_days_Nsq_is_e-8"
+filename = "asc_model_60_days_Nsq_is_e-8"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
