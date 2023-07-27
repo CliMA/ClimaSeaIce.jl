@@ -171,7 +171,7 @@ For example:
 """
 ramp(y, Δy) = min(max(0, (y - Ly/2)/Δy + 1/2), 1)
 
-N² = 1e-5 # [s⁻²] vertical stratification
+N² = 1e-8 # [s⁻²] vertical stratification, was 1e-5
 M² = 1e-7 # [s⁻²] meridional temperature gradient
 
 Δy = 100kilometers # width of the region of the front
@@ -192,9 +192,9 @@ set!(model, T=Tᵢ)
 # Now create a simulation and run the model
 #
 # Full resolution is 100 sec
-simulation = Simulation(model; Δt=20minutes, stop_time=60days)
+simulation = Simulation(model; Δt=20minutes, stop_time=30days)
 
-filename = "asc_model_60_days"
+filename = "asc_model_30_days_Nsq_is_e-8"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -205,7 +205,7 @@ avgW = Average(w, dims=1)
 
 simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
                                                      filename = filename * "_zonal_average.jld2",
-                                                     schedule = IterationInterval(120),
+                                                     schedule = IterationInterval(10),
                                                      overwrite_existing = true)
 
 
@@ -213,7 +213,7 @@ simulation.output_writers[:slices] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers),
                      filename = filename * "_surface.jld2",
                      indices = (:, :, grid.Nz),
-                     schedule = IterationInterval(120),
+                     schedule = IterationInterval(10),
                      overwrite_existing = true)
 
 run!(simulation)
@@ -224,7 +224,7 @@ run!(simulation)
 #
 # Make a figure and plot it
 #
-
+#=
 surface_filepath = filename * "_surface.jld2"
 average_filepath = filename * "_zonal_average.jld2"
 
@@ -254,7 +254,7 @@ srf_Sₙ = @lift interior(surface_time_series.S[$n],  :, :, 1)
 srf_uₙ = @lift interior(surface_time_series.u[$n],  :, :, 1)
 srf_vₙ = @lift interior(surface_time_series.v[$n],  :, :, 1)
 
-fig = Figure(resolution = (1000, 500))
+fig = Figure(resolution = (4000, 2000))
 
 axis_kwargs = (xlabel="x (m)",
                ylabel="y (m)",
@@ -272,8 +272,8 @@ title = @lift @sprintf("t = %s", prettytime(times[$n]))
 wlims = (-0.002, 0.002)
 Tlims = (-0.02, 0.02)
 Slims = (35, 35.005)
-ulims = (-0.08, 0.08)
-vlims = (-0.08, 0.08)
+ulims = (-0.12, 0.12)
+vlims = (-0.12, 0.12)
 
 
 hm_w = heatmap!(ax_w, srf_xw, srf_yw, srf_wₙ; colormap = :balance)#, colorrange = wlims)
@@ -300,7 +300,7 @@ frames = intro:length(times)
 
 @info "Making a motion picture of ocean wind mixing and convection..."
 
-record(fig, filename * "_surface.mp4", frames, framerate=8) do i
+record(fig, filename * "_surface_steady_bar.mp4", frames, framerate=8) do i
     n[] = i
 end
 
@@ -333,7 +333,7 @@ avg_Tₙ = @lift interior(average_time_series.T[$n],  1, :, :)
 avg_uₙ = @lift interior(average_time_series.u[$n],  1, :, :)
 avg_vₙ = @lift interior(average_time_series.v[$n],  1, :, :)
 
-fig = Figure(resolution = (1000, 500))
+fig = Figure(resolution = (4000, 2000))
 
 axis_kwargs = (xlabel="y (m)",
                ylabel="z (m)",
@@ -349,10 +349,10 @@ ax_u  = Axis(fig[3, 3]; title = "Zonal velocity", axis_kwargs...)
 title = @lift @sprintf("t = %s", prettytime(times[$n]))
 
 wlims = (-0.002, 0.002)
-Tlims = (-0.04, 0.04)
+Tlims = (-0.02, 0.02)
 Slims = (35, 35.005)
-ulims = (-0.004, 0.004)
-vlims = (-0.004, 0.004)
+ulims = (-0.12, 0.12)
+vlims = (-0.12, 0.12)
 
 
 hm_w = heatmap!(ax_w, avg_yw, avg_zw, avg_wₙ; colormap = :balance) #, colorrange = wlims)
@@ -379,6 +379,7 @@ frames = intro:length(times)
 
 @info "Making a motion picture of ocean wind mixing and convection..."
 
-record(fig, filename * "_average_steady_bar.mp4", frames, framerate=8) do i
+record(fig, filename * "_average.mp4", frames, framerate=8) do i
     n[] = i
 end
+=#
