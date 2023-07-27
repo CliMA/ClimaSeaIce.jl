@@ -5,9 +5,6 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity # FIND submodule
 using Oceananigans.Units: minute, minutes, hour, days, kilometers
 using SeawaterPolynomials.TEOS10
 
-using GLMakie
-using Printf
-
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Si, Stewart, and Eisenman
 
@@ -225,6 +222,9 @@ run!(simulation)
 # Make a figure and plot it
 #
 #=
+using GLMakie
+using Printf
+
 surface_filepath = filename * "_surface.jld2"
 average_filepath = filename * "_zonal_average.jld2"
 
