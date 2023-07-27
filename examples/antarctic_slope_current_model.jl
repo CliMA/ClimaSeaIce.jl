@@ -202,7 +202,7 @@ avgW = Average(w, dims=1)
 
 simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
                                                      filename = filename * "_zonal_average.jld2",
-                                                     schedule = IterationInterval(10),
+                                                     schedule = IterationInterval(20),
                                                      overwrite_existing = true)
 
 
@@ -210,7 +210,7 @@ simulation.output_writers[:slices] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers),
                      filename = filename * "_surface.jld2",
                      indices = (:, :, grid.Nz),
-                     schedule = IterationInterval(10),
+                     schedule = IterationInterval(20),
                      overwrite_existing = true)
 
 run!(simulation)
