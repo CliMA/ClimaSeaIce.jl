@@ -8,7 +8,7 @@ using SeawaterPolynomials.TEOS10
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Si, Stewart, and Eisenman
 
-arch = CPU()
+arch = GPU()
 
 g_Earth = 9.80665
 
@@ -16,9 +16,9 @@ Lx = 400kilometers
 Ly = 450kilometers
 Lz = 4000
 
-Nx = 64 #400
-Ny = 64 #450
-Nz = 32 #70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
+Nx = 400 #64 #400
+Ny = 450 #64 #450
+Nz = 70 #8 #70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 sponge_width = 20kilometers
 
@@ -114,24 +114,25 @@ For example:
 δy = 10kilometers
 boundary_ramp(y, δy) = min(max(0, (δy - y)/δy), 1)
 
-u₁₀ = -6    # m s⁻¹, average zonal wind velocity 10 meters above the ocean at the southern boundary
-v₁₀ = 6    # m s⁻¹, average meridional wind velocity 10 meters above the ocean at the southern boundary
+u₁₀(y) = -6 * (Ly - y) / Ly # m s⁻¹, average zonal wind velocity 10 meters above the ocean at the southern boundary
+v₁₀(y) =  6 * (Ly - y) / Ly # m s⁻¹, average meridional wind velocity 10 meters above the ocean at the southern boundary
+
 cᴰ  = 2.5e-3 # dimensionless drag coefficient
 ρₐ  = 1.225  # kg m⁻³, average density of air at sea-level
 ρₒ  = 1026.0 # kg m⁻³, average density at the surface of the world ocean
 
 # TODO: make this only apply at Southern boundary and decay to 0 elsewhere
-#Qᵘ(x, y, z) = - ρₐ / ρₒ * cᴰ * u₁₀ * abs(u₁₀) * boundary_ramp(y, δy) # m² s⁻²
-#Qᵛ(x, y, z) = - ρₐ / ρₒ * cᴰ * v₁₀ * abs(v₁₀) * boundary_ramp(y, δy) # m² s⁻²
+Qᵘ(x, y, z) = - ρₐ / ρₒ * cᴰ * u₁₀(x) * abs(u₁₀(y)) # m² s⁻²
+Qᵛ(x, y, z) = - ρₐ / ρₒ * cᴰ * v₁₀(x) * abs(v₁₀(y)) # m² s⁻²
 
-#u_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵘ))
-#v_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵛ))
+u_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵘ))
+v_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵛ))
 
 # Buoyancy Equations of State - we want high order polynomials, so we'll use TEOS-10
 eos = TEOS10EquationOfState() # can compare to linear EOS later (linear not recommended for polar regions)
 
 # Coriolis Effect, using basic f-plane with precribed reference Coriolis parameter
-coriolis = FPlane(latitude=-60)
+coriolis = BetaPlane(f₀=1.3e-4, β=1e-11) #FPlane(latitude=-60)
 
 # Diffusivities as part of closure
 # TODO: make sure this works for biharmonic diffusivities as the horizontal, 
@@ -141,7 +142,7 @@ vertical_closure   = VerticalScalarDiffusivity(ν=3e-4, κ=1e-5)
 #
 # Assuming no particles or biogeochemistry
 #
-model = HydrostaticFreeSurfaceModel(;     grid = grid,
+model = HydrostaticFreeSurfaceModel(;     grid = underlying_grid,
                             momentum_advection = WENO(),
                               tracer_advection = WENO(),
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
@@ -189,9 +190,9 @@ set!(model, T=Tᵢ)
 # Now create a simulation and run the model
 #
 # Full resolution is 100 sec
-simulation = Simulation(model; Δt=20minutes, stop_time=60days)
+simulation = Simulation(model; Δt=100.0, stop_time=60days)
 
-filename = "asc_model_60_days_Nsq_is_e-8"
+filename = "asc_model_60_days_Nsq_is_e-8_no_slope_hi_res_custom_beta_plane"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -217,11 +218,11 @@ run!(simulation)
 
 @info "Simulation completed in " * prettytime(simulation.run_wall_time)
 @show simulation
-
+#=
 #
 # Make a figure and plot it
 #
-#=
+
 using GLMakie
 using Printf
 
@@ -300,7 +301,7 @@ frames = intro:length(times)
 
 @info "Making a motion picture of ocean wind mixing and convection..."
 
-record(fig, filename * "_surface_steady_bar.mp4", frames, framerate=8) do i
+record(fig, filename * "_surface.mp4", frames, framerate=8) do i
     n[] = i
 end
 
