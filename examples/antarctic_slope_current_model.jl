@@ -16,9 +16,9 @@ Lx = 400kilometers
 Ly = 450kilometers
 Lz = 4000
 
-Nx = 400 #64 #400
-Ny = 450 #64 #450
-Nz = 70 #8 #70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
+Nx = 400
+Ny = 450
+Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 sponge_width = 20kilometers
 
@@ -169,7 +169,7 @@ For example:
 """
 ramp(y, Δy) = min(max(0, (y - Ly/2)/Δy + 1/2), 1)
 
-N² = 1e-8 # [s⁻²] vertical stratification, was 1e-5
+N² = 1e-6 # [s⁻²] vertical stratification, was 1e-5
 M² = 1e-7 # [s⁻²] meridional temperature gradient
 
 Δy = 100kilometers # width of the region of the front
@@ -192,7 +192,7 @@ set!(model, T=Tᵢ)
 # Full resolution is 100 sec
 simulation = Simulation(model; Δt=100.0, stop_time=60days)
 
-filename = "asc_model_60_days_Nsq_is_e-8_no_slope_hi_res_custom_beta_plane"
+filename = "asc_model_60_days_no_slope_hi_res_custom_beta_plane"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
