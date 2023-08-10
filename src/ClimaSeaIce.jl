@@ -247,6 +247,7 @@ end
 
 @inbounds κᶜᶜᶜ_∂zᶜᶜᶠT(i, j, k, grid, κ, T) = ℑzᵃᵃᶠ(i, j, k, grid, κ) * ∂zᶜᶜᶠ(i, j, k, grid, T)
 @inline ∂z_κ_∂z_T(i, j, k, grid, closure::MolecularDiffusivity, T) = ∂zᶜᶜᶜ(i, j, k, grid, κᶜᶜᶜ_∂zᶜᶜᶠT, closure.κ, T)
+@inbounds temperature_flux(i, j, k, grid, κ, T) = - κᶜᶜᶜ_∂zᶜᶜᶠT(i, j, k, grid, κ, T)
 
 end # module
 
