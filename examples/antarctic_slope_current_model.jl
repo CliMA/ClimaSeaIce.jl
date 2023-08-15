@@ -8,7 +8,7 @@ using SeawaterPolynomials.TEOS10
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Si, Stewart, and Eisenman
 
-arch = GPU()
+arch = CPU()
 
 g_Earth = 9.80665
 
@@ -16,9 +16,9 @@ Lx = 400kilometers
 Ly = 450kilometers
 Lz = 4000
 
-Nx = 400
-Ny = 450
-Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
+Nx = 64
+Ny = 64
+Nz = 32 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 sponge_width = 20kilometers
 
@@ -122,8 +122,8 @@ cᴰ  = 2.5e-3 # dimensionless drag coefficient
 ρₒ  = 1026.0 # kg m⁻³, average density at the surface of the world ocean
 
 # TODO: make this only apply at Southern boundary and decay to 0 elsewhere
-Qᵘ(x, y, z) = - ρₐ / ρₒ * cᴰ * u₁₀(x) * abs(u₁₀(y)) # m² s⁻²
-Qᵛ(x, y, z) = - ρₐ / ρₒ * cᴰ * v₁₀(x) * abs(v₁₀(y)) # m² s⁻²
+Qᵘ(x, y, z) = - ρₐ / ρₒ * cᴰ * u₁₀(y) * abs(u₁₀(y)) # m² s⁻²
+Qᵛ(x, y, z) = - ρₐ / ρₒ * cᴰ * v₁₀(y) * abs(v₁₀(y)) # m² s⁻²
 
 u_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵘ))
 v_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵛ))
@@ -142,7 +142,7 @@ vertical_closure   = VerticalScalarDiffusivity(ν=3e-4, κ=1e-5)
 #
 # Assuming no particles or biogeochemistry
 #
-model = HydrostaticFreeSurfaceModel(;     grid = underlying_grid,
+model = HydrostaticFreeSurfaceModel(;     grid = grid,
                             momentum_advection = WENO(),
                               tracer_advection = WENO(),
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
@@ -150,7 +150,7 @@ model = HydrostaticFreeSurfaceModel(;     grid = underlying_grid,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
                                        #forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
                                        closure = CATKEVerticalDiffusivity(),
-                           #boundary_conditions = (u=u_bcs, v=v_bcs),
+                           boundary_conditions = (u=u_bcs, v=v_bcs),
                                        tracers = (:T, :S, :e)
 )
 
@@ -169,7 +169,7 @@ For example:
 """
 ramp(y, Δy) = min(max(0, (y - Ly/2)/Δy + 1/2), 1)
 
-N² = 1e-6 # [s⁻²] vertical stratification, was 1e-5
+N² = 1e-8 # [s⁻²] vertical stratification, was 1e-5
 M² = 1e-7 # [s⁻²] meridional temperature gradient
 
 Δy = 100kilometers # width of the region of the front
@@ -190,9 +190,9 @@ set!(model, T=Tᵢ)
 # Now create a simulation and run the model
 #
 # Full resolution is 100 sec
-simulation = Simulation(model; Δt=100.0, stop_time=60days)
+simulation = Simulation(model; Δt=20minutes, stop_time=60days)
 
-filename = "asc_model_60_days_no_slope_hi_res_custom_beta_plane"
+filename = "asc_model_60_days_Nsq_neg8_custom_beta_plane_wind_stress"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -218,7 +218,7 @@ run!(simulation)
 
 @info "Simulation completed in " * prettytime(simulation.run_wall_time)
 @show simulation
-#=
+
 #
 # Make a figure and plot it
 #
@@ -383,4 +383,3 @@ frames = intro:length(times)
 record(fig, filename * "_average.mp4", frames, framerate=8) do i
     n[] = i
 end
-=#
