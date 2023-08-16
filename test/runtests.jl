@@ -12,7 +12,7 @@ model = EulerianThermodynamicSeaIceModel(; grid, closure)
 @test model isa EulerianThermodynamicSeaIceModel
 
 # Test that it runs
-simulation = Simulation(model; Δt = 0.1 / κ)
+simulation = Simulation(model; Δt = 0.1 / κ, stop_iteration=3)
 
 @test begin
     try
