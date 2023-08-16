@@ -1,4 +1,4 @@
-using ClimaSeaIce: ThermodynamicSeaIceModel, MolecularDiffusivity
+using ClimaSeaIce.EulerianThermodynamicSeaIceModels: EulerianThermodynamicSeaIceModel, MolecularDiffusivity
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators: Δzᶜᶜᶠ
@@ -6,7 +6,7 @@ using Oceananigans.Grids: znode
 using GLMakie
 
 #####
-##### Set up a ThermodynamicSeaIceModel
+##### Set up a EulerianThermodynamicSeaIceModel
 #####
 
 # Build a grid with 10 cm resolution
@@ -49,7 +49,7 @@ top_T_bc = ValueBoundaryCondition(air_ice_temperature)
 bottom_T_bc = ValueBoundaryCondition(ice_ocean_temperature)
 T_bcs = FieldBoundaryConditions(top=top_T_bc, bottom=bottom_T_bc)
 
-model = ThermodynamicSeaIceModel(; grid, closure, boundary_conditions=(; T=T_bcs))
+model = EulerianThermodynamicSeaIceModel(; grid, closure, boundary_conditions=(; T=T_bcs))
 
 # Initialize and run
 set!(model, T=initial_ice_ocean_temperature)
