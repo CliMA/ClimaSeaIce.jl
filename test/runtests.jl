@@ -1,6 +1,7 @@
 using Test
 
 using ClimaSeaIce
+using Oceananigans
 using ClimaSeaIce.EulerianThermodynamicSeaIceModels: EulerianThermodynamicSeaIceModel, MolecularDiffusivity
 
 κ = 1e-5
