@@ -53,7 +53,7 @@ const reference_density = 999.8 # kg m⁻³
 """
     EulerianThermodynamicSeaIceModel(; grid, kw...)
 
-Return a thermodynamic model for ice sandwiched between an atmosphere and ocean.
+Return a thermodynamic model for ice sandwiched between an atmosphere and ocean on an Eulerian grid.
 """
 function EulerianThermodynamicSeaIceModel(; grid,
                                           closure = default_closure(grid),
