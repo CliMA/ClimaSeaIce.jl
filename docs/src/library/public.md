@@ -1,19 +1,13 @@
 # Public Documentation
 
-Documentation for `ClimaOcean.jl`'s public interface.
+Documentation for `ClimaSeaIce.jl`'s public interfaces.
 
 See the Internals section of the manual for internal package docs covering all submodules.
 
-## ClimaOcean
+## ClimaSeaIce
 
 ```@autodocs
-Modules = [ClimaOcean]
+Modules = [ClimaSeaIce]
 Private = false
 ```
 
-## Diagnostics
-
-```@autodocs
-Modules = [ClimaOcean.Diagnostics]
-Private = false
-```
