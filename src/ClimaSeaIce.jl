@@ -35,8 +35,16 @@ mutable struct ThermodynamicSeaIceModel{Grid,
     clock :: Clk
     closure :: Clo
     state :: State
+    ice_density :: Cp
+    snow_density :: Cp
     ice_heat_capacity :: Cp
     water_heat_capacity :: Cp
+    latent_heat_freezing :: Cp
+    ice_thermal_conductivity :: Cp
+    snow_thermal_conductivity :: Cp
+    freezing_temp_to_salinity :: Cp
+    sea_ice_salinity :: Cp
+    freezing_temp_seawater :: Cp
     fusion_enthalpy :: Fu
     ocean_temperature :: Ocean
     tendencies :: Tend
@@ -60,11 +68,20 @@ Return a thermodynamic model for ice sandwiched between an atmosphere and ocean.
 """
 function ThermodynamicSeaIceModel(; grid,
                                   closure = default_closure(grid),
+                                  ice_density = 905.0, # kg / m³
+                                  snow_density = 330.0, # kg / m³
                                   ice_heat_capacity = 2090.0 / reference_density,
                                   water_heat_capacity = 3991.0 / reference_density,
+                                  latent_heat_freezing = 334000.0, # J / kg
+                                  ice_thermal_conductivity = 2.03, # W / m °C
+                                  snow_thermal_conductivity = 0.31, # W / m °C
+                                  freezing_temp_to_salinity = 0.054, # °C per mil
+                                  sea_ice_salinity = 1.0, # parts per mil
+                                  freezing_temp_seawater = -1.8, # °C
                                   fusion_enthalpy = 3.3e5 / reference_density,
                                   atmosphere_temperature = -10, # ᵒC
                                   ocean_temperature = 0) # ᵒC
+
 
     # Build temperature field
     top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
@@ -84,8 +101,16 @@ function ThermodynamicSeaIceModel(; grid,
                                     clock,
                                     closure,
                                     state,
+                                    ice_density,
+                                    snow_density,
                                     ice_heat_capacity,
                                     water_heat_capacity,
+                                    latent_heat_freezing,
+                                    ice_thermal_conductivity,
+                                    snow_thermal_conductivity,
+                                    freezing_temp_to_salinity,
+                                    sea_ice_salinity,
+                                    freezing_temp_seawater,
                                     fusion_enthalpy,
                                     ocean_temperature,
                                     tendencies)
