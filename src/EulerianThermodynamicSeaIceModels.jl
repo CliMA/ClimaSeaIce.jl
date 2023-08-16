@@ -56,11 +56,11 @@ const reference_density = 999.8 # kg m⁻³
 Return a thermodynamic model for ice sandwiched between an atmosphere and ocean.
 """
 function EulerianThermodynamicSeaIceModel(; grid,
-                                  closure = default_closure(grid),
-                                  ice_heat_capacity = 2090.0 / reference_density,
-                                  water_heat_capacity = 3991.0 / reference_density,
-                                  fusion_enthalpy = 3.3e5 / reference_density,
-                                  boundary_conditions = NamedTuple())
+                                          closure = default_closure(grid),
+                                          ice_heat_capacity = 2090.0 / reference_density,
+                                          water_heat_capacity = 3991.0 / reference_density,
+                                          fusion_enthalpy = 3.3e5 / reference_density,
+                                          boundary_conditions = NamedTuple())
 
     # Prognostic fields: temperature, enthalpy, porosity
     field_names = (:T, :H, :ϕ)
