@@ -1,3 +1,3 @@
-# ClimaOcean.jl
+# ClimaSeaIce.jl
 
-Ocean component of CliMa's Earth system model.
+~~Ocean~~ Sea ice component of CliMa's Earth system model.
