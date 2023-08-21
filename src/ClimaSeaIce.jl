@@ -1,7 +1,7 @@
 module ClimaSeaIce
 
 include("EulerianThermodynamicSeaIceModels.jl")
-include("LagrangianThermodynamicSeaIceModels.jl")
+include("PrognosticThicknessThermodynamicsModels.jl")
 
 using .EulerianThermodynamicSeaIceModels: EulerianThermodynamicSeaIceModel
 
