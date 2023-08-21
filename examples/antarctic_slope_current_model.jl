@@ -76,7 +76,6 @@ grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(underwater_slope))
 #
 
 # Forcings:
-u_forcing(x, y, z, t) = exp(z) * cos(x) * sin(t) # Not actual forcing, just example
 
 # TODO: need to use forcings to enact the sponge layers. Their support is within 20000 m
 # of the N/S boundaries, they impose a cross-slope buoyancy gradient, and the relaxation
@@ -86,10 +85,12 @@ u_forcing(x, y, z, t) = exp(z) * cos(x) * sin(t) # Not actual forcing, just exam
 # We'll use Relaxation() to impose a sponge layer forcing on velocity, temperature, and salinity
 #
 damping_rate       = 1 / 43200 # Relaxation time scale in seconds, need to make this decrease linearly toward outermost boundary
-south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
-north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
+#south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
+#north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
+south_mask(x,y,z)  = y < sponge_width
+north_mask(x,y,z)  = y > Ly - sponge_width
 south_sponge_layer = Relaxation(; rate=damping_rate, mask=south_mask)
-north_sponge_layer = Relaxation(; rate=damping_rate, mask=north_mask)
+north_sponge_layer = Relaxation(; rate=damping_rate, target=0.1, mask=north_mask)#, target=LinearTarget{:z}(intercept=1.0, gradient=0))
 sponge_layers      = (south_sponge_layer, north_sponge_layer)
 # TODO: compose north_mask and south_mask together into one sponge layer, OR compose north/south sponge layers
 
@@ -148,7 +149,7 @@ model = HydrostaticFreeSurfaceModel(;     grid = grid,
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
-                                       #forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
+                                       forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
                                        closure = CATKEVerticalDiffusivity(),
                            boundary_conditions = (u=u_bcs, v=v_bcs),
                                        tracers = (:T, :S, :e)
@@ -169,8 +170,8 @@ For example:
 """
 ramp(y, Δy) = min(max(0, (y - Ly/2)/Δy + 1/2), 1)
 
-N² = 1e-8 # [s⁻²] vertical stratification, was 1e-5
-M² = 1e-7 # [s⁻²] meridional temperature gradient
+N² = 1e-7 # [s⁻²] vertical stratification, was 1e-5
+M² = 1e-5 # [s⁻²] meridional temperature gradient, was 1e-7
 
 Δy = 100kilometers # width of the region of the front
 ΔT = Δy * M²       # temperature jump associated with the front
@@ -192,7 +193,7 @@ set!(model, T=Tᵢ)
 # Full resolution is 100 sec
 simulation = Simulation(model; Δt=20minutes, stop_time=60days)
 
-filename = "asc_model_60_days_Nsq_neg8_custom_beta_plane_wind_stress"
+filename = "asc_model_60_days_Msq_neg5_custom_beta_plane_wind_stress_sponge"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -270,11 +271,11 @@ ax_u  = Axis(fig[3, 3]; title = "Zonal velocity", axis_kwargs...)
 
 title = @lift @sprintf("t = %s", prettytime(times[$n]))
 
-wlims = (-0.002, 0.002)
-Tlims = (-0.02, 0.02)
+wlims = (-0.001, 0.001)
+Tlims = (-1.1, 1.1)
 Slims = (35, 35.005)
-ulims = (-0.12, 0.12)
-vlims = (-0.12, 0.12)
+ulims = (-1.2, 1.2)
+vlims = (-0.2, 0.2)
 
 
 hm_w = heatmap!(ax_w, srf_xw, srf_yw, srf_wₙ; colormap = :balance)#, colorrange = wlims)
