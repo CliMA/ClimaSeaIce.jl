@@ -197,7 +197,7 @@ set!(model, T=Tᵢ)
 # Now create a simulation and run the model
 #
 # Full resolution is 100 sec
-simulation = Simulation(model; Δt=20minutes, stop_time=60days)
+simulation = Simulation(model; Δt=100.0, stop_time=60days)
 
 filename = "asc_model_hi_res_60_days_Msq_neg5_custom_beta_plane_wind_stress"
 
@@ -212,7 +212,7 @@ avgW = Average(w, dims=1)
 ω = ∂x(v) - ∂y(u)
 s = sqrt(u^2 + v^2 + w^2)
 
-iter_interval = 20
+iter_interval = 240
 
 simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
                                                      filename = filename * "_zonal_average.jld2",
