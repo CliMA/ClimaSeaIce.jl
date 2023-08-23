@@ -1,6 +1,7 @@
 
 #using CairoMakie
 using Oceananigans
+using Oceananigans.Fields, Oceananigans.AbstractOperations
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity # FIND submodule with CATKE
 using Oceananigans.Units: minute, minutes, hour, days, kilometers
 using SeawaterPolynomials.TEOS10
@@ -8,7 +9,7 @@ using SeawaterPolynomials.TEOS10
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Si, Stewart, and Eisenman
 
-arch = CPU()
+arch = GPU()
 
 g_Earth = 9.80665
 
@@ -16,9 +17,9 @@ Lx = 400kilometers
 Ly = 450kilometers
 Lz = 4000
 
-Nx = 64
-Ny = 64
-Nz = 32 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
+Nx = 400
+Ny = 450
+Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 sponge_width = 20kilometers
 
@@ -84,14 +85,19 @@ grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(underwater_slope))
 #
 # We'll use Relaxation() to impose a sponge layer forcing on velocity, temperature, and salinity
 #
+#=
 damping_rate       = 1 / 43200 # Relaxation time scale in seconds, need to make this decrease linearly toward outermost boundary
 #south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
 #north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
 south_mask(x,y,z)  = y < sponge_width
-north_mask(x,y,z)  = y > Ly - sponge_width
+north_mask(x,y,z)  = y > (Ly - sponge_width)
 south_sponge_layer = Relaxation(; rate=damping_rate, mask=south_mask)
-north_sponge_layer = Relaxation(; rate=damping_rate, target=0.1, mask=north_mask)#, target=LinearTarget{:z}(intercept=1.0, gradient=0))
+north_sponge_layer = Relaxation(; rate=damping_rate, mask=north_mask, target=0.0)#, target=LinearTarget{:z}(intercept=1.0, gradient=0))
 sponge_layers      = (south_sponge_layer, north_sponge_layer)
+
+north_sponge_layer_T = Relaxation(; rate=damping_rate, mask=north_mask, target=1.0)
+sponge_layers_T      = (south_sponge_layer, north_sponge_layer_T)
+=#
 # TODO: compose north_mask and south_mask together into one sponge layer, OR compose north/south sponge layers
 
 #
@@ -149,7 +155,7 @@ model = HydrostaticFreeSurfaceModel(;     grid = grid,
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
-                                       forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers, S=sponge_layers), # NamedTuple()
+                                       #forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers_T, S=sponge_layers),
                                        closure = CATKEVerticalDiffusivity(),
                            boundary_conditions = (u=u_bcs, v=v_bcs),
                                        tracers = (:T, :S, :e)
@@ -193,7 +199,7 @@ set!(model, T=Tᵢ)
 # Full resolution is 100 sec
 simulation = Simulation(model; Δt=20minutes, stop_time=60days)
 
-filename = "asc_model_60_days_Msq_neg5_custom_beta_plane_wind_stress_sponge"
+filename = "asc_model_hi_res_60_days_Msq_neg5_custom_beta_plane_wind_stress"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -202,28 +208,38 @@ avgU = Average(u, dims=1)
 avgV = Average(v, dims=1)
 avgW = Average(w, dims=1)
 
+# Here we'll compute and record vorticity and speed:
+ω = ∂x(v) - ∂y(u)
+s = sqrt(u^2 + v^2 + w^2)
+
+iter_interval = 20
+
 simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
                                                      filename = filename * "_zonal_average.jld2",
-                                                     schedule = IterationInterval(20),
+                                                     schedule = IterationInterval(iter_interval),
                                                      overwrite_existing = true)
 
 
-simulation.output_writers[:slices] =
-    JLD2OutputWriter(model, merge(model.velocities, model.tracers),
-                     filename = filename * "_surface.jld2",
-                     indices = (:, :, grid.Nz),
-                     schedule = IterationInterval(20),
-                     overwrite_existing = true)
+simulation.output_writers[:slices] = JLD2OutputWriter(model, merge(model.velocities, model.tracers),
+                                                      filename = filename * "_surface.jld2",
+                                                      indices = (:, :, grid.Nz),
+                                                      schedule = IterationInterval(iter_interval),
+                                                      overwrite_existing = true)
+
+simulation.output_writers[:fields] = JLD2OutputWriter(model, (; ω, s),
+                                                      filename = filename * "_fields.jld2",
+                                                      indices = (:, :, grid.Nz),
+                                                      schedule = IterationInterval(iter_interval),
+                                                      overwrite_existing = true)
 
 run!(simulation)
-
 @info "Simulation completed in " * prettytime(simulation.run_wall_time)
 @show simulation
 
 #
 # Make a figure and plot it
 #
-
+#=
 using GLMakie
 using Printf
 
@@ -278,19 +294,19 @@ ulims = (-1.2, 1.2)
 vlims = (-0.2, 0.2)
 
 
-hm_w = heatmap!(ax_w, srf_xw, srf_yw, srf_wₙ; colormap = :balance)#, colorrange = wlims)
+hm_w = heatmap!(ax_w, srf_xw, srf_yw, srf_wₙ; colormap = :balance, colorrange = wlims)
 Colorbar(fig[2, 2], hm_w; label = "m s⁻¹")
 
-hm_T = heatmap!(ax_T, srf_xT, srf_yT, srf_Tₙ; colormap = :thermal)#, colorrange = Tlims)
+hm_T = heatmap!(ax_T, srf_xT, srf_yT, srf_Tₙ; colormap = :thermal, colorrange = Tlims)
 Colorbar(fig[2, 4], hm_T; label = "ᵒC")
 
 #hm_S = heatmap!(ax_S, srf_xT, srf_yT, srf_Sₙ; colormap = :haline)#, colorrange = Slims)
 #Colorbar(fig[3, 2], hm_S; label = "g / kg")
 
-hm_v = heatmap!(ax_v, srf_xw, srf_yw, srf_vₙ; colormap = :balance)#, colorrange = vlims)
+hm_v = heatmap!(ax_v, srf_xw, srf_yw, srf_vₙ; colormap = :balance, colorrange = vlims)
 Colorbar(fig[3, 2], hm_v; label = "m s⁻¹")
 
-hm_u = heatmap!(ax_u, srf_xw, srf_yw, srf_uₙ; colormap = :balance)#, colorrange = ulims)
+hm_u = heatmap!(ax_u, srf_xw, srf_yw, srf_uₙ; colormap = :balance, colorrange = ulims)
 Colorbar(fig[3, 4], hm_u; label = "m s⁻¹")
 
 fig[1, 1:4] = Label(fig, title, fontsize=24, tellwidth=false)
@@ -306,6 +322,59 @@ record(fig, filename * "_surface.mp4", frames, framerate=8) do i
     n[] = i
 end
 
+#
+# Here we'll plot vorticity and speed:
+#
+
+ω_timeseries = FieldTimeSeries(filename * "_fields.jld2", "ω")
+s_timeseries = FieldTimeSeries(filename * "_fields.jld2", "s")
+
+@show ω_timeseries
+@show s_timeseries
+
+xω, yω, zω = nodes(ω_timeseries)
+xs, ys, zs = nodes(s_timeseries)
+nothing # hide
+
+set_theme!(Theme(fontsize = 24))
+
+@info "Making a neat movie of vorticity and speed..."
+
+fig = Figure(resolution = (4000, 2000))
+
+axis_kwargs = (xlabel = "x",
+               ylabel = "y",
+               limits = ((-Lx/2, Lx/2), (0, Ly)),
+               aspect = AxisAspect(1))
+
+ax_ω = Axis(fig[2, 1]; title = "Vorticity", axis_kwargs...)
+ax_s = Axis(fig[2, 3]; title = "Speed", axis_kwargs...)
+
+n = Observable(intro)
+
+ω = @lift interior(ω_timeseries[$n], :, :, 1)
+s = @lift interior(s_timeseries[$n], :, :, 1)
+
+hm_ω = heatmap!(ax_ω, xω, yω, ω; colormap = :balance, colorrange = (-2e-4, 2e-4))
+Colorbar(fig[2, 2], hm_ω; label = "m s⁻²")
+hm_s = heatmap!(ax_s, xs, ys, s; colormap = :speed, colorrange = (0, 1.5))
+Colorbar(fig[2, 4], hm_s; label = "m s⁻¹")
+
+title = @lift @sprintf("t = %s", prettytime(times[$n]))
+Label(fig[1, 1:2], title, fontsize=24, tellwidth=false)
+
+current_figure() # hide
+fig
+
+frames = intro:length(times)
+
+@info "Making a neat animation of vorticity and speed..."
+
+record(fig, filename * "_fields.mp4", frames, framerate=8) do i
+    n[] = i
+end
+=#
+#=
 #
 # Now do all the above, but for zonal average time series data:
 #
@@ -384,3 +453,4 @@ frames = intro:length(times)
 record(fig, filename * "_average.mp4", frames, framerate=8) do i
     n[] = i
 end
+=#
