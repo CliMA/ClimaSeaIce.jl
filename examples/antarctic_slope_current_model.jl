@@ -200,7 +200,7 @@ set!(model, T=Tᵢ)
 # Full resolution is 100 sec
 simulation = Simulation(model; Δt=100.0, stop_time=60days)
 
-filename = "asc_model_lo_res_60_days_wind_stress_no_Tnoise"
+filename = "asc_model_hi_res_60_days_wind_stress_no_Tnoise"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
