@@ -121,19 +121,20 @@ For example:
 δy = 10kilometers
 boundary_ramp(y, δy) = min(max(0, (δy - y)/δy), 1)
 
-u₁₀(y) = -6 * (Ly - y) / Ly # m s⁻¹, average zonal wind velocity 10 meters above the ocean at the southern boundary
-v₁₀(y) =  6 * (Ly - y) / Ly # m s⁻¹, average meridional wind velocity 10 meters above the ocean at the southern boundary
+
+@inline u₁₀(y, p) = -6 * (p.Ly - y) / p.Ly # m s⁻¹, average zonal wind velocity 10 meters above the ocean at the southern boundary
+@inline v₁₀(y, p) =  6 * (p.Ly - y) / p.Ly # m s⁻¹, average meridional wind velocity 10 meters above the ocean at the southern boundary
 
 cᴰ  = 2.5e-3 # dimensionless drag coefficient
 ρₐ  = 1.225  # kg m⁻³, average density of air at sea-level
 ρₒ  = 1026.0 # kg m⁻³, average density at the surface of the world ocean
 
 # TODO: make this only apply at Southern boundary and decay to 0 elsewhere
-Qᵘ(x, y, z) = - ρₐ / ρₒ * cᴰ * u₁₀(y) * abs(u₁₀(y)) # m² s⁻²
-Qᵛ(x, y, z) = - ρₐ / ρₒ * cᴰ * v₁₀(y) * abs(v₁₀(y)) # m² s⁻²
+@inline Qᵘ(x, y, t, p) = - p.ρₐ / p.ρₒ * p.cᴰ * u₁₀(y, p) * abs(u₁₀(y, p)) # m² s⁻²
+@inline Qᵛ(x, y, t, p) = - p.ρₐ / p.ρₒ * p.cᴰ * v₁₀(y, p) * abs(v₁₀(y, p)) # m² s⁻²
 
-u_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵘ))
-v_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵛ))
+u_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵘ, parameters=(; cᴰ, ρₐ, ρₒ, Ly)))
+v_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵛ, parameters=(; cᴰ, ρₐ, ρₒ, Ly)))
 
 # Buoyancy Equations of State - we want high order polynomials, so we'll use TEOS-10
 eos = TEOS10EquationOfState() # can compare to linear EOS later (linear not recommended for polar regions)
@@ -183,7 +184,7 @@ M² = 1e-5 # [s⁻²] meridional temperature gradient, was 1e-7
 ΔT = Δy * M²       # temperature jump associated with the front
 ϵT = 1e-2 * ΔT     # noise amplitude
 
-Tᵢ(x, y, z) = N² * z + ΔT * ramp(y, Δy) + ϵT * randn()
+Tᵢ(x, y, z) = N² * z + ΔT * ramp(y, Δy) #+ ϵT * randn()
 
 set!(model, T=Tᵢ)
 
@@ -199,7 +200,7 @@ set!(model, T=Tᵢ)
 # Full resolution is 100 sec
 simulation = Simulation(model; Δt=100.0, stop_time=60days)
 
-filename = "asc_model_hi_res_60_days_Msq_neg5_custom_beta_plane_wind_stress"
+filename = "asc_model_lo_res_60_days_wind_stress_no_Tnoise"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -235,11 +236,11 @@ simulation.output_writers[:fields] = JLD2OutputWriter(model, (; ω, s),
 run!(simulation)
 @info "Simulation completed in " * prettytime(simulation.run_wall_time)
 @show simulation
-
+#=
 #
 # Make a figure and plot it
 #
-#=
+
 using GLMakie
 using Printf
 
