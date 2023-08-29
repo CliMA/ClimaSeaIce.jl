@@ -99,7 +99,7 @@ function set!(model::ETSIM; T=nothing, H=nothing)
 
     if setting_enthalpy
         set!(model.state.H, H)
-        update_temperature!(model)
+        compute_temperature!(model)
     end
 
     return nothing
@@ -116,7 +116,7 @@ prognostic_fields(model::ETSIM) = (; model.state.H)
 ##### Time-stepping
 #####
 
-function update_porosity!(model)
+function compute_porosity!(model)
     T = model.state.T
     ϕ = model.state.ϕ
     grid = model.grid
@@ -137,7 +137,7 @@ end
     end
 end
 
-function update_temperature!(model)
+function compute_temperature!(model)
     H = model.state.H
     T = model.state.T
     c = model.ice_heat_capacity
@@ -171,13 +171,13 @@ function update_state!(model::ETSIM)
     grid = model.grid
     arch = grid.architecture
     args = (model.clock, fields(model))
-    update_temperature!(model)
-    update_porosity!(model)
-    update_diffusivity!(model.closure, model)
+    compute_temperature!(model)
+    compute_porosity!(model)
+    compute_diffusivity!(model.closure, model)
     return nothing
 end
 
-function time_step!(model, Δt; callbacks=nothing)
+function time_step!(model::ETSIM, Δt; callbacks=nothing)
     grid = model.grid
     arch = grid.architecture
     Ψ = model.state
@@ -219,13 +219,12 @@ struct MolecularDiffusivity{C}
     κ :: C
 end
 
-
 function MolecularDiffusivity(grid; κ_ice=1e-5, κ_water=1e-6)
     κ = CenterField(grid)
     return MolecularDiffusivity(κ_ice, κ_water, κ)
 end
 
-function update_diffusivity!(closure::MolecularDiffusivity, model)
+function compute_diffusivity!(closure::MolecularDiffusivity, model)
     κ = closure.κ
     κ_ice = closure.κ_ice
     κ_water = closure.κ_water
