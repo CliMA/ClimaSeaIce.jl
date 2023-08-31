@@ -55,7 +55,8 @@ MeltingConstrainedFluxBalance() = MeltingConstrainedFluxBalance(NonlinearSurface
 ##### Flux imbalance and temperature
 #####
 
-@inline function top_flux_imbalance(i, j, grid, internal_fluxes, external_fluxes, clock, top_temperature, model_fields)
+@inline function top_flux_imbalance(i, j, grid, top_thermal_bc, top_temperature,
+                                    internal_fluxes, external_fluxes, clock, model_fields)
 
     # Schematic of the Stefan condition
     #        
@@ -66,36 +67,36 @@ MeltingConstrainedFluxBalance() = MeltingConstrainedFluxBalance(NonlinearSurface
     #  ice       ↑   Qi ≡ internal_fluxes. Example Qi = - k ∂z T
     #      
 
-    Qi = getflux(internal_fluxes, i, j, grid, clock, top_temperature, model_fields)
-    Qx = getflux(external_fluxes, i, j, grid, clock, top_temperature, model_fields)
+    Qi = getflux(internal_fluxes, i, j, grid, top_temperature, clock, model_fields)
+    Qx = getflux(external_fluxes, i, j, grid, top_temperature, clock, model_fields)
 
     # The imbalance is defined such that
     # negative imbalance => heat accumulates (out > in) ⟹  growth
     return Qx - Qi
 end
 
-@inline function top_surface_temperature(i, j, grid,
-                                         temperature_dependent_internal_fluxes,
-                                         temperature_dependent_external_fluxes,
-                                         independent_internal_fluxes,
-                                         independent_external_fluxes,
-                                         clock, top_temperature, model_fields)
+@inline top_temperature(i, j, grid, ::PrescribedTemperature, Tu, args...) = Tu
 
-    T₁ = @inbounds top_temperature[i, j, 1]
-    T₂ = @inbounds top_temperature[i, j, 1] - 1
+using RootSolvers: SecantMethod, find_zero, CompactSolution
+
+@inline function top_temperature(i, j, grid, top_thermal_bc,
+                                 current_surface_temperature,
+                                 internal_fluxes, external_fluxes,
+                                 clock, model_fields)
+
+    Tu = @inbounds current_surface_temperature[i, j, 1]
+    T₁ = Tu
+    T₂ = Tu - 1
     FT = eltype(grid)
     method = SecantMethod{FT}(T₁, T₂)
     solution_type = CompactSolution()
 
-    Qii = getflux(independent_internal_fluxes, i, j, grid, clock, T₁, model_fields)
-    Qxi = getflux(independent_external_fluxes, i, j, grid, clock, T₁, model_fields)
-
-    flux_balance(T) = Qxi + getflux(temperature_dependent_external_fluxes, i, j, grid, clock, T, model_fields) -
-                      Qii - getflux(temperature_dependent_internal_fluxes, i, j, grid, clock, T, model_fields)
+    flux_balance(T) = getflux(external_fluxes, i, j, grid, T, clock, model_fields) -
+                      getflux(internal_fluxes, i, j, grid, T, clock, model_fields)
                       
     solution = find_zero(flux_balance, method, solution_type)
     
-    return Tu
+    return solution.root
 end
 
 

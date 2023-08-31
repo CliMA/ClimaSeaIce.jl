@@ -3,7 +3,7 @@
 #####
 
 # Flux extractor function
-# getflux(flux, i, j, grid, clock, T_surface, model_fields)
+# getflux(flux, i, j, grid, T_surface, clock, model_fields)
 
 @inline getflux(flux::Number, i, j, grid, args...) = flux
 @inline getflux(flux::AbstractArray{<:Any, 2}, i, j, grid, args...) = @inbounds flux[i, j]
@@ -65,17 +65,27 @@ end
 ##### Implementations
 #####
 
-@inline _emission(i, j, grid, clock, T, fields, p) = p.ϵ * p.σ * (T + p.Tᵣ)^4
 
-function emission(FT = Float64;
-                  emissivity = 1,
-                  stefan_boltzmann_constant = 5.67e-8,
-                  reference_temperature = 273.15)
+struct RadiativeEmission{FT}
+    emissivity :: FT
+    stefan_boltzmann_constant :: FT
+    reference_temperature :: FT
+end
 
-    parameters = (ϵ = convert(FT, emissivity),
-                  σ = convert(FT, stefan_boltzmann_constant),
-                  Tᵣ = convert(FT, reference_temperature))
+function RadiativeEmission(FT=Float64;
+                           emissivity = 1,
+                           stefan_boltzmann_constant = 5.67e-8,
+                           reference_temperature = 273.15)
 
-    return FluxFunction(_emission; parameters, surface_temperature_dependent=true)
+    return RadiativeEmission(convert(FT, emissivity),
+                             convert(FT, stefan_boltzmann_constant), 
+                             convert(FT, reference_temperature))
+end
+
+@inline function getflux(emission::RadiativeEmission, i, j, grid, T, clock, fields)
+    ϵ = emission.emissivity
+    σ = emission.stefan_boltzmann_constant
+    Tᵣ = emission.reference_temperature
+    return ϵ * σ * (T + Tᵣ)^4
 end
 

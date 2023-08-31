@@ -12,6 +12,8 @@ grid = RectilinearGrid(size = (Nx, Ny),
                        y = (0, 1),
                        topology = (Periodic, Periodic, Flat))
 
+internal_thermal_flux = ConductiveFlux(conductivity=1.0)
+
 model = SlabSeaIceModel(grid;
                         surface_temperature = - 10,
                         top_thermal_boundary_condition = PrescribedTemperature())

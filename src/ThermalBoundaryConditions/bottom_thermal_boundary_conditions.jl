@@ -27,14 +27,16 @@ is related to the sum of `fluxes` into the ice-water interface,
 """
 IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
 
-@inline bottom_temperature(i, j, grid, bottom_bc::PrescribedTemperature, liquidus) = bs.temperature[i, j, 1]
+# Can't support this yet
+# @inline bottom_temperature(i, j, grid, ::PrescribedTemperature, liquidus, Tb) = Tb
 
-@inline function bottom_temperature(i, j, grid, bottom_bc::IceWaterThermalEquilibrium, liquidus)
-    Sₒ = @inbounds bottom_bc.salinity[i, j, 1]
+@inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, liquidus)
+    Sₒ = @inbounds bc.salinity[i, j, 1]
     return melting_temperature(liquidus, Sₒ)
 end
 
-@inline function bottom_flux_imbalance(i, j, grid, internal_fluxes, external_fluxes, bottom_thermal_bc, clock, bottom_temperature, model_fields)
+@inline function bottom_flux_imbalance(i, j, grid, bottom_thermal_bc, surface_temperature,
+                                       internal_fluxes, external_fluxes, clock, model_fields)
 
     #          
     #   ice        ↑   Qi ≡ internal_fluxes. Example: Qi = - k ∂z T
@@ -44,10 +46,9 @@ end
     #   water      ↑   Qx ≡ external_fluxes
     #        
 
-    Qi = getflux(internal_fluxes, i, j, grid, clock, bottom_temperature, model_fields)
-    Qx = getflux(external_fluxes, i, j, grid, clock, bottom_temperature, model_fields)
+    Qi = getflux(internal_fluxes, i, j, grid, surface_temperature, clock, model_fields)
+    Qx = getflux(external_fluxes, i, j, grid, surface_temperature, clock, model_fields)
 
     return Qi - Qx
 end
-
 
