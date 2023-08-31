@@ -1,7 +1,6 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
-using ClimaSeaIce.ThermalBoundaryConditions: FluxFunction, RadiativeEmission
 using GLMakie
 
 # Generate a 0D grid for a single column slab model 

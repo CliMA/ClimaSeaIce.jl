@@ -3,56 +3,46 @@ using Oceananigans.Units
 using ClimaSeaIce
 using GLMakie
 
-# Create a single column grid with no grid points in the vertical,
-# appropriate for a zero heat capacity model.
-Nx = Ny = 1
-
-grid = RectilinearGrid(size = (Nx, Ny),
-                       x = (0, 1),
-                       y = (0, 1),
-                       topology = (Periodic, Periodic, Flat))
-
-internal_thermal_flux = ConductiveFlux(conductivity=1.0)
+# Create a 0D grid
+grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 model = SlabSeaIceModel(grid;
-                        surface_temperature = - 10,
+                        internal_thermal_flux = ConductiveFlux(conductivity=2.0),
+                        surface_temperature = - 10, 
                         top_thermal_boundary_condition = PrescribedTemperature())
 
 simulation = Simulation(model, Δt=10minute, stop_time=100days)
+set!(model.ice_thickness, 0.01)
 
-model.ice_thickness .= 0.01
+# Accumulate data
+timeseries = []
 
-# Integrate forward for 1 hour
-ht = Float64[]
-times = Float64[]
-
-function save_ice_state(sim)
+function accumulate_timeseries(sim)
     h = model.ice_thickness
-    push!(ht, first(h))
-    push!(times, time(sim))
+    push!(timeseries, (time(sim), first(h)))
 end
 
-simulation.callbacks[:save] = Callback(save_ice_state)
-
-#=
-h = model.ice_thickness
-simulation.output_writers[:jld2] = JLD2OutputWriter(model, (; h),
-                                                    schedule = IterationInterval(1),
-                                                    filename = "freezing_bucket.jld2",
-                                                    overwrite_existing = true)
-=#
+simulation.callbacks[:save] = Callback(accumulate_timeseries)
 
 run!(simulation)
 
-# Post-processing - calculate dh/dt
+# Extract and visualize data
+t = map(ts -> ts[1], timeseries)
+h = map(ts -> ts[2], timeseries)
+
+# Compute the velocity of the interface
 Δt = simulation.Δt
-dh_dt = (ht[2:end] - ht[1:end-1]) ./ Δt
+dhdt = @. (h[2:end] - h[1:end-1]) / Δt
 
 set_theme!(Theme(fontsize=24, linewidth=4))
+
 fig = Figure(resolution=(1200, 600))
+
 axh = Axis(fig[1, 1], xlabel="Time (hours)", ylabel="Ice thickness (m)")
-axd = Axis(fig[1, 2], xlabel="Ice thickness (m)", ylabel="Freezing rate (m s⁻¹)")
-lines!(axh, times ./ hour, ht)
-lines!(axd, ht[1:end-1], dh_dt)
+axd = Axis(fig[2, 1], xlabel="Ice thickness (m)", ylabel="Freezing rate (m s⁻¹)")
+
+lines!(axh, t ./ hour, h)
+lines!(axd, h[1:end-1], dhdt)
+
 display(fig)
 

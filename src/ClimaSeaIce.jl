@@ -5,6 +5,9 @@ import Oceananigans.TimeSteppers: time_step!
 export
     MeltingConstrainedFluxBalance,
     PrescribedTemperature,
+    RadiativeEmission,
+    ConductiveFlux,
+    FluxFunction,
     SlabSeaIceModel
 
 # Use celsius, so
@@ -19,13 +22,6 @@ LinearLiquidus(FT::DataType=Float64; slope=0.054) = LinearLiquidus(convert(FT, s
 
 @inline melting_temperature(liquidus::LinearLiquidus, salinity) = - liquidus.slope * salinity
 
-struct ConstantBulkSalinity{FT}
-    constant :: FT
-end
-
-ConstantBulkSalinity(FT::DataType=Float64) = 
-    ConstantBulkSalinity{FT}(convert(FT, default_constant_sea_ice_salinity))
-
 struct ForwardEulerTimestepper end
 
 include("ThermalBoundaryConditions/ThermalBoundaryConditions.jl")
@@ -33,12 +29,14 @@ include("ThermalBoundaryConditions/ThermalBoundaryConditions.jl")
 using .ThermalBoundaryConditions:
     IceWaterThermalEquilibrium,
     MeltingConstrainedFluxBalance,
+    RadiativeEmission,
+    FluxFunction,
     PrescribedTemperature
 
-include("EulerianThermodynamicSeaIceModels.jl")
-include("ThicknessCoordinateSeaIceModels/ThicknessCoordinateSeaIceModels.jl")
+include("EnthalpyMethodSeaIceModels.jl")
+include("SlabSeaIceModels.jl")
 
-using .EulerianThermodynamicSeaIceModels: EulerianThermodynamicSeaIceModel
-using .ThicknessCoordinateSeaIceModels: SlabSeaIceModel
+using .EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel
+using .SlabSeaIceModels: SlabSeaIceModel, ConductiveFlux
 
 end # module

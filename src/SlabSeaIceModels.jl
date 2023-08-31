@@ -1,6 +1,7 @@
+module SlabSeaIceModels
+
 using ClimaSeaIce:
     LinearLiquidus,
-    ConstantBulkSalinity,
     ForwardEulerTimestepper,
     melting_temperature,
     reference_temperature
@@ -8,6 +9,7 @@ using ClimaSeaIce:
 using ClimaSeaIce.ThermalBoundaryConditions:
     MeltingConstrainedFluxBalance,
     IceWaterThermalEquilibrium,
+    PrescribedTemperature,
     FluxFunction,
     SurfaceTemperatureDependent,
     bottom_temperature,
@@ -17,7 +19,8 @@ using ClimaSeaIce.ThermalBoundaryConditions:
 
 # using RootSolvers: find_zero
 
-using Oceananigans.Fields: ZeroField, ConstantField
+using Oceananigans.Fields: Field, Center, ZeroField, ConstantField
+using Oceananigans.TimeSteppers: Clock, tick!
 
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
@@ -178,6 +181,11 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
         δQu =    top_flux_imbalance(i, j, grid, top_thermal_bc,    Tuⁿ, Qi, Qu, clock, model_fields)
         δQb = bottom_flux_imbalance(i, j, grid, bottom_thermal_bc, Tuⁿ, Qi, Qb, clock, model_fields)
 
+        # Impose an implicit flux balance if Tu ≤ Tm.
+        S = ice_salinity[i, j, 1]
+        Tₘ = melting_temperature(liquidus, S) 
+        δQu = ifelse(Tuⁿ <= Tₘ, zero(grid), δQu)
+
         @inbounds begin
             # TODO: use temperature-specific ℒ rather than reference value
             h⁺ = h[i, j, 1] + Δt * (δQb / (ρᵢ * ℒ₀) + δQu / (ρᵢ * ℒ₀))
@@ -185,11 +193,13 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
             h[i, j, 1] = h⁺
         end
 
-        # 2. Update surface temperature
-        Tu⁺ = top_temperature(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qu, clock, model_fields)
+        if !isa(top_thermal_bc, PrescribedTemperature)
+            # 2. Update surface temperature
+            Tu⁺ = top_temperature(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qu, clock, model_fields)
 
-        # 3. Set surface temperature (could skip this for `PrescribedTemperature`)
-        @inbounds Tu[i, j, 1] = Tu⁺ 
+            # 3. Set surface temperature (could skip this for `PrescribedTemperature`)
+            @inbounds Tu[i, j, 1] = Tu⁺ 
+        end
     end
 
     tick!(model.clock, Δt)
@@ -198,23 +208,30 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
 end
 
 function update_state!(model::SSIM)
-    grid = model.grid
-    Nx, Ny, Nz = size(grid)
 
-    Tu = model.surface_temperature
-    model_fields = fields(model)
-    clock = model.clock
     top_thermal_bc = model.thermal_boundary_conditions.top
-    Qi = model.internal_thermal_flux
-    Qu = model.external_thermal_fluxes.top
 
-    # Update surface temperature
-    for i = 1:Nx, j=1:Ny
-        Tu⁻ = @inbounds Tu[i, j, 1]
-        Tuⁿ = top_temperature(i, j, grid, top_thermal_bc, Tu⁻, Qi, Qu, clock, model_fields)
-        @inbounds Tu[i, j, 1] = Tuⁿ
+    if !isa(top_thermal_bc, PrescribedTemperature)
+        grid = model.grid
+        Nx, Ny, Nz = size(grid)
+
+        Tu = model.surface_temperature
+        model_fields = fields(model)
+        clock = model.clock
+        top_thermal_bc = model.thermal_boundary_conditions.top
+        Qi = model.internal_thermal_flux
+        Qu = model.external_thermal_fluxes.top
+
+        # Update surface temperature
+        for i = 1:Nx, j=1:Ny
+            Tu⁻ = @inbounds Tu[i, j, 1]
+            Tuⁿ = top_temperature(i, j, grid, top_thermal_bc, Tu⁻, Qi, Qu, clock, model_fields)
+            @inbounds Tu[i, j, 1] = Tuⁿ
+        end
+
     end
 
     return nothing
 end
 
+    end # module

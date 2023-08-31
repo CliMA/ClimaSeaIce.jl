@@ -1,4 +1,4 @@
-module EulerianThermodynamicSeaIceModels
+module EnthalpyMethodSeaIceModels
 
 using Oceananigans.BoundaryConditions:
     fill_halo_regions!,
@@ -21,14 +21,14 @@ import Oceananigans.Fields: set!
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Simulations: reset!
 
-mutable struct EulerianThermodynamicSeaIceModel{Grid,
-                                                Tim,
-                                                Clk,
-                                                Clo,
-                                                State,
-                                                Cp,
-                                                Fu,
-                                                Tend} <: AbstractModel{Nothing}
+mutable struct EnthalpyMethodSeaIceModel{Grid,
+                                         Tim,
+                                         Clk,
+                                         Clo,
+                                         State,
+                                         Cp,
+                                         Fu,
+                                         Tend} <: AbstractModel{Nothing}
     grid :: Grid
     timestepper :: Tim # unused placeholder for now
     clock :: Clk
@@ -40,27 +40,27 @@ mutable struct EulerianThermodynamicSeaIceModel{Grid,
     tendencies :: Tend
 end
 
-const ETSIM = EulerianThermodynamicSeaIceModel
+const ETSIM = EnthalpyMethodSeaIceModel
 
 function Base.show(io::IO, model::ETSIM)
     clock = model.clock
-    print(io, "EulerianThermodynamicSeaIceModel(t=", prettytime(clock.time), ", iteration=", clock.iteration, ")", '\n')
+    print(io, "EnthalpyMethodSeaIceModel(t=", prettytime(clock.time), ", iteration=", clock.iteration, ")", '\n')
     print(io, "    grid: ", summary(model.grid))
 end
 
 const reference_density = 999.8 # kg m⁻³
 
 """
-    EulerianThermodynamicSeaIceModel(; grid, kw...)
+    EnthalpyMethodSeaIceModel(; grid, kw...)
 
 Return a thermodynamic model for ice sandwiched between an atmosphere and ocean on an Eulerian grid.
 """
-function EulerianThermodynamicSeaIceModel(; grid,
-                                          closure = default_closure(grid),
-                                          ice_heat_capacity = 2090.0 / reference_density,
-                                          water_heat_capacity = 3991.0 / reference_density,
-                                          fusion_enthalpy = 3.3e5 / reference_density,
-                                          boundary_conditions = NamedTuple())
+function EnthalpyMethodSeaIceModel(; grid,
+                                   closure = default_closure(grid),
+                                   ice_heat_capacity = 2090.0 / reference_density,
+                                   water_heat_capacity = 3991.0 / reference_density,
+                                   fusion_enthalpy = 3.3e5 / reference_density,
+                                   boundary_conditions = NamedTuple())
 
     # Prognostic fields: temperature, enthalpy, porosity
     field_names = (:T, :H, :ϕ)
@@ -74,7 +74,7 @@ function EulerianThermodynamicSeaIceModel(; grid,
     tendencies = (; H=CenterField(grid))
     clock = Clock{eltype(grid)}(0, 0, 1)
 
-    return EulerianThermodynamicSeaIceModel(grid,
+    return EnthalpyMethodSeaIceModel(grid,
                                     nothing,
                                     clock,
                                     closure,
