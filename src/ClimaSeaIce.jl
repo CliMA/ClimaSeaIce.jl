@@ -3,8 +3,8 @@ module ClimaSeaIce
 import Oceananigans.TimeSteppers: time_step!
 
 export
-    MeltingRadiatingSurface,
-    ConstantBulkSalinity,
+    MeltingConstrainedFluxBalance,
+    PrescribedTemperature,
     SlabSeaIceModel
 
 # Use celsius, so
@@ -28,9 +28,12 @@ ConstantBulkSalinity(FT::DataType=Float64) =
 
 struct ForwardEulerTimestepper end
 
-include("IceSurfaces.jl")
+include("ThermalBoundaryConditions/ThermalBoundaryConditions.jl")
 
-using .IceSurfaces: MeltingRadiatingSurface, IceWaterSurface
+using .ThermalBoundaryConditions:
+    IceWaterThermalEquilibrium,
+    MeltingConstrainedFluxBalance,
+    PrescribedTemperature
 
 include("EulerianThermodynamicSeaIceModels.jl")
 include("ThicknessCoordinateSeaIceModels/ThicknessCoordinateSeaIceModels.jl")

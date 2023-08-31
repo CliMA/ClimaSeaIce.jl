@@ -2,7 +2,7 @@
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "168db6a8de44a8ac5fb077cda01be8e32430d547"
+project_hash = "226760b13aa14b78a132bda43019b5a45b6175fa"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1445,6 +1445,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "6ed52fdd3382cf21947b15e8870ac0ddbff736da"
 uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
 version = "0.4.0+0"
+
+[[deps.RootSolvers]]
+deps = ["DocStringExtensions", "ForwardDiff"]
+git-tree-sha1 = "9fb3462240d2898be5d4acf8925e47f70ec64d07"
+uuid = "7181ea78-2dcb-4de3-ab41-2b8ab5a31e74"
+version = "0.3.5"
 
 [[deps.Roots]]
 deps = ["ChainRulesCore", "CommonSolve", "Printf", "Setfield"]
