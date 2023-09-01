@@ -29,9 +29,9 @@ run!(simulation)
 
 # Extract and visualize data
 
-t = map(ts -> ts[1], timeseries)
-h = map(ts -> ts[2], timeseries)
-T = map(ts -> ts[3], timeseries)
+t = [datum[1] for datum in timeseries]
+h = [datum[2] for datum in timeseries]
+T = [datum[3] for datum in timeseries]
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 

@@ -8,7 +8,7 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 # Build a model of an ice slab that has internal conductive fluxes
 # and that emits radiation from its surface.
-solar_insolation = -600 # W m⁻²
+solar_insolation = -500 # W m⁻²
 outgoing_radiation = RadiativeEmission()
 
 # Define a FluxFunction representing a sensible heat flux
@@ -54,9 +54,9 @@ run!(simulation)
 
 # Extract and visualize data
 
-t = map(ts -> ts[1], timeseries)
-h = map(ts -> ts[2], timeseries)
-T = map(ts -> ts[3], timeseries)
+t = [datum[1] for datum in timeseries]
+h = [datum[2] for datum in timeseries]
+T = [datum[3] for datum in timeseries]
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 
