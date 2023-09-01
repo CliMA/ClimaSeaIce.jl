@@ -33,9 +33,9 @@ end
 
 aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)
 
-top_external_thermal_fluxes = (outgoing_radiation, solar_insolation, aerodynamic_flux)
-model = SlabSeaIceModel(grid; top_external_thermal_fluxes)
-set!(model.ice_thickness, 1)
+surface_thermal_flux = (outgoing_radiation, solar_insolation, aerodynamic_flux)
+model = SlabSeaIceModel(grid; surface_thermal_flux)
+set!(model, h=1)
 
 simulation = Simulation(model, Δt=10minute, stop_time=1day)
 

@@ -9,8 +9,8 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 # Build a model of an ice slab that has internal conductive fluxes
 # and that emits radiation from its surface.
-model = SlabSeaIceModel(grid; top_external_thermal_fluxes = RadiativeEmission())
-set!(model.ice_thickness, 0.01)
+model = SlabSeaIceModel(grid; surface_thermal_flux=RadiativeEmission())
+set!(model, h=0.01)
 
 simulation = Simulation(model, Δt=1hour, stop_time=40days)
 

@@ -15,7 +15,9 @@ predict the melt rate ``dh/dt``.
 (If `surface_temperature` is above the melting temperature, it is reset to the melting temperature
 and a warning is thrown?)
 """
-struct PrescribedTemperature end
+struct PrescribedTemperature{T}
+    temperature :: T
+end
 
 include("bottom_thermal_boundary_conditions.jl")
 include("surface_thermal_boundary_conditions.jl")
