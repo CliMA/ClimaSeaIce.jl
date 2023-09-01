@@ -43,7 +43,7 @@ run!(simulation)
 # It'd be a shame to run such a "cool" simulation without looking at the
 # results. We'll visualize it with Makie.
 
-using GLMakie
+using CairoMakie
 
 # `timeseries` is a `Vector` of `Tuple`. So we have to do a bit of processing
 # to build `Vector`s of time `t` and thickness `h`. It's not much work though:
@@ -64,5 +64,6 @@ axd = Axis(fig[1, 2], xlabel="Ice thickness (cm)", ylabel="Freezing rate (Î¼m sâ
 lines!(axh, t ./ day, 1e2 .* h)
 lines!(axd, 1e2 .* h[1:end-1], 1e6 .* dhdt)
 
-display(fig)
+current_figure() # hide
+fig
 
