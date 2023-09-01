@@ -1,7 +1,8 @@
 module SlabSeaIceModels
 
 using ClimaSeaIce:
-    LinearLiquidus,
+    PhaseTransitions,
+    latent_heat,
     ForwardEulerTimestepper,
     melting_temperature
 
@@ -31,7 +32,7 @@ import Oceananigans.OutputWriters: default_included_properties
 # TODO: move to Oceananigans
 field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, ST, IS, STF, TBC, CF, FT, LI}
+struct SlabSeaIceModel{GR, CL, TS, IT, ST, IS, STF, TBC, CF, P}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -44,10 +45,8 @@ struct SlabSeaIceModel{GR, CL, TS, IT, ST, IS, STF, TBC, CF, FT, LI}
     thermal_boundary_conditions :: TBC
     # Internal flux
     internal_thermal_flux :: CF
-    # Ice properties
-    ice_density :: FT
-    reference_fusion_enthalpy :: FT
-    liquidus :: LI
+    # Melting and freezing stuff
+    phase_transitions :: P
 end
 
 const SSIM = SlabSeaIceModel
@@ -108,9 +107,7 @@ function SlabSeaIceModel(grid;
                          surface_thermal_boundary_condition = MeltingConstrainedFluxBalance(),
                          bottom_thermal_boundary_condition  = IceWaterThermalEquilibrium(),
                          internal_thermal_flux              = ConductiveFlux(eltype(grid), conductivity=2),
-                         ice_density                        = 917,    # kg m⁻³
-                         reference_fusion_enthalpy          = 334e3,  # J kg⁻¹
-                         liquidus                           = LinearLiquidus())
+                         phase_transitions                  = PhaseTransitions(eltype(grid)))
 
     # Only one time-stepper is supported currently
     timestepper = ForwardEulerTimestepper()
@@ -137,7 +134,7 @@ function SlabSeaIceModel(grid;
     # Construct an internal thermal flux function that captures the liquidus and
     # bottom boundary condition.
     parameters = (flux = internal_thermal_flux,
-                  liquidus = liquidus,
+                  liquidus = phase_transitions.liquidus,
                   bottom_thermal_boundary_condition = bottom_thermal_boundary_condition)
 
     internal_thermal_flux_function = FluxFunction(slab_internal_thermal_flux;
@@ -160,9 +157,7 @@ function SlabSeaIceModel(grid;
                            external_thermal_fluxes,
                            thermal_boundary_conditions,
                            internal_thermal_flux_function,
-                           convert(FT, ice_density),
-                           convert(FT, reference_fusion_enthalpy),
-                           liquidus)
+                           phase_transitions)
 end
 
 function set!(model::SSIM; h=nothing)
@@ -174,14 +169,13 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
     grid = model.grid
     Nx, Ny, Nz = size(grid)
 
-    ρᵢ = model.ice_density
-    ℒ₀ = model.reference_fusion_enthalpy
+    phase_transitions = model.phase_transitions
+    liquidus = phase_transitions.liquidus
+
     h = model.ice_thickness
     Ts = model.surface_temperature
-
     model_fields = fields(model)
     ice_salinity = model.ice_salinity
-    liquidus = model.liquidus
     clock = model.clock
     bottom_thermal_bc = model.thermal_boundary_conditions.bottom
     surface_thermal_bc = model.thermal_boundary_conditions.surface
@@ -198,16 +192,22 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
         end
 
         # 1. Update thickness with ForwardEuler step
+        # 1a. Calculate residual fluxes across the top surface and bottom
         δQs = surface_flux_imbalance(i, j, grid, surface_thermal_bc, Tsⁿ, Qi, Qs, clock, model_fields)
         δQb =  bottom_flux_imbalance(i, j, grid, bottom_thermal_bc,  Tsⁿ, Qi, Qb, clock, model_fields)
 
-        # Impose an implicit flux balance if Ts ≤ Tm.
+        # 1b. Impose an implicit flux balance if Ts ≤ Tm.
         Tₘ = melting_temperature(liquidus, S) 
         δQs = ifelse(Tsⁿ <= Tₘ, zero(grid), δQs)
 
+        # 1c. Calculate the latent heat of fusion at the surface and bottom
+        Tbⁿ = bottom_temperature(i, j, grid, bottom_thermal_bc, liquidus)
+        ℒ_Ts = latent_heat(phase_transitions, Tsⁿ)
+        ℒ_Tb = latent_heat(phase_transitions, Tbⁿ)
+
+        # 1d. Increment the thickness
         @inbounds begin
-            # TODO: use temperature-specific ℒ rather than reference value
-            h⁺ = h[i, j, 1] + Δt * (δQb / (ρᵢ * ℒ₀) + δQs / (ρᵢ * ℒ₀))
+            h⁺ = h[i, j, 1] + Δt * (δQb / ℒ_Tb + δQs / ℒ_Ts)
             h⁺ = max(zero(grid), h⁺)
             h[i, j, 1] = h⁺
         end

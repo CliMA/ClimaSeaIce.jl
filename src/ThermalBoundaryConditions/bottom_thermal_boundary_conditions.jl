@@ -27,8 +27,8 @@ is related to the sum of `fluxes` into the ice-water interface,
 """
 IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
 
-# Can't support this yet
-# @inline bottom_temperature(i, j, grid, ::PrescribedTemperature, liquidus, Tb) = Tb
+@inline bottom_temperature(i, j, grid, bc::PrescribedTemperature, args...) = @inbounds bc.temperature[i, j]
+@inline bottom_temperature(i, j, grid, bc::PrescribedTemperature{<:Number}, args...) = bc.temperature
 
 @inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, liquidus)
     Sₒ = @inbounds bc.salinity[i, j, 1]
