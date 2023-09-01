@@ -16,12 +16,18 @@ ENV["DATADEPS_ALWAYS_ACCEPT"] = "true"
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
-to_be_literated = []
+example_scripts = [
+    "freezing_bucket.jl",
+]
 
-for file in to_be_literated
-    filepath = joinpath(EXAMPLES_DIR, file)
+for filename in example_scripts
+    filepath = joinpath(EXAMPLES_DIR, filename)
     Literate.markdown(filepath, OUTPUT_DIR; flavor = Literate.DocumenterFlavor())
 end
+
+example_pages = [
+    "Freezing bucket" => "generated/freezing_bucket.jl",
+]
 
 #####
 ##### Build and deploy docs
@@ -35,6 +41,7 @@ format = Documenter.HTML(
 
 pages = [
     "Home" => "index.md",
+    "Examples" => example_pages,
 
     "Library" => [ 
         "Contents"       => "library/outline.md",
