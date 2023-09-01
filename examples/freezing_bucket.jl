@@ -9,9 +9,8 @@ using ClimaSeaIce
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-## Set the bucket surface temperature to ``Tₛ = -10ᵒC``.
-model = SlabSeaIceModel(grid;
-                        surface_thermal_boundary_condition = PrescribedTemperature(-10))
+## Set the temperature at the top of the bucket to ``Tᵤ = -10ᵒC``.
+model = SlabSeaIceModel(grid; top_thermal_boundary_condition=PrescribedTemperature(-10))
 
 ## We'll freeze the bucket for 10 straight days
 simulation = Simulation(model, Δt=10minute, stop_time=10days)

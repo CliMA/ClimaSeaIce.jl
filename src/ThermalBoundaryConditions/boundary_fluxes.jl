@@ -3,7 +3,7 @@
 #####
 
 # Flux extractor function
-# getflux(flux, i, j, grid, T_surface, clock, model_fields)
+# getflux(flux, i, j, grid, T_top, clock, model_fields)
 
 @inline getflux(flux::Number, i, j, grid, args...) = flux
 @inline getflux(flux::AbstractArray{<:Any, 2}, i, j, grid, args...) = @inbounds flux[i, j]
@@ -35,26 +35,26 @@ struct FluxFunction{P, T, F}
 end
 
 """
-    FluxFunction(func; parameters=nothing, surface_temperature_dependent=false)
+    FluxFunction(func; parameters=nothing, top_temperature_dependent=false)
 
 Return `FluxFunction` representing a flux across an air-ice, air-snow, or ice-water interface.
 The flux is computed by `func` with the signature
 
 ```julia
-flux = func(i, j, grid, clock, surface_temperature, model_fields)
+flux = func(i, j, grid, clock, top_temperature, model_fields)
 ```
 
 if `isnothing(parameters)`, or
 
 ```julia
-flux = func(i, j, grid, clock, surface_temperature, model_fields, parameters)
+flux = func(i, j, grid, clock, top_temperature, model_fields, parameters)
 ```
 
-if `!isnothing(parameters)`. If `func` is `surface_temperature_dependent`, then it will be recomputed
-during a diagnostic solve for the surface temperature.
+if `!isnothing(parameters)`. If `func` is `top_temperature_dependent`, then it will be recomputed
+during a diagnostic solve for the top temperature.
 """
-function FluxFunction(func; parameters=nothing, surface_temperature_dependent=false)
-    T = surface_temperature_dependent ? SurfaceTemperatureDependent() : Nothing
+function FluxFunction(func; parameters=nothing, top_temperature_dependent=false)
+    T = top_temperature_dependent ? SurfaceTemperatureDependent() : Nothing
     return FluxFunction{T}(func, parameters)
 end
 
@@ -72,6 +72,11 @@ struct RadiativeEmission{FT}
     reference_temperature :: FT
 end
 
+"""
+    RadiativeEmission(FT=Float64; kw...)
+
+Returns a flux representing radiative emission from a surface.
+"""
 function RadiativeEmission(FT=Float64;
                            emissivity = 1,
                            stefan_boltzmann_constant = 5.67e-8,

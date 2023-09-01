@@ -13,8 +13,8 @@ using ClimaSeaIce.ThermalBoundaryConditions:
     FluxFunction,
     SurfaceTemperatureDependent,
     bottom_temperature,
-    surface_temperature,
-    surface_flux_imbalance,
+    top_temperature,
+    top_flux_imbalance,
     bottom_flux_imbalance
 
 # using RootSolvers: find_zero
@@ -38,7 +38,7 @@ struct SlabSeaIceModel{GR, CL, TS, IT, ST, IS, STF, TBC, CF, P}
     timestepper :: TS
     # State
     ice_thickness :: IT
-    surface_temperature :: ST
+    top_temperature :: ST
     ice_salinity :: IS
     # Boundary conditions
     external_thermal_fluxes :: STF
@@ -55,8 +55,8 @@ initialize!(::SSIM) = nothing
 default_included_properties(::SSIM) = tuple(:grid)
 
 fields(model::SSIM) = (h = model.ice_thickness,
-                       T = model.surface_temperature,
-                       S = model.ice_salinity)
+                       Tᵤ = model.top_temperature,
+                       Sᵢ = model.ice_salinity)
 
 # TODO: make this correct
 prognostic_fields(model::SSIM) = fields(model)
@@ -68,28 +68,28 @@ end
 ConductiveFlux(FT::DataType=Float64; conductivity) = ConductiveFlux(convert(FT, conductivity))
 
 @inline function slab_internal_thermal_flux(conductive_flux::ConductiveFlux,
-                                            surface_temperature,
+                                            top_temperature,
                                             bottom_temperature,
                                             ice_thickness)
 
     k = conductive_flux.conductivity
-    Ts = surface_temperature
+    Tu = top_temperature
     Tb = bottom_temperature
     h = ice_thickness
 
-    return - k * (Ts - Tb) / h
+    return - k * (Tu - Tb) / h
 end
 
 @inline function slab_internal_thermal_flux(i, j, grid,
-                                            surface_temperature::Number,
+                                            top_temperature::Number,
                                             clock, fields, parameters)
     flux = parameters.flux
     bottom_bc = parameters.bottom_thermal_boundary_condition
     liquidus = parameters.liquidus
-    Ts = surface_temperature
+    Tu = top_temperature
     Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
     h = @inbounds fields.h[i, j, 1]
-    return slab_internal_thermal_flux(flux, Ts, Tb, h)
+    return slab_internal_thermal_flux(flux, Tu, Tb, h)
 end
 
 """
@@ -98,16 +98,16 @@ end
 Pretty simple model for sea ice.
 """
 function SlabSeaIceModel(grid;
-                         clock                              = Clock{eltype(grid)}(0, 0, 1),
-                         ice_thickness                      = Field{Center, Center, Nothing}(grid),
-                         ice_salinity                       = 0, # psu
-                         surface_temperature                = nothing,
-                         surface_thermal_flux               = 0,
-                         bottom_thermal_flux                = 0,
-                         surface_thermal_boundary_condition = MeltingConstrainedFluxBalance(),
-                         bottom_thermal_boundary_condition  = IceWaterThermalEquilibrium(),
-                         internal_thermal_flux              = ConductiveFlux(eltype(grid), conductivity=2),
-                         phase_transitions                  = PhaseTransitions(eltype(grid)))
+                         clock                             = Clock{eltype(grid)}(0, 0, 1),
+                         ice_thickness                     = Field{Center, Center, Nothing}(grid),
+                         ice_salinity                      = 0, # psu
+                         top_temperature                   = nothing,
+                         top_thermal_flux                  = 0,
+                         bottom_thermal_flux               = 0,
+                         top_thermal_boundary_condition    = MeltingConstrainedFluxBalance(),
+                         bottom_thermal_boundary_condition = IceWaterThermalEquilibrium(),
+                         internal_thermal_flux             = ConductiveFlux(eltype(grid), conductivity=2),
+                         phase_transitions                 = PhaseTransitions(eltype(grid)))
 
     # Only one time-stepper is supported currently
     timestepper = ForwardEulerTimestepper()
@@ -118,18 +118,18 @@ function SlabSeaIceModel(grid;
     # Wrap ice_salinity in a field
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
-    # Construct default surface temperature if one is not provided
-    if isnothing(surface_temperature)
-        # Check surface boundary condition
-        if surface_thermal_boundary_condition isa PrescribedTemperature  
-            surface_temperature = surface_thermal_boundary_condition.temperature 
+    # Construct default top temperature if one is not provided
+    if isnothing(top_temperature)
+        # Check top boundary condition
+        if top_thermal_boundary_condition isa PrescribedTemperature  
+            top_temperature = top_thermal_boundary_condition.temperature 
         else # build the default
-            surface_temperature = Field{Center, Center, Nothing}(grid)
+            top_temperature = Field{Center, Center, Nothing}(grid)
         end
     end
 
     # Convert to `field` (does nothing if it's already a Field)
-    surface_temperature = field((Center, Center, Nothing), surface_temperature, grid)
+    top_temperature = field((Center, Center, Nothing), top_temperature, grid)
 
     # Construct an internal thermal flux function that captures the liquidus and
     # bottom boundary condition.
@@ -139,20 +139,20 @@ function SlabSeaIceModel(grid;
 
     internal_thermal_flux_function = FluxFunction(slab_internal_thermal_flux;
                                                   parameters,
-                                                  surface_temperature_dependent=true)
+                                                  top_temperature_dependent=true)
 
     # Package the external fluxes and boundary conditions
-    external_thermal_fluxes = (surface = surface_thermal_flux,    
+    external_thermal_fluxes = (top = top_thermal_flux,    
                                bottom = bottom_thermal_flux) 
 
-    thermal_boundary_conditions = (surface = surface_thermal_boundary_condition,
+    thermal_boundary_conditions = (top = top_thermal_boundary_condition,
                                    bottom = bottom_thermal_boundary_condition)
 
     return SlabSeaIceModel(grid,
                            clock,
                            timestepper,
                            ice_thickness,
-                           surface_temperature,
+                           top_temperature,
                            ice_salinity,
                            external_thermal_fluxes,
                            thermal_boundary_conditions,
@@ -173,51 +173,51 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
     liquidus = phase_transitions.liquidus
 
     h = model.ice_thickness
-    Ts = model.surface_temperature
+    Tu = model.top_temperature
     model_fields = fields(model)
     ice_salinity = model.ice_salinity
     clock = model.clock
     bottom_thermal_bc = model.thermal_boundary_conditions.bottom
-    surface_thermal_bc = model.thermal_boundary_conditions.surface
+    top_thermal_bc = model.thermal_boundary_conditions.top
 
     Qi = model.internal_thermal_flux
     Qb = model.external_thermal_fluxes.bottom
-    Qs = model.external_thermal_fluxes.surface
+    Qs = model.external_thermal_fluxes.top
 
     for i = 1:Nx, j=1:Ny
 
         @inbounds begin
-            Tsⁿ = Ts[i, j, 1]
+            Tuⁿ = Tu[i, j, 1]
             S = ice_salinity[i, j, 1]
         end
 
         # 1. Update thickness with ForwardEuler step
-        # 1a. Calculate residual fluxes across the top surface and bottom
-        δQs = surface_flux_imbalance(i, j, grid, surface_thermal_bc, Tsⁿ, Qi, Qs, clock, model_fields)
-        δQb =  bottom_flux_imbalance(i, j, grid, bottom_thermal_bc,  Tsⁿ, Qi, Qb, clock, model_fields)
+        # 1a. Calculate residual fluxes across the top top and bottom
+        δQs = top_flux_imbalance(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qs, clock, model_fields)
+        δQb =  bottom_flux_imbalance(i, j, grid, bottom_thermal_bc,  Tuⁿ, Qi, Qb, clock, model_fields)
 
-        # 1b. Impose an implicit flux balance if Ts ≤ Tm.
+        # 1b. Impose an implicit flux balance if Tu ≤ Tm.
         Tₘ = melting_temperature(liquidus, S) 
-        δQs = ifelse(Tsⁿ <= Tₘ, zero(grid), δQs)
+        δQs = ifelse(Tuⁿ <= Tₘ, zero(grid), δQs)
 
-        # 1c. Calculate the latent heat of fusion at the surface and bottom
+        # 1c. Calculate the latent heat of fusion at the top and bottom
         Tbⁿ = bottom_temperature(i, j, grid, bottom_thermal_bc, liquidus)
-        ℒ_Ts = latent_heat(phase_transitions, Tsⁿ)
+        ℒ_Tu = latent_heat(phase_transitions, Tuⁿ)
         ℒ_Tb = latent_heat(phase_transitions, Tbⁿ)
 
         # 1d. Increment the thickness
         @inbounds begin
-            h⁺ = h[i, j, 1] + Δt * (δQb / ℒ_Tb + δQs / ℒ_Ts)
+            h⁺ = h[i, j, 1] + Δt * (δQb / ℒ_Tb + δQs / ℒ_Tu)
             h⁺ = max(zero(grid), h⁺)
             h[i, j, 1] = h⁺
         end
 
-        if !isa(surface_thermal_bc, PrescribedTemperature)
-            # 2. Update surface temperature
-            Ts⁺ = surface_temperature(i, j, grid, surface_thermal_bc, Tsⁿ, Qi, Qs, clock, model_fields)
+        if !isa(top_thermal_bc, PrescribedTemperature)
+            # 2. Update top temperature
+            Tu⁺ = top_temperature(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qs, clock, model_fields)
 
-            # 3. Set surface temperature (could skip this for `PrescribedTemperature`)
-            @inbounds Ts[i, j, 1] = Ts⁺ 
+            # 3. Set top temperature (could skip this for `PrescribedTemperature`)
+            @inbounds Tu[i, j, 1] = Tu⁺ 
         end
     end
 
@@ -228,24 +228,24 @@ end
 
 function update_state!(model::SSIM)
 
-    surface_thermal_bc = model.thermal_boundary_conditions.surface
+    top_thermal_bc = model.thermal_boundary_conditions.top
 
-    if !isa(surface_thermal_bc, PrescribedTemperature)
+    if !isa(top_thermal_bc, PrescribedTemperature)
         grid = model.grid
         Nx, Ny, Nz = size(grid)
 
-        Ts = model.surface_temperature
+        Tu = model.top_temperature
         model_fields = fields(model)
         clock = model.clock
-        surface_thermal_bc = model.thermal_boundary_conditions.surface
+        top_thermal_bc = model.thermal_boundary_conditions.top
         Qi = model.internal_thermal_flux
-        Qs = model.external_thermal_fluxes.surface
+        Qs = model.external_thermal_fluxes.top
 
-        # Update surface temperature
+        # Update top temperature
         for i = 1:Nx, j=1:Ny
-            Ts⁻ = @inbounds Ts[i, j, 1]
-            Tsⁿ = surface_temperature(i, j, grid, surface_thermal_bc, Ts⁻, Qi, Qs, clock, model_fields)
-            @inbounds Ts[i, j, 1] = Tsⁿ
+            Tu⁻ = @inbounds Tu[i, j, 1]
+            Tuⁿ = top_temperature(i, j, grid, top_thermal_bc, Tu⁻, Qi, Qs, clock, model_fields)
+            @inbounds Tu[i, j, 1] = Tuⁿ
         end
 
     end
