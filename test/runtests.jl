@@ -2,7 +2,7 @@ using Test
 
 using ClimaSeaIce
 using Oceananigans
-using ClimaSeaIce.EnthalpyMethodSeaIceModel: MolecularDiffusivity
+using ClimaSeaIce.EnthalpyMethodSeaIceModels: MolecularDiffusivity
 
 κ = 1e-5
 grid = RectilinearGrid(size=3, z=(-3, 0), topology=(Flat, Flat, Bounded))
