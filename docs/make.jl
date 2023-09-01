@@ -26,7 +26,7 @@ for filename in example_scripts
 end
 
 example_pages = [
-    "Freezing bucket" => "generated/freezing_bucket.jl",
+    "Freezing bucket" => "generated/freezing_bucket.md",
 ]
 
 #####
