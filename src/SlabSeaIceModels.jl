@@ -15,10 +15,12 @@ using ClimaSeaIce.ThermalBoundaryConditions:
     bottom_temperature,
     top_temperature,
     top_flux_imbalance,
-    bottom_flux_imbalance
+    bottom_flux_imbalance,
+    flux_summary
 
 # using RootSolvers: find_zero
 
+using Oceananigans.Architectures: architecture
 using Oceananigans.Fields: Field, Center, ZeroField, ConstantField
 using Oceananigans.TimeSteppers: Clock, tick!
 
@@ -28,6 +30,8 @@ import Oceananigans.Fields: field, set!
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Simulations: reset!, initialize!
 import Oceananigans.OutputWriters: default_included_properties
+import Oceananigans.Utils: prettytime
+import Oceananigans.Simulations: iteration
 
 # TODO: move to Oceananigans
 field(loc, a::Number, grid) = ConstantField(a)
@@ -51,6 +55,25 @@ end
 
 const SSIM = SlabSeaIceModel
 
+Base.summary(model::SSIM) = "SlabSeaIceModel"
+
+prettytime(model::SSIM) = prettytime(model.clock.time)
+iteration(model::SSIM) = model.clock.iteration
+
+function Base.show(io::IO, model::SSIM)
+    grid = model.grid
+    arch = architecture(grid)
+    gridname = typeof(grid).name.wrapper
+    timestr = string("(time = ", prettytime(model), ", iteration = ", iteration(model), ")")
+
+    print(io, "SlabSeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
+    print(io, "├── grid: ", summary(model.grid), '\n')
+    print(io, "├── top_temperature: ", summary(model.top_temperature), '\n')
+    print(io, "└── external_thermal_fluxes: ", '\n')
+    print(io, "    ├── top: ", flux_summary(model.external_thermal_fluxes.top, "    │"), '\n')
+    print(io, "    └── bottom: ", flux_summary(model.external_thermal_fluxes.bottom, "     "))
+end
+         
 initialize!(::SSIM) = nothing
 default_included_properties(::SSIM) = tuple(:grid)
 
@@ -77,7 +100,7 @@ ConductiveFlux(FT::DataType=Float64; conductivity) = ConductiveFlux(convert(FT, 
     Tb = bottom_temperature
     h = ice_thickness
 
-    return - k * (Tu - Tb) / h
+    return ifelse(h <= 0, zero(h), - k * (Tu - Tb) / h)
 end
 
 @inline function slab_internal_thermal_flux(i, j, grid,
@@ -194,7 +217,7 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
         # 1. Update thickness with ForwardEuler step
         # 1a. Calculate residual fluxes across the top top and bottom
         δQs = top_flux_imbalance(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qs, clock, model_fields)
-        δQb =  bottom_flux_imbalance(i, j, grid, bottom_thermal_bc,  Tuⁿ, Qi, Qb, clock, model_fields)
+        δQb = bottom_flux_imbalance(i, j, grid, bottom_thermal_bc,  Tuⁿ, Qi, Qb, clock, model_fields)
 
         # 1b. Impose an implicit flux balance if Tu ≤ Tm.
         Tₘ = melting_temperature(liquidus, S) 

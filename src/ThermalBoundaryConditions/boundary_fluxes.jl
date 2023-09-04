@@ -1,3 +1,5 @@
+using Oceananigans.Utils: prettysummary
+
 #####
 ##### Fluxes
 #####
@@ -33,6 +35,15 @@ struct FluxFunction{P, T, F}
         new{P, T, F}(func, parameters)
     end
 end
+
+Base.summary(flux::FluxFunction{<:Nothing}) = string("FluxFunction of ", prettysummary(flux.func, false))
+
+Base.summary(flux::FluxFunction) = string("FluxFunction of ",
+                                          prettysummary(flux.func, false),
+                                          " with parameters ",
+                                          prettysummary(flux.parameters))
+
+Base.show(io::IO, flux::FluxFunction) = print(io, summary(flux))
 
 """
     FluxFunction(func; parameters=nothing, top_temperature_dependent=false)
@@ -94,3 +105,33 @@ end
     return ϵ * σ * (T + Tᵣ)^4
 end
 
+function Base.summary(flux::RadiativeEmission)
+    σ = flux.stefan_boltzmann_constant
+    ϵ = flux.emissivity
+    Tᵣ = flux.reference_temperature
+    return string("RadiativeEmission(",
+                  "emissivity = ", prettysummary(ϵ), ", ",
+                  "stefan_boltzmann_constant = ", prettysummary(σ), ", ",
+                  "reference_temperature = ", prettysummary(Tᵣ), ")")
+end
+
+Base.show(io::IO, flux::RadiativeEmission) = print(io, summary(flux))
+
+#####
+##### show
+#####
+
+flux_summary(flux, padchar=" ") = prettysummary(flux)
+
+function flux_summary(fluxes::Tuple, padchar=" ")
+    Nfluxes = length(fluxes)
+    if Nfluxes == 1
+        return string("Tuple with 1 flux:", "\n",
+                      "$padchar   └── ", summary(fluxes[1]))
+    else
+        return string("Tuple with $Nfluxes fluxes:", "\n",
+         Tuple(string("$padchar   ├── ", summary(c), "\n") for c in fluxes[1:end-1])...,
+                      "$padchar   └── ", summary(fluxes[end]))
+    end
+end
+ 
