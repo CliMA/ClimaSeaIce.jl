@@ -117,7 +117,7 @@ end
     cᵢ = thermo.ice_heat_capacity
     cℓ = thermo.liquid_heat_capacity
 
-    return ρᵢ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
+    return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
 struct ForwardEulerTimestepper end

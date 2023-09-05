@@ -216,21 +216,21 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
 
         # 1. Update thickness with ForwardEuler step
         # 1a. Calculate residual fluxes across the top top and bottom
-        δQs = top_flux_imbalance(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qs, clock, model_fields)
+        δQu = top_flux_imbalance(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qs, clock, model_fields)
         δQb = bottom_flux_imbalance(i, j, grid, bottom_thermal_bc,  Tuⁿ, Qi, Qb, clock, model_fields)
 
         # 1b. Impose an implicit flux balance if Tu ≤ Tm.
         Tₘ = melting_temperature(liquidus, S) 
-        δQs = ifelse(Tuⁿ <= Tₘ, zero(grid), δQs)
+        δQu = ifelse(Tuⁿ <= Tₘ, zero(grid), δQu)
 
         # 1c. Calculate the latent heat of fusion at the top and bottom
         Tbⁿ = bottom_temperature(i, j, grid, bottom_thermal_bc, liquidus)
-        ℒ_Tu = latent_heat(phase_transitions, Tuⁿ)
-        ℒ_Tb = latent_heat(phase_transitions, Tbⁿ)
+        ℰu = latent_heat(phase_transitions, Tuⁿ)
+        ℰb = latent_heat(phase_transitions, Tbⁿ)
 
         # 1d. Increment the thickness
         @inbounds begin
-            h⁺ = h[i, j, 1] + Δt * (δQb / ℒ_Tb + δQs / ℒ_Tu)
+            h⁺ = h[i, j, 1] + Δt * (δQb / ℰb + δQu / ℰu)
             h⁺ = max(zero(grid), h⁺)
             h[i, j, 1] = h⁺
         end
