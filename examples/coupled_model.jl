@@ -14,6 +14,10 @@ end
 function IceOceanModel(ice, ocean)
     previous_ice_thickness = deepcopy(ice.model.ice_thickness)
 
+    grid = ocean.model.grid
+    ice_ocean_thermal_flux = Field{Center, Center, Nothing}(grid)
+    ice_ocean_salt_flux = Field{Center, Center, Nothing}(grid)
+
     ocean_density = 1024
     ocean_heat_capacity = 3991
     ocean_emissivity = 1
@@ -56,7 +60,8 @@ function compute_air_sea_flux!(coupled_model)
     Nz = size(ocean.model.grid, 3)
 
     @inbounds begin
-        T₀ = T[1, 1, 1]
+        # Ocean surface temperature
+        T₀ = T[1, 1, Nz]
         h = ice.model.ice_thickness[1, 1, 1]
         I₀ = solar_insolation[1, 1, 1]
     end
@@ -88,61 +93,107 @@ function time_step!(coupled_model::IceOceanModel, Δt)
     ice.Δt = Δt
     ocean.Δt = Δt
 
+    # Initialization
+    if coupled_model.ocean.model.clock.iteration == 0
+        h⁻ = coupled_model.previous_ice_thickness
+        hⁿ = coupled_model.ice.model.ice_thickness
+        parent(h⁻) .= parent(hⁿ)
+    end
+
+    # TODO: put this in update_state!
+    compute_ice_ocean_salinity_flux!(coupled_model)
+    ice_ocean_latent_heat!(coupled_model)
     compute_solar_insolation!(coupled_model)
     compute_air_sea_flux!(coupled_model)
 
     time_step!(ice)
+    time_step!(ocean)
 
     # TODO:
     # - Store fractional ice-free / ice-covered _time_ for more
     #   accurate flux computation?
     # - Or, input "excess heat flux" into ocean after the ice melts
     # - Currently, non-conservative for heat due bc we don't account for excess
-
-    # Compute salinity increment due to changes in ice thickness
-    h⁻ = coupled_model.previous_ice_thickness
-    hⁿ = coupled_model.ice.model.ice_thickness
-    Sᵢ = coupled_model.ice.model.ice_salinity
-    Sₒ = ocean.model.tracers.S
-
-    @inbounds begin
-        Δz = Δzᶜᶜᶜ(1, 1, 1, ocean.model.grid)
-        Δh = hⁿ[1, 1, 1] - h⁻[1, 1, 1]
-        ΔS = Δh / Δz * (Sₒ[1, 1, 1] - Sᵢ[1, 1, 1])
-
-        # Update ocean salinity
-        Sₒ[1, 1, 1] += ΔS
-
-        # Update previous ice thickness
-        h⁻[1, 1, 1] = hⁿ[1, 1, 1]
-    end
-
-    time_step!(ocean)
-
-    # Compute ice-ocean latent heat flux
-    ρₒ = coupled_model.ocean_density
-    cₒ = coupled_model.ocean_heat_capacity
-    hₒ = ocean.model.grid.Lz # mixed layer depth
-    Qₒ = ice.model.external_thermal_fluxes.bottom
-    Tₒ = ocean.model.tracers.T
-
-    @inbounds begin
-        T₁ = Tₒ[1, 1, 1]
-        S₁ = Sₒ[1, 1, 1]
-
-        # Compute total latent heat (per unit area) and latent heat flux
-        Tₘ = melting_temperature(liquidus, S₁)
-        δE = ρₒ * cₒ * (T₁ - Tₘ) # > 0
-        δQ = δE * hₒ / Δt        # > 0 (we are warming the ocean)
-
-        # Clip 
-        Qₒ[1, 1, 1] = min(zero(grid), δQ)
-        Tₒ[1, 1, 1] = max(Tₘ, Tₒ[1, 1, 1])
-    end
-
+        
     # TODO after ice time-step:
     #   - Adjust ocean temperature if the ice completely melts?
     
     return nothing
 end
 
+function compute_ice_ocean_salinity_flux!(coupled_model)
+    # Compute salinity increment due to changes in ice thickness
+    h⁻ = coupled_model.previous_ice_thickness
+    hⁿ = coupled_model.ice.model.ice_thickness
+    Sᵢ = coupled_model.ice.model.ice_salinity
+
+    ocean = coupled_model.ocean
+    Sₒ = ocean.model.tracers.S
+    Qˢ = ocean.model.tracers.S.boundary_conditions.top.condition
+
+    Nz = size(ocean.model.grid, 3)
+
+    i = j = 1
+    @inbounds begin
+        # Thickness of surface grid cell
+        Δz = Δzᶜᶜᶜ(i, j, Nz, ocean.model.grid)
+        Δh = hⁿ[i, j, 1] - h⁻[i, j, 1]
+
+        # Update surface salinity flux.
+        # Note: the Δt below is the ocean time-step, eg.
+        # ΔS = ⋯ - ∮ Qˢ dt ≈ ⋯ - Δtₒ * Qˢ 
+        Qˢ[i, j, 1] = Δh / Δt * (Sᵢ[i, j, 1] - Sₒ[i, j, Nz])
+
+        # Update previous ice thickness
+        h⁻[i, j, 1] = hⁿ[i, j, 1]
+    end
+
+    return nothing
+end
+
+function ice_ocean_latent_heat!(coupled_model)
+    ocean = coupled_model.ocean
+    ice = coupled_model.ice
+    ρₒ = coupled_model.ocean_density
+    cₒ = coupled_model.ocean_heat_capacity
+    Qₒ = ice.model.external_thermal_fluxes.bottom
+    Tₒ = ocean.model.tracers.T
+    Sₒ = ocean.model.tracers.S
+    Δt = ocean.Δt
+    hᵢ = ice.model.ice_thickness
+
+    liquidus = ice.model.phase_transitions.liquidus
+    grid = ocean.model.grid
+
+    δQ = zero(grid)
+    Nz = size(grid, 3)
+
+    i = j = 1
+    ice_covered = @inbounds hᵢ[i, j, 1] > 0
+    for k = Nz:-1:1
+        @inbounds begin
+            # Compute melting temperature
+            Sᴺ = Sₒ[i, j, k]
+            Tₘ = melting_temperature(liquidus, Sᴺ)
+
+            # Compute total latent heat (per unit area) and latent heat flux
+            Tᴺ = Tₒ[i, j, k]
+
+            δE = ρₒ * cₒ * (Tᴺ - Tₘ) # < 0 in freezing conditions
+                                     # > 0 in melting conditions
+                                     
+            freezing = Tᴺ < Tₘ
+            δE = ifelse(ice_covered | freezing, δE, zero(grid))
+            Tₒ[i, j, k] = ifelse(freezing, Tₘ, Tᴺ)
+            Tₒ[i, j, k] = ifelse((k == Nz) & ice_covered, Tₘ, Tᴺ)
+
+            Δz = Δzᶜᶜᶜ(i, j, k, grid)
+            δQ += δE * Δz / Δt # < 0 (we are warming the ocean)
+        end
+    end
+
+    # Store ice-ocean flux (ignoring positive values computed when the, which 
+    @inbounds Qₒ[i, j, 1] = δQ
+
+    return nothing
+end
