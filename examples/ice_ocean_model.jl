@@ -1,8 +1,9 @@
 using Oceananigans.Operators
 
-struct IceOceanModel{FT, I, O, PI}
+struct IceOceanModel{FT, I, O, PI, PC}
     ice :: I
-    previous_ice_thickness:: PI
+    previous_ice_thickness :: PI
+    previous_ice_concentration :: PC
     ocean :: O
     ocean_density :: FT
     ocean_heat_capacity :: FT
@@ -13,6 +14,7 @@ end
 
 function IceOceanModel(ice, ocean)
     previous_ice_thickness = deepcopy(ice.model.ice_thickness)
+    previous_ice_concentration = deepcopy(ice.model.ice_concentration)
 
     grid = ocean.model.grid
     ice_ocean_thermal_flux = Field{Center, Center, Nothing}(grid)
@@ -41,6 +43,7 @@ function IceOceanModel(ice, ocean)
 
     return IceOceanModel(ice,
                          previous_ice_thickness,
+                         previous_ice_concentration,
                          ocean,
                          convert(FT, ocean_density),
                          convert(FT, ocean_heat_capacity),
@@ -125,6 +128,8 @@ function compute_ice_ocean_salinity_flux!(coupled_model)
     # Compute salinity increment due to changes in ice thickness
     h⁻ = coupled_model.previous_ice_thickness
     hⁿ = coupled_model.ice.model.ice_thickness
+    αⁿ = coupled_model.ice.model.ice_concentration
+    α⁻ = coupled_model.previous_ice_concentration
     Sᵢ = coupled_model.ice.model.ice_salinity
 
     ocean = coupled_model.ocean
@@ -137,7 +142,7 @@ function compute_ice_ocean_salinity_flux!(coupled_model)
     @inbounds begin
         # Thickness of surface grid cell
         Δz = Δzᶜᶜᶜ(i, j, Nz, ocean.model.grid)
-        Δh = hⁿ[i, j, 1] - h⁻[i, j, 1]
+        Δh = αⁿ[i, j, 1] * hⁿ[i, j, 1] - α⁻[i, j, 1] * h⁻[i, j, 1]
 
         # Update surface salinity flux.
         # Note: the Δt below is the ocean time-step, eg.
@@ -188,7 +193,7 @@ function ice_ocean_latent_heat!(coupled_model)
             Tₒ[i, j, k] = ifelse((k == Nz) & ice_covered, Tₘ, Tᴺ)
 
             Δz = Δzᶜᶜᶜ(i, j, k, grid)
-            δQ += δE * Δz / Δt # < 0 (we are warming the ocean)
+            δQ += δE * Δz / Δt # < 0 (in freezing conditions since we are warming the ocean)
         end
     end
 

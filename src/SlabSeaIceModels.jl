@@ -16,6 +16,7 @@ using ClimaSeaIce.ThermalBoundaryConditions:
     top_temperature,
     top_flux_imbalance,
     bottom_flux_imbalance,
+    getflux,
     flux_summary
 
 # using RootSolvers: find_zero
@@ -23,6 +24,7 @@ using ClimaSeaIce.ThermalBoundaryConditions:
 using Oceananigans.Architectures: architecture
 using Oceananigans.Fields: Field, Center, ZeroField, ConstantField
 using Oceananigans.TimeSteppers: Clock, tick!
+using Oceananigans.Utils: prettysummary
 
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
@@ -36,12 +38,13 @@ import Oceananigans.Simulations: iteration
 # TODO: move to Oceananigans
 field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, ST, IS, STF, TBC, CF, P}
+struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, STF, TBC, CF, P, MIT}
     grid :: GR
     clock :: CL
     timestepper :: TS
     # State
     ice_thickness :: IT
+    ice_concentration :: IC
     top_temperature :: ST
     ice_salinity :: IS
     # Boundary conditions
@@ -51,6 +54,7 @@ struct SlabSeaIceModel{GR, CL, TS, IT, ST, IS, STF, TBC, CF, P}
     internal_thermal_flux :: CF
     # Melting and freezing stuff
     phase_transitions :: P
+    minimum_ice_thickness :: MIT
 end
 
 const SSIM = SlabSeaIceModel
@@ -69,6 +73,7 @@ function Base.show(io::IO, model::SSIM)
     print(io, "SlabSeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
     print(io, "├── top_temperature: ", summary(model.top_temperature), '\n')
+    print(io, "├── minimium_ice_thickness: ", prettysummary(model.minimum_ice_thickness), '\n')
     print(io, "└── external_thermal_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_thermal_fluxes.top, "    │"), '\n')
     print(io, "    └── bottom: ", flux_summary(model.external_thermal_fluxes.bottom, "     "))
@@ -78,6 +83,7 @@ initialize!(::SSIM) = nothing
 default_included_properties(::SSIM) = tuple(:grid)
 
 fields(model::SSIM) = (h = model.ice_thickness,
+                       α = model.ice_concentration,
                        Tᵤ = model.top_temperature,
                        Sᵢ = model.ice_salinity)
 
@@ -123,6 +129,8 @@ Pretty simple model for sea ice.
 function SlabSeaIceModel(grid;
                          clock                             = Clock{eltype(grid)}(0, 0, 1),
                          ice_thickness                     = Field{Center, Center, Nothing}(grid),
+                         minimum_ice_thickness             = 0.0, # m
+                         ice_concentration                 = Field{Center, Center, Nothing}(grid),
                          ice_salinity                      = 0, # psu
                          top_temperature                   = nothing,
                          top_thermal_flux                  = 0,
@@ -140,6 +148,7 @@ function SlabSeaIceModel(grid;
 
     # Wrap ice_salinity in a field
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    minimum_ice_thickness = field((Center, Center, Nothing), minimum_ice_thickness, grid)
 
     # Construct default top temperature if one is not provided
     if isnothing(top_temperature)
@@ -175,16 +184,19 @@ function SlabSeaIceModel(grid;
                            clock,
                            timestepper,
                            ice_thickness,
+                           ice_concentration,
                            top_temperature,
                            ice_salinity,
                            external_thermal_fluxes,
                            thermal_boundary_conditions,
                            internal_thermal_flux_function,
-                           phase_transitions)
+                           phase_transitions,
+                           minimum_ice_thickness)
 end
 
-function set!(model::SSIM; h=nothing)
+function set!(model::SSIM; h=nothing, α=nothing)
     !isnothing(h) && set!(model.ice_thickness, h)
+    !isnothing(α) && set!(model.ice_conentration, α)
     return nothing
 end
 
@@ -196,6 +208,9 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
     liquidus = phase_transitions.liquidus
 
     h = model.ice_thickness
+    h_min = model.minimum_ice_thickness
+    α = model.ice_concentration
+
     Tu = model.top_temperature
     model_fields = fields(model)
     ice_salinity = model.ice_salinity
@@ -217,7 +232,20 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
         # 1. Update thickness with ForwardEuler step
         # 1a. Calculate residual fluxes across the top top and bottom
         δQu = top_flux_imbalance(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qs, clock, model_fields)
-        δQb = bottom_flux_imbalance(i, j, grid, bottom_thermal_bc,  Tuⁿ, Qi, Qb, clock, model_fields)
+
+        # TODO:
+        # - distinguish between frazil ice formation (when Qb > 0) and accretion (due to Qi < 0)
+        # - model increases in the ice concentration due to frazil ice formation (rather than simply
+        #   modeling frazil ice formation as an increase in _ice thickness_, ie identically as
+        #   accretion)
+        #
+        # δQb = bottom_flux_imbalance(i, j, grid, bottom_thermal_bc, Tuⁿ, Qi, Qb, clock, model_fields)
+        Qiᵢ = getflux(Qi, i, j, grid, Tuⁿ, clock, model_fields)
+        Qbᵢ = getflux(Qb, i, j, grid, Tuⁿ, clock, model_fields)
+
+        # Separate ocean flux if it represents the formation of pancake ice via frazil
+        frazil = Qbᵢ < 0 # (latent heat is being released to form crystals)
+        δQb = Qiᵢ - Qbᵢ * !frazil
 
         # 1b. Impose an implicit flux balance if Tu ≤ Tm.
         Tₘ = melting_temperature(liquidus, S) 
@@ -230,9 +258,54 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
 
         # 1d. Increment the thickness
         @inbounds begin
-            h⁺ = h[i, j, 1] + Δt * (δQb / ℰb + δQu / ℰu)
-            h⁺ = max(zero(grid), h⁺)
-            h[i, j, 1] = h⁺
+            hⁿ = h[i, j, 1]
+            αⁿ = α[i, j, 1]
+
+            # Thickness change due to accretion and melting,
+            # restricted by minimum allowable value
+            Δh = Δt * (δQb / ℰb + δQu / ℰu)
+            h⁺ = hⁿ + Δh
+
+            # If melting occurred, ensure that the thickness is above
+            # the minimum value.
+            #melting = Δh < 0
+            #h⁺ = max(h_min[i, j, 1], h⁺)
+            #h′ = max(h⁺, h_min[i, j, 1])
+
+            # Thickness change by frazil ice formation
+            δ = - frazil * Δt * Qbᵢ / ℰb
+
+            # Accrete frazil onto existing ice.
+            h′ = h⁺ + δ
+            @show h′
+
+            # This produces a volume change of α * δ, which can be
+            # as small as 0 when α = 0. The remainin volume of frazil
+            # ice is
+            δ′ = δ * (1 - αⁿ) 
+
+            # Restrict thickness to larger than minimum value
+            h′′ = max(h′, h_min[i, j, 1])
+
+            # Use remaining volume to increase the ice concentration.
+            # The relative volume change will be Δα * h′′′, which we set equal
+            # to the relative remaining frazil volume δ′ = δ (1 - α),
+            # such that
+            Δα = δ′ / h′′ * frazil
+            @show h′′
+            @show Δα
+
+            # Increase area fraction but don't let it go above 1
+            α⁺ = min(one(grid), αⁿ + Δα)
+
+            # Accrete remaining ice volume if the fractional area change resulted
+            # in the cell becoming completely ice covered
+            ice_covered = α⁺ == 1
+            δ′′ = (δ′ - (α⁺ - αⁿ) * h′′) * ice_covered
+            h′′′ = h′′ + δ′′
+
+            h[i, j, 1] = h′′′
+            α[i, j, 1] = α⁺
         end
 
         if !isa(top_thermal_bc, PrescribedTemperature)

@@ -10,7 +10,7 @@ using GLMakie
 
 import Oceananigans.Simulations: time_step!, time
 
-include("coupled_model.jl")
+include("ice_ocean_model.jl")
 
 Δt = 4hours
 mixed_layer_depth = hₒ = 100
@@ -54,6 +54,7 @@ ocean_simulation = Simulation(ocean_model; Δt=1hour)
 
 
 ice_model = SlabSeaIceModel(ice_grid;
+                            minimum_ice_thickness = 0.01,
                             top_thermal_flux = (solar_insolation, radiative_emission),
                             bottom_thermal_flux = ice_ocean_flux)
 
@@ -70,19 +71,20 @@ g = ocean_model.buoyancy.model.gravitational_acceleration
 α = thermal_expansion(T₀, S₀, 0, equation_of_state)
 dTdz = N²θ / (α * g)
 
-N²S = 1e-6
+N²S = 1e-4
 β = haline_contraction(T₀, S₀, 0, equation_of_state)
 dSdz = N²S / (β * g)
 
 Tᵢ(x, y, z) = T₀ + z * dTdz
 Sᵢ(x, y, z) = S₀ - z * dSdz
 
-set!(ocean_model, S=Sᵢ, T=Tᵢ)
+set!(ocean_model, S=Sᵢ, T=-1.6) #Tᵢ)
 
 coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
 
 t = Float64[]
 hi = Float64[]
+αi = Float64[]
 
 To = []
 So = []
@@ -90,12 +92,16 @@ eo = []
 
 Nz = size(ocean_grid, 3)
 
-for i = 1:12000
+for i = 1:1000
     time_step!(coupled_model, 20minutes)
 
-    if mod(i, 100) == 0
+    if mod(i, 1) == 0
         push!(t, time(ocean_simulation))
-        push!(hi, first(ice_model.ice_thickness))
+
+        h = ice_model.ice_thickness
+        α = ice_model.ice_concentration
+        push!(hi, first(h))
+        push!(αi, first(α))
 
         T, S, e = ocean_model.tracers
         push!(To, deepcopy(interior(T, 1, 1, :)))
@@ -103,10 +109,12 @@ for i = 1:12000
         push!(eo, deepcopy(interior(e, 1, 1, :)))
 
         @info string("Iter: ", iteration(ocean_simulation),
-                     ", time: ", prettytime(ocean_simulation),
-                     ", ocean temperature: ", prettysummary(ocean_model.tracers.T[1, 1, Nz]),
-                     ", ocean salinity: ", prettysummary(ocean_model.tracers.S[1, 1, Nz]),
-                     ", ice thickness: ", prettysummary(first(ice_model.ice_thickness)))
+                     ", t: ", prettytime(ocean_simulation),
+                     ", Tₒ: ", prettysummary(ocean_model.tracers.T[1, 1, Nz]),
+                     ", Sₒ: ", prettysummary(ocean_model.tracers.S[1, 1, Nz]),
+                     ", h: ", prettysummary(hi[end]),
+                     ", α: ", prettysummary(αi[end]),
+                     ", α h: ", prettysummary(αi[end] * hi[end]))
     end
 end
 
@@ -118,21 +126,22 @@ set_theme!(Theme(fontsize=24, linewidth=4))
 fig = Figure(resolution=(2400, 1200))
 
 axh = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
-axT = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ocean surface temperature (ᵒC)")
-axS = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Ocean surface salinity (psu)")
+axα = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice concentration")
+axT = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Ocean surface temperature (ᵒC)")
+axS = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Ocean surface salinity (psu)")
 
 lines!(axh, t ./ day, hi)
+lines!(axα, t ./ day, αi)
 lines!(axT, t ./ day, Ts)
 lines!(axS, t ./ day, Ss)
 
-axTz = Axis(fig[1:3, 2], xlabel="T", ylabel="z (m)")
-axSz = Axis(fig[1:3, 3], xlabel="S", ylabel="z (m)")
-# axez = Axis(fig[1:3, 4], xlabel="e", ylabel="z (m)", xscale=log10)
+axTz = Axis(fig[1:4, 2], xlabel="T", ylabel="z (m)")
+axSz = Axis(fig[1:4, 3], xlabel="S", ylabel="z (m)")
 
 z = znodes(ocean_model.tracers.T)
 
 Nt = length(t)
-slider = Slider(fig[4, 1:3], range=1:Nt, startvalue=1)
+slider = Slider(fig[5, 1:3], range=1:Nt, startvalue=1)
 n = slider.value
 
 Tn = @lift To[$n]
@@ -147,15 +156,16 @@ vlines!(axS, tn, color=(:black, 0.6))
 
 lines!(axTz, Tn, z)
 lines!(axSz, Sn, z)
-# lines!(axez, en, z)
 
 xlims!(axTz, -2, 6)
-xlims!(axSz, 26, 31)
-# xlims!(axez, 1e-7, 1e-3)
+# xlims!(axSz, 26, 31)
+
+colsize!(fig.layout, 2, Relative(0.2))
+colsize!(fig.layout, 3, Relative(0.2))
 
 display(fig)
 
-record(fig, "freezing_and_melting.mp4", 1:Nt, framerate=12) do nn
-    n[] = nn
-end
+# record(fig, "freezing_and_melting.mp4", 1:Nt, framerate=12) do nn
+#     n[] = nn
+# end
 
