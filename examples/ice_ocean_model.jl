@@ -66,6 +66,7 @@ function compute_air_sea_flux!(coupled_model)
         # Ocean surface temperature
         T₀ = T[1, 1, Nz]
         h = ice.model.ice_thickness[1, 1, 1]
+        α = ice.model.ice_concentration[1, 1, 1]
         I₀ = solar_insolation[1, 1, 1]
     end
 
@@ -83,7 +84,8 @@ function compute_air_sea_flux!(coupled_model)
     # Set the surface flux only if ice-free
     Qᵀ = T.boundary_conditions.top.condition
     grid = ocean.model.grid
-    @inbounds Qᵀ[1, 1, 1] = ifelse(h > 0, zero(grid), ΣQᵀ)
+
+    @inbounds Qᵀ[1, 1, 1] = (1 - α) * ΣQᵀ
 
     return nothing
 end
@@ -142,12 +144,14 @@ function compute_ice_ocean_salinity_flux!(coupled_model)
     @inbounds begin
         # Thickness of surface grid cell
         Δz = Δzᶜᶜᶜ(i, j, Nz, ocean.model.grid)
-        Δh = αⁿ[i, j, 1] * hⁿ[i, j, 1] - α⁻[i, j, 1] * h⁻[i, j, 1]
+        # Δh = αⁿ[i, j, 1] * hⁿ[i, j, 1] - α⁻[i, j, 1] * h⁻[i, j, 1]
+        Δh = hⁿ[i, j, 1] - h⁻[i, j, 1]
 
         # Update surface salinity flux.
         # Note: the Δt below is the ocean time-step, eg.
         # ΔS = ⋯ - ∮ Qˢ dt ≈ ⋯ - Δtₒ * Qˢ 
         Qˢ[i, j, 1] = Δh / Δt * (Sᵢ[i, j, 1] - Sₒ[i, j, Nz])
+        #Qˢ[i, j, 1] = 0
 
         # Update previous ice thickness
         h⁻[i, j, 1] = hⁿ[i, j, 1]
@@ -166,6 +170,7 @@ function ice_ocean_latent_heat!(coupled_model)
     Sₒ = ocean.model.tracers.S
     Δt = ocean.Δt
     hᵢ = ice.model.ice_thickness
+    αᵢ = ice.model.ice_concentration
 
     liquidus = ice.model.phase_transitions.liquidus
     grid = ocean.model.grid
@@ -174,27 +179,55 @@ function ice_ocean_latent_heat!(coupled_model)
     Nz = size(grid, 3)
 
     i = j = 1
-    ice_covered = @inbounds hᵢ[i, j, 1] > 0
+    icy_cell = @inbounds hᵢ[i, j, 1] > 0 # make ice bath approximation then
+
     for k = Nz:-1:1
         @inbounds begin
-            # Compute melting temperature
-            Sᴺ = Sₒ[i, j, k]
-            Tₘ = melting_temperature(liquidus, Sᴺ)
-
-            # Compute total latent heat (per unit area) and latent heat flux
-            Tᴺ = Tₒ[i, j, k]
-
-            δE = ρₒ * cₒ * (Tᴺ - Tₘ) # < 0 in freezing conditions
-                                     # > 0 in melting conditions
-                                     
-            freezing = Tᴺ < Tₘ
-            δE = ifelse(ice_covered | freezing, δE, zero(grid))
-            Tₒ[i, j, k] = ifelse(freezing, Tₘ, Tᴺ)
-            Tₒ[i, j, k] = ifelse((k == Nz) & ice_covered, Tₘ, Tᴺ)
-
+            # Various quantities
             Δz = Δzᶜᶜᶜ(i, j, k, grid)
-            δQ += δE * Δz / Δt # < 0 (in freezing conditions since we are warming the ocean)
+            Tᴺ = Tₒ[i, j, k]
+            Sᴺ = Sₒ[i, j, k]
         end
+
+        # Melting / freezing temperature at the surface of the ocean
+        Tₘ = melting_temperature(liquidus, Sᴺ)
+                                 
+        # Conditions for non-zero ice-ocean flux:
+        #   - the ocean is below the freezing temperature, causing formation of ice.
+        freezing = Tᴺ < Tₘ 
+
+        #   - We are at the surface and the cell is covered by ice.
+        icy_surface_cell = (k == Nz) & icy_cell
+
+        # When there is a non-zero ice-ocean flux, we will instantaneously adjust the
+        # temperature of the grid cells accordingly.
+        adjust_temperature = freezing | icy_surface_cell
+
+        # Compute change in ocean thermal energy.
+        #
+        #   - When Tᴺ < Tₘ, we heat the ocean back to melting temperature by extracting heat from the ice,
+        #     assuming that the heat flux (which is carried by nascent ice crystals called frazil ice) floats
+        #     instantaneously to the surface.
+        #
+        #   - When Tᴺ > Tₘ and we are in a surface cell covered by ice, we assume equilibrium
+        #     and cool the ocean by injecting excess heat into the ice.
+        # 
+        δEₒ = adjust_temperature * ρₒ * cₒ * (Tₘ - Tᴺ)
+
+        # Perform temperature adjustment
+        @inline Tₒ[i, j, k] = ifelse(adjust_temperature, Tₘ, Tᴺ)
+
+        # Compute the heat flux from ocean into ice.
+        #
+        # A positive value δQ > 0 implies that the ocean is cooled; ie heat
+        # is fluxing upwards, into the ice. This occurs when applying the
+        # ice bath equilibrium condition to cool down a warm ocean (δEₒ < 0).
+        #
+        # A negative value δQ < 0 implies that heat is fluxed from the ice into
+        # the ocean, cooling the ice and heating the ocean (δEₒ > 0). This occurs when
+        # frazil ice is formed within the ocean.
+        
+        δQ -= δEₒ * Δz / Δt
     end
 
     # Store ice-ocean flux (ignoring positive values computed when the, which 
