@@ -235,6 +235,8 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
             h[i, j, 1] = h⁺
         end
 
+        # Adjust ice concentration and thickness to meet minimum thickness criteria
+
         if !isa(top_thermal_bc, PrescribedTemperature)
             # 2. Update top temperature
             Tu⁺ = top_temperature(i, j, grid, top_thermal_bc, Tuⁿ, Qi, Qs, clock, model_fields)

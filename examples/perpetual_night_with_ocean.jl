@@ -90,14 +90,17 @@ eo = []
 
 Nz = size(ocean_grid, 3)
 
-for i = 1:12000
+for i = 1:8000
     time_step!(coupled_model, 20minutes)
 
     if mod(i, 100) == 0
         push!(t, time(ocean_simulation))
         push!(hi, first(ice_model.ice_thickness))
 
-        T, S, e = ocean_model.tracers
+        T = ocean_model.tracers.T
+        S = ocean_model.tracers.S
+        e = ocean_model.tracers.e
+
         push!(To, deepcopy(interior(T, 1, 1, :)))
         push!(So, deepcopy(interior(S, 1, 1, :)))
         push!(eo, deepcopy(interior(e, 1, 1, :)))

@@ -169,7 +169,7 @@ function ice_ocean_latent_heat!(coupled_model)
     Nz = size(grid, 3)
 
     i = j = 1
-    ice_covered = @inbounds hᵢ[i, j, 1] > 0
+    ice_covered = @inbounds hᵢ[i, j, 1] > 0.02 # 2 cm
     for k = Nz:-1:1
         @inbounds begin
             # Compute melting temperature
@@ -185,7 +185,8 @@ function ice_ocean_latent_heat!(coupled_model)
             freezing = Tᴺ < Tₘ
             δE = ifelse(ice_covered | freezing, δE, zero(grid))
             Tₒ[i, j, k] = ifelse(freezing, Tₘ, Tᴺ)
-            Tₒ[i, j, k] = ifelse((k == Nz) & ice_covered, Tₘ, Tᴺ)
+
+            # Tₒ[i, j, k] = ifelse((k == Nz) & ice_covered, Tₘ, Tᴺ)
 
             Δz = Δzᶜᶜᶜ(i, j, k, grid)
             δQ += δE * Δz / Δt # < 0 (we are warming the ocean)
