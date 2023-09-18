@@ -132,7 +132,7 @@ using .ThermalBoundaryConditions:
     PrescribedTemperature
 
 include("EnthalpyMethodSeaIceModels.jl")
-include("SlabSeaIceModels.jl")
+include("SlabSeaIceModels/SlabSeaIceModels.jl")
 
 using .EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel
 using .SlabSeaIceModels: SlabSeaIceModel, ConductiveFlux

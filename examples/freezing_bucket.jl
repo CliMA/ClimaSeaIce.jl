@@ -72,7 +72,7 @@ run!(simulation)
 # It'd be a shame to run such a "cool" simulation without looking at the
 # results. We'll visualize it with Makie.
 
-using CairoMakie
+using GLMakie #CairoMakie
 
 # `timeseries` is a `Vector` of `Tuple`. So we have to do a bit of processing
 # to build `Vector`s of time `t` and thickness `h`. It's not much work though:

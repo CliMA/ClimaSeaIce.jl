@@ -92,7 +92,7 @@ coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
 
 t = Float64[]
 hi = Float64[]
-αi = Float64[]
+ℵi = Float64[]
 Tst = Float64[]
 
 To = []
@@ -108,10 +108,10 @@ while(time(ocean_simulation) < 100days)
         push!(t, time(ocean_simulation))
 
         h = ice_model.ice_thickness
-        α = ice_model.ice_concentration
+        ℵ = ice_model.ice_concentration
         Ts = ice_model.top_surface_temperature
         push!(hi, first(h))
-        push!(αi, first(α))
+        push!(ℵi, first(ℵ))
         push!(Tst, first(Ts))
 
         T = ocean_model.tracers.T
@@ -127,9 +127,9 @@ while(time(ocean_simulation) < 100days)
                      ", Tₒ: ", prettysummary(ocean_model.tracers.T[1, 1, Nz]),
                      ", Sₒ: ", prettysummary(ocean_model.tracers.S[1, 1, Nz]),
                      ", h: ", prettysummary(hi[end]),
-                     ", α: ", prettysummary(αi[end]),
+                     ", ℵ: ", prettysummary(ℵi[end]),
                      ", Tᵢ: ", prettysummary(Tst[end]),
-                     ", α h: ", prettysummary(αi[end] * hi[end]))
+                     ", ℵ h: ", prettysummary(ℵi[end] * hi[end]))
     end
 end
 
@@ -141,12 +141,12 @@ set_theme!(Theme(fontsize=24, linewidth=4))
 fig = Figure(resolution=(2400, 1200))
 
 axhi = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
-axαi = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice concentration")
+axℵi = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice concentration")
 axTo = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Surface temperatures (ᵒC)")
 axSo = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Ocean surface salinity (psu)")
 
 lines!(axhi, t ./ day, hi)
-lines!(axαi, t ./ day, αi)
+lines!(axℵi, t ./ day, ℵi)
 lines!(axTo, t ./ day, Ts, label="Ocean")
 lines!(axTo, t ./ day, Tst, label="Ice")
 axislegend(axTo)
@@ -169,7 +169,7 @@ en = @lift max.(1e-6, eo[$n])
 tn = @lift t[$n] / day
 
 vlines!(axhi, tn, color=(:yellow, 0.6))
-vlines!(axαi, tn, color=(:yellow, 0.6))
+vlines!(axℵi, tn, color=(:yellow, 0.6))
 vlines!(axTo, tn, color=(:yellow, 0.6))
 vlines!(axSo, tn, color=(:yellow, 0.6))
 

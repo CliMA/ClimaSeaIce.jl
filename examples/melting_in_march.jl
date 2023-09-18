@@ -38,13 +38,13 @@ top_thermal_flux = (outgoing_radiation, solar_insolation, aerodynamic_flux)
 model = SlabSeaIceModel(grid; top_thermal_flux)
 set!(model, h=1)
 
-simulation = Simulation(model, Δt=10minute, stop_time=1day)
+simulation = Simulation(model, Δt=10minute, stop_time=30days)
 
 # Accumulate data
 timeseries = []
 
 function accumulate_timeseries(sim)
-    T = model.top_temperature
+    T = model.top_surface_temperature
     h = model.ice_thickness
     push!(timeseries, (time(sim), first(h), first(T)))
 end
