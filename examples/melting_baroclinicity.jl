@@ -12,41 +12,30 @@ import Oceananigans.Simulations: time_step!, time
 
 include("ice_ocean_model.jl")
 
-Nx = 2
+Nx = 32
+Ny = 32
 x = (0, 100kilometers)
+y = (0, 100kilometers)
 Δt = 4hours
 mixed_layer_depth = hₒ = 100
-single_column_ocean = true
 
-ice_grid = RectilinearGrid(size=Nx; x, topology=(Periodic, Flat, Flat))
-
-if single_column_ocean
-    ocean_grid = RectilinearGrid(size=(Nx, 20); x, z=(-hₒ, 0), topology=(Periodic, Flat, Bounded))
-    closure = CATKEVerticalDiffusivity()
-else
-    ocean_grid = RectilinearGrid(size=(Nx, 1), z=(-hₒ, 0), topology=(Periodic, Flat, Bounded))
-    closure = nothing
-end
+ice_grid = RectilinearGrid(size=(Nx, Ny); x, y, topology=(Periodic, Bounded, Flat))
+ocean_grid = RectilinearGrid(size=(Nx, Ny, 1); x, y, z=(-hₒ, 0), topology=(Periodic, Bounded, Bounded))
+closure = nothing #CATKEVerticalDiffusivity()
 
 # Top boundary conditions:
 #   - outgoing radiative fluxes emitted from surface
 #   - incoming shortwave radiation starting after 40 days
 
 radiative_emission = RadiativeEmission()
-top_ocean_heat_flux = Qᵀ = Field{Center, Center, Nothing}(ocean_grid)
-ice_ocean_flux = Field{Center, Center, Nothing}(ice_grid)
-
-solar_insolation = I₀ = Field{Center, Center, Nothing}(ocean_grid)
-function compute_solar_insolation!(sim)
-    if time(sim) > 40days
-        interior(I₀, :, 1, 1) .= -600 # W m⁻²
-    end
-    return nothing
-end
+ice_ocean_heat_flux = Field{Center, Center, Nothing}(ice_grid)
+top_ocean_heat_flux = Qᵀ = Field{Center, Center, Nothing}(ice_grid)
+top_salt_flux = Qˢ = Field{Center, Center, Nothing}(ice_grid)
+solar_insolation = I₀ = Field{Center, Center, Nothing}(ice_grid)
+set!(solar_insolation, -500) # W m⁻²
 
 # Generate a zero-dimensional grid for a single column slab model 
 
-top_salt_flux = Qˢ = Field{Center, Center, Nothing}(ocean_grid)
 boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Qᵀ)),
                        u = FieldBoundaryConditions(top=FluxBoundaryCondition(-1e-6)),
                        S = FieldBoundaryConditions(top=FluxBoundaryCondition(Qˢ)))
@@ -66,12 +55,12 @@ ocean_surface_salinity = Field(So, indices=(:, :, Nz))
 bottom_bc = IceWaterThermalEquilibrium(ocean_surface_salinity)
 
 ice_model = SlabSeaIceModel(ice_grid;
-                            ice_consolidation_thickness = 0.2,
+                            ice_consolidation_thickness = 0.1,
                             ice_salinity = 0,
                             internal_thermal_flux = ConductiveFlux(conductivity=100),
                             top_thermal_flux = (solar_insolation, radiative_emission),
                             bottom_thermal_boundary_condition = bottom_bc,
-                            bottom_thermal_flux = ice_ocean_flux)
+                            bottom_thermal_flux = ice_ocean_heat_flux)
 
 ice_simulation = Simulation(ice_model, Δt=1hour)
 
@@ -93,12 +82,17 @@ Tᵢ(x, y, z) = T₀ + z * dTdz
 Sᵢ(x, y, z) = S₀ - z * dSdz
 
 set!(ocean_model, S=Sᵢ, T=T₀)
+set!(ice_model, h=1)
 
 coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
 
+coupled_simulation = Simulation(coupled_model, Δt=20minutes, stop_iteration=3)
+
+
+#=
+
 t = Float64[]
 hi = Float64[]
-ℵi = Float64[]
 Tst = Float64[]
 
 To = []
@@ -195,3 +189,4 @@ record(fig, "freezing_and_melting.mp4", 1:Nt, framerate=12) do nn
     n[] = nn
 end
 
+=#
