@@ -48,7 +48,6 @@ end
 const SSIM = SlabSeaIceModel
 
 Base.summary(model::SSIM) = "SlabSeaIceModel"
-
 prettytime(model::SSIM) = prettytime(model.clock.time)
 iteration(model::SSIM) = model.clock.iteration
 
@@ -67,11 +66,12 @@ function Base.show(io::IO, model::SSIM)
     print(io, "    └── bottom: ", flux_summary(model.external_thermal_fluxes.bottom, "     "))
 end
          
+reset!(::SSIM) = nothing
 initialize!(::SSIM) = nothing
 default_included_properties(::SSIM) = tuple(:grid)
 
 fields(model::SSIM) = (h = model.ice_thickness,
-                       α = model.ice_concentration,
+                       ℵ = model.ice_concentration,
                        Tᵤ = model.top_surface_temperature,
                        Sᵢ = model.ice_salinity)
 

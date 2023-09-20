@@ -1,6 +1,17 @@
 using Oceananigans.Operators
 
-struct IceOceanModel{FT, I, O, PI, PC}
+# Simulations interface
+import Oceananigans: fields, prognostic_fields
+import Oceananigans.Fields: set!
+import Oceananigans.TimeSteppers: time_step!, update_state!
+import Oceananigans.Simulations: reset!, initialize!
+import Oceananigans.OutputWriters: default_included_properties
+import Oceananigans.Utils: prettytime
+import Oceananigans.Simulations: iteration
+
+struct IceOceanModel{FT, C, G, I, O, PI, PC}
+    clock :: C
+    grid :: G # TODO: make it so simulation does not require this
     ice :: I
     previous_ice_thickness :: PI
     previous_ice_concentration :: PC
@@ -12,7 +23,19 @@ struct IceOceanModel{FT, I, O, PI, PC}
     reference_temperature :: FT
 end
 
-function IceOceanModel(ice, ocean)
+const IOM = IceOceanModel
+
+Base.summary(::IOM) = "IceOceanModel"
+prettytime(model::IOM) = prettytime(model.clock.time)
+iteration(model::IOM) = model.clock.iteration
+reset!(::IOM) = nothing
+initialize!(::IOM) = nothing
+default_included_properties(::IOM) = tuple()
+prognostic_fields(cm::IOM) = (; T=cm.ocean.model.tracers.T)
+fields(::IOM) = NamedTuple()
+
+function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
+    
     previous_ice_thickness = deepcopy(ice.model.ice_thickness)
     previous_ice_concentration = deepcopy(ice.model.ice_concentration)
 
@@ -41,7 +64,9 @@ function IceOceanModel(ice, ocean)
 
     FT = eltype(ocean.model.grid)
 
-    return IceOceanModel(ice,
+    return IceOceanModel(clock,
+                         ocean.model.grid,
+                         ice,
                          previous_ice_thickness,
                          previous_ice_concentration,
                          ocean,
