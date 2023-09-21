@@ -12,8 +12,8 @@ import Oceananigans.Simulations: time_step!, time
 
 include("ice_ocean_model.jl")
 
-Nx = 32
-Ny = 32
+Nx = 64
+Ny = 64
 x = (0, 100kilometers)
 y = (0, 100kilometers)
 Δt = 4hours
@@ -47,8 +47,6 @@ ocean_model = HydrostaticFreeSurfaceModel(grid = ocean_grid;
                                           buoyancy, boundary_conditions, closure,
                                           tracers = (:T, :S, :e))
 
-ocean_simulation = Simulation(ocean_model; Δt=1hour)
-
 Nz = size(ocean_grid, 3)
 So = ocean_model.tracers.S
 ocean_surface_salinity = Field(So, indices=(:, :, Nz))
@@ -62,7 +60,8 @@ ice_model = SlabSeaIceModel(ice_grid;
                             bottom_thermal_boundary_condition = bottom_bc,
                             bottom_thermal_flux = ice_ocean_heat_flux)
 
-ice_simulation = Simulation(ice_model, Δt=1hour)
+ocean_simulation = Simulation(ocean_model; Δt=20minutes, verbose=false)
+ice_simulation = Simulation(ice_model, Δt=20minutes, verbose=false)
 
 using SeawaterPolynomials: thermal_expansion, haline_contraction
 
@@ -88,6 +87,7 @@ coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
 
 coupled_simulation = Simulation(coupled_model, Δt=20minutes, stop_iteration=3)
 
+run!(coupled_simulation)
 
 #=
 
