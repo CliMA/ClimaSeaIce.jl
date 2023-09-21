@@ -1,7 +1,10 @@
 using ClimaSeaIce: latent_heat
+using Oceananigans.Advection
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
 function ice_thickness_tendency(i, j, grid, clock,
+                                velocities,
+                                advection,
                                 ice_thickness,
                                 ice_consolidation_thickness,
                                 top_temperature,
@@ -12,6 +15,8 @@ function ice_thickness_tendency(i, j, grid, clock,
                                 phase_transitions,
                                 h_forcing,
                                 model_fields)
+
+    Gh_advection = - div_Uc(i, j, 1, grid, advection, velocities, ice_thickness)
 
     @inbounds begin
         hᶜ = ice_consolidation_thickness[i, j, 1]
@@ -49,7 +54,7 @@ function ice_thickness_tendency(i, j, grid, clock,
 
     slabby_Gh = wu + wb + Fh
 
-    return ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
+    return Gh_advection + ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
 end
 
 #=

@@ -26,7 +26,7 @@ import Oceananigans.Simulations: iteration
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, STF, TBC, CF, P, MIT}
+struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -35,6 +35,7 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, STF, TBC, CF, P, MIT}
     ice_concentration :: IC
     top_surface_temperature :: ST
     ice_salinity :: IS
+    velocities :: U
     # Boundary conditions
     external_thermal_fluxes :: STF
     thermal_boundary_conditions :: TBC
@@ -43,6 +44,8 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, STF, TBC, CF, P, MIT}
     # Melting and freezing stuff
     phase_transitions :: P
     ice_consolidation_thickness :: MIT
+    # Numerics
+    advection :: A
 end
 
 const SSIM = SlabSeaIceModel
@@ -92,10 +95,16 @@ function SlabSeaIceModel(grid;
                          top_surface_temperature           = nothing,
                          top_thermal_flux                  = nothing,
                          bottom_thermal_flux               = 0,
+                         velocities                        = nothing,
+                         advection                         = nothing,
                          top_thermal_boundary_condition    = MeltingConstrainedFluxBalance(),
                          bottom_thermal_boundary_condition = IceWaterThermalEquilibrium(),
                          internal_thermal_flux             = ConductiveFlux(eltype(grid), conductivity=2),
                          phase_transitions                 = PhaseTransitions(eltype(grid)))
+
+    if isnothing(velocities)
+        velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
+    end
 
     # Only one time-stepper is supported currently
     timestepper = ForwardEulerTimestepper()
@@ -154,11 +163,13 @@ function SlabSeaIceModel(grid;
                            ice_concentration,
                            top_surface_temperature,
                            ice_salinity,
+                           velocities,
                            external_thermal_fluxes,
                            thermal_boundary_conditions,
                            internal_thermal_flux_function,
                            phase_transitions,
-                           ice_consolidation_thickness)
+                           ice_consolidation_thickness,
+                           advection)
 end
 
 function set!(model::SSIM; h=nothing, α=nothing)

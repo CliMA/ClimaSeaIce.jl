@@ -5,8 +5,9 @@ using ClimaSeaIce.ThermalBoundaryConditions:
     getflux
 
 using Oceananigans.Architectures: architecture
-using Oceananigans.Utils: launch!
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
+using Oceananigans.Utils: launch!
 
 using KernelAbstractions: @index, @kernel
 
@@ -20,6 +21,8 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
             Δt,
             grid,
             model.clock,
+            model.velocities,
+            model.advection,
             model.ice_concentration,
             model.top_surface_temperature,
             model.thermal_boundary_conditions.top,
@@ -40,6 +43,8 @@ end
 @kernel function slab_model_time_step!(ice_thickness, Δt,
                                        grid,
                                        clock,
+                                       velocities,
+                                       advection,
                                        ice_concentration,
                                        top_temperature,
                                        top_thermal_bc,
@@ -79,6 +84,8 @@ end
     end
 
     Gh = ice_thickness_tendency(i, j, grid, clock,
+                                velocities,
+                                advection,
                                 ice_thickness,
                                 ice_consolidation_thickness,
                                 top_temperature,
@@ -103,5 +110,9 @@ end
     end
 end
 
-update_state!(model::SSIM) = nothing
+function update_state!(model::SSIM)
+    h = model.ice_thickness
+    fill_halo_regions!(h)
+    return nothing
+end
 

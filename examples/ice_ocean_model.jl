@@ -144,7 +144,7 @@ end
     # Set the surface flux only if ice-free
     Qᵀ = temperature_flux
 
-    @inbounds Qᵀ[i, j, 1] = (1 - ℵ) * ΣQᵀ
+    @inbounds Qᵀ[i, j, 1] = 0 #(1 - ℵ) * ΣQᵀ
 end
 
 function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
@@ -193,15 +193,14 @@ function compute_ice_ocean_salinity_flux!(coupled_model)
     grid = ocean.model.grid
     arch = architecture(grid)
     Qˢ = ocean.model.tracers.S.boundary_conditions.top.condition
+    Sₒ = interior(ocean.model.tracers.S, :, :, grid.Nz)
+    Sᵢ = ice.model.ice_salinity
+    Δt = ocean.Δt
+    hⁿ = ice.model.ice_thickness
+    h⁻ = coupled_model.previous_ice_thickness
 
-    #=
-    launch!(arch, grid, _compute_ice_ocean_salinity_flux!,
-            Qˢ, grid,
-            ice.model.ice_thickness,
-            coupled_model.previous_ice_thickness,
-            ice.model.ice_salinity,
-            nothing)
-    =#
+    launch!(arch, grid, :xy, _compute_ice_ocean_salinity_flux!,
+            Qˢ, grid, hⁿ, h⁻, Sᵢ, Sₒ, Δt)
 
     return nothing
 end
@@ -212,7 +211,8 @@ end
                                                    ice_thickness,
                                                    previous_ice_thickness,
                                                    ice_salinity,
-                                                   ocean_salinity)
+                                                   ocean_salinity,
+                                                   Δt)
     i, j = @index(Global, NTuple)
 
     Nz = size(grid, 3)
@@ -224,6 +224,7 @@ end
     Sₒ = ocean_salinity
 
     Δz = Δzᶜᶜᶜ(i, j, Nz, grid)
+
     @inbounds begin
         # Thickness of surface grid cell
         Δh = hⁿ[i, j, 1] - h⁻[i, j, 1]
@@ -231,7 +232,7 @@ end
         # Update surface salinity flux.
         # Note: the Δt below is the ocean time-step, eg.
         # ΔS = ⋯ - ∮ Qˢ dt ≈ ⋯ - Δtₒ * Qˢ 
-        Qˢ[i, j, 1] = 0 #Δh / Δt * (Sᵢ[i, j, 1] - Sₒ[i, j, Nz])
+        Qˢ[i, j, 1] = Δh / Δt * (Sᵢ[i, j, 1] - Sₒ[i, j, Nz])
 
         # Update previous ice thickness
         h⁻[i, j, 1] = hⁿ[i, j, 1]

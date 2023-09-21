@@ -1,7 +1,9 @@
 using Oceananigans
-using Oceananigans.Utils: prettysummary
 using Oceananigans.Units
+using Oceananigans.Utils: prettysummary
+using Oceananigans.Fields: ZeroField
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
+using Printf
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
 using SeawaterPolynomials: TEOS10EquationOfState
@@ -15,13 +17,15 @@ include("ice_ocean_model.jl")
 Nx = 64
 Ny = 64
 x = (0, 100kilometers)
-y = (0, 100kilometers)
+y = (-50kilometers, 50kilometers)
 Δt = 4hours
-mixed_layer_depth = hₒ = 100
+mixed_layer_depth = hₒ = 5
+halo = (4, 4, 4)
+topology = (Periodic, Bounded, Bounded)
+ice_topology = (topology[1], topology[2], Flat)
 
-ice_grid = RectilinearGrid(size=(Nx, Ny); x, y, topology=(Periodic, Bounded, Flat))
-ocean_grid = RectilinearGrid(size=(Nx, Ny, 1); x, y, z=(-hₒ, 0), topology=(Periodic, Bounded, Bounded))
-closure = nothing #CATKEVerticalDiffusivity()
+ice_grid = RectilinearGrid(size=(Nx, Ny); x, y, topology = ice_topology, halo = halo[1:2])
+ocean_grid = RectilinearGrid(size=(Nx, Ny, 1); x, y, z=(-hₒ, 0), topology, halo)
 
 # Top boundary conditions:
 #   - outgoing radiative fluxes emitted from surface
@@ -32,7 +36,7 @@ ice_ocean_heat_flux = Field{Center, Center, Nothing}(ice_grid)
 top_ocean_heat_flux = Qᵀ = Field{Center, Center, Nothing}(ice_grid)
 top_salt_flux = Qˢ = Field{Center, Center, Nothing}(ice_grid)
 solar_insolation = I₀ = Field{Center, Center, Nothing}(ice_grid)
-set!(solar_insolation, -500) # W m⁻²
+set!(solar_insolation, -900) # W m⁻²
 
 # Generate a zero-dimensional grid for a single column slab model 
 
@@ -43,19 +47,29 @@ boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Q�
 equation_of_state = TEOS10EquationOfState()
 buoyancy = SeawaterBuoyancy(; equation_of_state)
 
-ocean_model = HydrostaticFreeSurfaceModel(grid = ocean_grid;
-                                          buoyancy, boundary_conditions, closure,
+ocean_model = HydrostaticFreeSurfaceModel(grid = ocean_grid; buoyancy, boundary_conditions,
+                                          momentum_advection = WENO(),
+                                          tracer_advection = WENO(),
+                                          closure = nothing,
+                                          coriolis = FPlane(f=-1e-4),
                                           tracers = (:T, :S, :e))
 
 Nz = size(ocean_grid, 3)
 So = ocean_model.tracers.S
-ocean_surface_salinity = Field(So, indices=(:, :, Nz))
+ocean_surface_salinity = view(So, :, :, Nz)
 bottom_bc = IceWaterThermalEquilibrium(ocean_surface_salinity)
 
+u, v, w = ocean_model.velocities
+ocean_surface_velocities = (u = view(u, :, :, Nz),
+                            v = view(v, :, :, Nz),    
+                            w = ZeroField())
+
 ice_model = SlabSeaIceModel(ice_grid;
+                            velocities = ocean_surface_velocities,
+                            advection = WENO(),
                             ice_consolidation_thickness = 0.1,
                             ice_salinity = 0,
-                            internal_thermal_flux = ConductiveFlux(conductivity=100),
+                            internal_thermal_flux = ConductiveFlux(conductivity=2),
                             top_thermal_flux = (solar_insolation, radiative_emission),
                             bottom_thermal_boundary_condition = bottom_bc,
                             bottom_thermal_flux = ice_ocean_heat_flux)
@@ -63,130 +77,106 @@ ice_model = SlabSeaIceModel(ice_grid;
 ocean_simulation = Simulation(ocean_model; Δt=20minutes, verbose=false)
 ice_simulation = Simulation(ice_model, Δt=20minutes, verbose=false)
 
-using SeawaterPolynomials: thermal_expansion, haline_contraction
 
-# Double stratification
-N²θ = 0
-T₀ = 0
+# Initial condition
 S₀ = 30
-g = ocean_model.buoyancy.model.gravitational_acceleration
-α = thermal_expansion(T₀, S₀, 0, equation_of_state)
-dTdz = N²θ / (α * g)
+T₀ = melting_temperature(ice_model.phase_transitions.liquidus, S₀)
 
-N²S = 1e-4
-β = haline_contraction(T₀, S₀, 0, equation_of_state)
-dSdz = N²S / (β * g)
-
-Tᵢ(x, y, z) = T₀ + z * dTdz
-Sᵢ(x, y, z) = S₀ - z * dSdz
+uᵢ(x, y, z) = 0.1 * randn()
+vᵢ(x, y, z) = 0.1 * randn()
+Tᵢ(x, y, z) = T₀ + 0.1 * randn()
+Sᵢ(x, y, z) = S₀ + 0.1 * randn()
+hᵢ(x, y) = y < 0 ? 3 : 0
 
 set!(ocean_model, S=Sᵢ, T=T₀)
-set!(ice_model, h=1)
+set!(ice_model, h=hᵢ)
 
 coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
+coupled_simulation = Simulation(coupled_model, Δt=10minutes, stop_time=10day)
 
-coupled_simulation = Simulation(coupled_model, Δt=20minutes, stop_iteration=3)
+using SeawaterPolynomials: thermal_expansion, haline_contraction
+
+S = ocean_model.tracers.S
+β = haline_contraction(T₀, S₀, 0, equation_of_state)
+g = ocean_model.buoyancy.model.gravitational_acceleration
+by = - g * β * ∂y(S)
+
+function progress(sim)
+    h = sim.model.ice.model.ice_thickness
+    S = sim.model.ocean.model.tracers.S
+    msg1 = @sprintf("Iter: % 6d, time: % 12s", iteration(sim), prettytime(sim))
+    msg2 = @sprintf(", max(h): %.2f", maximum(h))
+    msg3 = @sprintf(", min(S): %.2f", minimum(S))
+    msg4 = @sprintf(", max|∂y b|: %.2e", maximum(abs, by))
+    @info msg1 * msg2 * msg3 * msg4
+    return nothing
+end
+
+coupled_simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
+
+h = ice_model.ice_thickness
+T = ocean_model.tracers.T
+S = ocean_model.tracers.S
+u, v, w = ocean_model.velocities
+η = ocean_model.free_surface.η
+
+ht = []
+Tt = []
+St = []
+ut = []
+vt = []
+ηt = []
+tt = []
+
+function saveoutput(sim)
+    hn = deepcopy(interior(h, :, :, 1))
+    Tn = deepcopy(interior(T, :, :, 1))
+    Sn = deepcopy(interior(S, :, :, 1))
+    un = deepcopy(interior(u, :, :, 1))
+    vn = deepcopy(interior(v, :, :, 1))
+    ηn = deepcopy(interior(η, :, :, 1))
+    push!(ht, hn)
+    push!(Tt, Tn)
+    push!(St, Sn)
+    push!(ut, un)
+    push!(vt, vn)
+    push!(ηt, ηn)
+    push!(tt, time(sim))
+end
+
+coupled_simulation.callbacks[:output] = Callback(saveoutput, IterationInterval(10))
 
 run!(coupled_simulation)
 
-#=
+using GLMakie
 
-t = Float64[]
-hi = Float64[]
-Tst = Float64[]
+fig = Figure(resolution=(1800, 900))
 
-To = []
-So = []
-eo = []
+axh = Axis(fig[1, 1])
+axT = Axis(fig[1, 2])
+axS = Axis(fig[1, 3])
+axu = Axis(fig[2, 1])
+axv = Axis(fig[2, 2])
+axη = Axis(fig[2, 3])
 
-Nz = size(ocean_grid, 3)
 
-while (time(ocean_simulation) < 100days)
-#while (iteration(ocean_simulation) < 200)
-    time_step!(coupled_model, 20minutes)
-
-    if mod(iteration(ocean_simulation), 10) == 0
-        push!(t, time(ocean_simulation))
-
-        h = ice_model.ice_thickness
-        ℵ = ice_model.ice_concentration
-        Ts = ice_model.top_surface_temperature
-        push!(hi, first(h))
-        push!(ℵi, first(ℵ))
-        push!(Tst, first(Ts))
-
-        T = ocean_model.tracers.T
-        S = ocean_model.tracers.S
-        e = ocean_model.tracers.e
-
-        push!(To, deepcopy(interior(T, 1, 1, :)))
-        push!(So, deepcopy(interior(S, 1, 1, :)))
-        push!(eo, deepcopy(interior(e, 1, 1, :)))
-
-        @info string("Iter:  ", iteration(ocean_simulation),
-                     ", t:   ", prettytime(ocean_simulation),
-                     ", Tₒ:  ", prettysummary(To[end][Nz]),
-                     ", Sₒ:  ", prettysummary(So[end][Nz]),
-                     ", h:   ", prettysummary(hi[end]),
-                     ", ℵ:   ", prettysummary(ℵi[end]),
-                     ", Tᵢ:  ", prettysummary(Tst[end]),
-                     ", ℵ h: ", prettysummary(ℵi[end] * hi[end]))
-    end
-end
-
-Ts = map(T -> T[Nz], To)
-Ss = map(T -> T[Nz], So)
-
-set_theme!(Theme(fontsize=24, linewidth=4))
-
-fig = Figure(resolution=(2400, 1200))
-
-axhi = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
-axℵi = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice concentration")
-axTo = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Surface temperatures (ᵒC)")
-axSo = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Ocean surface salinity (psu)")
-
-lines!(axhi, t ./ day, hi)
-lines!(axℵi, t ./ day, ℵi)
-lines!(axTo, t ./ day, Ts, label="Ocean")
-lines!(axTo, t ./ day, Tst, label="Ice")
-axislegend(axTo)
-
-lines!(axSo, t ./ day, Ss)
-
-axTz = Axis(fig[1:4, 2], xlabel="T", ylabel="z (m)")
-axSz = Axis(fig[1:4, 3], xlabel="S", ylabel="z (m)")
-
-z = znodes(ocean_model.tracers.T)
-
-Nt = length(t)
-slider = Slider(fig[5, 1:3], range=1:Nt, startvalue=1)
+Nt = length(tt)
+slider = Slider(fig[3, 1:3], range=1:Nt, startvalue=1)
 n = slider.value
 
-Tn = @lift To[$n]
-Sn = @lift So[$n]
-en = @lift max.(1e-6, eo[$n])
+hn = @lift ht[$n]
+Tn = @lift Tt[$n]
+Sn = @lift St[$n]
+un = @lift ut[$n]
+vn = @lift vt[$n]
+ηn = @lift ηt[$n]
 
-tn = @lift t[$n] / day
-
-vlines!(axhi, tn, color=(:yellow, 0.6))
-vlines!(axℵi, tn, color=(:yellow, 0.6))
-vlines!(axTo, tn, color=(:yellow, 0.6))
-vlines!(axSo, tn, color=(:yellow, 0.6))
-
-lines!(axTz, Tn, z)
-lines!(axSz, Sn, z)
-
-xlims!(axTz, -2, 6)
-# xlims!(axSz, 26, 31)
-
-colsize!(fig.layout, 2, Relative(0.2))
-colsize!(fig.layout, 3, Relative(0.2))
+heatmap!(axh, hn)
+heatmap!(axT, Tn)
+heatmap!(axS, Sn)
+heatmap!(axu, un)
+heatmap!(axv, vn)
+heatmap!(axη, ηn)
 
 display(fig)
 
-record(fig, "freezing_and_melting.mp4", 1:Nt, framerate=12) do nn
-    n[] = nn
-end
-
-=#
