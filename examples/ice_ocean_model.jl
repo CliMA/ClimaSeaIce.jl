@@ -1,5 +1,7 @@
 using Oceananigans.Operators
+
 using Oceananigans.Architectures: architecture
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Utils: launch!
 using Oceananigans.TimeSteppers: tick!
 
@@ -144,7 +146,7 @@ end
     # Set the surface flux only if ice-free
     Qᵀ = temperature_flux
 
-    @inbounds Qᵀ[i, j, 1] = 0 #(1 - ℵ) * ΣQᵀ
+    @inbounds Qᵀ[i, j, 1] = (1 - ℵ) * ΣQᵀ
 end
 
 function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
@@ -154,6 +156,8 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
     grid = ocean.model.grid
     ice.Δt = Δt
     ocean.Δt = Δt
+
+    fill_halo_regions!(h)
 
     # Initialization
     if coupled_model.ocean.model.clock.iteration == 0
