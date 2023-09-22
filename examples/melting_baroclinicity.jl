@@ -1,31 +1,38 @@
-#=
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Utils: prettysummary
-using Oceananigans.Fields: ZeroField
+using Oceananigans.Fields: ZeroField, ConstantField
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
-using Printf
+
+using SeawaterPolynomials: TEOS10EquationOfState
+
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
-using SeawaterPolynomials: TEOS10EquationOfState
 using ClimaSeaIce.ThermalBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
-using GLMakie
 
-import Oceananigans.Simulations: time_step!, time
+using Printf
+using GLMakie
+using Statistics
 
 include("ice_ocean_model.jl")
 
+arch = GPU()
 Nx = Ny = 128
+Nz = 20
+Lz = 100
 x = (0, 50kilometers)
 y = (-25kilometers, 25kilometers)
-Δt = 4hours
 halo = (4, 4, 4)
 topology = (Periodic, Bounded, Bounded)
-ice_topology = (topology[1], topology[2], Flat)
 
-ice_grid = RectilinearGrid(size=(Nx, Ny); x, y, topology = ice_topology, halo = halo[1:2])
-ocean_grid = RectilinearGrid(size=(Nx, Ny, 2);  topology, halo, x, y,
-                             z=[-6, -2, 0])
+ice_grid = RectilinearGrid(arch; x, y,
+                           size = (Nx, Ny),
+                           topology = (topology[1], topology[2], Flat),
+                           halo = halo[1:2])
+
+ocean_grid = RectilinearGrid(arch; topology, halo, x, y,
+                             size = (Nx, Ny, Nz),
+                             z = (-Lz, 0))
 
 # Top boundary conditions:
 #   - outgoing radiative fluxes emitted from surface
@@ -46,10 +53,11 @@ boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Q�
 equation_of_state = TEOS10EquationOfState()
 buoyancy = SeawaterBuoyancy(; equation_of_state)
 
-ocean_model = HydrostaticFreeSurfaceModel(grid = ocean_grid; buoyancy, boundary_conditions,
+ocean_model = HydrostaticFreeSurfaceModel(; buoyancy, boundary_conditions,
+                                          grid = ocean_grid,
                                           momentum_advection = WENO(),
                                           tracer_advection = WENO(),
-                                          closure = nothing,
+                                          closure = CATKEVerticalDiffusivity(),
                                           coriolis = FPlane(f=1.4e-4),
                                           tracers = (:T, :S, :e))
 
@@ -69,33 +77,42 @@ ice_model = SlabSeaIceModel(ice_grid;
                             ice_consolidation_thickness = 0.05,
                             ice_salinity = 0,
                             internal_thermal_flux = ConductiveFlux(conductivity=2),
-                            top_thermal_flux = (solar_insolation, radiative_emission),
+                            top_thermal_flux = ConstantField(1000), # W m⁻² (solar_insolation, radiative_emission),
+                            top_thermal_boundary_condition = PrescribedTemperature(0),
                             bottom_thermal_boundary_condition = bottom_bc,
                             bottom_thermal_flux = ice_ocean_heat_flux)
 
 ocean_simulation = Simulation(ocean_model; Δt=20minutes, verbose=false)
 ice_simulation = Simulation(ice_model, Δt=20minutes, verbose=false)
 
-
 # Initial condition
 S₀ = 30
-T₀ = melting_temperature(ice_model.phase_transitions.liquidus, S₀)
+T₀ = melting_temperature(ice_model.phase_transitions.liquidus, S₀) + 0.1
 
-Tᵢ(x, y, z) = T₀ + 0.1 * randn()
-Sᵢ(x, y, z) = S₀ + 0.1 * randn()
-hᵢ(x, y) = y < 0 ? 3 : 0
+N²S = 1e-6
+β = haline_contraction(T₀, S₀, 0, equation_of_state)
+g = ocean_model.buoyancy.model.gravitational_acceleration
+dSdz = - g * β * N²S
+
+Tᵢ(x, y, z) = T₀ # + 0.1 * randn()
+Sᵢ(x, y, z) = S₀ + dSdz * z #+ 0.1 * randn()
+function hᵢ(x, y)
+    if y > 0
+        return 1 + 0.1 * rand()
+    else 
+        return 0
+    end
+end
 
 set!(ocean_model, S=Sᵢ, T=T₀)
 set!(ice_model, h=hᵢ)
 
 coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
-coupled_simulation = Simulation(coupled_model, Δt=1minutes, stop_time=30days)
+coupled_simulation = Simulation(coupled_model, Δt=1minutes, stop_time=10days)
 
 using SeawaterPolynomials: thermal_expansion, haline_contraction
 
 S = ocean_model.tracers.S
-β = haline_contraction(T₀, S₀, 0, equation_of_state)
-g = ocean_model.buoyancy.model.gravitational_acceleration
 by = - g * β * ∂y(S)
 
 function progress(sim)
@@ -130,13 +147,13 @@ tt = []
 
 function saveoutput(sim)
     compute!(ζ)
-    hn = deepcopy(interior(h, :, :, 1))
-    Tn = deepcopy(interior(T, :, :, 1))
-    Sn = deepcopy(interior(S, :, :, 1))
-    un = deepcopy(interior(u, :, :, 1))
-    vn = deepcopy(interior(v, :, :, 1))
-    ηn = deepcopy(interior(η, :, :, 1))
-    ζn = deepcopy(interior(ζ, :, :, 1))
+    hn = Array(interior(h, :, :, 1))
+    Tn = Array(interior(T, :, :, 1))
+    Sn = Array(interior(S, :, :, 1))
+    un = Array(interior(u, :, :, 1))
+    vn = Array(interior(v, :, :, 1))
+    ηn = Array(interior(η, :, :, 1))
+    ζn = Array(interior(ζ, :, :, 1))
     push!(ht, hn)
     push!(Tt, Tn)
     push!(St, Sn)
@@ -150,10 +167,10 @@ end
 coupled_simulation.callbacks[:output] = Callback(saveoutput, IterationInterval(10))
 
 run!(coupled_simulation)
-=#
 
-using GLMakie
-using Statistics
+#####
+##### Viz
+#####
 
 set_theme!(Theme(fontsize=24))
 
@@ -166,11 +183,6 @@ axh = Axis(fig[1, 1], xlabel="x (km)", ylabel="y (km)", title="Ice thickness")
 axT = Axis(fig[1, 2], xlabel="x (km)", ylabel="y (km)", title="Ocean temperature")
 axS = Axis(fig[1, 3], xlabel="x (km)", ylabel="y (km)", title="Ocean salinity")
 #axZ = Axis(fig[1, 4])
-
-#axU = Axis(fig[2, 0])
-# axu = Axis(fig[2, 1])
-# axv = Axis(fig[2, 2])
-# axη = Axis(fig[2, 3])
 
 Nt = length(tt)
 slider = Slider(fig[2, 1:3], range=1:Nt, startvalue=1)
@@ -196,15 +208,12 @@ heatmap!(axT, x, y, Tn, colorrange=(-1.7, -1.5), colormap=:thermal)
 heatmap!(axS, x, y, Sn, colorrange=(28, 30), colormap=:haline)
 #heatmap!(axZ, ζn, colormap=:redblue)
 
-#lines!(axU, Un, y)
-#heatmap!(axu, un)
-#heatmap!(axv, vn)
-#heatmap!(axη, ηn)
-
 display(fig)
 
+#=
 record(fig, "melting_baroclinicity.mp4", 1:Nt, framerate=48) do nn
     @info string(nn)
     n[] = nn
 end
+=#
 

@@ -16,17 +16,17 @@ using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
-import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.Simulations: reset!, initialize!
+import Oceananigans.Models: AbstractModel
 import Oceananigans.OutputWriters: default_included_properties
+import Oceananigans.Simulations: reset!, initialize!, iteration
+import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
-import Oceananigans.Simulations: iteration
 
 # TODO: move to Oceananigans
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A}
+struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS

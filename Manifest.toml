@@ -2,7 +2,7 @@
 
 julia_version = "1.9.2"
 manifest_format = "2.0"
-project_hash = "7601428773e2856d7b1ca7bbb1bc56c4b60eed18"
+project_hash = "f6c2043feb2839898c21eff8c8acce4bd3cf6b72"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1122,9 +1122,7 @@ version = "0.5.4"
 
 [[deps.Oceananigans]]
 deps = ["Adapt", "CUDA", "Crayons", "CubedSphere", "Dates", "Distances", "DocStringExtensions", "FFTW", "Glob", "IncompleteLU", "InteractiveUtils", "IterativeSolvers", "JLD2", "KernelAbstractions", "LinearAlgebra", "Logging", "MPI", "NCDatasets", "OffsetArrays", "OrderedCollections", "PencilArrays", "PencilFFTs", "Pkg", "Printf", "Random", "Rotations", "SeawaterPolynomials", "SparseArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "1d758a05a46709feaa44e3bc29a12c4c4ad6752f"
-repo-rev = "glw/better-simulation-interface"
-repo-url = "https://github.com/CliMA/Oceananigans.jl.git"
+path = "/home/greg/Projects/Oceananigans.jl"
 uuid = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 version = "0.88.0"
 

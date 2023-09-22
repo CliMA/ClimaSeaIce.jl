@@ -2,8 +2,9 @@ using Oceananigans.Operators
 
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.Utils: launch!
+using Oceananigans.Models: AbstractModel
 using Oceananigans.TimeSteppers: tick!
+using Oceananigans.Utils: launch!
 
 using KernelAbstractions: @kernel, @index
 using KernelAbstractions.Extras.LoopInfo: @unroll
@@ -11,13 +12,13 @@ using KernelAbstractions.Extras.LoopInfo: @unroll
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
-import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.Simulations: reset!, initialize!
+import Oceananigans.Models: timestepper, NaNChecker, default_nan_checker
 import Oceananigans.OutputWriters: default_included_properties
+import Oceananigans.Simulations: reset!, initialize!, iteration
+import Oceananigans.TimeSteppers: time_step!, update_state!, time
 import Oceananigans.Utils: prettytime
-import Oceananigans.Simulations: iteration
 
-struct IceOceanModel{FT, C, G, I, O, S, PI, PC}
+struct IceOceanModel{FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
     clock :: C
     grid :: G # TODO: make it so simulation does not require this
     ice :: I
@@ -37,6 +38,7 @@ const IOM = IceOceanModel
 Base.summary(::IOM) = "IceOceanModel"
 prettytime(model::IOM) = prettytime(model.clock.time)
 iteration(model::IOM) = model.clock.iteration
+timestepper(::IOM) = nothing
 reset!(::IOM) = nothing
 initialize!(::IOM) = nothing
 default_included_properties(::IOM) = tuple()
@@ -94,7 +96,6 @@ time(coupled_model::IceOceanModel) = coupled_model.clock.time
 function compute_air_sea_flux!(coupled_model)
     ocean = coupled_model.ocean
     ice = coupled_model.ice
-    radiation = ice.model.external_thermal_fluxes.top[2]
 
     T = ocean.model.tracers.T
     Nx, Ny, Nz = size(ocean.model.grid)
@@ -106,16 +107,15 @@ function compute_air_sea_flux!(coupled_model)
     ρₒ = coupled_model.ocean_density
     cₒ = coupled_model.ocean_heat_capacity
     Tᵣ = coupled_model.reference_temperature
+    Qᵀ = T.boundary_conditions.top.condition
+    Tₒ = ocean.model.tracers.T
+    hᵢ = ice.model.ice_thickness
+    ℵᵢ = ice.model.ice_concentration
+    I₀ = coupled_model.solar_insolation
 
     launch!(arch, grid, :xy, _compute_air_sea_flux!,
-            T.boundary_conditions.top.condition,
-            grid,
-            ocean.model.tracers.T,
-            ice.model.ice_thickness,
-            ice.model.ice_concentration,
-            coupled_model.solar_insolation,
+            Qᵀ, grid, Tₒ, hᵢ, ℵᵢ, I₀,
             σ, ρₒ, cₒ, Tᵣ)
-
 end
 
 @kernel function _compute_air_sea_flux!(temperature_flux,
@@ -128,9 +128,10 @@ end
 
     i, j = @index(Global, NTuple)
 
+    Nz = size(grid, 3)
+
     @inbounds begin
-        # Ocean surface temperature
-        T₀ = ocean_temperature[i, j, Nz]
+        T₀ = ocean_temperature[i, j, Nz] # at the surface
         h = ice_thickness[i, j, 1]
         ℵ = ice_concentration[i, j, 1]
         I₀ = solar_insolation[i, j, 1]
@@ -146,7 +147,7 @@ end
     # Set the surface flux only if ice-free
     Qᵀ = temperature_flux
 
-    @inbounds Qᵀ[i, j, 1] = (1 - ℵ) * ΣQᵀ
+    @inbounds Qᵀ[i, j, 1] = 0 #(1 - ℵ) * ΣQᵀ
 end
 
 function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
@@ -336,3 +337,9 @@ end
     @inbounds Qₒ[i, j, 1] = δQ
 end
 
+# Check for NaNs in the first prognostic field (generalizes to prescribed velocitries).
+function default_nan_checker(model::IceOceanModel)
+    u_ocean = model.ocean.model.velocities.u
+    nan_checker = NaNChecker((; u_ocean))
+    return nan_checker
+end

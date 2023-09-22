@@ -36,6 +36,12 @@ struct FluxFunction{P, T, F}
     end
 end
 
+
+function Adapt.adapt_structure(to, ff::FluxFunction{P, T}) where {P, T}
+    return FluxFunction{T}(adapt(to, ff.func),
+                           adapt(to, ff.parameters))
+end
+
 Base.summary(flux::FluxFunction{<:Nothing}) = string("FluxFunction of ", prettysummary(flux.func, false))
 
 Base.summary(flux::FluxFunction) = string("FluxFunction of ",
