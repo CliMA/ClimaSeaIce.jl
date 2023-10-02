@@ -161,19 +161,20 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
     fill_halo_regions!(h)
 
     # Initialization
-    if coupled_model.ocean.model.clock.iteration == 0
+    if coupled_model.clock.iteration == 0
         h⁻ = coupled_model.previous_ice_thickness
         hⁿ = coupled_model.ice.model.ice_thickness
         parent(h⁻) .= parent(hⁿ)
     end
 
+    time_step!(ice)
+
     # TODO: put this in update_state!
     compute_ice_ocean_salinity_flux!(coupled_model)
-    ice_ocean_latent_heat!(coupled_model)
-    # compute_solar_insolation!(coupled_model)
-    compute_air_sea_flux!(coupled_model)
+    #ice_ocean_latent_heat!(coupled_model)
+    #compute_solar_insolation!(coupled_model)
+    #compute_air_sea_flux!(coupled_model)
 
-    time_step!(ice)
     time_step!(ocean)
 
     # TODO:
@@ -198,7 +199,7 @@ function compute_ice_ocean_salinity_flux!(coupled_model)
     grid = ocean.model.grid
     arch = architecture(grid)
     Qˢ = ocean.model.tracers.S.boundary_conditions.top.condition
-    Sₒ = interior(ocean.model.tracers.S, :, :, grid.Nz)
+    Sₒ = ocean.model.tracers.S
     Sᵢ = ice.model.ice_salinity
     Δt = ocean.Δt
     hⁿ = ice.model.ice_thickness
@@ -227,8 +228,6 @@ end
     Qˢ = ice_ocean_salinity_flux
     Sᵢ = ice_salinity
     Sₒ = ocean_salinity
-
-    Δz = Δzᶜᶜᶜ(i, j, Nz, grid)
 
     @inbounds begin
         # Thickness of surface grid cell
