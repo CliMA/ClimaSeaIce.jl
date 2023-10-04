@@ -147,7 +147,7 @@ end
     # Set the surface flux only if ice-free
     Qᵀ = temperature_flux
 
-    @inbounds Qᵀ[i, j, 1] = 0 #(1 - ℵ) * ΣQᵀ
+    # @inbounds Qᵀ[i, j, 1] = 0 #(1 - ℵ) * ΣQᵀ
 end
 
 function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
@@ -171,7 +171,7 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
 
     # TODO: put this in update_state!
     compute_ice_ocean_salinity_flux!(coupled_model)
-    #ice_ocean_latent_heat!(coupled_model)
+    ice_ocean_latent_heat!(coupled_model)
     #compute_solar_insolation!(coupled_model)
     #compute_air_sea_flux!(coupled_model)
 
