@@ -1,26 +1,55 @@
+# # A freezing bucket
+#
+# A common laboratory experiment freezes an insultated bucket of water
+# from the top down, using a metal lid to keep the top of the bucket
+# at some constant, very cold temperature. In this example, we simulate such
+# a scenario using `SlabSeaIceModel`. Here, the bucket is perfectly insulated
+# and infinitely deep, like many buckets are: if the `Simulation` is run for longer,
+# the ice will keep freezing, and freezing, and will never run out of water.
+# Also, the water in the infinite bucket is (somehow) all at the same temperature,
+# in equilibrium with the ice-water interface (and therefore fixed at the melting
+# temperature). Yep, this kind of thing happens _all the time_.
+#
+# We start by `using Oceananigans` to bring in functions for building grids
+# and `Simulation`s and the like.
+
 using Oceananigans
 using Oceananigans.Units
+
+# Next we `using ClimaSeaIce` to get some ice-specific names.
+
 using ClimaSeaIce
 
-# # Setting up a model of a bucket of water freezing from the top down
+# # An infinitely deep bucket with a single grid point
 #
-# We'll model a slab of ice in a bucket with one grid point, which
-# requires only a zero-dimensional grid.
+# Perhaps surprisingly, we need just one grid point
+# to model an possibly infinitely thick slab of ice with `SlabSeaIceModel`.
+# We would only need more than 1 grid point if our boundary conditions
+# vary in the horizontal direction.
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-## Set the temperature at the top of the bucket to ``Tᵤ = -10ᵒC``.
+# Then our model of an ice slab freezing into a bucket. We set the top ice temperature
+# to `-10 ᵒC`. Note that other units besides Celsius _can_ be used, but that requires
+# setting model.phase_transitions` with appropriate parameters.
+
 model = SlabSeaIceModel(grid; top_thermal_boundary_condition=PrescribedTemperature(-10))
 
-## We'll freeze the bucket for 10 straight days
+# The default bottom thermal boundary condition for `SlabSeaIceModel` is
+# `IceWaterThermalEquilibrium` with freshwater. That's what we want!
+
+model.thermal_boundary_conditions.bottom
+
+# Ok, we're ready to freeze the bucket for 10 straight days with an initial ice
+# thickness of 1 cm,
+
 simulation = Simulation(model, Δt=10minute, stop_time=10days)
 
-## Initialize the ice thickness to 1 cm
 set!(model, h=0.01)
 
 # # Collecting data and running the simulation
 #
-# Before running the simulation, we set up a `Callback` to create
+# Before simulating the freezing bucket, we set up a `Callback` to create
 # a timeseries of the ice thickness saved at every time step.
 
 ## Container to hold the data
@@ -47,8 +76,8 @@ using CairoMakie
 
 # `timeseries` is a `Vector` of `Tuple`. So we have to do a bit of processing
 # to build `Vector`s of time `t` and thickness `h`. It's not much work though:
-t = map(ts -> ts[1], timeseries)
-h = map(ts -> ts[2], timeseries)
+t = [datum[1] for datum in timeseries]
+h = [datum[2] for datum in timeseries]
 
 # Just for fun, we also compute the velocity of the ice-water interface:
 dhdt = @. (h[2:end] - h[1:end-1]) / simulation.Δt
@@ -66,4 +95,7 @@ lines!(axd, 1e2 .* h[1:end-1], 1e6 .* dhdt)
 
 current_figure() # hide
 fig
+
+# If you want more ice, you can increase `simulation.stop_time` and
+# `run!(simulation)` again (or just re-run the whole script).
 

@@ -8,6 +8,9 @@ struct IceWaterThermalEquilibrium{S}
     salinity :: S
 end
 
+Adapt.adapt_structure(to, iwte::IceWaterThermalEquilibrium) =
+    IceWaterThermalEquilibrium(adapt(to, iwte.salinity))
+
 """
     IceWaterThermalEquilibrium(; external_fluxes::Tuple=tuple(), salinity=0)
 

@@ -24,3 +24,9 @@ docs/site/
 # Manifest.toml
 *.swp
 *.jld2
+*.mp4
+*.DS_Store
+*.nc
+*.json
+*.sha512
+data

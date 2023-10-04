@@ -4,11 +4,12 @@ using ClimaSeaIce
 using GLMakie
 
 # Generate a 0D grid for a single column slab model 
-grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
+grid = RectilinearGrid(size=4, x=(0, 1), topology=(Periodic, Flat, Flat))
 
 # Build a model of an ice slab that has internal conductive fluxes
 # and that emits radiation from its top surface.
-solar_insolation = -500 # W m⁻²
+solar_insolation = [-600, -800, -1000, -1200] # W m⁻²
+solar_insolation = reshape(solar_insolation, (4, 1, 1))
 outgoing_radiation = RadiativeEmission()
 
 # Define a FluxFunction representing a sensible heat flux
@@ -35,18 +36,24 @@ end
 aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)
 
 top_thermal_flux = (outgoing_radiation, solar_insolation, aerodynamic_flux)
-model = SlabSeaIceModel(grid; top_thermal_flux)
+model = SlabSeaIceModel(grid;
+                        ice_consolidation_thickness = 0.01, # m
+                        top_thermal_flux)
 set!(model, h=1)
 
-simulation = Simulation(model, Δt=10minute, stop_time=1day)
+simulation = Simulation(model, Δt=10minute, stop_time=30days)
 
 # Accumulate data
 timeseries = []
 
 function accumulate_timeseries(sim)
-    T = model.top_temperature
+    T = model.top_surface_temperature
     h = model.ice_thickness
-    push!(timeseries, (time(sim), first(h), first(T)))
+    push!(timeseries, (time(sim),
+                       h[1, 1, 1], T[1, 1, 1],
+                       h[2, 1, 1], T[2, 1, 1],
+                       h[3, 1, 1], T[3, 1, 1],
+                       h[4, 1, 1], T[4, 1, 1]))
 end
 
 simulation.callbacks[:save] = Callback(accumulate_timeseries)
@@ -56,8 +63,14 @@ run!(simulation)
 # Extract and visualize data
 
 t = [datum[1] for datum in timeseries]
-h = [datum[2] for datum in timeseries]
-T = [datum[3] for datum in timeseries]
+h1 = [datum[2] for datum in timeseries]
+T1 = [datum[3] for datum in timeseries]
+h2 = [datum[4] for datum in timeseries]
+T2 = [datum[5] for datum in timeseries]
+h3 = [datum[6] for datum in timeseries]
+T3 = [datum[7] for datum in timeseries]
+h4 = [datum[8] for datum in timeseries]
+T4 = [datum[9] for datum in timeseries]
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 
@@ -66,8 +79,17 @@ fig = Figure(resolution=(1000, 800))
 axT = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Top temperature (ᵒC)")
 axh = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
 
-lines!(axT, t / day, T)
-lines!(axh, t / day, h)
+lines!(axT, t / day, T1)
+lines!(axh, t / day, h1)
+
+lines!(axT, t / day, T2)
+lines!(axh, t / day, h2)
+
+lines!(axT, t / day, T3)
+lines!(axh, t / day, h3)
+
+lines!(axT, t / day, T4)
+lines!(axh, t / day, h4)
 
 display(fig)
 
