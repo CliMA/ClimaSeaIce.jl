@@ -1,3 +1,8 @@
+#####
+##### The purpose of this script is to reproduce some results from Semtner (1976)
+##### Note that this script probably doesn't work and is a work in progress.
+##### Don't hestitate to update this script in a PR!
+#####
 
 using Oceananigans
 using Oceananigans.Units
