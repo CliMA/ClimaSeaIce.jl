@@ -158,6 +158,7 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
     ice.Δt = Δt
     ocean.Δt = Δt
 
+    h = ice.model.ice_thickness
     fill_halo_regions!(h)
 
     # Initialization
