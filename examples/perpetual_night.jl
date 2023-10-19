@@ -1,7 +1,7 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
-using ClimaSeaIce.ThermalBoundaryConditions: RadiativeEmission
+using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission
 using GLMakie
 
 # Generate a zero-dimensional grid for a single column slab model 
@@ -9,7 +9,7 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 # Build a model of an ice slab that has internal conductive fluxes
 # and that emits radiation from its top surface.
-model = SlabSeaIceModel(grid; top_thermal_flux=RadiativeEmission())
+model = SlabSeaIceModel(grid; top_heat_flux=RadiativeEmission())
 set!(model, h=0.01)
 
 simulation = Simulation(model, Δt=1hour, stop_time=40days)

@@ -1,7 +1,7 @@
 using ClimaSeaIce: melting_temperature
 
 #####
-##### Bottom thermal boundary conditions
+##### Bottom heat boundary conditions
 #####
 
 struct IceWaterThermalEquilibrium{S}
@@ -14,7 +14,7 @@ Adapt.adapt_structure(to, iwte::IceWaterThermalEquilibrium) =
 """
     IceWaterThermalEquilibrium(; external_fluxes::Tuple=tuple(), salinity=0)
 
-Represents an ice-water interface in thermal equilibrium, such that
+Represents an ice-water interface in heat equilibrium, such that
 the bottom temperature ``T_b`` is equal to the melting temperature,
 
 ```math
@@ -38,7 +38,7 @@ IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
     return melting_temperature(liquidus, Sₒ)
 end
 
-@inline function bottom_flux_imbalance(i, j, grid, bottom_thermal_bc, top_temperature,
+@inline function bottom_flux_imbalance(i, j, grid, bottom_heat_bc, top_temperature,
                                        internal_fluxes, external_fluxes, clock, model_fields)
 
     #          

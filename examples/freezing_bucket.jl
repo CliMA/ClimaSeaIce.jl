@@ -33,12 +33,12 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 # to `-10 ᵒC`. Note that other units besides Celsius _can_ be used, but that requires
 # setting model.phase_transitions` with appropriate parameters.
 
-model = SlabSeaIceModel(grid; top_thermal_boundary_condition=PrescribedTemperature(-10))
+model = SlabSeaIceModel(grid; top_heat_boundary_condition=PrescribedTemperature(-10))
 
-# The default bottom thermal boundary condition for `SlabSeaIceModel` is
+# The default bottom heat boundary condition for `SlabSeaIceModel` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!
 
-model.thermal_boundary_conditions.bottom
+model.heat_boundary_conditions.bottom
 
 # Ok, we're ready to freeze the bucket for 10 straight days with an initial ice
 # thickness of 1 cm,

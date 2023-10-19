@@ -122,9 +122,9 @@ end
 
 struct ForwardEulerTimestepper end
 
-include("ThermalBoundaryConditions/ThermalBoundaryConditions.jl")
+include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
-using .ThermalBoundaryConditions:
+using .HeatBoundaryConditions:
     IceWaterThermalEquilibrium,
     MeltingConstrainedFluxBalance,
     RadiativeEmission,
