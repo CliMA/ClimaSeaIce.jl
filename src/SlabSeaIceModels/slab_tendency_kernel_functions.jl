@@ -8,10 +8,10 @@ function ice_thickness_tendency(i, j, grid, clock,
                                 ice_thickness,
                                 ice_consolidation_thickness,
                                 top_temperature,
-                                bottom_thermal_bc,
-                                top_external_thermal_flux,
-                                internal_thermal_flux,
-                                bottom_external_thermal_flux,
+                                bottom_heat_bc,
+                                top_external_heat_flux,
+                                internal_heat_flux,
+                                bottom_external_heat_flux,
                                 phase_transitions,
                                 h_forcing,
                                 model_fields)
@@ -28,13 +28,13 @@ function ice_thickness_tendency(i, j, grid, clock,
     consolidated_ice = hᵢ >= hᶜ
 
     liquidus = phase_transitions.liquidus
-    Tbᵢ = bottom_temperature(i, j, grid, bottom_thermal_bc, liquidus)
+    Tbᵢ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
     ℰb = latent_heat(phase_transitions, Tbᵢ)
     ℰu = latent_heat(phase_transitions, Tuᵢ)
 
-    Qi = internal_thermal_flux
-    Qb = bottom_external_thermal_flux
-    Qu = top_external_thermal_flux
+    Qi = internal_heat_flux
+    Qb = bottom_external_heat_flux
+    Qu = top_external_heat_flux
 
     # Retrieve fluxes
     Quᵢ = getflux(Qu, i, j, grid, Tuᵢ, clock, model_fields)

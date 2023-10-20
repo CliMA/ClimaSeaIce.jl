@@ -1,4 +1,4 @@
-using ClimaSeaIce.ThermalBoundaryConditions:
+using ClimaSeaIce.HeatBoundaryConditions:
     PrescribedTemperature,
     bottom_temperature,
     top_surface_temperature,
@@ -25,11 +25,11 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
             model.advection,
             model.ice_concentration,
             model.top_surface_temperature,
-            model.thermal_boundary_conditions.top,
-            model.thermal_boundary_conditions.bottom,
-            model.external_thermal_fluxes.top,
-            model.internal_thermal_flux,
-            model.external_thermal_fluxes.bottom,
+            model.heat_boundary_conditions.top,
+            model.heat_boundary_conditions.bottom,
+            model.external_heat_fluxes.top,
+            model.internal_heat_flux,
+            model.external_heat_fluxes.bottom,
             model.ice_consolidation_thickness,
             model.phase_transitions,
             nothing, #model.forcing.h,
@@ -47,11 +47,11 @@ end
                                        advection,
                                        ice_concentration,
                                        top_temperature,
-                                       top_thermal_bc,
-                                       bottom_thermal_bc,
-                                       top_external_thermal_flux,
-                                       internal_thermal_flux,
-                                       bottom_external_thermal_flux,
+                                       top_heat_bc,
+                                       bottom_heat_bc,
+                                       top_external_heat_flux,
+                                       internal_heat_flux,
+                                       bottom_external_heat_flux,
                                        ice_consolidation_thickness,
                                        phase_transitions,
                                        h_forcing,
@@ -62,22 +62,22 @@ end
     ℵ = ice_concentration
     h = ice_thickness
     hᶜ = ice_consolidation_thickness
-    Qi = internal_thermal_flux
-    Qu = top_external_thermal_flux
-    Qb = bottom_external_thermal_flux
+    Qi = internal_heat_flux
+    Qu = top_external_heat_flux
+    Qb = bottom_external_heat_flux
     Tu = top_temperature
     liquidus = phase_transitions.liquidus
 
     # Determine top surface temperature
-    if !isa(top_thermal_bc, PrescribedTemperature) # update surface temperature?
+    if !isa(top_heat_bc, PrescribedTemperature) # update surface temperature?
 
         consolidated_ice = @inbounds h[i, j, 1] >= hᶜ[i, j, 1]
 
         if consolidated_ice # slab is consolidated and has an independent surface temperature
             Tu⁻ = @inbounds Tu[i, j, 1]
-            Tuⁿ = top_surface_temperature(i, j, grid, top_thermal_bc, Tu⁻, Qi, Qu, clock, model_fields)
+            Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
         else # slab is unconsolidated and does not have an independent surface temperature
-            Tuⁿ = bottom_temperature(i, j, grid, bottom_thermal_bc, liquidus)
+            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
         end
 
         @inbounds Tu[i, j, 1] = Tuⁿ
@@ -89,10 +89,10 @@ end
                                 ice_thickness,
                                 ice_consolidation_thickness,
                                 top_temperature,
-                                bottom_thermal_bc,
-                                top_external_thermal_flux,
-                                internal_thermal_flux,
-                                bottom_external_thermal_flux,
+                                bottom_heat_bc,
+                                top_external_heat_flux,
+                                internal_heat_flux,
+                                bottom_external_heat_flux,
                                 phase_transitions,
                                 h_forcing,
                                 model_fields)

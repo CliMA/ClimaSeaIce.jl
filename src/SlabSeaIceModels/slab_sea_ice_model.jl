@@ -2,7 +2,7 @@ using ClimaSeaIce:
     PhaseTransitions,
     ForwardEulerTimestepper
 
-using ClimaSeaIce.ThermalBoundaryConditions:
+using ClimaSeaIce.HeatBoundaryConditions:
     MeltingConstrainedFluxBalance,
     IceWaterThermalEquilibrium,
     PrescribedTemperature,
@@ -37,10 +37,10 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <
     ice_salinity :: IS
     velocities :: U
     # Boundary conditions
-    external_thermal_fluxes :: STF
-    thermal_boundary_conditions :: TBC
+    external_heat_fluxes :: STF
+    heat_boundary_conditions :: TBC
     # Internal flux
-    internal_thermal_flux :: CF
+    internal_heat_flux :: CF
     # Melting and freezing stuff
     phase_transitions :: P
     ice_consolidation_thickness :: MIT
@@ -64,9 +64,9 @@ function Base.show(io::IO, model::SSIM)
     print(io, "├── grid: ", summary(model.grid), '\n')
     print(io, "├── top_surface_temperature: ", summary(model.top_surface_temperature), '\n')
     print(io, "├── minimium_ice_thickness: ", prettysummary(model.ice_consolidation_thickness), '\n')
-    print(io, "└── external_thermal_fluxes: ", '\n')
-    print(io, "    ├── top: ", flux_summary(model.external_thermal_fluxes.top, "    │"), '\n')
-    print(io, "    └── bottom: ", flux_summary(model.external_thermal_fluxes.bottom, "     "))
+    print(io, "└── external_heat_fluxes: ", '\n')
+    print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
+    print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
 end
          
 reset!(::SSIM) = nothing
@@ -93,13 +93,13 @@ function SlabSeaIceModel(grid;
                          ice_concentration                 = Field{Center, Center, Nothing}(grid),
                          ice_salinity                      = 0, # psu
                          top_surface_temperature           = nothing,
-                         top_thermal_flux                  = nothing,
-                         bottom_thermal_flux               = 0,
+                         top_heat_flux                  = nothing,
+                         bottom_heat_flux               = 0,
                          velocities                        = nothing,
                          advection                         = nothing,
-                         top_thermal_boundary_condition    = MeltingConstrainedFluxBalance(),
-                         bottom_thermal_boundary_condition = IceWaterThermalEquilibrium(),
-                         internal_thermal_flux             = ConductiveFlux(eltype(grid), conductivity=2),
+                         top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
+                         bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
+                         internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
                          phase_transitions                 = PhaseTransitions(eltype(grid)))
 
     if isnothing(velocities)
@@ -115,32 +115,32 @@ function SlabSeaIceModel(grid;
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
-    # Construct an internal thermal flux function that captures the liquidus and
+    # Construct an internal heat flux function that captures the liquidus and
     # bottom boundary condition.
-    parameters = (flux = internal_thermal_flux,
+    parameters = (flux = internal_heat_flux,
                   liquidus = phase_transitions.liquidus,
-                  bottom_thermal_boundary_condition = bottom_thermal_boundary_condition)
+                  bottom_heat_boundary_condition = bottom_heat_boundary_condition)
 
-    internal_thermal_flux_function = FluxFunction(slab_internal_thermal_flux;
+    internal_heat_flux_function = FluxFunction(slab_internal_heat_flux;
                                                   parameters,
                                                   top_temperature_dependent=true)
 
-    # Construct default top thermal flux if one is not provided
-    if isnothing(top_thermal_flux)
-        if top_thermal_boundary_condition isa PrescribedTemperature  
+    # Construct default top heat flux if one is not provided
+    if isnothing(top_heat_flux)
+        if top_heat_boundary_condition isa PrescribedTemperature  
             # Default: external top flux is in equilibrium with internal fluxes
-            top_thermal_flux = internal_thermal_flux_function
+            top_heat_flux = internal_heat_flux_function
         else
             # Default: no external top surface flux
-            top_thermal_flux = 0
+            top_heat_flux = 0
         end
     end
 
     # Construct default top temperature if one is not provided
     if isnothing(top_surface_temperature)
         # Check top boundary condition
-        if top_thermal_boundary_condition isa PrescribedTemperature  
-            top_surface_temperature = top_thermal_boundary_condition.temperature 
+        if top_heat_boundary_condition isa PrescribedTemperature  
+            top_surface_temperature = top_heat_boundary_condition.temperature 
         else # build the default
             top_surface_temperature = Field{Center, Center, Nothing}(grid)
         end
@@ -150,11 +150,11 @@ function SlabSeaIceModel(grid;
     top_surface_temperature = field((Center, Center, Nothing), top_surface_temperature, grid)
 
     # Package the external fluxes and boundary conditions
-    external_thermal_fluxes = (top = top_thermal_flux,    
-                               bottom = bottom_thermal_flux) 
+    external_heat_fluxes = (top = top_heat_flux,    
+                               bottom = bottom_heat_flux) 
 
-    thermal_boundary_conditions = (top = top_thermal_boundary_condition,
-                                   bottom = bottom_thermal_boundary_condition)
+    heat_boundary_conditions = (top = top_heat_boundary_condition,
+                                   bottom = bottom_heat_boundary_condition)
 
     return SlabSeaIceModel(grid,
                            clock,
@@ -164,9 +164,9 @@ function SlabSeaIceModel(grid;
                            top_surface_temperature,
                            ice_salinity,
                            velocities,
-                           external_thermal_fluxes,
-                           thermal_boundary_conditions,
-                           internal_thermal_flux_function,
+                           external_heat_fluxes,
+                           heat_boundary_conditions,
+                           internal_heat_flux_function,
                            phase_transitions,
                            ice_consolidation_thickness,
                            advection)

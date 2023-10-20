@@ -52,7 +52,7 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
     previous_ice_concentration = deepcopy(ice.model.ice_concentration)
 
     grid = ocean.model.grid
-    ice_ocean_thermal_flux = Field{Center, Center, Nothing}(grid)
+    ice_ocean_heat_flux = Field{Center, Center, Nothing}(grid)
     ice_ocean_salt_flux = Field{Center, Center, Nothing}(grid)
     solar_insolation = Field{Center, Center, Nothing}(grid)
 
@@ -64,10 +64,10 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
 
     # How would we ensure consistency?
     try
-        if ice.model.external_thermal_fluxes.top isa RadiativeEmission
-            radiation = ice.model.external_thermal_fluxes.top
+        if ice.model.external_heat_fluxes.top isa RadiativeEmission
+            radiation = ice.model.external_heat_fluxes.top
         else
-            radiation = filter(flux isa RadiativeEmission, ice.model.external_thermal_fluxes.top) |> first
+            radiation = filter(flux isa RadiativeEmission, ice.model.external_heat_fluxes.top) |> first
         end
 
         stefan_boltzmann_constant = radiation.stefan_boltzmann_constant
@@ -249,7 +249,7 @@ function ice_ocean_latent_heat!(coupled_model)
     ice = coupled_model.ice
     ρₒ = coupled_model.ocean_density
     cₒ = coupled_model.ocean_heat_capacity
-    Qₒ = ice.model.external_thermal_fluxes.bottom
+    Qₒ = ice.model.external_heat_fluxes.bottom
     Tₒ = ocean.model.tracers.T
     Sₒ = ocean.model.tracers.S
     Δt = ocean.Δt
@@ -306,7 +306,7 @@ end
         # temperature of the grid cells accordingly.
         adjust_temperature = freezing | icy_surface_cell
 
-        # Compute change in ocean thermal energy.
+        # Compute change in ocean heat energy.
         #
         #   - When Tᴺ < Tₘ, we heat the ocean back to melting temperature by extracting heat from the ice,
         #     assuming that the heat flux (which is carried by nascent ice crystals called frazil ice) floats

@@ -1,5 +1,5 @@
 #####
-##### Surface thermal boundary conditions
+##### Surface heat boundary conditions
 #####
 
 struct MeltingConstrainedFluxBalance{STS}
@@ -55,7 +55,7 @@ MeltingConstrainedFluxBalance() = MeltingConstrainedFluxBalance(NonlinearSurface
 ##### Flux imbalance and temperature
 #####
 
-@inline function top_flux_imbalance(i, j, grid, top_thermal_bc, top_surface_temperature,
+@inline function top_flux_imbalance(i, j, grid, top_heat_bc, top_surface_temperature,
                                     internal_fluxes, external_fluxes, clock, model_fields)
 
     # Schematic of the Stefan condition at an upper top
@@ -79,7 +79,7 @@ end
 
 using RootSolvers: SecantMethod, find_zero, CompactSolution
 
-@inline function top_surface_temperature(i, j, grid, top_thermal_bc,
+@inline function top_surface_temperature(i, j, grid, top_heat_bc,
                                          current_top_surface_temperature,
                                          internal_fluxes, external_fluxes,
                                          clock, model_fields)

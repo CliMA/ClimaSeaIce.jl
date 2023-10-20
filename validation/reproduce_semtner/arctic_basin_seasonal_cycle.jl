@@ -66,8 +66,8 @@ Q_emission  = RadiativeEmission()
 # Generate a 0D grid for a single column slab model 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-top_thermal_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
-model = SlabSeaIceModel(grid; top_thermal_flux)
+top_heat_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
+model = SlabSeaIceModel(grid; top_heat_flux)
 set!(model, h=1)
 
 simulation = Simulation(model, Δt=8hours, stop_time=4 * 360days)

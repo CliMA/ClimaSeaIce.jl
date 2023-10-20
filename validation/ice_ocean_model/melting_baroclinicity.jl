@@ -5,11 +5,11 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using Oceananigans.Units
 using Oceananigans.Utils: prettysummary
 
-using SeawaterPolynomials: TEOS10EquationOfState, thermal_expansion, haline_contraction
+using SeawaterPolynomials: TEOS10EquationOfState, heat_expansion, haline_contraction
 
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
-using ClimaSeaIce.ThermalBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
+using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 
 using Printf
 using GLMakie
@@ -76,12 +76,12 @@ ice_model = SlabSeaIceModel(ice_grid;
                             advection = nothing, #WENO(),
                             ice_consolidation_thickness = 0.05,
                             ice_salinity = 4,
-                            internal_thermal_flux = ConductiveFlux(conductivity=2),
-                            #top_thermal_flux = ConstantField(-100), # W m⁻²
-                            top_thermal_flux = ConstantField(0), # W m⁻²
-                            top_thermal_boundary_condition = PrescribedTemperature(0),
-                            bottom_thermal_boundary_condition = bottom_bc,
-                            bottom_thermal_flux = ice_ocean_heat_flux)
+                            internal_heat_flux = ConductiveFlux(conductivity=2),
+                            #top_heat_flux = ConstantField(-100), # W m⁻²
+                            top_heat_flux = ConstantField(0), # W m⁻²
+                            top_heat_boundary_condition = PrescribedTemperature(0),
+                            bottom_heat_boundary_condition = bottom_bc,
+                            bottom_heat_flux = ice_ocean_heat_flux)
 
 ocean_simulation = Simulation(ocean_model; Δt=20minutes, verbose=false)
 ice_simulation = Simulation(ice_model, Δt=20minutes, verbose=false)
@@ -226,11 +226,11 @@ compute!(ζ)
 ζlim = 2e-4 #ζmax / 2
 
 heatmap!(axh, x, y, hn, colorrange=(0, 1), colormap=:grays)
-heatmap!(axT, x, y, Tn, colormap=:thermal)
+heatmap!(axT, x, y, Tn, colormap=:heat)
 heatmap!(axS, x, y, Sn, colorrange = (29, 30), colormap=:haline)
 heatmap!(axZ, x, y, ζn, colorrange=(-ζlim, ζlim), colormap=:redblue)
 
-#heatmap!(axZ, x, y, Tn, colormap=:thermal)
+#heatmap!(axZ, x, y, Tn, colormap=:heat)
 #heatmap!(axF, x, y, Fn)
 
 display(fig)

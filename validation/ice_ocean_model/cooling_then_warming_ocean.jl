@@ -5,7 +5,7 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
 using SeawaterPolynomials: TEOS10EquationOfState
-using ClimaSeaIce.ThermalBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
+using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 using GLMakie
 
 import Oceananigans.Simulations: time_step!, time
@@ -68,21 +68,21 @@ bottom_bc = IceWaterThermalEquilibrium(ocean_surface_salinity)
 ice_model = SlabSeaIceModel(ice_grid;
                             ice_consolidation_thickness = 0.2,
                             ice_salinity = 0,
-                            internal_thermal_flux = ConductiveFlux(conductivity=100),
-                            top_thermal_flux = (solar_insolation, radiative_emission),
-                            bottom_thermal_boundary_condition = bottom_bc,
-                            bottom_thermal_flux = ice_ocean_flux)
+                            internal_heat_flux = ConductiveFlux(conductivity=100),
+                            top_heat_flux = (solar_insolation, radiative_emission),
+                            bottom_heat_boundary_condition = bottom_bc,
+                            bottom_heat_flux = ice_ocean_flux)
 
 ice_simulation = Simulation(ice_model, Δt=1hour)
 
-using SeawaterPolynomials: thermal_expansion, haline_contraction
+using SeawaterPolynomials: heat_expansion, haline_contraction
 
 # Double stratification
 N²θ = 0
 T₀ = 0
 S₀ = 30
 g = ocean_model.buoyancy.model.gravitational_acceleration
-α = thermal_expansion(T₀, S₀, 0, equation_of_state)
+α = heat_expansion(T₀, S₀, 0, equation_of_state)
 dTdz = N²θ / (α * g)
 
 N²S = 1e-4
