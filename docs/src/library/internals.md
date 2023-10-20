@@ -1,18 +1,11 @@
 # Private types and functions
 
-Documentation for `ClimaOcean.jl`'s internal interface.
+Documentation for `ClimaSeaIce.jl`'s internal interfaces.
 
-## ClimaOcean
-
-```@autodocs
-Modules = [ClimaOcean]
-Public = false
-```
-
-## Diagnostics
+## ClimaSeaIce
 
 ```@autodocs
-Modules = [ClimaOcean.Diagnostics]
+Modules = [ClimaSeaIce]
 Public = false
 ```
 

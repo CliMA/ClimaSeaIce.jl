@@ -1,254 +1,140 @@
 module ClimaSeaIce
 
-using Oceananigans.BoundaryConditions:
-    fill_halo_regions!,
-    regularize_field_boundary_conditions,
-    FieldBoundaryConditions,
-    ValueBoundaryCondition
+import Oceananigans.TimeSteppers: time_step!
 
-using Oceananigans.Utils: prettysummary, prettytime
-using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior
-using Oceananigans.Models: AbstractModel
-using Oceananigans.TimeSteppers: Clock, tick!
-using Oceananigans.Utils: launch!
-using Oceananigans.Operators
+export
+    MeltingConstrainedFluxBalance,
+    PrescribedTemperature,
+    RadiativeEmission,
+    ConductiveFlux,
+    FluxFunction,
+    SlabSeaIceModel
 
-using KernelAbstractions: @kernel, @index
+#####
+##### A bit of thermodynamics to start the day
+#####
 
-# Simulations interface
-import Oceananigans: fields, prognostic_fields
-import Oceananigans.Fields: set!
-import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.Simulations: reset!
-
-mutable struct ThermodynamicSeaIceModel{Grid,
-                                        Tim,
-                                        Clk,
-                                        Clo,
-                                        State,
-                                        Cp,
-                                        Fu,
-                                        Ocean,
-                                        Tend} <: AbstractModel{Nothing}
-    grid :: Grid
-    timestepper :: Tim # unused placeholder for now
-    clock :: Clk
-    closure :: Clo
-    state :: State
-    ice_heat_capacity :: Cp
-    water_heat_capacity :: Cp
-    fusion_enthalpy :: Fu
-    ocean_temperature :: Ocean
-    tendencies :: Tend
+struct LinearLiquidus{FT}
+    freshwater_melting_temperature :: FT
+    slope :: FT
 end
-
-const TSIM = ThermodynamicSeaIceModel
-
-function Base.show(io::IO, model::TSIM)
-    clock = model.clock
-    print(io, "ThermodynamicSeaIceModel(t=", prettytime(clock.time), ", iteration=", clock.iteration, ")", '\n')
-    print(io, "    grid: ", summary(model.grid), '\n')
-    print(io, "    ocean_temperature: ", model.ocean_temperature)
-end
-
-const reference_density = 999.8 # kg m⁻³
 
 """
-    ThermodynamicSeaIceModel(; grid, kw...)
+    LinearLiquidus(FT=Float64,
+                   slope = 0.054, # psu / ᵒC
+                   freshwater_melting_temperature = 0) # ᵒC
 
-Return a thermodynamic model for ice sandwiched between an atmosphere and ocean.
+Return a linear model for the dependence of the melting temperature of
+saltwater on salinity,
+
+```math
+Tₘ(S) = T₀ - m S ,
+```
+
+where ``Tₘ(S)`` is the melting temperature as a function of salinity ``S``,
+``T₀`` is the melting temperature of freshwater, and ``m`` is the ratio
+between the melting temperature and salinity (in other words the linear model
+should be thought of as defining ``m`` and could be written ``m ≡ (T₀ - Tₘ) / S``.
+The signs are arranged so that ``m > 0`` for saltwater).
+
+The defaults assume that salinity is given in practical salinity units `psu` and
+temperature is in degrees Celsius.
+
+Note: the function `melting_temperature(liquidus, salinity)` returns the
+melting temperature given `salinity`.
 """
-function ThermodynamicSeaIceModel(; grid,
-                                  closure = default_closure(grid),
-                                  ice_heat_capacity = 2090.0 / reference_density,
-                                  water_heat_capacity = 3991.0 / reference_density,
-                                  fusion_enthalpy = 3.3e5 / reference_density,
-                                  atmosphere_temperature = -10, # ᵒC
-                                  ocean_temperature = 0) # ᵒC
+function LinearLiquidus(FT::DataType=Float64;
+                        slope = 0.054, # psu / ᵒC
+                        freshwater_melting_temperature = 0) # ᵒC
 
-    # Build temperature field
-    top_T_bc = ValueBoundaryCondition(atmosphere_temperature)
-    bottom_T_bc = ValueBoundaryCondition(ocean_temperature)
-    T_location = (Center, Center, Center)
-    T_bcs = FieldBoundaryConditions(grid, T_location, top=top_T_bc, bottom=bottom_T_bc)
-    temperature = CenterField(grid, boundary_conditions=T_bcs)
-    enthalpy = CenterField(grid)
-    porosity = CenterField(grid)
-    state = (T=temperature, H=enthalpy, ϕ=porosity)
-
-    tendencies = (; H=CenterField(grid))
-    clock = Clock{eltype(grid)}(0, 0, 1)
-
-    return ThermodynamicSeaIceModel(grid,
-                                    nothing,
-                                    clock,
-                                    closure,
-                                    state,
-                                    ice_heat_capacity,
-                                    water_heat_capacity,
-                                    fusion_enthalpy,
-                                    ocean_temperature,
-                                    tendencies)
+    return LinearLiquidus(convert(FT, freshwater_melting_temperature),
+                          convert(FT, slope))
 end
 
-function set!(model::TSIM; T=nothing, H=nothing)
-
-    setting_temperature = !isnothing(T)
-    setting_enthalpy = !isnothing(H)
-
-    setting_temperature && setting_enthalpy && error("Cannot set both temperature and enthalpy!")
-
-    if setting_temperature
-        set!(model.state.T, T)
-        update_enthalpy!(model)
-    end
-
-    if setting_enthalpy
-        set!(model.state.H, H)
-        update_temperature!(model)
-    end
-
-    return nothing
+@inline function melting_temperature(liquidus::LinearLiquidus, salinity)
+    return liquidus.freshwater_melting_temperature - liquidus.slope * salinity
 end
 
-#####
-##### Utilities
-#####
-
-fields(model::TSIM) = model.state
-prognostic_fields(model::TSIM) = (; model.state.H)
-
-#####
-##### Time-stepping
-#####
-
-function update_porosity!(model)
-    T = model.state.T
-    ϕ = model.state.ϕ
-    grid = model.grid
-    arch = grid.architecture
-    launch!(arch, grid, :xyz, _compute_porosity!, ϕ, grid, T)
-    return nothing
+struct PhaseTransitions{FT, L}
+    ice_density :: FT
+    ice_heat_capacity :: FT
+    liquid_density :: FT
+    liquid_heat_capacity :: FT
+    reference_latent_heat :: FT
+    reference_temperature :: FT
+    liquidus :: L
 end
 
-@kernel function _compute_porosity!(ϕ, grid, T)   
-    i, j, k = @index(Global, NTuple) 
+"""
+    PhaseTransitions(FT=Float64,
+                     ice_density           = 917,   # kg m⁻³
+                     ice_heat_capacity     = 2000,  # J / (kg ᵒC)
+                     liquid_density        = 999.8, # kg m⁻³
+                     liquid_heat_capacity  = 4186,  # J / (kg ᵒC)
+                     reference_latent_heat = 334e3  # J kg⁻³
+                     liquidus = LinearLiquidus(FT)) # default assumes psu, ᵒC
 
-    FT = eltype(grid)
-    Tₘ = zero(FT) # melting temperature
+Return a representation of transitions between the solid and liquid phases
+of salty water: in other words, the freezing and melting of sea ice.
 
-    @inbounds begin
-        Tᵢ = T[i, j, k] 
-        ϕ[i, j, k] = ifelse(Tᵢ < Tₘ, one(FT), zero(FT))
-    end
+The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
+a function of temperature ``T`` via
+
+```math
+ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρℓ cℓ - ρᵢ cᵢ) * (T - T₀)    
+```
+
+where ``ρᵢ`` is the `ice_density`, ``ρℓ`` is the liquid density,
+``cᵢ`` is the heat capacity of ice, and ``cℓ`` is the heat capacity of
+liquid, and ``T₀`` is a reference temperature, all of which are assumed constant.
+
+The default `liquidus` assumes that salinity has practical salinity units (psu)
+and that temperature is degrees Celsius.
+"""
+@inline function PhaseTransitions(FT=Float64,
+                                  ice_density           = 917,    # kg m⁻³
+                                  ice_heat_capacity     = 2000,   # J / (kg ᵒC)
+                                  liquid_density        = 999.8,  # kg m⁻³
+                                  liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
+                                  reference_latent_heat = 334e3,  # J kg⁻³
+                                  reference_temperature = 0,      # ᵒC
+                                  liquidus = LinearLiquidus(FT))
+
+    return PhaseTransitions(convert(FT, ice_density),
+                            convert(FT, ice_heat_capacity),
+                            convert(FT, liquid_density),
+                            convert(FT, liquid_heat_capacity),
+                            convert(FT, reference_latent_heat),
+                            convert(FT, reference_temperature),
+                            liquidus)
 end
 
-function update_temperature!(model)
-    H = model.state.H
-    T = model.state.T
-    c = model.ice_heat_capacity
+@inline function latent_heat(thermo::PhaseTransitions, T)
+    T₀ = thermo.reference_temperature    
+    ℒ₀ = thermo.reference_latent_heat
+    ρᵢ = thermo.ice_density
+    ρℓ = thermo.liquid_density
+    cᵢ = thermo.ice_heat_capacity
+    cℓ = thermo.liquid_heat_capacity
 
-    # set temperature from enthalpy via dH = c dT + ℒ ϕ
-    interior(T) .= interior(H) ./ c
-
-    arch = model.grid.architecture
-    fill_halo_regions!(T, arch, model.clock, fields(model))
-
-    return nothing
+    return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-function update_enthalpy!(model)
-    H = model.state.H
-    T = model.state.T
-    ϕ = model.state.ϕ
-    c = model.ice_heat_capacity
-    ℒ = model.fusion_enthalpy
+struct ForwardEulerTimestepper end
 
-    # set temperature from enthalpy via dH = c dT + ℒ ϕ
-    interior(H) .= c .* interior(T) + ℒ * interior(ϕ)
+include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
-    arch = model.grid.architecture
-    fill_halo_regions!(H, arch, model.clock, fields(model))
+using .HeatBoundaryConditions:
+    IceWaterThermalEquilibrium,
+    MeltingConstrainedFluxBalance,
+    RadiativeEmission,
+    FluxFunction,
+    PrescribedTemperature
 
-    return nothing
-end
+include("EnthalpyMethodSeaIceModels.jl")
+include("SlabSeaIceModels/SlabSeaIceModels.jl")
 
-function update_state!(model::TSIM)
-    grid = model.grid
-    arch = grid.architecture
-    args = (model.clock, fields(model))
-    update_temperature!(model)
-    update_porosity!(model)
-    update_diffusivity!(model.closure, model)
-    return nothing
-end
-
-function time_step!(model, Δt; callbacks=nothing)
-    grid = model.grid
-    arch = grid.architecture
-    U = model.state
-    G = model.tendencies
-    closure = model.closure
-
-    launch!(arch, grid, :xyz, compute_tendencies!, G, grid, closure, U)
-    launch!(arch, grid, :xyz, step_fields!, U, G, Δt)
-    update_state!(model)
-    tick!(model.clock, Δt)
-
-    return nothing
-end
-
-@kernel function step_fields!(U, G, Δt)
-    i, j, k = @index(Global, NTuple)
-    @inbounds U.H[i, j, k] += Δt * G.H[i, j, k]
-end
-
-#####
-##### Physics
-#####
-
-""" Calculate the right-hand-side of the free surface displacement (η) equation. """
-@kernel function compute_tendencies!(G, grid, closure, U)
-    i, j, k = @index(Global, NTuple)
-
-    # Temperature tendency
-    @inbounds G.H[i, j, k] = ∂z_κ_∂z_T(i, j, k, grid, closure, U.T)
-end
-
-struct MolecularDiffusivity{C}
-    κ_ice :: Float64
-    κ_water :: Float64
-    κ :: C
-end
-
-
-function MolecularDiffusivity(grid; κ_ice=1e-5, κ_water=1e-6)
-    κ = CenterField(grid)
-    return MolecularDiffusivity(κ_ice, κ_water, κ)
-end
-
-function update_diffusivity!(closure::MolecularDiffusivity, model)
-    κ = closure.κ
-    κ_ice = closure.κ_ice
-    κ_water = closure.κ_water
-    ϕ = model.state.ϕ
-    grid = model.grid
-    arch = grid.architecture
-    launch!(arch, grid, :xyz, _compute_molecular_diffusivity!, κ, κ_ice, κ_water, ϕ)
-    fill_halo_regions!(κ)
-    return nothing
-end
-
-@kernel function _compute_molecular_diffusivity!(κ, κ_ice, κ_water, ϕ)
-    i, j, k = @index(Global, NTuple) 
-    @inbounds begin
-        ϕᵢ = ϕ[i, j, k] # porosity or liquid fraction
-        κ[i, j, k] = κ_ice * (1 - ϕᵢ) + κ_water * ϕᵢ
-    end
-end
-
-@inbounds κᶜᶜᶜ_∂zᶜᶜᶠT(i, j, k, grid, κ, T) = ℑzᵃᵃᶠ(i, j, k, grid, κ) * ∂zᶜᶜᶠ(i, j, k, grid, T)
-@inline ∂z_κ_∂z_T(i, j, k, grid, closure::MolecularDiffusivity, T) = ∂zᶜᶜᶜ(i, j, k, grid, κᶜᶜᶜ_∂zᶜᶜᶠT, closure.κ, T)
+using .EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel
+using .SlabSeaIceModels: SlabSeaIceModel, ConductiveFlux
 
 end # module
-
