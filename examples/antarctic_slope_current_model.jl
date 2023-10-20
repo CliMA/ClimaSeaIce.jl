@@ -1,5 +1,6 @@
 
 using CairoMakie
+using Printf
 using Oceananigans
 using Oceananigans.Fields, Oceananigans.AbstractOperations
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity # FIND submodule with CATKE
@@ -62,7 +63,6 @@ basin_depth = 4000
 """ Varies smoothly between 0 when y << y₀ to 1 when y >> y₀ + Δy, over a region of width Δy. """
 step(y, y₀, Δy) = (1 + tanh((y - y₀) / Δy)) / 2
 
-#underwater_slope(x, y) = -(slope_depth) + (slope_depth - basin_depth) * tanh((y - y₀) / Δy)
 underwater_slope(x, y) = (-basin_depth - slope_depth + (slope_depth - basin_depth) * tanh((y - y₀) / Δy)) / 2
 # TODO: add 50km troughs to the slope, dependent on x and y. Use appendix C to add detail here
 
@@ -76,16 +76,12 @@ grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(underwater_slope))
 # Creating the Hydrostatic model:
 #
 
-# Forcings:
-
-# TODO: need to use forcings to enact the sponge layers. Their support is within 20000 m
-# of the N/S boundaries, they impose a cross-slope buoyancy gradient, and the relaxation
-# tiem scales decrease linearly with distance from the interior termination of the sponge layers
+# Forcings (ignored for now):
 
 #
 # We'll use Relaxation() to impose a sponge layer forcing on velocity, temperature, and salinity
 #
-#=
+
 damping_rate       = 1 / 43200 # Relaxation time scale in seconds, need to make this decrease linearly toward outermost boundary
 #south_mask         = GaussianMask{:y}(center=0, width=sponge_width)
 #north_mask         = GaussianMask{:y}(center=Ly, width=sponge_width)
@@ -97,13 +93,11 @@ sponge_layers      = (south_sponge_layer, north_sponge_layer)
 
 north_sponge_layer_T = Relaxation(; rate=damping_rate, mask=north_mask, target=1.0)
 sponge_layers_T      = (south_sponge_layer, north_sponge_layer_T)
-=#
+
 # TODO: compose north_mask and south_mask together into one sponge layer, OR compose north/south sponge layers
 
 #
 # Boundary Conditions:
-# (from ocean wind mixing and convection example,
-# https://clima.github.io/OceananigansDocumentation/stable/generated/ocean_wind_mixing_and_convection/)
 #
 
 """
@@ -156,7 +150,7 @@ model = HydrostaticFreeSurfaceModel(;     grid = grid,
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
-                                       #forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers_T, S=sponge_layers),
+                                       forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers_T, S=sponge_layers),
                                        closure = CATKEVerticalDiffusivity(),
                            boundary_conditions = (u=u_bcs, v=v_bcs),
                                        tracers = (:T, :S, :e)
@@ -197,6 +191,7 @@ set!(model, T=Tᵢ)
 #
 # Now create a simulation and run the model
 #
+
 # Full resolution is 100 sec
 simulation = Simulation(model; Δt=100.0, stop_time=60days)
 
@@ -241,8 +236,6 @@ run!(simulation)
 # Make a figure and plot it
 #
 
-using Printf
-
 surface_filepath = filename * "_surface.jld2"
 average_filepath = filename * "_zonal_average.jld2"
 
@@ -253,9 +246,6 @@ surface_time_series = (u = FieldTimeSeries(surface_filepath, "u"),
                        S = FieldTimeSeries(surface_filepath, "S"))
 
 #@show surface_time_series.u
-#@show surface_time_series.w
-#@show surface_time_series.T
-#@show surface_time_series.S
 
 # Coordinate arrays
 srf_xw, srf_yw, srf_zw = nodes(surface_time_series.w)
@@ -287,12 +277,12 @@ ax_u  = Axis(fig[3, 3]; title = "Zonal velocity", axis_kwargs...)
 
 title = @lift @sprintf("t = %s", prettytime(times[$n]))
 
+# These limits are hardcoded right now, can be changed
 wlims = (-0.001, 0.001)
 Tlims = (-1.1, 1.1)
 Slims = (35, 35.005)
 ulims = (-1.2, 1.2)
 vlims = (-0.2, 0.2)
-
 
 hm_w = heatmap!(ax_w, srf_xw, srf_yw, srf_wₙ; colormap = :balance, colorrange = wlims)
 Colorbar(fig[2, 2], hm_w; label = "m s⁻¹")
