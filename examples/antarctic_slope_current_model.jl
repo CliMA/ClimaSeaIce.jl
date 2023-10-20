@@ -1,5 +1,5 @@
 
-#using CairoMakie
+using CairoMakie
 using Oceananigans
 using Oceananigans.Fields, Oceananigans.AbstractOperations
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity # FIND submodule with CATKE
@@ -177,14 +177,14 @@ For example:
 """
 ramp(y, Δy) = min(max(0, (y - Ly/2)/Δy + 1/2), 1)
 
-N² = 1e-7 # [s⁻²] vertical stratification, was 1e-5
+N² = 1e-8 # [s⁻²] vertical stratification, was 1e-5
 M² = 1e-5 # [s⁻²] meridional temperature gradient, was 1e-7
 
 Δy = 100kilometers # width of the region of the front
 ΔT = Δy * M²       # temperature jump associated with the front
 ϵT = 1e-2 * ΔT     # noise amplitude
 
-Tᵢ(x, y, z) = N² * z + ΔT * ramp(y, Δy) #+ ϵT * randn()
+Tᵢ(x, y, z) = N² * z + ΔT * ramp(y, Δy) + ϵT * randn()
 
 set!(model, T=Tᵢ)
 
@@ -200,7 +200,7 @@ set!(model, T=Tᵢ)
 # Full resolution is 100 sec
 simulation = Simulation(model; Δt=100.0, stop_time=60days)
 
-filename = "asc_model_hi_res_60_days_wind_stress_no_Tnoise"
+filename = "asc_model_hi_res_60_days_wind_stress_Nsq_neg8"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
@@ -215,10 +215,10 @@ s = sqrt(u^2 + v^2 + w^2)
 
 iter_interval = 240
 
-simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
-                                                     filename = filename * "_zonal_average.jld2",
-                                                     schedule = IterationInterval(iter_interval),
-                                                     overwrite_existing = true)
+#simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
+#                                                     filename = filename * "_zonal_average.jld2",
+#                                                     schedule = IterationInterval(iter_interval),
+#                                                     overwrite_existing = true)
 
 
 simulation.output_writers[:slices] = JLD2OutputWriter(model, merge(model.velocities, model.tracers),
@@ -236,12 +236,11 @@ simulation.output_writers[:fields] = JLD2OutputWriter(model, (; ω, s),
 run!(simulation)
 @info "Simulation completed in " * prettytime(simulation.run_wall_time)
 @show simulation
-#=
+
 #
 # Make a figure and plot it
 #
 
-using GLMakie
 using Printf
 
 surface_filepath = filename * "_surface.jld2"
@@ -374,7 +373,7 @@ frames = intro:length(times)
 record(fig, filename * "_fields.mp4", frames, framerate=8) do i
     n[] = i
 end
-=#
+
 #=
 #
 # Now do all the above, but for zonal average time series data:
