@@ -77,7 +77,7 @@ grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(underwater_slope))
 #
 
 # Forcings (ignored for now):
-
+#=
 #
 # We'll use Relaxation() to impose a sponge layer forcing on velocity, temperature, and salinity
 #
@@ -93,7 +93,7 @@ sponge_layers      = (south_sponge_layer, north_sponge_layer)
 
 north_sponge_layer_T = Relaxation(; rate=damping_rate, mask=north_mask, target=1.0)
 sponge_layers_T      = (south_sponge_layer, north_sponge_layer_T)
-
+=#
 # TODO: compose north_mask and south_mask together into one sponge layer, OR compose north/south sponge layers
 
 #
@@ -150,7 +150,7 @@ model = HydrostaticFreeSurfaceModel(;     grid = grid,
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
                                       coriolis = coriolis,
                                   free_surface = ImplicitFreeSurface(gravitational_acceleration=g_Earth),
-                                       forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers_T, S=sponge_layers),
+                                       #forcing = (u=sponge_layers, v=sponge_layers, w=sponge_layers, T=sponge_layers_T, S=sponge_layers),
                                        closure = CATKEVerticalDiffusivity(),
                            boundary_conditions = (u=u_bcs, v=v_bcs),
                                        tracers = (:T, :S, :e)
@@ -193,9 +193,9 @@ set!(model, T=Tᵢ)
 #
 
 # Full resolution is 100 sec
-simulation = Simulation(model; Δt=100.0, stop_time=60days)
+simulation = Simulation(model; Δt=100.0, stop_time=2days)
 
-filename = "asc_model_hi_res_60_days_wind_stress_Nsq_neg8"
+filename = "asc_model_hi_res_2_days_wind_stress_Nsq_neg8"
 
 # Here we'll try also running a zonal average of the simulation:
 u, v, w = model.velocities
