@@ -12,6 +12,8 @@ using KernelAbstractions.Extras.LoopInfo: @unroll
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
+import Oceananigans.Architectures: AbstractArchitecture
+import Oceananigans.Grids: architecture
 import Oceananigans.Models: timestepper, NaNChecker, default_nan_checker
 import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
