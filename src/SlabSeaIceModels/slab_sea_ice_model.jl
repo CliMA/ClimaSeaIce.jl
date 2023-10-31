@@ -15,6 +15,8 @@ using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
+import Oceananigans.Architectures: AbstractArchitecture
+import Oceananigans.Grids: architecture
 import Oceananigans.Fields: set!
 import Oceananigans.Models: AbstractModel
 import Oceananigans.OutputWriters: default_included_properties
@@ -26,7 +28,8 @@ import Oceananigans.Utils: prettytime
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <: AbstractModel{TS}
+struct SlabSeaIceModel{AR<:AbstractArchitecture, GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <: AbstractModel{TS}
+    architecture :: AR
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -46,7 +49,6 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <
     ice_consolidation_thickness :: MIT
     # Numerics
     advection :: A
-    architecture
 end
 
 const SSIM = SlabSeaIceModel
@@ -159,7 +161,8 @@ function SlabSeaIceModel(grid;
 
     architecture = architecture(grid)
 
-    return SlabSeaIceModel(grid,
+    return SlabSeaIceModel(architecture, 
+                           grid,
                            clock,
                            timestepper,
                            ice_thickness,
@@ -172,8 +175,7 @@ function SlabSeaIceModel(grid;
                            internal_heat_flux_function,
                            phase_transitions,
                            ice_consolidation_thickness,
-                           advection,
-                           architecture)
+                           advection)
 end
 
 function set!(model::SSIM; h=nothing, α=nothing)
