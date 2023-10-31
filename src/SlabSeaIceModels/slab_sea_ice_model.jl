@@ -159,9 +159,9 @@ function SlabSeaIceModel(grid;
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                    bottom = bottom_heat_boundary_condition)
 
-    architecture = architecture(grid)
+    arch = grid.architecture # architecture(grid)
 
-    return SlabSeaIceModel(architecture, 
+    return SlabSeaIceModel(arch, 
                            grid,
                            clock,
                            timestepper,
