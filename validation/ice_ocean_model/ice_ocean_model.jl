@@ -18,7 +18,8 @@ import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!, time
 import Oceananigans.Utils: prettytime
 
-struct IceOceanModel{FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
+struct IceOceanModel{AR<:AbstractArchitecture, FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
+    architecture :: AR
     clock :: C
     grid :: G # TODO: make it so simulation does not require this
     ice :: I
@@ -77,7 +78,10 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
 
     FT = eltype(ocean.model.grid)
 
-    return IceOceanModel(clock,
+    arch = ocean.model.grid.architecture
+
+    return IceOceanModel(arch,
+                         clock,
                          ocean.model.grid,
                          ice,
                          previous_ice_thickness,
