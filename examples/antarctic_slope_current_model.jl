@@ -7,6 +7,8 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity # FIND submodule
 using Oceananigans.Units: minute, minutes, hour, days, kilometers
 using SeawaterPolynomials.TEOS10
 
+using ClimaSeaIce
+
 # This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
 # 2022 paper by Si, Stewart, and Eisenman
 
