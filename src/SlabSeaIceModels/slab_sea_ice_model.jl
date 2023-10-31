@@ -46,6 +46,7 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <
     ice_consolidation_thickness :: MIT
     # Numerics
     advection :: A
+    architecture
 end
 
 const SSIM = SlabSeaIceModel
@@ -156,6 +157,8 @@ function SlabSeaIceModel(grid;
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                    bottom = bottom_heat_boundary_condition)
 
+    architecture = architecture(grid)
+
     return SlabSeaIceModel(grid,
                            clock,
                            timestepper,
@@ -169,7 +172,8 @@ function SlabSeaIceModel(grid;
                            internal_heat_flux_function,
                            phase_transitions,
                            ice_consolidation_thickness,
-                           advection)
+                           advection,
+                           architecture)
 end
 
 function set!(model::SSIM; h=nothing, α=nothing)
