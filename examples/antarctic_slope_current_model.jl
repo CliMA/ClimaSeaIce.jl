@@ -2,17 +2,26 @@
 using CairoMakie
 using Printf
 using Oceananigans
-using Oceananigans.Fields, Oceananigans.AbstractOperations
+using Oceananigans.Architectures: arch_array
+using Oceananigans.Fields: ZeroField, ConstantField
+using Oceananigans.AbstractOperations
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity # FIND submodule with CATKE
 using Oceananigans.Units: minute, minutes, hour, days, kilometers
-using SeawaterPolynomials.TEOS10
+
+using SeawaterPolynomials: TEOS10EquationOfState, haline_contraction
+
+using Statistics
 
 using ClimaSeaIce
+using ClimaSeaIce: melting_temperature
+using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 
-# This file sets up a model that resembles the Antarctic Slope Current (ASC) model in the
+include("../validation/ice_ocean_model/ice_ocean_model.jl")
+
+# This file sets up a ocean_model that resembles the Antarctic Slope Current (ASC) ocean_model in the
 # 2022 paper by Si, Stewart, and Eisenman
 
-arch = GPU()
+arch = CPU()
 
 g_Earth = 9.80665
 
@@ -24,10 +33,16 @@ Nx = 400
 Ny = 450
 Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
+x = (-Lx/2, Lx/2)
+y = (0, Ly)
+
+topology = (Periodic, Bounded, Bounded)
+halo     = (4, 4, 4)
+
 sponge_width = 20kilometers
 
 #
-# Setting up the grid and bathymetry:
+# Setting up the ocean_grid and bathymetry:
 #
 refinement = 20.0 # controls spacing near surface (higher means finer spaced), 12.0
 stretching = 3  # controls rate of stretching at bottom, 3
@@ -44,15 +59,23 @@ h(k) = (k - 1) / Nz
 # Generating function
 z_faces(k) = Lz * (ζ₀(k) * Σ(k) - 1)
 
-underlying_grid = RectilinearGrid(arch,
-                                      size = (Nx, Ny, Nz),
-                                  topology = (Periodic, Bounded, Bounded),
-                                         x = (-Lx/2, Lx/2),
-                                         y = (0, Ly),
-                                         z = z_faces,
-                                      halo = (4, 4, 4))
+ice_grid = RectilinearGrid(arch,
+                           size = (Nx, Ny),
+                           topology = (topology[1], topology[2], Flat),
+                           x = x,
+                           y = y,
+                           halo = halo[1:2])
 
-@show underlying_grid
+underlying_ocean_grid = RectilinearGrid(arch,
+                                      size = (Nx, Ny, Nz),
+                                  topology = topology,
+                                         x = x,
+                                         y = y,
+                                         z = z_faces,
+                                      halo = halo)
+
+@show ice_grid                                      
+@show underlying_ocean_grid
 
 # We want the underwater slope to provide a depth of 500 m at y = 0 and the full 4 km by y =200. It follows
 # a hyperbolic tangent curve with its center at y ~= 150 at a depth of ~ -4000 + (4000 - 500)/2 = -2250 m
@@ -68,14 +91,14 @@ step(y, y₀, Δy) = (1 + tanh((y - y₀) / Δy)) / 2
 underwater_slope(x, y) = (-basin_depth - slope_depth + (slope_depth - basin_depth) * tanh((y - y₀) / Δy)) / 2
 # TODO: add 50km troughs to the slope, dependent on x and y. Use appendix C to add detail here
 
-grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBottom(underwater_slope))
+ocean_grid = ImmersedBoundaryGrid(underlying_ocean_grid, GridFittedBottom(underwater_slope))
 
-@show grid
+@show ocean_grid
 
 # TODO: add underwater slope at y = 0 with troughs
 
 #
-# Creating the Hydrostatic model:
+# Creating the Hydrostatic ocean_model:
 #
 
 # Forcings (ignored for now):
@@ -101,6 +124,14 @@ sponge_layers_T      = (south_sponge_layer, north_sponge_layer_T)
 #
 # Boundary Conditions:
 #
+
+# Top boundary conditions for ice/ocean:
+#   - outgoing radiative fluxes emitted from surface
+#   - incoming shortwave radiation starting after 40 days
+
+ice_ocean_heat_flux      = Field{Center, Center, Nothing}(ice_grid)
+top_ocean_heat_flux = Qᵀ = Field{Center, Center, Nothing}(ice_grid)
+top_salt_flux       = Qˢ = Field{Center, Center, Nothing}(ice_grid)
 
 """
     boundary_ramp(y, Δy)
@@ -132,21 +163,20 @@ cᴰ  = 2.5e-3 # dimensionless drag coefficient
 u_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵘ, parameters=(; cᴰ, ρₐ, ρₒ, Ly)))
 v_bcs = FieldBoundaryConditions(top = FluxBoundaryCondition(Qᵛ, parameters=(; cᴰ, ρₐ, ρₒ, Ly)))
 
+# Generate a zero-dimensional grid for a single column slab model boundary conditions:
+boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Qᵀ)),
+                       S = FieldBoundaryConditions(top=FluxBoundaryCondition(Qˢ)))
+
 # Buoyancy Equations of State - we want high order polynomials, so we'll use TEOS-10
 eos = TEOS10EquationOfState() # can compare to linear EOS later (linear not recommended for polar regions)
 
 # Coriolis Effect, using basic f-plane with precribed reference Coriolis parameter
 coriolis = BetaPlane(f₀=1.3e-4, β=1e-11) #FPlane(latitude=-60)
 
-# Diffusivities as part of closure
-# TODO: make sure this works for biharmonic diffusivities as the horizontal, 
-horizontal_closure = HorizontalScalarDiffusivity(ν=0.1, κ=0.1)
-vertical_closure   = VerticalScalarDiffusivity(ν=3e-4, κ=1e-5)
-
 #
 # Assuming no particles or biogeochemistry
 #
-model = HydrostaticFreeSurfaceModel(;     grid = grid,
+ocean_model = HydrostaticFreeSurfaceModel(;     grid = ocean_grid,
                             momentum_advection = WENO(),
                               tracer_advection = WENO(),
                                       buoyancy = SeawaterBuoyancy(equation_of_state=eos, gravitational_acceleration=g_Earth),
@@ -158,7 +188,33 @@ model = HydrostaticFreeSurfaceModel(;     grid = grid,
                                        tracers = (:T, :S, :e)
 )
 
+Nz = size(ocean_grid, 3)
+So = ocean_model.tracers.S
+ocean_surface_salinity = view(So, :, :, Nz)
+bottom_bc = IceWaterThermalEquilibrium(ConstantField(30)) #ocean_surface_salinity)
+
+u, v, w = ocean_model.velocities
+ocean_surface_velocities = (u = view(u, :, :, Nz), #interior(u, :, :, Nz),
+                            v = view(v, :, :, Nz), #interior(v, :, :, Nz),    
+                            w = ZeroField())
+
+ice_model = SlabSeaIceModel(ice_grid;
+                            velocities = ocean_surface_velocities,
+                            advection = nothing, #WENO(),
+                            ice_consolidation_thickness = 0.05,
+                            ice_salinity = 4,
+                            internal_heat_flux = ConductiveFlux(conductivity=2),
+                            #top_heat_flux = ConstantField(-100), # W m⁻²
+                            top_heat_flux = ConstantField(0), # W m⁻²
+                            top_heat_boundary_condition = PrescribedTemperature(0),
+                            bottom_heat_boundary_condition = bottom_bc,
+                            bottom_heat_flux = ice_ocean_heat_flux)
+
+
+
+#
 # INITIAL CONDITION FOR TEMPERATURE: a baroclinically unstable temperature distribution
+#
 """
     ramp(y, Δy)
 
@@ -182,57 +238,192 @@ M² = 1e-5 # [s⁻²] meridional temperature gradient, was 1e-7
 
 Tᵢ(x, y, z) = N² * z + ΔT * ramp(y, Δy) + ϵT * randn()
 
-set!(model, T=Tᵢ)
+# INITIAL CONDITION FOR ICE SALINITY:
+function hᵢ(x, y)
+    if sqrt(x^2 + (y-225kilometers)^2) < 100kilometers
+        #return 1 + 0.1 * rand()
+        return 2
+    else 
+        return 0
+    end
+end
+
+set!(ocean_model, T=Tᵢ)
+set!(ice_model, h=hᵢ)
 
 # TODO: impose a temperature restoring at the surface that corresponds to Si/Stewart to help get baroclinic eddies
 # Add initial condition to get turbulence running (should be doable on a laptop), then:
 # Buoyancy gradient imposed at North/South boundary, surface temp as freezing temperature imposed
 
-@show model
+@show ice_model
+@show ocean_model
 
 #
-# Now create a simulation and run the model
+# Now create a ocean_simulation and run the ocean_model
 #
 
 # Full resolution is 100 sec
-simulation = Simulation(model; Δt=100.0, stop_time=2days)
+time_step = 100
+stop_time = 60days
 
-filename = "asc_model_hi_res_2_days_wind_stress_Nsq_neg8"
+ice_simulation   = Simulation(ice_model; Δt=time_step, stop_time=stop_time, verbose=false)
+ocean_simulation = Simulation(ocean_model; Δt=time_step, stop_time=stop_time, verbose=false)
 
-# Here we'll try also running a zonal average of the simulation:
-u, v, w = model.velocities
-avgT = Average(model.tracers.T, dims=1)
-avgU = Average(u, dims=1)
-avgV = Average(v, dims=1)
-avgW = Average(w, dims=1)
+filename = "asc_model_hi_res_60_days_ice"
 
-# Here we'll compute and record vorticity and speed:
-ω = ∂x(v) - ∂y(u)
-s = sqrt(u^2 + v^2 + w^2)
+coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
+coupled_simulation = Simulation(coupled_model, Δt=time_step, stop_time=stop_time)
 
-iter_interval = 240
+S  = ocean_model.tracers.S
+# Initial condition
+S₀ = 30
+T₀ = melting_temperature(ice_model.phase_transitions.liquidus, S₀) + 2.0
 
-#simulation.output_writers[:zonal] = JLD2OutputWriter(model, (; T=avgT, u=avgU, v=avgV, w=avgW);
-#                                                     filename = filename * "_zonal_average.jld2",
-#                                                     schedule = IterationInterval(iter_interval),
-#                                                     overwrite_existing = true)
+N²S = 1e-6
+β = haline_contraction(T₀, S₀, 0, eos)
+g  = ocean_model.buoyancy.model.gravitational_acceleration
+by = - g * β * ∂y(S)
+
+function progress(sim)
+    h = sim.model.ice.model.ice_thickness
+    S = sim.model.ocean.model.tracers.S
+    T = sim.model.ocean.model.tracers.T
+    u = sim.model.ocean.model.velocities.u
+    msg1 = @sprintf("Iter: % 6d, time: % 12s", iteration(sim), prettytime(sim))
+    msg2 = @sprintf(", max(h): %.2f", maximum(h))
+    msg3 = @sprintf(", min(S): %.2f", minimum(S))
+    msg4 = @sprintf(", extrema(T): (%.2f, %.2f)", minimum(T), maximum(T))
+    msg5 = @sprintf(", max|∂y b|: %.2e", maximum(abs, by))
+    msg6 = @sprintf(", max|u|: %.2e", maximum(abs, u))
+    @info msg1 * msg2 * msg3 * msg4 * msg5 * msg6
+    return nothing
+end
+
+coupled_simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
+
+H = ice_model.ice_thickness
+T = ocean_model.tracers.T
+S = ocean_model.tracers.S
+u, v, w = ocean_model.velocities
+η = ocean_model.free_surface.η
+
+Ht = []
+Tt = []
+Ft = []
+Qt = []
+St = []
+ut = []
+vt = []
+ηt = []
+ζt = []
+tt = []
+
+ζ = Field(∂x(v) - ∂y(u))
+
+function saveoutput(sim)
+    compute!(ζ)
+    Hn = Array(interior(H, :, :, 1))
+    Fn = Array(interior(Qˢ, :, :, 1))
+    Qn = Array(interior(Qᵀ, :, :, 1))
+    Tn = Array(interior(T, :, :, Nz))
+    Sn = Array(interior(S, :, :, Nz))
+    un = Array(interior(u, :, :, Nz))
+    vn = Array(interior(v, :, :, Nz))
+    ηn = Array(interior(η, :, :, 1))
+    ζn = Array(interior(ζ, :, :, Nz))
+    push!(Ht, Hn)
+    push!(Ft, Fn)
+    push!(Qt, Qn)
+    push!(Tt, Tn)
+    push!(St, Sn)
+    push!(ut, un)
+    push!(vt, vn)
+    push!(ηt, ηn)
+    push!(ζt, ζn)
+    push!(tt, time(sim))
+end
+
+coupled_simulation.callbacks[:output] = Callback(saveoutput, IterationInterval(10))
+
+run!(coupled_simulation)
+
+#####
+##### Viz for this model with ice
+#####
+
+set_theme!(Theme(fontsize=24))
+
+x = xnodes(ocean_grid, Center())
+y = ynodes(ocean_grid, Center())
+
+fig = Figure(resolution=(2400, 700))
+
+axh = Axis(fig[1, 1], xlabel="x (km)", ylabel="y (km)", title="Ice thickness")
+axT = Axis(fig[1, 2], xlabel="x (km)", ylabel="y (km)", title="Ocean surface temperature")
+axS = Axis(fig[1, 3], xlabel="x (km)", ylabel="y (km)", title="Ocean surface salinity")
+axZ = Axis(fig[1, 4], xlabel="x (km)", ylabel="y (km)", title="Ocean vorticity")
+
+Nt = length(tt)
+slider = Slider(fig[2, 1:4], range=1:Nt, startvalue=Nt)
+n = slider.value
+
+title = @lift string("Melt-driven baroclinic instability after ", prettytime(tt[$n]))
+Label(fig[0, 1:3], title)
+
+Hn = @lift Ht[$n]
+Fn = @lift Ft[$n]
+Tn = @lift Tt[$n]
+Sn = @lift St[$n]
+un = @lift ut[$n]
+vn = @lift vt[$n]
+ηn = @lift ηt[$n]
+ζn = @lift ζt[$n]
+Un = @lift mean(ut[$n], dims=1)[:]
+
+x = x ./ 1e3
+y = y ./ 1e3
+
+Stop = view(S, :, :, Nz)
+Smax = maximum(Stop)
+Smin = minimum(Stop)
+
+compute!(ζ)
+ζtop = view(ζ, :, :, Nz)
+ζmax = maximum(abs, ζtop)
+ζlim = 2e-4 #ζmax / 2
+
+heatmap!(axh, x, y, Hn, colorrange=(0, 1), colormap=:grays)
+heatmap!(axT, x, y, Tn, colormap=:heat)
+heatmap!(axS, x, y, Sn, colorrange = (29, 30), colormap=:haline)
+heatmap!(axZ, x, y, ζn, colorrange=(-ζlim, ζlim), colormap=:redblue)
+
+#heatmap!(axZ, x, y, Tn, colormap=:heat)
+#heatmap!(axF, x, y, Fn)
+
+fig #display(fig)
+
+record(fig, "salty_baroclinic_ice_cube.mp4", 1:Nt, framerate=48) do nn
+    @info string(nn)
+    n[] = nn
+end
 
 
-simulation.output_writers[:slices] = JLD2OutputWriter(model, merge(model.velocities, model.tracers),
+#=
+ocean_simulation.output_writers[:slices] = JLD2OutputWriter(ocean_model, merge(ocean_model.velocities, ocean_model.tracers),
                                                       filename = filename * "_surface.jld2",
-                                                      indices = (:, :, grid.Nz),
+                                                      indices = (:, :, ocean_grid.Nz),
                                                       schedule = IterationInterval(iter_interval),
                                                       overwrite_existing = true)
 
-simulation.output_writers[:fields] = JLD2OutputWriter(model, (; ω, s),
+ocean_simulation.output_writers[:fields] = JLD2OutputWriter(ocean_model, (; ω, s),
                                                       filename = filename * "_fields.jld2",
-                                                      indices = (:, :, grid.Nz),
+                                                      indices = (:, :, ocean_grid.Nz),
                                                       schedule = IterationInterval(iter_interval),
                                                       overwrite_existing = true)
 
-run!(simulation)
-@info "Simulation completed in " * prettytime(simulation.run_wall_time)
-@show simulation
+run!(ocean_simulation)
+@info "Simulation completed in " * prettytime(ocean_simulation.run_wall_time)
+@show ocean_simulation
 
 #
 # Make a figure and plot it
@@ -268,8 +459,8 @@ fig = Figure(resolution = (4000, 2000))
 
 axis_kwargs = (xlabel="x (m)",
                ylabel="y (m)",
-               aspect = AxisAspect(grid.Lx/grid.Ly),
-               limits = ((-grid.Lx/2, grid.Lx/2), (0, grid.Ly)))
+               aspect = AxisAspect(ocean_grid.Lx/ocean_grid.Ly),
+               limits = ((-ocean_grid.Lx/2, ocean_grid.Lx/2), (0, ocean_grid.Ly)))
 
 ax_w  = Axis(fig[2, 1]; title = "Vertical velocity", axis_kwargs...)
 ax_T  = Axis(fig[2, 3]; title = "Temperature", axis_kwargs...)
@@ -363,86 +554,6 @@ frames = intro:length(times)
 @info "Making a neat animation of vorticity and speed..."
 
 record(fig, filename * "_fields.mp4", frames, framerate=8) do i
-    n[] = i
-end
-
-#=
-#
-# Now do all the above, but for zonal average time series data:
-#
-
-average_time_series = (u = FieldTimeSeries(average_filepath, "u"),
-                       v = FieldTimeSeries(average_filepath, "v"),
-                       w = FieldTimeSeries(average_filepath, "w"),
-                       T = FieldTimeSeries(average_filepath, "T"))
-
-#@show average_time_series.u
-#@show average_time_series.w
-#@show average_time_series.T
-#@show average_time_series.v
-
-# Coordinate arrays
-avg_xw, avg_yw, avg_zw = nodes(average_time_series.w)
-avg_xT, avg_yT, avg_zT = nodes(average_time_series.T)
-
-times = average_time_series.w.times
-intro = 1
-
-n = Observable(intro)
-
-avg_wₙ = @lift interior(average_time_series.w[$n],  1, :, :)
-avg_Tₙ = @lift interior(average_time_series.T[$n],  1, :, :)
-#avg_Sₙ = @lift interior(average_time_series.S[$n],  1, :, :)
-avg_uₙ = @lift interior(average_time_series.u[$n],  1, :, :)
-avg_vₙ = @lift interior(average_time_series.v[$n],  1, :, :)
-
-fig = Figure(resolution = (4000, 2000))
-
-axis_kwargs = (xlabel="y (m)",
-               ylabel="z (m)",
-               aspect = AxisAspect(2.),#AxisAspect(grid.Ly/grid.Lz),
-               limits = ((0, grid.Ly), (-grid.Lz, 0)))
-
-ax_w  = Axis(fig[2, 1]; title = "Vertical velocity", axis_kwargs...)
-ax_T  = Axis(fig[2, 3]; title = "Temperature", axis_kwargs...)
-#ax_S  = Axis(fig[3, 1]; title = "Salinity", axis_kwargs...)
-ax_v  = Axis(fig[3, 1]; title = "Meridional velocity", axis_kwargs...)
-ax_u  = Axis(fig[3, 3]; title = "Zonal velocity", axis_kwargs...)
-
-title = @lift @sprintf("t = %s", prettytime(times[$n]))
-
-wlims = (-0.002, 0.002)
-Tlims = (-0.02, 0.02)
-Slims = (35, 35.005)
-ulims = (-0.12, 0.12)
-vlims = (-0.12, 0.12)
-
-
-hm_w = heatmap!(ax_w, avg_yw, avg_zw, avg_wₙ; colormap = :balance) #, colorrange = wlims)
-Colorbar(fig[2, 2], hm_w; label = "m s⁻¹")
-
-hm_T = heatmap!(ax_T, avg_yT, avg_zT, avg_Tₙ; colormap = :thermal) #, colorrange = Tlims)
-Colorbar(fig[2, 4], hm_T; label = "ᵒC")
-
-#hm_S = heatmap!(ax_S, srf_xT, srf_yT, srf_Sₙ; colormap = :haline)#, colorrange = Slims)
-#Colorbar(fig[3, 2], hm_S; label = "g / kg")
-
-hm_v = heatmap!(ax_v, avg_yw, avg_zw, avg_vₙ; colormap = :balance) #, colorrange = vlims)
-Colorbar(fig[3, 2], hm_v; label = "m s⁻¹")
-
-hm_u = heatmap!(ax_u, avg_yw, avg_zw, avg_uₙ; colormap = :balance) #, colorrange = ulims)
-Colorbar(fig[3, 4], hm_u; label = "m s⁻¹")
-
-fig[1, 1:4] = Label(fig, title, fontsize=24, tellwidth=false)
-
-current_figure() # hide
-fig
-
-frames = intro:length(times)
-
-@info "Making a motion picture of ocean wind mixing and convection..."
-
-record(fig, filename * "_average.mp4", frames, framerate=8) do i
     n[] = i
 end
 =#
