@@ -20,8 +20,7 @@ import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!, time
 import Oceananigans.Utils: prettytime
 
-struct IceOceanModel{AR<:AbstractArchitecture, FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
-    architecture :: AR
+struct IceOceanModel{FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
     clock :: C
     grid :: G # TODO: make it so simulation does not require this
     ice :: I
@@ -48,6 +47,7 @@ default_included_properties(::IOM) = tuple()
 update_state!(::IOM) = nothing
 prognostic_fields(cm::IOM) = nothing
 fields(::IOM) = NamedTuple()
+architecture(cm::IOM) = architecture(cm.grid)
 
 function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
     
@@ -80,10 +80,7 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
 
     FT = eltype(ocean.model.grid)
 
-    arch = ocean.model.grid.architecture
-
-    return IceOceanModel(arch,
-                         clock,
+    return IceOceanModel(clock,
                          ocean.model.grid,
                          ice,
                          previous_ice_thickness,
