@@ -175,7 +175,7 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
 
     # TODO: put this in update_state!
     #compute_ice_ocean_salinity_flux!(coupled_model)
-    #ice_ocean_latent_heat!(coupled_model)
+    ice_ocean_latent_heat!(coupled_model)
     # AVOID FOR NOW:
     #compute_solar_insolation!(coupled_model)
     #compute_air_sea_flux!(coupled_model)

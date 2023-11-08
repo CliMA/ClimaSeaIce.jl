@@ -29,9 +29,9 @@ Lx = 400kilometers
 Ly = 450kilometers
 Lz = 4000
 
-Nx = 64
-Ny = 64
-Nz = 8 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
+Nx = 400 #64
+Ny = 450 #64
+Nz = 70 #8 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 x = (-Lx/2, Lx/2)
 y = (0, Ly)
@@ -263,13 +263,13 @@ set!(ice_model, h=hᵢ)
 #
 
 # Full resolution is 100 sec
-time_step = 20minutes
-stop_time = 2days
+time_step = 100
+stop_time = 60days
 
 ice_simulation   = Simulation(ice_model; Δt=time_step, stop_time=stop_time, verbose=false)
 ocean_simulation = Simulation(ocean_model; Δt=time_step, stop_time=stop_time, verbose=false)
 
-filename = "asc_model_lo_res_2_days_ice"
+filename = "asc_model_hi_res_60_days_ice"
 
 coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
 coupled_simulation = Simulation(coupled_model, Δt=time_step, stop_time=stop_time)
@@ -330,7 +330,7 @@ function saveoutput(sim)
     un = Array(interior(u, :, :, Nz))
     vn = Array(interior(v, :, :, Nz))
     ηn = Array(interior(η, :, :, 1))
-    ζn = Array(interior(ζ, :, :, Nz))
+    ζn = Array(interior(ζ, :, :, 1))
     push!(Ht, Hn)
     push!(Ft, Fn)
     push!(Qt, Qn)
@@ -390,7 +390,9 @@ Smin = minimum(Stop)
 compute!(ζ)
 ζtop = view(ζ, :, :, Nz)
 ζmax = maximum(abs, ζtop)
-ζlim = 2e-4 #ζmax / 2
+ζlim = 5e-5 #ζmax / 2
+
+@show ζmax
 
 heatmap!(axh, x, y, Hn, colorrange=(0, 1), colormap=:grays)
 heatmap!(axT, x, y, Tn, colormap=:heat)
@@ -403,7 +405,7 @@ heatmap!(axZ, x, y, ζn, colorrange=(-ζlim, ζlim), colormap=:redblue)
 fig #display(fig)
 
 record(fig, filename * ".mp4", 1:Nt, framerate=48) do nn
-    @info string(nn)
+    #@info string(nn)
     n[] = nn
 end
 
