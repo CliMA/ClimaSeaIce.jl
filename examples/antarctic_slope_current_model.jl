@@ -29,9 +29,9 @@ Lx = 400kilometers
 Ly = 450kilometers
 Lz = 4000
 
-Nx = 400
-Ny = 450
-Nz = 70 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
+Nx = 64
+Ny = 64
+Nz = 8 # TODO: modify spacing if needed, 10 m at surface, 100m at seafloor
 
 x = (-Lx/2, Lx/2)
 y = (0, Ly)
@@ -263,13 +263,13 @@ set!(ice_model, h=hᵢ)
 #
 
 # Full resolution is 100 sec
-time_step = 100
-stop_time = 60days
+time_step = 20minutes
+stop_time = 2days
 
 ice_simulation   = Simulation(ice_model; Δt=time_step, stop_time=stop_time, verbose=false)
 ocean_simulation = Simulation(ocean_model; Δt=time_step, stop_time=stop_time, verbose=false)
 
-filename = "asc_model_hi_res_60_days_ice"
+filename = "asc_model_lo_res_2_days_ice"
 
 coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
 coupled_simulation = Simulation(coupled_model, Δt=time_step, stop_time=stop_time)
@@ -402,7 +402,7 @@ heatmap!(axZ, x, y, ζn, colorrange=(-ζlim, ζlim), colormap=:redblue)
 
 fig #display(fig)
 
-record(fig, "salty_baroclinic_ice_cube.mp4", 1:Nt, framerate=48) do nn
+record(fig, filename * ".mp4", 1:Nt, framerate=48) do nn
     @info string(nn)
     n[] = nn
 end

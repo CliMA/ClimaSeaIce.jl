@@ -28,8 +28,7 @@ import Oceananigans.Utils: prettytime
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{AR<:AbstractArchitecture, GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <: AbstractModel{TS}
-    architecture :: AR
+struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -56,6 +55,7 @@ const SSIM = SlabSeaIceModel
 Base.summary(model::SSIM) = "SlabSeaIceModel"
 prettytime(model::SSIM) = prettytime(model.clock.time)
 iteration(model::SSIM) = model.clock.iteration
+architecture(model::SSIM) = architecture(model.grid)
 
 function Base.show(io::IO, model::SSIM)
     grid = model.grid
@@ -159,10 +159,7 @@ function SlabSeaIceModel(grid;
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                    bottom = bottom_heat_boundary_condition)
 
-    arch = grid.architecture # architecture(grid)
-
-    return SlabSeaIceModel(arch, 
-                           grid,
+    return SlabSeaIceModel(grid,
                            clock,
                            timestepper,
                            ice_thickness,
