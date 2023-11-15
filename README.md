@@ -15,5 +15,5 @@ We support stand-alone simulations of sea ice dynamics as well as simulations co
 
 ## [Documentation!](https://clima.github.io/ClimaSeaIceDocumentation/dev/)
 
-Our documentation and source code is a work in progress.
+Our documentation and source code are works in progress.
 When things have progressed, we'll put an outline here.
