@@ -2,25 +2,26 @@ using ClimaSeaIce: latent_heat
 using Oceananigans.Advection
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
-function ice_thickness_tendency(i, j, grid, clock,
-                                velocities,
-                                advection,
-                                ice_thickness,
-                                ice_consolidation_thickness,
-                                top_temperature,
-                                bottom_heat_bc,
-                                top_external_heat_flux,
-                                internal_heat_flux,
-                                bottom_external_heat_flux,
-                                phase_transitions,
-                                h_forcing,
-                                model_fields)
+function thickness_tendency(i, j, grid, clock,
+                            velocities,
+                            advection,
+                            thickness,
+                            concentration,
+                            consolidation_thickness,
+                            top_temperature,
+                            bottom_heat_bc,
+                            top_external_heat_flux,
+                            internal_heat_flux,
+                            bottom_external_heat_flux,
+                            phase_transitions,
+                            h_forcing,
+                            model_fields)
 
-    Gh_advection = - div_Uc(i, j, 1, grid, advection, velocities, ice_thickness)
+    Gh_advection = - div_Uc(i, j, 1, grid, advection, velocities, thickness)
 
     @inbounds begin
-        hᶜ = ice_consolidation_thickness[i, j, 1]
-        hᵢ = ice_thickness[i, j, 1]
+        hᶜ  = consolidation_thickness[i, j, 1]
+        hᵢ  = thickness[i, j, 1]
         Tuᵢ = top_temperature[i, j, 1]
     end
 
@@ -57,21 +58,44 @@ function ice_thickness_tendency(i, j, grid, clock,
     return Gh_advection + ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
 end
 
-#=
+# Concentration changes only due to advection?
+function concentration_tendency(i, j, grid, clock,
+                                velocities,
+                                advection,
+                                thickness,
+                                concentration,
+                                consolidation_thickness,
+                                top_temperature,
+                                bottom_heat_bc,
+                                top_external_heat_flux,
+                                internal_heat_flux,
+                                bottom_external_heat_flux,
+                                phase_transitions,
+                                a_forcing,
+                                model_fields)
+
+    Gℵ_advection = - div_Uc(i, j, 1, grid, advection, velocities, concentration)
+
+    return Gℵ_advection 
+end
+
+# Advection of sea-ice tracers
 function tracer_tendency(i, j, grid, clock,
-                         c_forcing,
-                         c,
-                         ice_thickness,
-                         top_tracer_concentration,
-                         bottom_tracer_concentration,
+                         velocities,
+                         advection,
+                         thickness,
+                         concentration,
+                         tracer,
+                         consolidation_thickness,
+                         top_temperature,
+                         bottom_heat_bc,
+                         top_external_heat_flux,
+                         internal_heat_flux,
+                         bottom_external_heat_flux,
+                         phase_transitions,
                          model_fields)
 
-    wu = top_interface_velocity(i, j, grid, Tu, Qi, Qu, phase_transitions)
-    wb = bottom_interface_velocity(i, j, grid, Tu, Qi, Qb, phase_transitions)
+    Gc_advection = - div_Uc(i, j, 1, grid, advection, velocities, tracers)
 
-    cu = top_tracer_concentration[i, j]
-    cb = bottom_tracer_concentration[i, j]
-
-    return cu * wu - cb * wb + c_forcing(i, j, grid, clock, model_fields)
+    return Gc_advection
 end
-=#

@@ -40,28 +40,28 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
     return nothing
 end
 
-@kernel function slab_model_time_step!(ice_thickness, Δt,
+@kernel function slab_model_time_step!(thickness, Δt,
                                        grid,
                                        clock,
                                        velocities,
                                        advection,
-                                       ice_concentration,
+                                       concentration,
                                        top_temperature,
                                        top_heat_bc,
                                        bottom_heat_bc,
                                        top_external_heat_flux,
                                        internal_heat_flux,
                                        bottom_external_heat_flux,
-                                       ice_consolidation_thickness,
+                                       consolidation_thickness,
                                        phase_transitions,
-                                       h_forcing,
+                                       forcing,
                                        model_fields)
 
     i, j = @index(Global, NTuple)
 
-    ℵ = ice_concentration
-    h = ice_thickness
-    hᶜ = ice_consolidation_thickness
+    ℵ  = concentration
+    h  = thickness
+    hᶜ = consolidation_thickness
     Qi = internal_heat_flux
     Qu = top_external_heat_flux
     Qb = bottom_external_heat_flux
@@ -83,22 +83,37 @@ end
         @inbounds Tu[i, j, 1] = Tuⁿ
     end
 
-    Gh = ice_thickness_tendency(i, j, grid, clock,
+    Gh = thickness_tendency(i, j, grid, clock,
+                            velocities,
+                            advection,
+                            thickness,
+                            concentration,
+                            consolidation_thickness,
+                            top_temperature,
+                            bottom_heat_bc,
+                            top_external_heat_flux,
+                            internal_heat_flux,
+                            bottom_external_heat_flux,
+                            phase_transitions,
+                            forcing,
+                            model_fields)
+
+    Gℵ = concentration_tendency(i, j, grid, clock,
                                 velocities,
                                 advection,
-                                ice_thickness,
-                                ice_consolidation_thickness,
+                                thickness,
+                                concentration,
+                                consolidation_thickness,
                                 top_temperature,
                                 bottom_heat_bc,
                                 top_external_heat_flux,
                                 internal_heat_flux,
                                 bottom_external_heat_flux,
                                 phase_transitions,
-                                h_forcing,
+                                forcing,
                                 model_fields)
 
     # Update ice thickness, clipping negative values
-
     @inbounds begin
         h⁺ = h[i, j, 1] + Δt * Gh
         h[i, j, 1] = max(zero(grid), h⁺)
@@ -106,13 +121,17 @@ end
         # Belongs in update state?
         # That's certainly a simple model for ice concentration
         consolidated_ice = h[i, j, 1] >= hᶜ[i, j, 1]
-        ℵ[i, j, 1] = ifelse(consolidated_ice, one(grid), zero(grid))
+        ℵ⁺ = ℵ[i, j, 1] + Δt * Gℵ
+        ℵ[i, j, 1] = ifelse(consolidated_ice, max(zero(grid), ℵ⁺), zero(grid))
     end
+    
 end
 
 function update_state!(model::SSIM)
-    h = model.ice_thickness
+    h = model.thickness
+    ℵ = model.concentration
     fill_halo_regions!(h)
+    fill_halo_regions!(ℵ)
     return nothing
 end
 
