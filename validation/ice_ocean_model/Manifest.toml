@@ -123,8 +123,8 @@ uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.16.0"
 
 [[deps.ClimaSeaIce]]
-deps = ["KernelAbstractions", "Oceananigans", "RootSolvers", "Roots"]
-git-tree-sha1 = "e04e7d29a2898518bfb12c4360687d1a054d582e"
+deps = ["Adapt", "KernelAbstractions", "Oceananigans", "RootSolvers", "Roots", "SeawaterPolynomials"]
+git-tree-sha1 = "5e34d4ba5c3ff017de4cafa5b16945b0a65f7884"
 repo-rev = "main"
 repo-url = "https://github.com/CliMA/ClimaSeaIce.jl.git"
 uuid = "6ba0ff68-24e6-4315-936c-2e99227c95a4"

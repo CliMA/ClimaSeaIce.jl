@@ -77,7 +77,7 @@ timeseries = []
 
 function accumulate_timeseries(sim)
     T = model.top_temperature
-    h = model.ice_thickness
+    h = model.thickness
     push!(timeseries, (time(sim), first(h), first(T)))
 end
 

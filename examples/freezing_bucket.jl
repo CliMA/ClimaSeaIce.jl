@@ -57,7 +57,7 @@ timeseries = []
 
 ## Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
-    h = sim.model.ice_thickness
+    h = sim.model.thickness
     push!(timeseries, (time(sim), first(h)))
 end
 

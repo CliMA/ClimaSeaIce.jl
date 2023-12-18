@@ -74,7 +74,7 @@ const c = Center()
 ht = Float64[]
 th = Float64[]
 
-function compute_ice_thickness(sim; melting_temperature=-0.1)
+function compute_thickness(sim; melting_temperature=-0.1)
     Nz = size(grid, 3)
     T = sim.model.state.T # model temperature
     Ti = interior(T, 1, 1, :)
@@ -95,7 +95,7 @@ function compute_ice_thickness(sim; melting_temperature=-0.1)
     return nothing
 end
 
-simulation.callbacks[:thickness] = Callback(compute_ice_thickness, IterationInterval(1))
+simulation.callbacks[:thickness] = Callback(compute_thickness, IterationInterval(1))
 
 tt = [] 
 Tt = [] 
