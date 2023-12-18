@@ -201,7 +201,7 @@ function compute_ice_ocean_salinity_flux!(coupled_model)
     arch = architecture(grid)
     Qˢ = ocean.model.tracers.S.boundary_conditions.top.condition
     Sₒ = ocean.model.tracers.S
-    Sᵢ = ice.model.ice_salinity
+    Sᵢ = ice.model.salinity
     Δt = ocean.Δt
     hⁿ = ice.model.thickness
     h⁻ = coupled_model.previous_thickness
@@ -217,7 +217,7 @@ end
                                                    grid,
                                                    thickness,
                                                    previous_thickness,
-                                                   ice_salinity,
+                                                   salinity,
                                                    ocean_salinity,
                                                    Δt)
     i, j = @index(Global, NTuple)
@@ -227,7 +227,7 @@ end
     hⁿ = thickness
     h⁻ = previous_thickness
     Qˢ = ice_ocean_salinity_flux
-    Sᵢ = ice_salinity
+    Sᵢ = salinity
     Sₒ = ocean_salinity
 
     @inbounds begin

@@ -67,7 +67,7 @@ bottom_bc = IceWaterThermalEquilibrium(ocean_surface_salinity)
 
 ice_model = SlabSeaIceModel(ice_grid;
                             consolidation_thickness = 0.2,
-                            ice_salinity = 0,
+                            salinity = 0,
                             internal_heat_flux = ConductiveFlux(conductivity=100),
                             top_heat_flux = (solar_insolation, radiative_emission),
                             bottom_heat_boundary_condition = bottom_bc,
