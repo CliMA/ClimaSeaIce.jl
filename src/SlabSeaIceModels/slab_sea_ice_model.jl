@@ -43,7 +43,7 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <
     internal_heat_flux :: CF
     # Melting and freezing stuff
     phase_transitions :: P
-    ice_consolidation_thickness :: MIT
+    consolidation_thickness :: MIT
     # Numerics
     advection :: A
 end
@@ -63,7 +63,7 @@ function Base.show(io::IO, model::SSIM)
     print(io, "SlabSeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
     print(io, "├── top_surface_temperature: ", summary(model.top_surface_temperature), '\n')
-    print(io, "├── minimium_thickness: ", prettysummary(model.ice_consolidation_thickness), '\n')
+    print(io, "├── minimium_thickness: ", prettysummary(model.consolidation_thickness), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
     print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
@@ -100,7 +100,7 @@ function SlabSeaIceModel(grid;
                          top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
                          bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
                          internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
-                         phase_transitions                 = PhaseTransitions(eltype(grid)))
+                         phase_transitions              = PhaseTransitions(eltype(grid)))
 
     if isnothing(velocities) # ??
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
@@ -113,7 +113,7 @@ function SlabSeaIceModel(grid;
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap salinity in a field
     salinity = field((Center, Center, Nothing), salinity, grid)
-    ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
+    consolidation_thickness = field((Center, Center, Nothing), consolidation_thickness, grid)
 
     # Construct an internal heat flux function that captures the liquidus and
     # bottom boundary condition.
@@ -168,13 +168,13 @@ function SlabSeaIceModel(grid;
                            heat_boundary_conditions,
                            internal_heat_flux_function,
                            phase_transitions,
-                           ice_consolidation_thickness,
+                           consolidation_thickness,
                            advection)
 end
 
-function set!(model::SSIM; thickness=nothing, concentration=nothing)
-    !isnothing(thickness)     && set!(model.thickness, thickness)
-    !isnothing(concentration) && set!(model.concentration, concentration)
+function set!(model::SSIM; h=nothing, ℵ=nothing)
+    !isnothing(h) && set!(model.thickness, h)
+    !isnothing(ℵ) && set!(model.concentration, ℵ)
     return nothing
 end
 
