@@ -8,11 +8,12 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 @inline div_Uc_2D(i, j, grid, advection, U, c) = 
     1 / Vᶜᶜᶜ(i, j, 1, grid) * (δxᶜᵃᵃ(i, j, 1, grid, _advective_tracer_flux_x, advection, U.u, c) +
                                δyᵃᶜᵃ(i, j, 1, grid, _advective_tracer_flux_y, advection, U.v, c))
-
+   
 @kernel function _compute_tracer_tendencies!(tendencies,
-                                             thickness,
                                              grid,
                                              clock,
+                                             thickness,
+                                             concentration,
                                              velocities,
                                              advection,
                                              top_temperature,
