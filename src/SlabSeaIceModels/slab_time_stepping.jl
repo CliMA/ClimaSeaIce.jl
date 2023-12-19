@@ -16,7 +16,7 @@ import Oceananigans.TimeSteppers: time_step!
 function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
     grid = model.grid
     arch = architecture(grid)
-
+   
     launch!(arch, grid, :xyz,
             _compute_tracer_tendencies!,
             model.timestepper.Gⁿ,
@@ -26,7 +26,6 @@ function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
             model.concentration,
             model.velocities,
             model.advection,
-            model.concentration,
             model.top_surface_temperature,
             model.heat_boundary_conditions.top,
             model.heat_boundary_conditions.bottom,
@@ -80,7 +79,8 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
     ab2_step_tracers!(model, Δt, χ)
     store_tracer_tendencies!(model)
 
-    # TODO: Add the rheology here!
+    # TODO: This should be an implicit (or split-explicit) step
+    # to advance momentum!
     advance_momentum!(model, Δt, χ)
 
     tick!(model.clock, Δt)
@@ -95,7 +95,7 @@ function update_state!(model::SSIM)
     return nothing
 end
 
-@kernel function _ab2_step_slab_model!(h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, hᶜ, Δt, χ)
+@kernel function _ab2_step_tracers!(h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, hᶜ, Δt, χ)
     i, j = @index(Global, NTuple)
 
     FT = eltype(χ)
