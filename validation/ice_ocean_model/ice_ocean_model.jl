@@ -9,6 +9,8 @@ using Oceananigans.Utils: launch!
 using KernelAbstractions: @kernel, @index
 using KernelAbstractions.Extras.LoopInfo: @unroll
 
+using ClimaSeaIce: DifferenceOfArrays
+
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
@@ -27,6 +29,7 @@ struct IceOceanModel{FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
     ocean :: O
     solar_insolation :: S
     ocean_density :: FT
+    ice_density :: FT
     ocean_heat_capacity :: FT
     ocean_emissivity :: FT
     stefan_boltzmann_constant :: FT
@@ -57,6 +60,7 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
     solar_insolation = Field{Center, Center, Nothing}(grid)
 
     ocean_density = 1024
+    ice_density = 910
     ocean_heat_capacity = 3991
     ocean_emissivity = 1
     reference_temperature = 273.15
@@ -85,6 +89,7 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
                          ocean,
                          solar_insolation,
                          convert(FT, ocean_density),
+                         convert(FT, ice_density),
                          convert(FT, ocean_heat_capacity),
                          convert(FT, ocean_emissivity),
                          convert(FT, stefan_boltzmann_constant),
@@ -178,6 +183,8 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
 
     time_step!(ocean)
 
+    compute_ice_ocean_momentum_flux!(coupled_model)
+
     # TODO:
     # - Store fractional ice-free / ice-covered _time_ for more
     #   accurate flux computation?
@@ -191,6 +198,39 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
     
     return nothing
 end
+
+function compute_ice_ocean_momentum_flux!(coupled_model)
+    ice  = coupled_model.ice
+    grid = ice.model.grid
+    arch = architecture(grid)
+    vel_oce = ice.model.ocean_surface_velocities
+    vel_ice = ice.model.velocities
+    h = ice.model.thickness
+    ρᵢ = coupled_model.ice_density
+    ρₒ = coupled_model.ocean_density
+
+
+    τu = ice.model.external_momentum_stress.u.bottom
+    τv = ice.model.external_momentum_stress.v.bottom
+
+    launch!(arch, grid, :xyz, _compute_momentum_stress!, τu, τv, vel_oce, vel_ice, h, Cₒ, ρᵢ, ρₒ)
+end
+
+@kernel function _compute_momentum_stress!(τu, τv, vel_oce, vel_ice, h, Cₒ, ρᵢ, ρₒ)
+    i, j = @index(Global, NTuple)
+
+    uᵢ, vᵢ = vel_ice
+    uₒ, vₒ = vel_oce
+
+    @inbounds begin
+        δu = uₒ[i, j, 1] - u[i, j, 1]
+        δv = vₒ[i, j, 1] - v[i, j, 1]
+        δ = sqrt(δu^2 + δv^2)
+        τu[i, j, 1] = ifelse(h[i, j, 1] > 0, 1e-3 * ρₒ * δ * δu / h[i, j, 1] / ρᵢ, 0)
+        τv[i, j, 1] = ifelse(h[i, j, 1] > 0, 1e-3 * ρₒ * δ * δv / h[i, j, 1] / ρᵢ, 0)
+    end
+end
+
 
 function compute_ice_ocean_salinity_flux!(coupled_model)
     # Compute salinity increment due to changes in ice thickness

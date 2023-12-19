@@ -2,6 +2,13 @@ using ClimaSeaIce: latent_heat
 using Oceananigans.Advection
 using Oceananigans.Coriolis: x_f_cross_U, y_f_cross_U
 
+using Oceananigans.Operators
+using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
+
+@inline div_Uc_2D(i, j, grid, advection, U, c) = 
+    1 / Vᶜᶜᶜ(i, j, 1, grid) * (δxᶜᵃᵃ(i, j, 1, grid, _advective_tracer_flux_x, advection, U.u, c) +
+                               δyᵃᶜᵃ(i, j, 1, grid, _advective_tracer_flux_y, advection, U.v, c))
+
 @kernel function _compute_slab_model_tendencies!(tendencies,
                                                  thickness,
                                                  grid,
@@ -149,7 +156,7 @@ function thickness_tendency(i, j, grid, clock,
                             h_forcing,
                             model_fields)
 
-    Gh_advection = - div_Uc(i, j, 1, grid, advection, velocities, thickness)
+    Gh_advection = - div_Uc_2D(i, j, grid, advection, velocities, thickness)
 
     @inbounds begin
         hᶜ  = consolidation_thickness[i, j, 1]
@@ -206,7 +213,7 @@ function concentration_tendency(i, j, grid, clock,
                                 a_forcing,
                                 model_fields)
 
-    Gℵ_advection = - div_Uc(i, j, 1, grid, advection, velocities, concentration)
+    Gℵ_advection = - div_Uc_2D(i, j, grid, advection, velocities, concentration)
 
     return Gℵ_advection 
 end
@@ -227,7 +234,7 @@ function tracer_tendency(i, j, grid, clock,
                          phase_transitions,
                          model_fields)
 
-    Gc_advection = - div_Uc(i, j, 1, grid, advection, velocities, tracers)
+    Gc_advection = - div_Uc_2D(i, j, grid, advection, velocities, tracers)
 
     return Gc_advection
 end

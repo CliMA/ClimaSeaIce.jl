@@ -66,11 +66,10 @@ bottom_bc = IceWaterThermalEquilibrium(ConstantField(30))
 
 u, v, w = ocean_model.velocities
 ocean_surface_velocities = (u = view(u, :, :, Nz), #interior(u, :, :, Nz),
-                            v = view(v, :, :, Nz), #interior(v, :, :, Nz),    
-                            w = ZeroField())
+                            v = view(v, :, :, Nz)) #interior(v, :, :, Nz)
 
 ice_model = SlabSeaIceModel(ice_grid;
-                            velocities = ocean_surface_velocities,
+                            ocean_velocities = ocean_surface_velocities,
                             advection = WENO(),
                             consolidation_thickness = 0.05,
                             salinity = 4,

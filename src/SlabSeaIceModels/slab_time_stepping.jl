@@ -7,7 +7,7 @@ using ClimaSeaIce.HeatBoundaryConditions:
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
-using Oceananigans.Utils: launch!, configured_kernel
+using Oceananigans.Utils: launch!
 
 using KernelAbstractions: @index, @kernel
 import Oceananigans.TimeSteppers: compute_tendencies!, time_step!, ab2_step!, store_tendencies!
@@ -73,7 +73,7 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
         # Ensure zeroing out all previous tendency fields to avoid errors in
         # case G⁻ includes NaNs. See https://github.com/CliMA/Oceananigans.jl/issues/2259
         for field in model.timestepper.G⁻
-            !isnothing(field) && @apply_regionally fill!(field, 0)
+            !isnothing(field) && fill!(field, 0)
         end
     end
 
