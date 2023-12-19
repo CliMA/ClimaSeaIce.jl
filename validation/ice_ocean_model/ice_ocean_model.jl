@@ -9,8 +9,6 @@ using Oceananigans.Utils: launch!
 using KernelAbstractions: @kernel, @index
 using KernelAbstractions.Extras.LoopInfo: @unroll
 
-using ClimaSeaIce: DifferenceOfArrays
-
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!

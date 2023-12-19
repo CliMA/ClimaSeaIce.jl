@@ -120,8 +120,6 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-struct ForwardEulerTimestepper end
-
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
 using .HeatBoundaryConditions:

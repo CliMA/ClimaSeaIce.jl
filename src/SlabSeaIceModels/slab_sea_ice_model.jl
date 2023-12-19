@@ -1,6 +1,4 @@
-using ClimaSeaIce:
-    PhaseTransitions,
-    ForwardEulerTimestepper
+using ClimaSeaIce: PhaseTransitions
 
 using ClimaSeaIce.HeatBoundaryConditions:
     MeltingConstrainedFluxBalance,
@@ -11,7 +9,9 @@ using ClimaSeaIce.HeatBoundaryConditions:
 
 using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock, TimeStepper
-using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
+using Oceananigans.Fields: ZeroField, ConstantField, TracerFields
+using Oceananigans.Fields: CenterField, XFaceField, YFaceField
+using Oceananigans.Fields: field, Field, Center, Face, tracernames
 
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
@@ -26,7 +26,7 @@ import Oceananigans.Utils: prettytime
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, D, UO, R, A, C, STF, SVF, TBC, CF, P, MIT} <: AbstractModel{TS}
+struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, UO, R, A, C, STF, SVF, TBC, CF, P, MIT} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -128,19 +128,20 @@ function SlabSeaIceModel(grid;
         velocities = (; u, v)
     end
 
-    tracers = unique((tracers..., :h, :ℵ))
+    # Adding thickness and concentration if not there
+    tracers = tuple(unique((tracers..., :h, :ℵ))...)
 
     if isnothing(salinity) # Prognostic salinity
         salinity = Field{Center, Center, Nothing}(grid)
-        tracers = unique((tracers..., :S))
+        tracers  = tuple(unique((tracers..., :S))...)
     else # Prescribed salinity (wrap salinity in a field)
         salinity = field((Center, Center, Nothing), salinity, grid)
     end
 
     # Only one time-stepper is supported currently
     timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracernames(tracers);
-                              Gⁿ = SlabSeaIceModelTendencyFields(grid, tracernames(:h, :ℵ)),
-                              G⁻ = SlabSeaIceModelTendencyFields(grid, tracernames(:h, :ℵ)))
+                              Gⁿ = SlabSeaIceModelTendencyFields(grid, tracernames(tracers)),
+                              G⁻ = SlabSeaIceModelTendencyFields(grid, tracernames(tracers)))
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     consolidation_thickness = field((Center, Center, Nothing), consolidation_thickness, grid)

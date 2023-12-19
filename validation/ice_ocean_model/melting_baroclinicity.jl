@@ -77,7 +77,8 @@ ice_model = SlabSeaIceModel(ice_grid;
                             top_heat_flux = ConstantField(0), # W m⁻²
                             top_heat_boundary_condition = PrescribedTemperature(0),
                             bottom_heat_boundary_condition = bottom_bc,
-                            bottom_heat_flux = ice_ocean_heat_flux)
+                            bottom_heat_flux = ice_ocean_heat_flux,
+                            coriolis = ocean_model.coriolis)
 
 ocean_simulation = Simulation(ocean_model; Δt=20minutes, verbose=false)
 ice_simulation   = Simulation(ice_model,   Δt=20minutes, verbose=false)
