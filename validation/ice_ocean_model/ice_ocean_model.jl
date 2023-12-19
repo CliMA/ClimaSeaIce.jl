@@ -29,6 +29,7 @@ struct IceOceanModel{FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
     ocean_density :: FT
     ice_density :: FT
     ocean_heat_capacity :: FT
+    ocean_surface_drag_coefficient :: FT
     ocean_emissivity :: FT
     stefan_boltzmann_constant :: FT
     reference_temperature :: FT
@@ -57,9 +58,10 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
     ice_ocean_salt_flux = Field{Center, Center, Nothing}(grid)
     solar_insolation = Field{Center, Center, Nothing}(grid)
 
+    ice_density = 917
     ocean_density = 1024
-    ice_density = 910
     ocean_heat_capacity = 3991
+    ocean_surface_drag_coefficient = 1e-3
     ocean_emissivity = 1
     reference_temperature = 273.15
     stefan_boltzmann_constant = 5.67e-8
@@ -89,6 +91,7 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
                          convert(FT, ocean_density),
                          convert(FT, ice_density),
                          convert(FT, ocean_heat_capacity),
+                         convert(FT, ocean_surface_drag_coefficient),
                          convert(FT, ocean_emissivity),
                          convert(FT, stefan_boltzmann_constant),
                          convert(FT, reference_temperature))
@@ -201,11 +204,12 @@ function compute_ice_ocean_momentum_flux!(coupled_model)
     ice  = coupled_model.ice
     grid = ice.model.grid
     arch = architecture(grid)
-    vel_oce = ice.model.ocean_surface_velocities
+    vel_oce = ice.model.ocean_velocities
     vel_ice = ice.model.velocities
     h = ice.model.thickness
     ρᵢ = coupled_model.ice_density
     ρₒ = coupled_model.ocean_density
+    Cₒ = coupled_model.ocean_surface_drag_coefficient
 
 
     τu = ice.model.external_momentum_stress.u.bottom
@@ -224,8 +228,8 @@ end
         δu = uₒ[i, j, 1] - uᵢ[i, j, 1]
         δv = vₒ[i, j, 1] - vᵢ[i, j, 1]
         δ = sqrt(δu^2 + δv^2)
-        τu[i, j, 1] = ifelse(h[i, j, 1] > 0, 1e-3 * ρₒ * δ * δu / h[i, j, 1] / ρᵢ, 0)
-        τv[i, j, 1] = ifelse(h[i, j, 1] > 0, 1e-3 * ρₒ * δ * δv / h[i, j, 1] / ρᵢ, 0)
+        τu[i, j, 1] = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δu / h[i, j, 1] / ρᵢ, 0)
+        τv[i, j, 1] = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δv / h[i, j, 1] / ρᵢ, 0)
     end
 end
 

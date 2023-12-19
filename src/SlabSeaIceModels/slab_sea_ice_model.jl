@@ -26,21 +26,21 @@ import Oceananigans.Utils: prettytime
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, UO, R, A, C, STF, SVF, TBC, CF, P, MIT} <: AbstractModel{TS}
+struct SlabSeaIceModel{GR, CL, TS, H, C, ST, S, U, UO, R, A, CO, STF, SVF, TBC, CF, P, MIT} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
     # State
-    thickness :: IT
-    concentration :: IC
+    thickness :: H
+    concentration :: C
     top_surface_temperature :: ST
-    salinity :: IS
+    salinity :: S
     velocities :: U
     # Advection
     ocean_velocities :: UO
     rheology :: R
     advection :: A
-    coriolis :: C
+    coriolis :: CO
     # Boundary conditions
     external_heat_fluxes :: STF
     external_momentum_stress :: SVF

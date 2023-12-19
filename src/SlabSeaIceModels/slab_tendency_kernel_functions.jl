@@ -9,29 +9,22 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
     1 / Vᶜᶜᶜ(i, j, 1, grid) * (δxᶜᵃᵃ(i, j, 1, grid, _advective_tracer_flux_x, advection, U.u, c) +
                                δyᵃᶜᵃ(i, j, 1, grid, _advective_tracer_flux_y, advection, U.v, c))
 
-@kernel function _compute_slab_model_tendencies!(tendencies,
-                                                 thickness,
-                                                 grid,
-                                                 clock,
-                                                 velocities,
-                                                 ocean_velocities,
-                                                 advection,
-                                                 coriolis,
-                                                 concentration,
-                                                 top_temperature,
-                                                 top_heat_bc,
-                                                 bottom_heat_bc,
-                                                 top_u_stress,
-                                                 bottom_u_stress,
-                                                 top_v_stress,
-                                                 bottom_v_stress,
-                                                 top_external_heat_flux,
-                                                 internal_heat_flux,
-                                                 bottom_external_heat_flux,
-                                                 consolidation_thickness,
-                                                 phase_transitions,
-                                                 forcing,
-                                                 model_fields)
+@kernel function _compute_tracer_tendencies!(tendencies,
+                                             thickness,
+                                             grid,
+                                             clock,
+                                             velocities,
+                                             advection,
+                                             top_temperature,
+                                             top_heat_bc,
+                                             bottom_heat_bc,
+                                             top_external_heat_flux,
+                                             internal_heat_flux,
+                                             bottom_external_heat_flux,
+                                             consolidation_thickness,
+                                             phase_transitions,
+                                             forcing,
+                                             model_fields)
 
     i, j = @index(Global, NTuple)
 
@@ -43,15 +36,9 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
     Qb = bottom_external_heat_flux
     Tu = top_temperature
     liquidus = phase_transitions.liquidus
-    τuₒ = bottom_u_stress
-    τvₒ = bottom_v_stress
-    τuₐ = top_u_stress
-    τvₐ = top_v_stress
     
     Gh = tendencies.h
-    Gℵ = tendencies.h
-    Gu = tendencies.u
-    Gv = tendencies.v
+    Gℵ = tendencies.ℵ
 
     # Determine top surface temperature
     if !isa(top_heat_bc, PrescribedTemperature) # update surface temperature?
@@ -80,10 +67,35 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
                    bottom_external_heat_flux,
                    phase_transitions)
 
-    momentum_args = (i, j, grid, clock, velocities, ocean_velocities, coriolis)
-
     @inbounds Gh[i, j, 1] = thickness_tendency(tracer_args..., nothing, model_fields)
     @inbounds Gℵ[i, j, 1] = concentration_tendency(tracer_args..., nothing, model_fields)
+end
+
+@kernel function _compute_momentum_tendencies!(tendencies,
+                                               grid,
+                                               clock,
+                                               velocities,
+                                               ocean_velocities,
+                                               coriolis,
+                                               top_u_stress,
+                                               bottom_u_stress,
+                                               top_v_stress,
+                                               bottom_v_stress,
+                                               forcing,
+                                               model_fields)
+
+    i, j = @index(Global, NTuple)
+
+    Gu = tendencies.u
+    Gv = tendencies.v
+
+    τuₒ = bottom_u_stress
+    τvₒ = bottom_v_stress
+    τuₐ = top_u_stress
+    τvₐ = top_v_stress
+    
+    momentum_args = (i, j, grid, clock, velocities, ocean_velocities, coriolis)
+
     @inbounds Gu[i, j, 1] = u_velocity_tendency(momentum_args..., τuₐ, τuₒ, nothing, model_fields)
     @inbounds Gv[i, j, 1] = v_velocity_tendency(momentum_args..., τvₐ, τvₒ, nothing, model_fields)
 end
