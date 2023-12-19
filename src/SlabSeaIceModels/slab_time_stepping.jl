@@ -80,7 +80,7 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
 
     # TODO: This should be an implicit (or split-explicit) step
     # to advance momentum!
-    advance_momentum!(model, Δt, χ)
+    advance_momentum!(model, model.rheology, Δt, χ)
 
     store_tendencies!(model)
 
@@ -126,7 +126,7 @@ end
 end
 
 # This will be the implicit step whenever rheology is implemented!
-function advance_momentum!(model, Δt, χ)
+function advance_momentum!(model, ::Nothing, Δt, χ)
     grid = model.grid
     arch = architecture(grid)
 

@@ -146,8 +146,8 @@ h = ice_model.thickness
 ℵ = ice_model.concentration
 T = ocean_model.tracers.T
 S = ocean_model.tracers.S
-uₒ, vₒ, _ = ocean_model.velocities
-uᵢ, vᵢ = ice_model.velocities
+uo, vo, _ = ocean_model.velocities
+ui, vi = ice_model.velocities
 η = ocean_model.free_surface.η
 
 ht = []
@@ -176,10 +176,10 @@ function saveoutput(sim)
     Sn = Array(interior(S, :, :, Nz))
     ηn = Array(interior(η, :, :, 1))
     ζn = Array(interior(ζ, :, :, Nz))
-    unₒ = Array(interior(uₒ, :, :, Nz))
-    vnₒ = Array(interior(vₒ, :, :, Nz))
-    unᵢ = Array(interior(uᵢ, :, :, Nz))
-    vnᵢ = Array(interior(vᵢ, :, :, Nz))
+    unₒ = Array(interior(uo, :, :, Nz))
+    vnₒ = Array(interior(vo, :, :, Nz))
+    unᵢ = Array(interior(ui, :, :, 1))
+    vnᵢ = Array(interior(vi, :, :, 1))
     push!(ht, hn)
     push!(ℵt, ℵn)
     push!(Ft, Fn)
