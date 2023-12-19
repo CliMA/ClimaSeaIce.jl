@@ -231,7 +231,6 @@ end
     end
 end
 
-
 function compute_ice_ocean_salinity_flux!(coupled_model)
     # Compute salinity increment due to changes in ice thickness
 
