@@ -7,131 +7,120 @@ using ClimaSeaIce.HeatBoundaryConditions:
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
-using Oceananigans.Utils: launch!
+using Oceananigans.Utils: launch!, configured_kernel
 
 using KernelAbstractions: @index, @kernel
+import Oceananigans.TimeSteppers: compute_tendencies!, time_step!, ab2_step!, store_tendencies!
 
-function time_step!(model::SSIM, Δt; callbacks=nothing)
+function compute_tendencies!(model::SSIM)
     grid = model.grid
     arch = architecture(grid)
 
     launch!(arch, grid, :xyz,
-            slab_model_time_step!,
+            _compute_slab_model_tendencies!,
+            model.timestepper.Gⁿ,
             model.thickness,
             Δt,
             grid,
             model.clock,
             model.velocities,
+            model.ocean_velocities,
             model.advection,
+            model.coriolis,
             model.concentration,
             model.top_surface_temperature,
             model.heat_boundary_conditions.top,
             model.heat_boundary_conditions.bottom,
+            model.external_momentum_stress.u.top,
+            model.external_momentum_stress.u.bottom,
+            model.external_momentum_stress.v.top,
+            model.external_momentum_stress.v.bottom,
             model.external_heat_fluxes.top,
             model.internal_heat_flux,
             model.external_heat_fluxes.bottom,
             model.consolidation_thickness,
             model.phase_transitions,
-            nothing, #model.forcing.h,
+            nothing, #model.forcing
             fields(model))
-
-    tick!(model.clock, Δt)
 
     return nothing
 end
 
-@kernel function slab_model_time_step!(thickness, Δt,
-                                       grid,
-                                       clock,
-                                       velocities,
-                                       advection,
-                                       concentration,
-                                       top_temperature,
-                                       top_heat_bc,
-                                       bottom_heat_bc,
-                                       top_external_heat_flux,
-                                       internal_heat_flux,
-                                       bottom_external_heat_flux,
-                                       consolidation_thickness,
-                                       phase_transitions,
-                                       forcing,
-                                       model_fields)
+function ab2_step!(model::SSIM, Δt, χ)
+    grid = model.grid
+    arch = architecture(grid)
 
-    i, j = @index(Global, NTuple)
+    h  = model.thickness
+    hᶜ = model.consolidation_thickness
+    ℵ  = model.concentration
+    u, v = model.velocities
 
-    ℵ  = concentration
-    h  = thickness
-    hᶜ = consolidation_thickness
-    Qi = internal_heat_flux
-    Qu = top_external_heat_flux
-    Qb = bottom_external_heat_flux
-    Tu = top_temperature
-    liquidus = phase_transitions.liquidus
+    launch!(arch, grid, :xyz, _ab2_step_slab_model!, h, ℵ, u, v, model.timestepper.Gⁿ, model.timestepper.G⁻, hᶜ, Δt, χ)
 
-    # Determine top surface temperature
-    if !isa(top_heat_bc, PrescribedTemperature) # update surface temperature?
+    return nothing
+end
 
-        consolidated_ice = @inbounds h[i, j, 1] >= hᶜ[i, j, 1]
+store_tendencies!(model::SSIM) = 
+    launch!(architecture(model.grid), model.grid, :xyz, _store_all_tendencies!, 
+                         model.timestepper.G⁻, model.timestepper.Gⁿ, Val(length(model.timestepper.Gⁿ)))
 
-        if consolidated_ice # slab is consolidated and has an independent surface temperature
-            Tu⁻ = @inbounds Tu[i, j, 1]
-            Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
-        else # slab is unconsolidated and does not have an independent surface temperature
-            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
+
+    χ = ifelse(euler, convert(eltype(model.grid), -0.5), model.timestepper.χ)
+
+    if euler
+        @debug "Taking a forward Euler step."
+        # Ensure zeroing out all previous tendency fields to avoid errors in
+        # case G⁻ includes NaNs. See https://github.com/CliMA/Oceananigans.jl/issues/2259
+        for field in model.timestepper.G⁻
+            !isnothing(field) && @apply_regionally fill!(field, 0)
         end
-
-        @inbounds Tu[i, j, 1] = Tuⁿ
     end
 
-    Gh = thickness_tendency(i, j, grid, clock,
-                            velocities,
-                            advection,
-                            thickness,
-                            concentration,
-                            consolidation_thickness,
-                            top_temperature,
-                            bottom_heat_bc,
-                            top_external_heat_flux,
-                            internal_heat_flux,
-                            bottom_external_heat_flux,
-                            phase_transitions,
-                            forcing,
-                            model_fields)
+    compute_tendencies!(model; callbacks)
+    ab2_step!(model, Δt, χ)
+    store_tendencies!(model)
 
-    Gℵ = concentration_tendency(i, j, grid, clock,
-                                velocities,
-                                advection,
-                                thickness,
-                                concentration,
-                                consolidation_thickness,
-                                top_temperature,
-                                bottom_heat_bc,
-                                top_external_heat_flux,
-                                internal_heat_flux,
-                                bottom_external_heat_flux,
-                                phase_transitions,
-                                forcing,
-                                model_fields)
+    tick!(model.clock, Δt)
+    update_state(model)
+
+    return nothing
+end
+
+function update_state!(model::SSIM)
+    fields = prognostic_fields(model)
+    fill_halo_regions!(fields)
+    return nothing
+end
+
+@kernel function _ab2_step_slab_model!(h, ℵ, u, v, Gⁿ, G⁻, hᶜ, Δt, χ)
+    i, j = @index(Global, NTuple)
+
+    FT = eltype(χ)
+    Δt = convert(FT, Δt)
+    one_point_five = convert(FT, 1.5)
+    oh_point_five  = convert(FT, 0.5)
 
     # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = h[i, j, 1] + Δt * Gh
+        h⁺ = h[i, j, 1] + Δt * ((one_point_five + χ) * Gⁿ.h[i, j, 1] - (oh_point_five + χ) * G⁻.h[i, j, 1])
         h[i, j, 1] = max(zero(grid), h⁺)
 
         # Belongs in update state?
         # That's certainly a simple model for ice concentration
         consolidated_ice = h[i, j, 1] >= hᶜ[i, j, 1]
-        ℵ⁺ = ℵ[i, j, 1] + Δt * Gℵ
+        ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gⁿ.ℵ[i, j, 1] - (oh_point_five + χ) * G⁻.ℵ[i, j, 1])
         ℵ[i, j, 1] = ifelse(consolidated_ice, max(zero(grid), ℵ⁺), zero(grid))
+
+        u[i, j, 1] += Δt * ((one_point_five + χ) * Gⁿ.u[i, j, 1] - (oh_point_five + χ) * G⁻.u[i, j, 1])
+        v[i, j, 1] += Δt * ((one_point_five + χ) * Gⁿ.v[i, j, 1] - (oh_point_five + χ) * G⁻.v[i, j, 1])
+    end 
+end
+
+@kernel function _store_all_tendencies!(G⁻, Gⁿ, ::Val{N}) where N
+    i, j = @index(Global, NTuple)
+
+    @unroll for n in 1:N
+        G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
     end
-    
 end
-
-function update_state!(model::SSIM)
-    h = model.thickness
-    ℵ = model.concentration
-    fill_halo_regions!(h)
-    fill_halo_regions!(ℵ)
-    return nothing
-end
-

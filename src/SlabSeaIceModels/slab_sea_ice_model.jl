@@ -10,7 +10,7 @@ using ClimaSeaIce.HeatBoundaryConditions:
     flux_summary
 
 using Oceananigans.Utils: prettysummary
-using Oceananigans.TimeSteppers: Clock
+using Oceananigans.TimeSteppers: Clock, TimeStepper
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 
 # Simulations interface
@@ -26,7 +26,7 @@ import Oceananigans.Utils: prettytime
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <: AbstractModel{TS}
+struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, D, UO, R, A, C, STF, SVF, TBC, CF, P, MIT} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -36,16 +36,20 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <
     top_surface_temperature :: ST
     salinity :: IS
     velocities :: U
+    # Advection
+    ocean_velocities :: UO
+    rheology :: R
+    advection :: A
+    coriolis :: C
     # Boundary conditions
     external_heat_fluxes :: STF
+    external_momentum_stress :: SVF
     heat_boundary_conditions :: TBC
     # Internal flux
     internal_heat_flux :: CF
     # Melting and freezing stuff
     phase_transitions :: P
     consolidation_thickness :: MIT
-    # Numerics
-    advection :: A
 end
 
 const SSIM = SlabSeaIceModel
@@ -67,14 +71,22 @@ function Base.show(io::IO, model::SSIM)
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
     print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
+    print(io, "└── external x-momentum stress: ", '\n')
+    print(io, "    ├── top: ", flux_summary(model.external_momentum_stress.u.top, "    │"), '\n')
+    print(io, "    └── bottom: ", flux_summary(model.external_momentum_stress.u.bottom, "     "))
+    print(io, "└── external y-momentum stress: ", '\n')
+    print(io, "    ├── top: ", flux_summary(model.external_momentum_stress.v.top, "    │"), '\n')
+    print(io, "    └── bottom: ", flux_summary(model.external_momentum_stress.v.bottom, "     "))
 end
          
 reset!(::SSIM) = nothing
 initialize!(::SSIM) = nothing
 default_included_properties(::SSIM) = tuple(:grid)
 
-fields(model::SSIM) = (h = model.thickness,
-                       ℵ = model.concentration,
+fields(model::SSIM) = (h  = model.thickness,
+                       ℵ  = model.concentration,
+                       u  = model.velocities.u,
+                       v  = model.velocities.v,
                        Tᵤ = model.top_surface_temperature,
                        Sᵢ = model.salinity)
 
@@ -92,27 +104,45 @@ function SlabSeaIceModel(grid;
                          consolidation_thickness        = 0.0, # m
                          concentration                  = Field{Center, Center, Nothing}(grid),
                          salinity                       = 0, # psu
+                         tracers                        = (:h, :ℵ),
                          top_surface_temperature        = nothing,
                          top_heat_flux                  = nothing,
                          bottom_heat_flux               = 0,
+                         top_u_stress                   = Field{Face, Center, Nothing}(grid),
+                         top_v_stress                   = Field{Center, Face, Nothing}(grid),
+                         bottom_u_stress                = Field{Face, Center, Nothing}(grid),
+                         bottom_v_stress                = Field{Center, Face, Nothing}(grid),
                          velocities                     = nothing,
+                         ocean_velocities               = (u = ZeroField(grid), v = ZeroField(grid)),
+                         rheology                       = nothing,
                          advection                      = nothing,
+                         coriolis                       = nothing,
                          top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
                          bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
                          internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
                          phase_transitions              = PhaseTransitions(eltype(grid)))
 
-    if isnothing(velocities) # ??
-        velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
+    if isnothing(velocities) 
+        u = XFaceField(grid)
+        v = YFaceField(grid)
+        velocities = (; u, v)
+    end
+
+    tracers = unique((tracers..., :h, :ℵ))
+
+    if isnothing(salinity) # Prognostic salinity
+        salinity = Field{Center, Center, Nothing}(grid)
+        tracers = unique((tracers..., :S))
+    else # Prescribed salinity (wrap salinity in a field)
+        salinity = field((Center, Center, Nothing), salinity, grid)
     end
 
     # Only one time-stepper is supported currently
-    timestepper = ForwardEulerTimestepper()
-    FT = eltype(grid)
+    timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracernames(tracers);
+                              Gⁿ = SlabSeaIceModelTendencyFields(velocities, free_surface, grid, tracernames(:h, :ℵ)),
+                              G⁻ = SlabSeaIceModelTendencyFields(velocities, free_surface, grid, tracernames(:h, :ℵ)))
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap salinity in a field
-    salinity = field((Center, Center, Nothing), salinity, grid)
     consolidation_thickness = field((Center, Center, Nothing), consolidation_thickness, grid)
 
     # Construct an internal heat flux function that captures the liquidus and
@@ -153,6 +183,11 @@ function SlabSeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,    
                          bottom = bottom_heat_flux) 
 
+    external_momentum_stress = (; u = (; top = top_u_stress,
+                                         bottom = bottom_u_stress),
+                                  v = (; top = top_v_stress, 
+                                         bottom = bottom_v_stress))
+
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                              bottom = bottom_heat_boundary_condition)
 
@@ -164,12 +199,16 @@ function SlabSeaIceModel(grid;
                            top_surface_temperature,
                            salinity,
                            velocities,
+                           ocean_velocities,
+                           rheology,
+                           advection,
+                           coriolis,
                            external_heat_fluxes,
+                           external_momentum_stress,
                            heat_boundary_conditions,
                            internal_heat_flux_function,
                            phase_transitions,
-                           consolidation_thickness,
-                           advection)
+                           consolidation_thickness)
 end
 
 function set!(model::SSIM; h=nothing, ℵ=nothing)

@@ -1,5 +1,137 @@
 using ClimaSeaIce: latent_heat
 using Oceananigans.Advection
+using Oceananigans.Coriolis: x_f_cross_U, y_f_cross_U
+
+@kernel function _compute_slab_model_tendencies!(tendencies,
+                                                 thickness,
+                                                 grid,
+                                                 clock,
+                                                 velocities,
+                                                 ocean_velocities,
+                                                 advection,
+                                                 coriolis,
+                                                 concentration,
+                                                 top_temperature,
+                                                 top_heat_bc,
+                                                 bottom_heat_bc,
+                                                 top_u_stress,
+                                                 bottom_u_stress,
+                                                 top_v_stress,
+                                                 bottom_v_stress,
+                                                 top_external_heat_flux,
+                                                 internal_heat_flux,
+                                                 bottom_external_heat_flux,
+                                                 consolidation_thickness,
+                                                 phase_transitions,
+                                                 forcing,
+                                                 model_fields)
+
+    i, j = @index(Global, NTuple)
+
+    ℵ  = concentration
+    h  = thickness
+    hᶜ = consolidation_thickness
+    Qi = internal_heat_flux
+    Qu = top_external_heat_flux
+    Qb = bottom_external_heat_flux
+    Tu = top_temperature
+    liquidus = phase_transitions.liquidus
+    τuₒ = bottom_u_stress
+    τvₒ = bottom_v_stress
+    τuₐ = top_u_stress
+    τvₐ = top_v_stress
+    
+    Gh = tendencies.h
+    Gℵ = tendencies.h
+    Gu = tendencies.u
+    Gv = tendencies.v
+
+    # Determine top surface temperature
+    if !isa(top_heat_bc, PrescribedTemperature) # update surface temperature?
+
+        consolidated_ice = @inbounds h[i, j, 1] >= hᶜ[i, j, 1]
+
+        if consolidated_ice # slab is consolidated and has an independent surface temperature
+            Tu⁻ = @inbounds Tu[i, j, 1]
+            Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
+        else # slab is unconsolidated and does not have an independent surface temperature
+            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+        end
+
+        @inbounds Tu[i, j, 1] = Tuⁿ
+    end
+
+    tracer_args = (i, j, grid, clock, velocities,
+                   advection,
+                   thickness,
+                   concentration,
+                   consolidation_thickness,
+                   top_temperature,
+                   bottom_heat_bc,
+                   top_external_heat_flux,
+                   internal_heat_flux,
+                   bottom_external_heat_flux,
+                   phase_transitions)
+
+    momentum_args = (i, j, grid, clock, velocities, ocean_velocities, coriolis)
+
+    @inbounds Gh[i, j, 1] = thickness_tendency(tracer_args..., nothing, model_fields)
+    @inbounds Gℵ[i, j, 1] = concentration_tendency(tracer_args..., nothing, model_fields)
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(momentum_args..., τuₐ, τuₒ, nothing, model_fields)
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(momentum_args..., τvₐ, τvₒ, nothing, model_fields)
+end
+
+function u_velocity_tendency(i, j, grid, clock,
+                             velocities, 
+                             ocean_velocities,
+                             coriolis,
+                             top_stess,
+                             bottom_stress,
+                             u_forcing,
+                             model_fields)
+
+    u,  v  = velocities
+    uₒ, vₒ = ocean_velocities
+
+    relative_u = DifferenceOfArrays(u, uₒ)
+    relative_v = DifferenceOfArrays(v, vₒ)
+
+    relative_velocities = (; u = relative_u, v = relative_v)
+    
+    @inbounds begin
+        Gu = - x_f_cross_U(i, j, 1, grid, coriolis, relative_velocities)
+             + bottom_stess[i, j, 1]
+             + top_stress[i, j, 1]
+    end
+
+    return Gu
+end
+
+function v_velocity_tendency(i, j, grid, clock,
+                             velocities,
+                             ocean_velocities, 
+                             coriolis,
+                             top_stess,
+                             bottom_stress,
+                             v_forcing,
+                             model_fields)
+
+    u,  v  = velocities
+    uₒ, vₒ = ocean_velocities
+
+    relative_u = DifferenceOfArrays(u, uₒ)
+    relative_v = DifferenceOfArrays(v, vₒ)
+
+    relative_velocities = (; u = relative_u, v = relative_v)
+              
+    @inbounds begin
+        Gv = - y_f_cross_U(i, j, 1, grid, coriolis, relative_velocities)
+             + bottom_stess[i, j, 1]
+             + top_stress[i, j, 1]
+    end
+
+    return Gv
+end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
 function thickness_tendency(i, j, grid, clock,
