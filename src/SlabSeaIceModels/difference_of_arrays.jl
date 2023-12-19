@@ -12,7 +12,7 @@ struct DifferenceOfArrays{F}
     arrays :: F
 end
 
-DifferenceOfArrays(array1, array2) = new((array1, array2))
+DifferenceOfArrays(array1, array2) = DifferenceOfArrays((array1, array2))
 
 @propagate_inbounds getindex(s::DifferenceOfArrays, i...) = 
     getindex(s.arrays[1], i...) - getindex(s.arrays[2], i...)

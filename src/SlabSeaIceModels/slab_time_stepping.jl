@@ -60,7 +60,7 @@ end
 
 store_tracer_tendencies!(model::SSIM) = 
     launch!(architecture(model.grid), model.grid, :xyz, _store_all_tendencies!, 
-                         model.timestepper.G⁻[2:end], model.timestepper.Gⁿ[2:end], Val(length(model.timestepper.Gⁿ[2:end])))
+                         model.timestepper.G⁻, model.timestepper.Gⁿ, Val(length(model.timestepper.Gⁿ)))
 
 function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
 
@@ -77,11 +77,12 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
 
     compute_tracer_tendencies!(model; callbacks)
     ab2_step_tracers!(model, Δt, χ)
-    store_tracer_tendencies!(model)
 
     # TODO: This should be an implicit (or split-explicit) step
     # to advance momentum!
     advance_momentum!(model, Δt, χ)
+
+    store_tendencies!(model)
 
     tick!(model.clock, Δt)
     update_state(model)
@@ -106,13 +107,13 @@ end
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁺ = h[i, j, 1] + Δt * ((one_point_five + χ) * Ghⁿ[i, j, 1] - (oh_point_five + χ) * Gh⁻[i, j, 1])
-        h[i, j, 1] = max(zero(grid), h⁺)
+        h[i, j, 1] = max(0, h⁺)
 
         # Belongs in update state?
         # That's certainly a simple model for ice concentration
         consolidated_ice = h[i, j, 1] >= hᶜ[i, j, 1]
         ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, 1] - (oh_point_five + χ) * Gℵ⁻[i, j, 1])
-        ℵ[i, j, 1] = ifelse(consolidated_ice, max(zero(grid), ℵ⁺), zero(grid))
+        ℵ[i, j, 1] = ifelse(consolidated_ice, max(0, ℵ⁺), 0)
     end 
 end
 

@@ -146,7 +146,8 @@ h = ice_model.thickness
 ℵ = ice_model.concentration
 T = ocean_model.tracers.T
 S = ocean_model.tracers.S
-u, v, w = ocean_model.velocities
+uₒ, vₒ, _ = ocean_model.velocities
+uᵢ, vᵢ = ice_model.velocities
 η = ocean_model.free_surface.η
 
 ht = []
@@ -155,6 +156,8 @@ Tt = []
 Ft = []
 Qt = []
 St = []
+Ut = []
+Vt = []
 ut = []
 vt = []
 ηt = []
@@ -171,18 +174,22 @@ function saveoutput(sim)
     Qn = Array(interior(Qᵀ, :, :, 1))
     Tn = Array(interior(T, :, :, Nz))
     Sn = Array(interior(S, :, :, Nz))
-    un = Array(interior(u, :, :, Nz))
-    vn = Array(interior(v, :, :, Nz))
     ηn = Array(interior(η, :, :, 1))
     ζn = Array(interior(ζ, :, :, Nz))
+    unₒ = Array(interior(uₒ, :, :, Nz))
+    vnₒ = Array(interior(vₒ, :, :, Nz))
+    unᵢ = Array(interior(uᵢ, :, :, Nz))
+    vnᵢ = Array(interior(vᵢ, :, :, Nz))
     push!(ht, hn)
     push!(ℵt, ℵn)
     push!(Ft, Fn)
     push!(Qt, Qn)
     push!(Tt, Tn)
     push!(St, Sn)
-    push!(ut, un)
-    push!(vt, vn)
+    push!(Ut, unₒ)
+    push!(Vt, vnₒ)
+    push!(ut, unᵢ)
+    push!(vt, vnᵢ)
     push!(ηt, ηn)
     push!(ζt, ζn)
     push!(tt, time(sim))
