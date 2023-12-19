@@ -223,8 +223,8 @@ end
     uₒ, vₒ = vel_oce
 
     @inbounds begin
-        δu = uₒ[i, j, 1] - u[i, j, 1]
-        δv = vₒ[i, j, 1] - v[i, j, 1]
+        δu = uₒ[i, j, 1] - uᵢ[i, j, 1]
+        δv = vₒ[i, j, 1] - vᵢ[i, j, 1]
         δ = sqrt(δu^2 + δv^2)
         τu[i, j, 1] = ifelse(h[i, j, 1] > 0, 1e-3 * ρₒ * δ * δu / h[i, j, 1] / ρᵢ, 0)
         τv[i, j, 1] = ifelse(h[i, j, 1] > 0, 1e-3 * ρₒ * δ * δv / h[i, j, 1] / ρᵢ, 0)
