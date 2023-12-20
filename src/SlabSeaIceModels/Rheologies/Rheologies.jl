@@ -33,12 +33,10 @@ Abstract supertype for rheologies that inform the treatment of the stress diverg
 """
 abstract type AbstractRheology end
 
-
 include("momentum_stepping_kernels.jl")
 include("nothing_rheology.jl")
 include("explicit_rheology.jl")
 include("free_drift_rheology.jl")
 include("cavitating_flow_rheology.jl")
-# include("elasto_visco_plastic_rheology.jl")
 
 end
