@@ -36,7 +36,7 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
         end
 
         @info @sprintf("substep: %d, u: %.3e, %.3e, v: %.3e, %.3e", 
-                       substep, extrema(u)..., extrema(v)..., )
+                       substep, extrema(model.velocities.u)..., extrema(model.velocities.v)..., )
     end
 
     return nothing

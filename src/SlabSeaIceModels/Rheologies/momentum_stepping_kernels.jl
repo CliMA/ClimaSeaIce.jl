@@ -19,12 +19,12 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     @inbounds τuₐ = u_top_stress[i, j, 1]
     τiₒ = ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
 
-    @inbounds Gᵘ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
+    @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      - τiₒ * uₒ[i, j, 1]
-                     + x_stress_divergence(i, j, 1, rheology) )
+                     + x_internal_stress_divergence(i, j, 1, rheology) )
 
-    @inbounds u[i, j, 1] += Δt * Gᵘ
+    @inbounds u[i, j, 1] += Δt * Gᵁ
     @inbounds u[i, j, 1] /= (1 + Δt * τiₒ)
 end
 
@@ -47,16 +47,16 @@ end
     @inbounds τva = v_top_stress[i, j, 1]
     τiₒ = ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
 
-    @inbounds Gᵛ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
+    @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
                      - τiₒ * vₒ[i, j, 1]
-                     + y_stress_divergence(i, j, 1, rheology) )
+                     + y_internal_stress_divergence(i, j, 1, rheology) )
 
-    @inbounds v[i, j, 1] += Δt * Gᵘ
+    @inbounds v[i, j, 1] += Δt * Gⱽ
     @inbounds v[i, j, 1] /= (1 + Δt * τiₒ)
 end
 
-# The ice-ocean stress is treated implicitly 
+# The ice-ocean stress is treated semi-implicitly 
 # i.e:
 #
 #      Cᴰρₒ

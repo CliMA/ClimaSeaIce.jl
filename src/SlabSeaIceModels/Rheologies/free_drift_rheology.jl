@@ -9,5 +9,5 @@ end
 
 compute_stresses!(model, ::FreeDriftRheology, Δτ) = nothing
 
-@inline x_stress_divergence(i, j, grid, ::FreeDriftRheology) = zero(grid)
-@inline y_stress_divergence(i, j, grid, ::FreeDriftRheology) = zero(grid)
+@inline x_internal_stress_divergence(i, j, grid, ::FreeDriftRheology) = zero(grid)
+@inline y_internal_stress_divergence(i, j, grid, ::FreeDriftRheology) = zero(grid)

@@ -62,5 +62,5 @@ end
     @inbounds p[i, j, 1] = ifelse(δ < 0, h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])), 0)
 end
 
-@inline x_stress_divergence(i, j, grid, ::CavitatingFlowRheology) = ∂xᶠᶜᶜ(i, j, 1, grid, rheology.p)
-@inline y_stress_divergence(i, j, grid, ::CavitatingFlowRheology) = ∂yᶜᶠᶜ(i, j, 1, grid, rheology.p)
+@inline x_internal_stress_divergence(i, j, grid, ::CavitatingFlowRheology) = ∂xᶠᶜᶜ(i, j, 1, grid, rheology.p)
+@inline y_internal_stress_divergence(i, j, grid, ::CavitatingFlowRheology) = ∂yᶜᶠᶜ(i, j, 1, grid, rheology.p)
