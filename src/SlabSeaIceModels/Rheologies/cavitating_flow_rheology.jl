@@ -59,7 +59,7 @@ end
 
     δ = div_xyᶜᶜᶜ(i, j, 1, grid, u, v)
 
-    @inbounds p[i, j, 1] = ifelse(δ < 0, h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])), 0)
+    @inbounds p[i, j, 1] = ifelse(δ < 0, P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])), 0)
 end
 
 @inline x_internal_stress_divergence(i, j, grid, ::CavitatingFlowRheology) = ∂xᶠᶜᶜ(i, j, 1, grid, rheology.p)

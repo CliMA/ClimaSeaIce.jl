@@ -42,8 +42,6 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
             launch!(arch, grid, :xyz, _v_velocity_step!, args..., τva, nothing, fields(model))
             launch!(arch, grid, :xyz, _u_velocity_step!, args..., τua, nothing, fields(model))
         end
-
-        @info @sprintf
     end
 
     return nothing
