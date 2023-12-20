@@ -165,7 +165,5 @@ function tracer_tendency(i, j, grid, clock,
                          phase_transitions,
                          model_fields)
 
-    Gc_advection = - horizontal_div_Uc(i, j, grid, advection, velocities, tracers)
-
-    return Gc_advection
+    return  - div_Uh(i, j, grid, advection, velocities, concentration, tracer)
 end
