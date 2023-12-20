@@ -1,3 +1,4 @@
+using Oceananigans.Operators
 using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 
 @inline function _advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h)

@@ -1,8 +1,7 @@
 using ClimaSeaIce: latent_heat
 using Oceananigans.Advection
-using Oceananigans.Coriolis: x_f_cross_U, y_f_cross_U
-
 using Oceananigans.Operators
+using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 
 @inline horizontal_div_Uc(i, j, grid, ::Nothing, U, c) = zero(grid)
 @inline horizontal_div_Uc(i, j, grid, advection, U, c) = 
