@@ -119,11 +119,9 @@ end
         ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, 1] - (oh_point_five + χ) * Gℵ⁻[i, j, 1])
         ℵ[i, j, 1] = ifelse(consolidated_ice, max(0, ℵ⁺), 0)
         
-        # Ridging! resetting the concentration to 1 and increasing thickness
-        if ℵ[i, j, 1] > 1
-            h[i, j, 1] = h[i, j, 1] * ℵ[i, j, 1] 
-            ℵ[i, j, 1] = 1
-        end
+        # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
+        h[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, h[i, j, 1] * ℵ[i, j, 1], h[i, j, 1])
+        ℵ[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, 1, ℵ[i, j, 1])
     end 
 end
 
