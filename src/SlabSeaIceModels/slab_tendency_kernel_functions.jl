@@ -73,27 +73,6 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
     @inbounds Gℵ[i, j, 1] = concentration_tendency(tracer_args..., nothing, model_fields)
 end
 
-@inline function ice_ocean_stress(i, j, vel_oce, vel_ice, h)
-    FT = eltype(h)
-
-    # To put somewhere else
-    ρₒ = 1024
-    ρᵢ = 917
-    Cₒ = convert(FT, 1e-3)
-    uᵢ, vᵢ = vel_ice
-    uₒ, vₒ = vel_oce
-
-    @inbounds begin
-        δu = uₒ[i, j, 1] - uᵢ[i, j, 1]
-        δv = vₒ[i, j, 1] - vᵢ[i, j, 1]
-        δ = sqrt(δu^2 + δv^2)
-        τu = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δu / h[i, j, 1] / ρᵢ, 0)
-        τv = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δv / h[i, j, 1] / ρᵢ, 0)
-    end
-
-    return τu, τv
-end
-
 # Thickness change due to accretion and melting, restricted by minimum allowable value
 function thickness_tendency(i, j, grid, clock,
                             velocities,

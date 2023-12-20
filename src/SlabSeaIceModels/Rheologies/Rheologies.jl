@@ -35,7 +35,7 @@ abstract type AbstractRheology end
 
 
 include("difference_of_arrays.jl")
-include("momentum_tendency_kernels.jl")
+include("momentum_stepping_kernels.jl")
 include("nothing_rheology.jl")
 include("explicit_rheology.jl")
 include("free_drift_rheology.jl")
