@@ -15,16 +15,17 @@ import ClimaSeaIce.SlabSeaIceModels: SlabSeaIceModelTendencyFields
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ## 
-##     ∂u                          τₒ    τₐ
-##     -- + f x (u - uₒ) = ∇ ⋅ σ + --  + --
-##     ∂t                          mᵢ    mᵢ
+##     ∂u                   τₒ    τₐ
+##     -- + f x u = ∇ ⋅ σ + --  + -- + g∇η
+##     ∂t                   mᵢ    mᵢ
 ## 
 ## where the terms (left to right) represent the 
 ## - time derivative of the ice velocity
 ## - coriolis force
 ## - divergence of internal stresses
-## - ice-ocean boundary stress
+## - ice-ocean boundary stress (calculated)
 ## - ice-atmosphere boundary stress
+## - ocean dynamic surface
 
 """
     AbstractRheology
