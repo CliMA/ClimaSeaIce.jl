@@ -1,3 +1,6 @@
+####
+#### For a `Nothing` rheology we assume that u = uₒ
+####
 
 function step_momentum!(model, ::Nothing, Δt, χ)
     grid = model.grid
@@ -19,6 +22,4 @@ end
         vᵢ[i, j, 1] = vₒ[i, j, 1]
     end
 end
-
-SlabSeaIceModelTendencyFields(grid, ::Nothing, tracer_names) = TracerFields(tracer_names, grid)
     

@@ -7,9 +7,10 @@ abstract type AbstractExplicitRheology <: AbstractRheology end
 """
     step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
 
-stepping u and v for _explicit_ rheologies. As the sea-ice momentum has a 
-much smaller time-scale than the thermodynamics, stepping the momentum entails 
-substepping over a set number of substeps.
+function for stepping u and v in the case of _explicit_ rheologies.
+The sea-ice momentum equations are characterized by smaller time-scale than 
+sea-ice thermodynamics, therefore explicit rheologies require substepping
+over a set number of substeps.
 """
 function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
 
@@ -38,9 +39,11 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
             launch!(arch, grid, :xyz, _u_velocity_step!, args..., τua, nothing, fields(model))
             launch!(arch, grid, :xyz, _v_velocity_step!, args..., τva, nothing, fields(model))
         else
-            launch!(arch, grid, :xyz, _v_velocity_step!, args..., τua, nothing, fields(model))
-            launch!(arch, grid, :xyz, _u_velocity_step!, args..., τva, nothing, fields(model))
+            launch!(arch, grid, :xyz, _v_velocity_step!, args..., τva, nothing, fields(model))
+            launch!(arch, grid, :xyz, _u_velocity_step!, args..., τua, nothing, fields(model))
         end
+
+        @info @sprintf
     end
 
     return nothing

@@ -138,8 +138,8 @@ function SlabSeaIceModel(grid;
 
     # Only one time-stepper is supported currently
     timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracernames(tracers);
-                              Gⁿ = SlabSeaIceModelTendencyFields(grid, rheology, tracernames(tracers)),
-                              G⁻ = SlabSeaIceModelTendencyFields(grid, rheology, tracernames(tracers)))
+                              Gⁿ = TracerFields(tracer_names, grid),
+                              G⁻ = TracerFields(tracer_names, grid))
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     consolidation_thickness = field((Center, Center, Nothing), consolidation_thickness, grid)
@@ -212,11 +212,4 @@ function set!(model::SSIM; h=nothing, ℵ=nothing)
     !isnothing(h) && set!(model.thickness, h)
     !isnothing(ℵ) && set!(model.concentration, ℵ)
     return nothing
-end
-
-function SlabSeaIceModelTendencyFields(grid, rheology, tracer_names)
-    u = XFaceField(grid)
-    v = YFaceField(grid)
-    tracers = TracerFields(tracer_names, grid)
-    return merge((u=u, v=v), tracers)
 end
