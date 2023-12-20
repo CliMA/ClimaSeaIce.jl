@@ -5,7 +5,8 @@ using Oceananigans.Coriolis: x_f_cross_U, y_f_cross_U
 using Oceananigans.Operators
 using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 
-@inline div_Uc_2D(i, j, grid, advection, U, c) = 
+@inline horizontal_div_Uc(i, j, grid, ::Nothing, U, c) = zero(grid)
+@inline horizontal_div_Uc(i, j, grid, advection, U, c) = 
     1 / Vᶜᶜᶜ(i, j, 1, grid) * (δxᶜᵃᵃ(i, j, 1, grid, _advective_tracer_flux_x, advection, U.u, c) +
                                δyᵃᶜᵃ(i, j, 1, grid, _advective_tracer_flux_y, advection, U.v, c))
                                
@@ -72,85 +73,25 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
     @inbounds Gℵ[i, j, 1] = concentration_tendency(tracer_args..., nothing, model_fields)
 end
 
-@kernel function _compute_momentum_tendencies!(tendencies,
-                                               grid,
-                                               clock,
-                                               velocities,
-                                               ocean_velocities,
-                                               coriolis,
-                                               top_u_stress,
-                                               bottom_u_stress,
-                                               top_v_stress,
-                                               bottom_v_stress,
-                                               forcing,
-                                               model_fields)
+@inline function ice_ocean_stress(i, j, vel_oce, vel_ice, h)
+    FT = eltype(h)
 
-    i, j = @index(Global, NTuple)
+    # To put somewhere else
+    ρₒ = 1024
+    ρᵢ = 917
+    Cₒ = convert(FT, 1e-3)
+    uᵢ, vᵢ = vel_ice
+    uₒ, vₒ = vel_oce
 
-    Gu = tendencies.u
-    Gv = tendencies.v
-
-    τuₒ = bottom_u_stress
-    τvₒ = bottom_v_stress
-    τuₐ = top_u_stress
-    τvₐ = top_v_stress
-    
-    momentum_args = (i, j, grid, clock, velocities, ocean_velocities, coriolis)
-
-    @inbounds Gu[i, j, 1] = u_velocity_tendency(momentum_args..., τuₐ, τuₒ, nothing, model_fields)
-    @inbounds Gv[i, j, 1] = v_velocity_tendency(momentum_args..., τvₐ, τvₒ, nothing, model_fields)
-end
-
-function u_velocity_tendency(i, j, grid, clock,
-                             velocities, 
-                             ocean_velocities,
-                             coriolis,
-                             top_stess,
-                             bottom_stress,
-                             u_forcing,
-                             model_fields)
-
-    u,  v  = velocities
-    uₒ, vₒ = ocean_velocities
-
-    relative_u = DifferenceOfArrays(u, uₒ)
-    relative_v = DifferenceOfArrays(v, vₒ)
-
-    relative_velocities = (; u = relative_u, v = relative_v)
-    
     @inbounds begin
-        Gu = - x_f_cross_U(i, j, 1, grid, coriolis, relative_velocities)
-             + bottom_stess[i, j, 1]
-             + top_stress[i, j, 1]
+        δu = uₒ[i, j, 1] - uᵢ[i, j, 1]
+        δv = vₒ[i, j, 1] - vᵢ[i, j, 1]
+        δ = sqrt(δu^2 + δv^2)
+        τu = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δu / h[i, j, 1] / ρᵢ, 0)
+        τv = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δv / h[i, j, 1] / ρᵢ, 0)
     end
 
-    return Gu
-end
-
-function v_velocity_tendency(i, j, grid, clock,
-                             velocities,
-                             ocean_velocities, 
-                             coriolis,
-                             top_stess,
-                             bottom_stress,
-                             v_forcing,
-                             model_fields)
-
-    u,  v  = velocities
-    uₒ, vₒ = ocean_velocities
-
-    relative_u = DifferenceOfArrays(u, uₒ)
-    relative_v = DifferenceOfArrays(v, vₒ)
-
-    relative_velocities = (; u = relative_u, v = relative_v)
-              
-    @inbounds begin
-        Gv = - y_f_cross_U(i, j, 1, grid, coriolis, relative_velocities)
-             + bottom_stess[i, j, 1]
-             + top_stress[i, j, 1]
-    end
-
-    return Gv
+    return τu, τv
 end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
@@ -169,7 +110,7 @@ function thickness_tendency(i, j, grid, clock,
                             h_forcing,
                             model_fields)
 
-    Gh_advection = - div_Uc_2D(i, j, grid, advection, velocities, thickness)
+    Gh_advection = - horizontal_div_Uc(i, j, grid, advection, velocities, thickness)
 
     @inbounds begin
         hᶜ  = consolidation_thickness[i, j, 1]
@@ -226,7 +167,7 @@ function concentration_tendency(i, j, grid, clock,
                                 a_forcing,
                                 model_fields)
 
-    Gℵ_advection = - div_Uc_2D(i, j, grid, advection, velocities, concentration)
+    Gℵ_advection = - horizontal_div_Uc(i, j, grid, advection, velocities, concentration)
 
     return Gℵ_advection 
 end
@@ -247,7 +188,7 @@ function tracer_tendency(i, j, grid, clock,
                          phase_transitions,
                          model_fields)
 
-    Gc_advection = - div_Uc_2D(i, j, grid, advection, velocities, tracers)
+    Gc_advection = - horizontal_div_Uc(i, j, grid, advection, velocities, tracers)
 
     return Gc_advection
 end

@@ -9,6 +9,7 @@ using SeawaterPolynomials: TEOS10EquationOfState, haline_contraction
 
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
+using ClimaSeaIce.SlabSeaIceModels.Rheologies: CavitatingFlowRheology, FreeDriftRheology
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 
 using Printf
@@ -73,6 +74,7 @@ ice_model = SlabSeaIceModel(ice_grid;
                             advection = WENO(),
                             consolidation_thickness = 0.05,
                             salinity = 4,
+                            rheology = FreeDriftRheology(100),
                             internal_heat_flux = ConductiveFlux(conductivity=2),
                             top_heat_flux = ConstantField(0), # W m⁻²
                             top_heat_boundary_condition = PrescribedTemperature(0),
@@ -125,22 +127,22 @@ by = - g * β * ∂y(S)
 
 function progress(sim)
     h = sim.model.ice.model.thickness
-    ℵ = sim.model.ice.model.thickness
+    ℵ = sim.model.ice.model.concentration
     S = sim.model.ocean.model.tracers.S
     T = sim.model.ocean.model.tracers.T
-    u = sim.model.ocean.model.velocities.u
+    u = sim.model.ice.model.velocities.u
+    v = sim.model.ice.model.velocities.v
     msg1 = @sprintf("Iter: % 6d, time: % 12s", iteration(sim), prettytime(sim))
     msg2 = @sprintf(", max(h): %.2f", maximum(h))
     msg3 = @sprintf(", max(ℵ): %.2f", maximum(ℵ))
-    msg4 = @sprintf(", min(S): %.2f", minimum(S))
+    msg4 = @sprintf(", extrema(S): (%.2f, %.2f)", minimum(S), maximum(S))
     msg5 = @sprintf(", extrema(T): (%.2f, %.2f)", minimum(T), maximum(T))
-    msg6 = @sprintf(", max|∂y b|: %.2e", maximum(abs, by))
-    msg7 = @sprintf(", max|u|: %.2e", maximum(abs, u))
-    @info msg1 * msg2 * msg3 * msg4 * msg5 * msg6 * msg7
+    msg6 = @sprintf(", maximum(vel): (%.2f, %.2f)", maximum(abs, u), maximum(abs, v))
+    @info msg1 * msg2 * msg3 * msg4 * msg5 * msg6 
     return nothing
 end
 
-coupled_simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
+coupled_simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
 
 h = ice_model.thickness
 ℵ = ice_model.concentration

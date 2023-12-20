@@ -58,12 +58,21 @@ function ab2_step_tracers!(model::SSIM, Δt, χ)
     return nothing
 end
 
-store_tracer_tendencies!(model::SSIM) = 
+store_tendencies!(model::SSIM) = 
     launch!(architecture(model.grid), model.grid, :xyz, _store_all_tendencies!, 
                          model.timestepper.G⁻, model.timestepper.Gⁿ, Val(length(model.timestepper.Gⁿ)))
 
+function update_state!(model::SSIM)
+    fields = prognostic_fields(model)
+    fill_halo_regions!(fields)
+    return nothing
+end
+
 function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
 
+    # Shenanigans for properly starting the AB2 loop with an Euler step
+    euler = euler || (Δt != model.timestepper.previous_Δt)
+    
     χ = ifelse(euler, convert(eltype(model.grid), -0.5), model.timestepper.χ)
 
     if euler
@@ -75,24 +84,19 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
         end
     end
 
+    model.timestepper.previous_Δt = Δt
+    
     compute_tracer_tendencies!(model; callbacks)
     ab2_step_tracers!(model, Δt, χ)
 
-    # TODO: This should be an implicit (or split-explicit) step
-    # to advance momentum!
-    advance_momentum!(model, model.rheology, Δt, χ)
+    # TODO: There should be an implicit (or split-explicit) step to advance momentum!
+    step_momentum!(model, model.rheology, Δt, χ)
 
     store_tendencies!(model)
 
     tick!(model.clock, Δt)
-    update_state(model)
+    update_state!(model)
 
-    return nothing
-end
-
-function update_state!(model::SSIM)
-    fields = prognostic_fields(model)
-    fill_halo_regions!(fields)
     return nothing
 end
 
@@ -113,7 +117,7 @@ end
         # That's certainly a simple model for ice concentration
         consolidated_ice = h[i, j, 1] >= hᶜ[i, j, 1]
         ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, 1] - (oh_point_five + χ) * Gℵ⁻[i, j, 1])
-        ℵ[i, j, 1] = ifelse(consolidated_ice, max(0, ℵ⁺), 0)
+        ℵ[i, j, 1] = ifelse(consolidated_ice, min(max(0, ℵ⁺), 1), 0)
     end 
 end
 
@@ -125,34 +129,5 @@ end
     end
 end
 
-# This will be the implicit step whenever rheology is implemented!
-function advance_momentum!(model, ::Nothing, Δt, χ)
-    grid = model.grid
-    arch = architecture(grid)
+step_momentum!(args...) = nothing
 
-    u, v = model.velocities
-    Guⁿ = model.timestepper.Gⁿ.u
-    Gu⁻ = model.timestepper.G⁻.u
-    Gvⁿ = model.timestepper.Gⁿ.v
-    Gv⁻ = model.timestepper.G⁻.v
-
-    launch!(arch, grid, :xyz, 
-            _compute_momentum_tendencies!, 
-            model.timestepper.Gⁿ,
-            grid,
-            model.clock,
-            model.velocities,
-            model.ocean_velocities,
-            model.coriolis,
-            model.external_momentum_stress.u.top,
-            model.external_momentum_stress.u.bottom,
-            model.external_momentum_stress.v.top,
-            model.external_momentum_stress.v.bottom,
-            nothing, #model.forcing
-            fields(model))
-
-    launch!(arch, grid, :xyz, ab2_step_field!, u, Δt, χ, Guⁿ, Gu⁻)
-    launch!(arch, grid, :xyz, ab2_step_field!, v, Δt, χ, Gvⁿ, Gv⁻)
-
-    return nothing
-end

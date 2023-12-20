@@ -110,8 +110,6 @@ function SlabSeaIceModel(grid;
                          bottom_heat_flux               = 0,
                          top_u_stress                   = Field{Face, Center, Nothing}(grid),
                          top_v_stress                   = Field{Center, Face, Nothing}(grid),
-                         bottom_u_stress                = Field{Face, Center, Nothing}(grid),
-                         bottom_v_stress                = Field{Center, Face, Nothing}(grid),
                          velocities                     = nothing,
                          ocean_velocities               = (u = ZeroField(grid), v = ZeroField(grid)),
                          rheology                       = nothing,
@@ -140,8 +138,8 @@ function SlabSeaIceModel(grid;
 
     # Only one time-stepper is supported currently
     timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracernames(tracers);
-                              Gⁿ = SlabSeaIceModelTendencyFields(grid, tracernames(tracers)),
-                              G⁻ = SlabSeaIceModelTendencyFields(grid, tracernames(tracers)))
+                              Gⁿ = SlabSeaIceModelTendencyFields(grid, rheology, tracernames(tracers)),
+                              G⁻ = SlabSeaIceModelTendencyFields(grid, rheology, tracernames(tracers)))
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     consolidation_thickness = field((Center, Center, Nothing), consolidation_thickness, grid)
@@ -184,10 +182,8 @@ function SlabSeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,    
                          bottom = bottom_heat_flux) 
 
-    external_momentum_stress = (; u = (; top = top_u_stress,
-                                         bottom = bottom_u_stress),
-                                  v = (; top = top_v_stress, 
-                                         bottom = bottom_v_stress))
+    external_momentum_stress = (; u = top_u_stress,
+                                  v = top_v_stress)
 
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                              bottom = bottom_heat_boundary_condition)
@@ -218,7 +214,7 @@ function set!(model::SSIM; h=nothing, ℵ=nothing)
     return nothing
 end
 
-function SlabSeaIceModelTendencyFields(grid, tracer_names)
+function SlabSeaIceModelTendencyFields(grid, rheology, tracer_names)
     u = XFaceField(grid)
     v = YFaceField(grid)
     tracers = TracerFields(tracer_names, grid)

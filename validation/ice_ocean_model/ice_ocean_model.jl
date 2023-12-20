@@ -184,8 +184,6 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
 
     time_step!(ocean)
 
-    compute_ice_ocean_momentum_flux!(coupled_model)
-
     # TODO:
     # - Store fractional ice-free / ice-covered _time_ for more
     #   accurate flux computation?
@@ -198,39 +196,6 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
     tick!(coupled_model.clock, Δt)
     
     return nothing
-end
-
-function compute_ice_ocean_momentum_flux!(coupled_model)
-    ice  = coupled_model.ice
-    grid = ice.model.grid
-    arch = architecture(grid)
-    vel_oce = ice.model.ocean_velocities
-    vel_ice = ice.model.velocities
-    h = ice.model.thickness
-    ρᵢ = coupled_model.ice_density
-    ρₒ = coupled_model.ocean_density
-    Cₒ = coupled_model.ocean_surface_drag_coefficient
-
-
-    τu = ice.model.external_momentum_stress.u.bottom
-    τv = ice.model.external_momentum_stress.v.bottom
-
-    launch!(arch, grid, :xyz, _compute_momentum_stress!, τu, τv, vel_oce, vel_ice, h, Cₒ, ρᵢ, ρₒ)
-end
-
-@kernel function _compute_momentum_stress!(τu, τv, vel_oce, vel_ice, h, Cₒ, ρᵢ, ρₒ)
-    i, j = @index(Global, NTuple)
-
-    uᵢ, vᵢ = vel_ice
-    uₒ, vₒ = vel_oce
-
-    @inbounds begin
-        δu = uₒ[i, j, 1] - uᵢ[i, j, 1]
-        δv = vₒ[i, j, 1] - vᵢ[i, j, 1]
-        δ = sqrt(δu^2 + δv^2)
-        τu[i, j, 1] = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δu / h[i, j, 1] / ρᵢ, 0)
-        τv[i, j, 1] = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ * δv / h[i, j, 1] / ρᵢ, 0)
-    end
 end
 
 function compute_ice_ocean_salinity_flux!(coupled_model)
