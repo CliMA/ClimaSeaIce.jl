@@ -4,6 +4,13 @@ using Printf
 
 abstract type AbstractExplicitRheology <: AbstractRheology end
 
+"""
+    step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
+
+stepping u and v for _explicit_ rheologies. As the sea-ice momentum has a 
+much smaller time-scale than the thermodynamics, stepping the momentum entails 
+substepping over a set number of substeps.
+"""
 function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
 
     grid = model.grid
