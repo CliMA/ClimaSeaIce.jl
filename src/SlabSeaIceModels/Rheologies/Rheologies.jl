@@ -34,7 +34,6 @@ Abstract supertype for rheologies that inform the treatment of the stress diverg
 abstract type AbstractRheology end
 
 
-include("difference_of_arrays.jl")
 include("momentum_stepping_kernels.jl")
 include("nothing_rheology.jl")
 include("explicit_rheology.jl")

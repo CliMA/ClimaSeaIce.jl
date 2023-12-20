@@ -24,7 +24,8 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
                 model.clock,
                 model.ocean_velocities,
                 model.coriolis,
-                model.rheology)
+                model.rheology,
+                model.thickness)
                 
         if iseven(substep)
             launch!(arch, grid, :xyz, _u_velocity_step!, args..., τua, nothing, fields(model))

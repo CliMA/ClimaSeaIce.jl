@@ -1,3 +1,4 @@
+using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
 """ stepping the ice u-velocity using a forward leap-frog scheme """
 @kernel function _u_velocity_step!(velocities, grid, Δt, 
@@ -12,6 +13,7 @@
 
     i, j = @index(Global, NTuple)
 
+    u, v   = velocities
     uₒ, vₒ = ocean_velocities
 
     @inbounds τuₐ = u_top_stress[i, j, 1]
@@ -32,31 +34,37 @@ end
                                    ocean_velocities, 
                                    coriolis,
                                    rheology,
+                                   thickness,
                                    v_top_stress,
                                    v_forcing,
                                    model_fields)
 
     i, j = @index(Global, NTuple)
 
+    u, v   = velocities
+    uₒ, vₒ = ocean_velocities
+
     @inbounds τva = v_top_stress[i, j, 1]
     τiₒ = ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
 
     @inbounds Gᵛ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
-                     - τiₒ * uₒ[i, j, 1]
+                     - τiₒ * vₒ[i, j, 1]
                      + y_stress_divergence(i, j, 1, rheology) )
 
     @inbounds v[i, j, 1] += Δt * Gᵘ
     @inbounds v[i, j, 1] /= (1 + Δt * τiₒ)
 end
 
-
-# The stress is treated implicitly 
+# The ice-ocean stress is treated implicitly 
 # i.e:
 #
 #      Cᴰρₒ
-# τₒ = ---- || u - uₒ ||ⁿ * (uⁿ⁺¹ - uₒⁿ)
+# τₒ = ---- || uₒ - u ||ⁿ * (uₒⁿ - uⁿ⁺¹)
 #      ρᵢ h
+#     |------------------|
+#   ice_ocean_implicit_stress
+#
 #
 @inline function ice_ocean_implicit_stress(i, j, vel_oce, vel_ice, h)
     FT = eltype(h)
