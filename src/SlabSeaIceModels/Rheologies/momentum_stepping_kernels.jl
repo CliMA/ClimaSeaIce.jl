@@ -17,7 +17,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     uₒ, vₒ = ocean_velocities
 
     @inbounds τuₐ = u_top_stress[i, j, 1]
-    τiₒ = ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
+    τiₒ = x_ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
 
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
@@ -45,7 +45,7 @@ end
     uₒ, vₒ = ocean_velocities
 
     @inbounds τva = v_top_stress[i, j, 1]
-    τiₒ = ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
+    τiₒ = y_ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
@@ -66,18 +66,40 @@ end
 #   ice_ocean_implicit_stress
 #
 #
-@inline function ice_ocean_implicit_stress(i, j, vel_oce, vel_ice, h)
+@inline function x_ice_ocean_implicit_stress(i, j, vel_oce, vel_ice, h)
     FT = eltype(h)
 
     # To put somewhere else??
     ρₒ = 1024
     ρᵢ = 917
     Cₒ = convert(FT, 1e-3)
+
     uᵢ, vᵢ = vel_ice
     uₒ, vₒ = vel_oce
 
     @inbounds begin
         δu    = uₒ[i, j, 1] - uᵢ[i, j, 1]
+        δv    = ℑxyᶠᶜᵃ(i, j, 1, grid, vₒ) - ℑxyᶠᶜᵃ(i, j, 1, grid, vᵢ)
+        δ     = sqrt(δu^2 + δv^2)
+        τ_imp = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ / (h[i, j, 1] * ρᵢ), 0)
+    end
+
+    return τ_imp
+end
+
+@inline function y_ice_ocean_implicit_stress(i, j, vel_oce, vel_ice, h)
+    FT = eltype(h)
+
+    # To put somewhere else??
+    ρₒ = 1024
+    ρᵢ = 917
+    Cₒ = convert(FT, 1e-3)
+
+    uᵢ, vᵢ = vel_ice
+    uₒ, vₒ = vel_oce
+
+    @inbounds begin
+        δu    = ℑxyᶜᶠᵃ(i, j, 1, grid, uₒ) - ℑxyᶜᶠᵃ(i, j, 1, grid, uᵢ)
         δv    = vₒ[i, j, 1] - vᵢ[i, j, 1]
         δ     = sqrt(δu^2 + δv^2)
         τ_imp = ifelse(h[i, j, 1] > 0, Cₒ * ρₒ * δ / (h[i, j, 1] * ρᵢ), 0)
