@@ -9,7 +9,6 @@ using SeawaterPolynomials: TEOS10EquationOfState, haline_contraction
 
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
-using ClimaSeaIce.SlabSeaIceModels.Rheologies: CavitatingFlowRheology, FreeDriftRheology
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 
 using Printf
@@ -74,7 +73,7 @@ ice_model = SlabSeaIceModel(ice_grid;
                             advection = WENO(),
                             consolidation_thickness = 0.05,
                             salinity = 4,
-                            rheology = FreeDriftRheology(3),
+                            rheology = nothing,
                             internal_heat_flux = ConductiveFlux(conductivity=2),
                             top_heat_flux = ConstantField(0), # W m⁻²
                             top_heat_boundary_condition = PrescribedTemperature(0),
