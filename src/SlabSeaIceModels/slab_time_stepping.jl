@@ -117,7 +117,13 @@ end
         # That's certainly a simple model for ice concentration
         consolidated_ice = h[i, j, 1] >= hᶜ[i, j, 1]
         ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, 1] - (oh_point_five + χ) * Gℵ⁻[i, j, 1])
-        ℵ[i, j, 1] = ifelse(consolidated_ice, min(max(0, ℵ⁺), 1), 0)
+        ℵ[i, j, 1] = ifelse(consolidated_ice, max(0, ℵ⁺), 0)
+        
+        # Ridging! resetting the concentration to 1 and increasing thickness
+        if ℵ[i, j, 1] > 1
+            h[i, j, 1] = h[i, j, 1] * ℵ[i, j, 1] 
+            ℵ[i, j, 1] = 1
+        end
     end 
 end
 
