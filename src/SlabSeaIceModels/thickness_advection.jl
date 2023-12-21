@@ -3,13 +3,15 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 
 @inline function _advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h)
     ϕℵ = _advective_tracer_flux_x(i, j, k, grid, advection, U, ℵ) / Axᶠᶜᶜ(i, j, k, grid)
-    @inbounds ϕh = ϕℵ * _advective_tracer_flux_x(i, j, k, grid, advection, U, h) / U[i, j, k] 
+    @inbounds ϕh = ϕℵ * _advective_tracer_flux_x(i, j, k, grid, advection, U, h)
+    @inbounds ϕh = ifelse(U[i, j, k] != 0, ϕh / U[i, j, k], 0)
     return ϕh
 end
 
 @inline function _advective_thickness_flux_y(i, j, k, grid, advection, V, ℵ, h)
     ϕℵ = _advective_tracer_flux_x(i, j, k, grid, advection, V, ℵ) / Ayᶜᶠᶜ(i, j, k, grid)
-    @inbounds ϕh = ϕℵ * _advective_tracer_flux_y(i, j, k, grid, advection, V, h) / V[i, j, k] 
+    @inbounds ϕh = ϕℵ * _advective_tracer_flux_y(i, j, k, grid, advection, V, h) 
+    @inbounds ϕh = ifelse(V[i, j, k] != 0, ϕh / V[i, j, k], 0)
     return ϕh
 end
 
