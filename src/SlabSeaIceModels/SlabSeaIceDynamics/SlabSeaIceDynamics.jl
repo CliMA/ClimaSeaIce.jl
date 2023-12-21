@@ -22,8 +22,8 @@ import ClimaSeaIce.SlabSeaIceModels: step_momentum!
 ## - time derivative of the ice velocity
 ## - coriolis force
 ## - divergence of internal stresses
-## - ice-ocean boundary stress (calculated)
-## - ice-atmosphere boundary stress
+## - ice-ocean boundary stress (calculated in step_momentum!)
+## - ice-atmosphere boundary stress (provided as an external flux)
 ## - ocean dynamic surface
 
 """
