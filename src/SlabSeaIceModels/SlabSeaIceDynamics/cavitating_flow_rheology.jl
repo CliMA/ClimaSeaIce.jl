@@ -2,8 +2,8 @@ using Oceananigans.TimeSteppers: store_field_tendencies!
 
 struct CavitatingFlowRheology{P, FT} <: AbstractExplicitRheology
     p  :: P
-    P★ :: FT
-    C  :: FT
+    P★ :: FT # compressive strength
+    C  :: FT # compaction hardening
     substeps :: Int
 end
 
@@ -25,12 +25,12 @@ Arguments
 Keyword Arguments
 =================
 
-- `P★`: ice strength multiplier (in Nm²)
-- `C`: exponent coefficient
+- `P★`: parameter expressing compressive strength (in Nm²)
+- `C`: exponent coefficient for compaction hardening
 - `substeps`: number of substeps
 
 """
-function CavitatingFlowRheology(grid::AbstractGrid; P★ = 1, C = 20, substeps = 100)
+function CavitatingFlowRheology(grid::AbstractGrid; P★ = 25, C = 20, substeps = 100)
     p = CenterField(grid)
     FT = eltype(grid)
     return CavitatingFlowRheology(p, convert(FT, P★), convert(FT, C), substeps)
@@ -59,8 +59,8 @@ end
 
     δ = div_xyᶜᶜᶜ(i, j, 1, grid, u, v)
 
-    @inbounds p[i, j, 1] = ifelse(δ < 0, P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])), 0)
+    @inbounds p[i, j, 1] = ifelse(δ <= 0, P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])), 0)
 end
 
-@inline x_internal_stress_divergence(i, j, grid, r::CavitatingFlowRheology) = ∂xᶠᶜᶜ(i, j, 1, grid, r.p)
-@inline y_internal_stress_divergence(i, j, grid, r::CavitatingFlowRheology) = ∂yᶜᶠᶜ(i, j, 1, grid, r.p)
+@inline x_internal_stress_divergence(i, j, grid, r::CavitatingFlowRheology) = - ∂xᶠᶜᶜ(i, j, 1, grid, r.p)
+@inline y_internal_stress_divergence(i, j, grid, r::CavitatingFlowRheology) = - ∂yᶜᶠᶜ(i, j, 1, grid, r.p)
