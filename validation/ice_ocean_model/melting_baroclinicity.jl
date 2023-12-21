@@ -73,7 +73,7 @@ ice_model = SlabSeaIceModel(ice_grid;
                             advection = WENO(),
                             consolidation_thickness = 0.05,
                             salinity = 4,
-                            rheology = nothing,
+                            rheology = ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.CavitatingFlowRheology(ice_grid; substeps = 50),
                             internal_heat_flux = ConductiveFlux(conductivity=2),
                             top_heat_flux = ConstantField(0), # W m⁻²
                             top_heat_boundary_condition = PrescribedTemperature(0),

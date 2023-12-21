@@ -138,8 +138,8 @@ function SlabSeaIceModel(grid;
 
     # Only one time-stepper is supported currently
     timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracernames(tracers);
-                              Gⁿ = TracerFields(tracer_names, grid),
-                              G⁻ = TracerFields(tracer_names, grid))
+                              Gⁿ = TracerFields(tracernames(tracers), grid),
+                              G⁻ = TracerFields(tracernames(tracers), grid))
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     consolidation_thickness = field((Center, Center, Nothing), consolidation_thickness, grid)
@@ -151,8 +151,8 @@ function SlabSeaIceModel(grid;
                   bottom_heat_boundary_condition = bottom_heat_boundary_condition)
 
     internal_heat_flux_function = FluxFunction(slab_internal_heat_flux;
-                                                  parameters,
-                                                  top_temperature_dependent=true)
+                                               parameters,
+                                               top_temperature_dependent=true)
 
     # Construct default top heat flux if one is not provided
     if isnothing(top_heat_flux)

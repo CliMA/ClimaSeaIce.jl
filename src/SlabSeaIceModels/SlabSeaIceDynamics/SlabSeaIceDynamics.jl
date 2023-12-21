@@ -1,4 +1,4 @@
-module Rheologies
+module SlabSeaIceDynamics
 
 using ClimaSeaIce
 using ClimaSeaIce.SlabSeaIceModels
@@ -11,7 +11,6 @@ using Oceananigans.Grids
 using Oceananigans.Grids: architecture
 
 import ClimaSeaIce.SlabSeaIceModels: step_momentum!
-import ClimaSeaIce.SlabSeaIceModels: SlabSeaIceModelTendencyFields
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ## 
@@ -34,6 +33,10 @@ Abstract supertype for rheologies that inform the treatment of the stress diverg
 """
 abstract type AbstractRheology end
 
-include("nothing_rheology.jl")
+include("nothing_dynamics.jl")
+include("momentum_stepping_kernels.jl")
+include("explicit_dynamics.jl")
+include("free_drift_rheology.jl")
+include("cavitating_flow_rheology.jl")
 
 end
