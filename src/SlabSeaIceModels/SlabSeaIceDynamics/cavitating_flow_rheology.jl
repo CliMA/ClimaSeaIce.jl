@@ -10,7 +10,7 @@ end
 """
     function CavitatingFlowRheology(grid::AbstractGrid; P★ = 1, C = 20, substeps = 100)
 
-construct a `CavitatingFlowRheology` type, where ``∇ ⋅ σ = ∇ ⋅ p`` with 
+construct a `CavitatingFlowRheology` type, where ``∇ ⋅ σ = ∇p`` with 
 
 - ``p = Pₚ`` if ``∇ ⋅ u < 0``
 - ``p = 0`` otherwise
@@ -62,5 +62,5 @@ end
     @inbounds p[i, j, 1] = ifelse(δ < 0, P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])), 0)
 end
 
-@inline x_internal_stress_divergence(i, j, grid, ::CavitatingFlowRheology) = ∂xᶠᶜᶜ(i, j, 1, grid, rheology.p)
-@inline y_internal_stress_divergence(i, j, grid, ::CavitatingFlowRheology) = ∂yᶜᶠᶜ(i, j, 1, grid, rheology.p)
+@inline x_internal_stress_divergence(i, j, grid, r::CavitatingFlowRheology) = ∂xᶠᶜᶜ(i, j, 1, grid, r.p)
+@inline y_internal_stress_divergence(i, j, grid, r::CavitatingFlowRheology) = ∂yᶜᶠᶜ(i, j, 1, grid, r.p)

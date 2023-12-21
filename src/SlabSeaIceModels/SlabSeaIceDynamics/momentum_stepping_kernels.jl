@@ -17,12 +17,12 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     uₒ, vₒ = ocean_velocities
 
     @inbounds τuₐ = u_top_stress[i, j, 1]
-    τiₒ = x_ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
+    τiₒ = x_ice_ocean_implicit_stress(i, j, grid, ocean_velocities, velocities, thickness)
 
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      - τiₒ * uₒ[i, j, 1]
-                     + x_internal_stress_divergence(i, j, 1, rheology) )
+                     + x_internal_stress_divergence(i, j, grid, rheology) )
 
     @inbounds u[i, j, 1] += Δt * Gᵁ
     @inbounds u[i, j, 1] /= (1 + Δt * τiₒ)
@@ -45,12 +45,12 @@ end
     uₒ, vₒ = ocean_velocities
 
     @inbounds τva = v_top_stress[i, j, 1]
-    τiₒ = y_ice_ocean_implicit_stress(i, j, ocean_velocities, velocities, thickness)
+    τiₒ = y_ice_ocean_implicit_stress(i, j, grid, ocean_velocities, velocities, thickness)
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
                      - τiₒ * vₒ[i, j, 1]
-                     + y_internal_stress_divergence(i, j, 1, rheology) )
+                     + y_internal_stress_divergence(i, j, grid, rheology) )
 
     @inbounds v[i, j, 1] += Δt * Gⱽ
     @inbounds v[i, j, 1] /= (1 + Δt * τiₒ)
@@ -66,7 +66,7 @@ end
 #   ice_ocean_implicit_stress
 #
 #
-@inline function x_ice_ocean_implicit_stress(i, j, vel_oce, vel_ice, h)
+@inline function x_ice_ocean_implicit_stress(i, j, grid, vel_oce, vel_ice, h)
     FT = eltype(h)
 
     # To put somewhere else??
@@ -87,7 +87,7 @@ end
     return τ_imp
 end
 
-@inline function y_ice_ocean_implicit_stress(i, j, vel_oce, vel_ice, h)
+@inline function y_ice_ocean_implicit_stress(i, j, grid, vel_oce, vel_ice, h)
     FT = eltype(h)
 
     # To put somewhere else??

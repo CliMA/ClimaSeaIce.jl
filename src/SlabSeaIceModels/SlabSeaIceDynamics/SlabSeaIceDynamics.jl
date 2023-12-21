@@ -1,4 +1,4 @@
-module SlabIceDynamics
+module SlabSeaIceDynamics
 
 using ClimaSeaIce
 using ClimaSeaIce.SlabSeaIceModels
