@@ -22,7 +22,7 @@ function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
             model.timestepper.Gⁿ,
             grid,
             model.clock,
-            model.thickness,
+            model.ice_thickness,
             model.concentration,
             model.velocities,
             model.advection,
@@ -32,7 +32,7 @@ function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
             model.external_heat_fluxes.top,
             model.internal_heat_flux,
             model.external_heat_fluxes.bottom,
-            model.consolidation_thickness,
+            model.ice_consolidation_thickness,
             model.phase_transitions,
             nothing, #model.forcing
             fields(model))
@@ -44,8 +44,8 @@ function ab2_step_tracers!(model::SSIM, Δt, χ)
     grid = model.grid
     arch = architecture(grid)
 
-    h  = model.thickness
-    hᶜ = model.consolidation_thickness
+    h  = model.ice_thickness
+    hᶜ = model.ice_consolidation_thickness
     ℵ  = model.concentration
 
     Ghⁿ = model.timestepper.Gⁿ.h
@@ -119,11 +119,9 @@ end
         ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, 1] - (oh_point_five + χ) * Gℵ⁻[i, j, 1])
         ℵ[i, j, 1] = ifelse(consolidated_ice, max(0, ℵ⁺), 0)
         
-        # Ridging! resetting the concentration to 1 and increasing thickness
-        if ℵ[i, j, 1] > 1
-            h[i, j, 1] = h[i, j, 1] * ℵ[i, j, 1] 
-            ℵ[i, j, 1] = 1
-        end
+        # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
+        h[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, h[i, j, 1] * ℵ[i, j, 1], h[i, j, 1])
+        ℵ[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, 1, ℵ[i, j, 1])
     end 
 end
 

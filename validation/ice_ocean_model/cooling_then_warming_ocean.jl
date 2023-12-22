@@ -66,8 +66,8 @@ ocean_surface_salinity = Field(So, indices=(:, :, Nz))
 bottom_bc = IceWaterThermalEquilibrium(ocean_surface_salinity)
 
 ice_model = SlabSeaIceModel(ice_grid;
-                            consolidation_thickness = 0.2,
-                            salinity = 0,
+                            ice_consolidation_thickness = 0.2,
+                            ice_salinity = 0,
                             internal_heat_flux = ConductiveFlux(conductivity=100),
                             top_heat_flux = (solar_insolation, radiative_emission),
                             bottom_heat_boundary_condition = bottom_bc,
@@ -114,8 +114,8 @@ while (time(ocean_simulation) < 100days)
     if mod(iteration(ocean_simulation), 10) == 0
         push!(t, time(ocean_simulation))
 
-        h = ice_model.thickness
-        ℵ = ice_model.concentration
+        h = ice_model.ice_thickness
+        ℵ = ice_model.ice_concentration
         Ts = ice_model.top_surface_temperature
         push!(hi, first(h))
         push!(ℵi, first(ℵ))

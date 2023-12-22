@@ -11,7 +11,7 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 @kernel function _compute_tracer_tendencies!(tendencies,
                                              grid,
                                              clock,
-                                             thickness,
+                                             ice_thickness,
                                              concentration,
                                              velocities,
                                              advection,
@@ -21,7 +21,7 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
                                              top_external_heat_flux,
                                              internal_heat_flux,
                                              bottom_external_heat_flux,
-                                             consolidation_thickness,
+                                             ice_consolidation_thickness,
                                              phase_transitions,
                                              forcing,
                                              model_fields)
@@ -29,8 +29,8 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
     i, j = @index(Global, NTuple)
 
     ℵ  = concentration
-    h  = thickness
-    hᶜ = consolidation_thickness
+    h  = ice_thickness
+    hᶜ = ice_consolidation_thickness
     Qi = internal_heat_flux
     Qu = top_external_heat_flux
     Qb = bottom_external_heat_flux
@@ -57,9 +57,9 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 
     tracer_args = (i, j, grid, clock, velocities,
                    advection,
-                   thickness,
+                   ice_thickness,
                    concentration,
-                   consolidation_thickness,
+                   ice_consolidation_thickness,
                    top_temperature,
                    bottom_heat_bc,
                    top_external_heat_flux,
@@ -75,9 +75,9 @@ end
 function thickness_tendency(i, j, grid, clock,
                             velocities,
                             advection,
-                            thickness,
+                            ice_thickness,
                             concentration,
-                            consolidation_thickness,
+                            ice_consolidation_thickness,
                             top_temperature,
                             bottom_heat_bc,
                             top_external_heat_flux,
@@ -90,8 +90,8 @@ function thickness_tendency(i, j, grid, clock,
     Gh_advection = - div_Uℵh(i, j, grid, advection, velocities, concentration, thickness)
 
     @inbounds begin
-        hᶜ  = consolidation_thickness[i, j, 1]
-        hᵢ  = thickness[i, j, 1]
+        hᶜ  = ice_consolidation_thickness[i, j, 1]
+        hᵢ  = ice_thickness[i, j, 1]
         Tuᵢ = top_temperature[i, j, 1]
     end
 
@@ -132,9 +132,9 @@ end
 function concentration_tendency(i, j, grid, clock,
                                 velocities,
                                 advection,
-                                thickness,
+                                ice_thickness,
                                 concentration,
-                                consolidation_thickness,
+                                ice_consolidation_thickness,
                                 top_temperature,
                                 bottom_heat_bc,
                                 top_external_heat_flux,
@@ -153,10 +153,10 @@ end
 function tracer_tendency(i, j, grid, clock,
                          velocities,
                          advection,
-                         thickness,
+                         ice_thickness,
                          concentration,
                          tracer,
-                         consolidation_thickness,
+                         ice_consolidation_thickness,
                          top_temperature,
                          bottom_heat_bc,
                          top_external_heat_flux,

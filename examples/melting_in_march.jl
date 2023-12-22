@@ -37,7 +37,7 @@ aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)
 
 top_heat_flux = (outgoing_radiation, solar_insolation, aerodynamic_flux)
 model = SlabSeaIceModel(grid;
-                        consolidation_thickness = 0.01, # m
+                        ice_consolidation_thickness = 0.01, # m
                         top_heat_flux)
 set!(model, h=1)
 
@@ -48,7 +48,7 @@ timeseries = []
 
 function accumulate_timeseries(sim)
     T = model.top_surface_temperature
-    h = model.thickness
+    h = model.ice_thickness
     push!(timeseries, (time(sim),
                        h[1, 1, 1], T[1, 1, 1],
                        h[2, 1, 1], T[2, 1, 1],

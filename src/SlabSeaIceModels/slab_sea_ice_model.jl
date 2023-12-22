@@ -31,7 +31,7 @@ struct SlabSeaIceModel{GR, CL, TS, H, C, ST, S, U, UO, R, A, CO, STF, SVF, TBC, 
     clock :: CL
     timestepper :: TS
     # State
-    thickness :: H
+    ice_thickness :: H
     concentration :: C
     top_surface_temperature :: ST
     salinity :: S
@@ -49,7 +49,7 @@ struct SlabSeaIceModel{GR, CL, TS, H, C, ST, S, U, UO, R, A, CO, STF, SVF, TBC, 
     internal_heat_flux :: CF
     # Melting and freezing stuff
     phase_transitions :: P
-    consolidation_thickness :: MIT
+    ice_consolidation_thickness :: MIT
 end
 
 const SSIM = SlabSeaIceModel
@@ -67,7 +67,7 @@ function Base.show(io::IO, model::SSIM)
     print(io, "SlabSeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
     print(io, "├── top_surface_temperature: ", summary(model.top_surface_temperature), '\n')
-    print(io, "├── minimium_thickness: ", prettysummary(model.consolidation_thickness), '\n')
+    print(io, "├── minimium_ice_thickness: ", prettysummary(model.consolidation_ice_thickness), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
     print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
@@ -83,7 +83,7 @@ reset!(::SSIM) = nothing
 initialize!(::SSIM) = nothing
 default_included_properties(::SSIM) = tuple(:grid)
 
-fields(model::SSIM) = (h  = model.thickness,
+fields(model::SSIM) = (h  = model.ice_thickness,
                        ℵ  = model.concentration,
                        u  = model.velocities.u,
                        v  = model.velocities.v,
@@ -100,8 +100,8 @@ Pretty simple model for sea ice.
 """
 function SlabSeaIceModel(grid;
                          clock                          = Clock{eltype(grid)}(0, 0, 1),
-                         thickness                      = Field{Center, Center, Nothing}(grid),
-                         consolidation_thickness        = 0.0, # m
+                         ice_thickness                  = Field{Center, Center, Nothing}(grid),
+                         ice_consolidation_thickness    = 0.0, # m
                          concentration                  = Field{Center, Center, Nothing}(grid),
                          salinity                       = 0, # psu
                          tracers                        = (:h, :ℵ),
@@ -142,7 +142,7 @@ function SlabSeaIceModel(grid;
                               G⁻ = TracerFields(tracernames(tracers), grid))
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    consolidation_thickness = field((Center, Center, Nothing), consolidation_thickness, grid)
+    ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
     # Construct an internal heat flux function that captures the liquidus and
     # bottom boundary condition.
@@ -191,7 +191,7 @@ function SlabSeaIceModel(grid;
     return SlabSeaIceModel(grid,
                            clock,
                            timestepper,
-                           thickness,
+                           ice_thickness,
                            concentration,
                            top_surface_temperature,
                            salinity,
@@ -205,11 +205,11 @@ function SlabSeaIceModel(grid;
                            heat_boundary_conditions,
                            internal_heat_flux_function,
                            phase_transitions,
-                           consolidation_thickness)
+                           ice_consolidation_thickness)
 end
 
 function set!(model::SSIM; h=nothing, ℵ=nothing)
-    !isnothing(h) && set!(model.thickness, h)
+    !isnothing(h) && set!(model.ice_thickness, h)
     !isnothing(ℵ) && set!(model.concentration, ℵ)
     return nothing
 end
