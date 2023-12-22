@@ -22,7 +22,7 @@ function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
             model.timestepper.Gⁿ,
             grid,
             model.clock,
-            model.thickness,
+            model.ice_thickness,
             model.concentration,
             model.velocities,
             model.advection,
@@ -32,7 +32,7 @@ function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
             model.external_heat_fluxes.top,
             model.internal_heat_flux,
             model.external_heat_fluxes.bottom,
-            model.consolidation_thickness,
+            model.ice_consolidation_thickness,
             model.phase_transitions,
             nothing, #model.forcing
             fields(model))
@@ -44,8 +44,8 @@ function ab2_step_tracers!(model::SSIM, Δt, χ)
     grid = model.grid
     arch = architecture(grid)
 
-    h  = model.thickness
-    hᶜ = model.consolidation_thickness
+    h  = model.ice_thickness
+    hᶜ = model.ice_consolidation_thickness
     ℵ  = model.concentration
 
     Ghⁿ = model.timestepper.Gⁿ.h
