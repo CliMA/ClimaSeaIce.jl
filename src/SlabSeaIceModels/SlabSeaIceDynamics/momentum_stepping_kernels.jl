@@ -21,7 +21,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
-                     - τiₒ * uₒ[i, j, 1]
+                     + τiₒ * uₒ[i, j, 1]
                      + x_internal_stress_divergence(i, j, grid, rheology) )
 
     @inbounds u[i, j, 1] += Δt * Gᵁ
@@ -49,7 +49,7 @@ end
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
-                     - τiₒ * vₒ[i, j, 1]
+                     + τiₒ * vₒ[i, j, 1]
                      + y_internal_stress_divergence(i, j, grid, rheology) )
 
     @inbounds v[i, j, 1] += Δt * Gⱽ

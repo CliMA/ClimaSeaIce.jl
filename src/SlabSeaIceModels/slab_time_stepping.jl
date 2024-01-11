@@ -8,6 +8,7 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
 using Oceananigans.Utils: launch!
+using Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
 using KernelAbstractions: @index, @kernel
 using Oceananigans.TimeSteppers: ab2_step_field!
@@ -64,7 +65,13 @@ store_tendencies!(model::SSIM) =
 
 function update_state!(model::SSIM)
     fields = prognostic_fields(model)
+    
+    foreach(fields) do field
+        mask_immersed_field!(field)
+    end
+
     fill_halo_regions!(fields)
+
     return nothing
 end
 

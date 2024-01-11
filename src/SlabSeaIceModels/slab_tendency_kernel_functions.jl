@@ -87,7 +87,7 @@ function thickness_tendency(i, j, grid, clock,
                             h_forcing,
                             model_fields)
 
-    Gh_advection = - div_Uℵh(i, j, grid, advection, velocities, concentration, thickness)
+    Gh_advection = - div_Uℵh(i, j, grid, advection, velocities, concentration, ice_thickness)
 
     @inbounds begin
         hᶜ  = ice_consolidation_thickness[i, j, 1]
