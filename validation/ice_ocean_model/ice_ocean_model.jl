@@ -12,6 +12,8 @@ using KernelAbstractions.Extras.LoopInfo: @unroll
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
+import Oceananigans.Architectures: AbstractArchitecture
+import Oceananigans.Grids: architecture
 import Oceananigans.Models: timestepper, NaNChecker, default_nan_checker
 import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
@@ -45,6 +47,7 @@ default_included_properties(::IOM) = tuple()
 update_state!(::IOM) = nothing
 prognostic_fields(cm::IOM) = nothing
 fields(::IOM) = NamedTuple()
+architecture(cm::IOM) = architecture(cm.grid)
 
 function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
     
@@ -171,8 +174,9 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
     time_step!(ice)
 
     # TODO: put this in update_state!
-    compute_ice_ocean_salinity_flux!(coupled_model)
+    #compute_ice_ocean_salinity_flux!(coupled_model)
     ice_ocean_latent_heat!(coupled_model)
+    # AVOID FOR NOW:
     #compute_solar_insolation!(coupled_model)
     #compute_air_sea_flux!(coupled_model)
 
