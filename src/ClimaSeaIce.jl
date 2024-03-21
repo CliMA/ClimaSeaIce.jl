@@ -6,6 +6,7 @@ export
     MeltingConstrainedFluxBalance,
     PrescribedTemperature,
     RadiativeEmission,
+    PhaseTransitions,
     ConductiveFlux,
     FluxFunction,
     SlabSeaIceModel
