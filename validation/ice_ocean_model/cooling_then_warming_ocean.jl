@@ -145,7 +145,7 @@ Ss = map(T -> T[Nz], So)
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 
-fig = Figure(resolution=(2400, 1200))
+fig = Figure(size=(2400, 1200))
 
 axhi = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
 axℵi = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice concentration")

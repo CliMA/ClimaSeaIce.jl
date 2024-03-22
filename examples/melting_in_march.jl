@@ -74,7 +74,7 @@ T4 = [datum[9] for datum in timeseries]
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 
-fig = Figure(resolution=(1000, 800))
+fig = Figure(size=(1000, 800))
 
 axT = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Top temperature (ᵒC)")
 axh = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
