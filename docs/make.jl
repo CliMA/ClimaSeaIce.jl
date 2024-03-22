@@ -1,5 +1,3 @@
-pushfirst!(LOAD_PATH, joinpath(@__DIR__, "..")) # add ClimaSeaIce to environment stack
-
 using
   Documenter,
   Literate,
@@ -86,5 +84,5 @@ withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
                    versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
                   forcepush = true,
                   devbranch = "main",
-               push_preview = true)
+               push_preview = false)
 end
