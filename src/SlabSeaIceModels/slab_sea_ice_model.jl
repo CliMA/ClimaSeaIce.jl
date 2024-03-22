@@ -87,20 +87,21 @@ prognostic_fields(model::SSIM) = fields(model)
 Pretty simple model for sea ice.
 """
 function SlabSeaIceModel(grid;
-                         clock                             = Clock{eltype(grid)}(0, 0, 1),
-                         ice_thickness                     = Field{Center, Center, Nothing}(grid),
-                         ice_consolidation_thickness       = 0.0, # m
-                         ice_concentration                 = Field{Center, Center, Nothing}(grid),
-                         ice_salinity                      = 0, # psu
-                         top_surface_temperature           = nothing,
+                         clock                          = Clock{eltype(grid)}(0, 0, 1),
+                         ice_thickness                  = Field{Center, Center, Nothing}(grid),
+                         ice_consolidation_thickness    = 0.0, # m
+                         ice_concentration              = Field{Center, Center, Nothing}(grid),
+                         ice_salinity                   = 0, # psu
+                         top_surface_temperature        = nothing,
                          top_heat_flux                  = nothing,
                          bottom_heat_flux               = 0,
-                         velocities                        = nothing,
-                         advection                         = nothing,
+                         velocities                     = nothing,
+                         advection                      = nothing,
                          top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
                          bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
+                         # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
                          internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
-                         phase_transitions                 = PhaseTransitions(eltype(grid)))
+                         phase_transitions              = PhaseTransitions(eltype(grid)))
 
     if isnothing(velocities)
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
@@ -122,8 +123,8 @@ function SlabSeaIceModel(grid;
                   bottom_heat_boundary_condition = bottom_heat_boundary_condition)
 
     internal_heat_flux_function = FluxFunction(slab_internal_heat_flux;
-                                                  parameters,
-                                                  top_temperature_dependent=true)
+                                               parameters,
+                                               top_temperature_dependent=true)
 
     # Construct default top heat flux if one is not provided
     if isnothing(top_heat_flux)
@@ -151,10 +152,10 @@ function SlabSeaIceModel(grid;
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,    
-                               bottom = bottom_heat_flux) 
+                            bottom = bottom_heat_flux) 
 
     heat_boundary_conditions = (top = top_heat_boundary_condition,
-                                   bottom = bottom_heat_boundary_condition)
+                                bottom = bottom_heat_boundary_condition)
 
     return SlabSeaIceModel(grid,
                            clock,
