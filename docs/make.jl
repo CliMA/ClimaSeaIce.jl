@@ -84,5 +84,5 @@ withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
                    versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
                   forcepush = true,
                   devbranch = "main",
-               push_preview = false)
+               push_preview = true)
 end
