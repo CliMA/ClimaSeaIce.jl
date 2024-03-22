@@ -1,3 +1,7 @@
+<a href="https://codecov.io/gh/CliMA/ClimaSeaIce.jl" >
+  <img src="https://codecov.io/gh/CliMA/ClimaSeaIce.jl/graph/badge.svg?token=3Smw4jVzZG"/>
+</a>
+
 <!-- Title -->
 <h1 align="center">
   ClimaSeaIce.jl
