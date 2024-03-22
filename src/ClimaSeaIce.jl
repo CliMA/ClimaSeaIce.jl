@@ -81,11 +81,11 @@ The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
 a function of temperature ``T`` via
 
 ```math
-ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρℓ cℓ - ρᵢ cᵢ) * (T - T₀)    
+ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρ_ℓ c_ℓ - ρᵢ cᵢ) (T - T₀)    
 ```
 
-where ``ρᵢ`` is the `ice_density`, ``ρℓ`` is the liquid density,
-``cᵢ`` is the heat capacity of ice, and ``cℓ`` is the heat capacity of
+where ``ρᵢ`` is the `ice_density`, ``ρ_ℓ`` is the liquid density,
+``cᵢ`` is the heat capacity of ice, and ``c_ℓ`` is the heat capacity of
 liquid, and ``T₀`` is a reference temperature, all of which are assumed constant.
 
 The default `liquidus` assumes that salinity has practical salinity units (psu)
