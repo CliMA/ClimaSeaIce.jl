@@ -85,7 +85,7 @@ dhdt = @. (h[2:end] - h[1:end-1]) / simulation.Δt
 # All that's left, really, is to put those `lines!` in an `Axis`:
 set_theme!(Theme(fontsize=24, linewidth=4))
 
-fig = Figure(resolution=(1200, 600))
+fig = Figure(size=(1200, 600))
 
 axh = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (cm)")
 axd = Axis(fig[1, 2], xlabel="Ice thickness (cm)", ylabel="Freezing rate (μm s⁻¹)")
