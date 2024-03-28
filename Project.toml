@@ -16,7 +16,7 @@ Adapt = "3, 4"
 KernelAbstractions = "0.9"
 Oceananigans = "0.90.11"
 SeawaterPolynomials = "0.3.4"
-RootSolvers = "0.3"
+RootSolvers = "0.3, 0.4"
 Roots = "2"
 
 [extras]
