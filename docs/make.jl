@@ -1,10 +1,6 @@
-pushfirst!(LOAD_PATH, joinpath(@__DIR__, "..")) # add ClimaSeaIce to environment stack
-
 using
   Documenter,
   Literate,
-  # CairoMakie,  # so that Literate.jl does not capture precompilation output or warnings
-  Glob,
   ClimaSeaIce
 
 ENV["DATADEPS_ALWAYS_ACCEPT"] = "true"
@@ -14,7 +10,7 @@ ENV["DATADEPS_ALWAYS_ACCEPT"] = "true"
 #####
 
 const EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
-const OUTPUT_DIR   = joinpath(@__DIR__, "src/generated")
+const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
 example_scripts = [
     "freezing_bucket.jl",
@@ -26,7 +22,7 @@ for filename in example_scripts
 end
 
 example_pages = [
-    "Freezing bucket" => "generated/freezing_bucket.md",
+    "Freezing bucket" => "literated/freezing_bucket.md",
 ]
 
 #####
@@ -52,27 +48,41 @@ pages = [
 ]
 
 makedocs(
-   sitename = "ClimaSeaIce.jl",
-    modules = [ClimaSeaIce],
-     format = format,
-      pages = pages,
-    doctest = true,
-     strict = true,
-      clean = true,
-  checkdocs = :exports
+    sitename = "ClimaSeaIce.jl",
+     modules = [ClimaSeaIce],
+      format = format,
+       pages = pages,
+     doctest = true,
+    warnonly = [:cross_references],
+       clean = true,
+   checkdocs = :exports
 )
 
-@info "Cleaning up temporary .jld2 and .nc files created by doctests..."
+@info "Clean up temporary .jld2/.nc files created by doctests..."
 
-for file in vcat(glob("docs/*.jld2"), glob("docs/*.nc"))
+"""
+    recursive_find(directory, pattern)
+
+Return list of filepaths within `directory` that contains the `pattern::Regex`.
+"""
+recursive_find(directory, pattern) =
+    mapreduce(vcat, walkdir(directory)) do (root, dirs, files)
+        joinpath.(root, filter(contains(pattern), files))
+    end
+
+files = []
+for pattern in [r"\.jld2", r"\.nc"]
+    global files = vcat(files, recursive_find(@__DIR__, pattern))
+end
+
+for file in files
     rm(file)
 end
 
 withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
     deploydocs(        repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
-                   versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"],
+                   versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
                   forcepush = true,
                   devbranch = "main",
                push_preview = true)
 end
-

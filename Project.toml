@@ -12,7 +12,11 @@ Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
 
 [compat]
+Adapt = "3, 4"
 KernelAbstractions = "0.9"
+Oceananigans = "0.90.11"
+SeawaterPolynomials = "0.3.4"
+RootSolvers = "0.3, 0.4"
 Roots = "2"
 
 [extras]
