@@ -29,13 +29,34 @@ using ClimaSeaIce
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-# Then our model of an ice slab freezing into a bucket. We set the top ice temperature
-# to `-10 ᵒC`. Note that other units besides Celsius _can_ be used, but that requires
+# Next, we build our model of an ice slab freezing into a bucket.
+# We start by defining a constant internal `ConductiveFlux` with 
+# ice_conductivity 
+
+conductivity = 2 # kg m s⁻³ K⁻¹
+internal_heat_flux = ConductiveFlux(; conductivity)
+
+# Note that other units besides Celsius _can_ be used, but that requires
 # setting model.phase_transitions` with appropriate parameters.
+# We set the ice heat capacity and density as well,
 
-model = SlabSeaIceModel(grid; top_heat_boundary_condition=PrescribedTemperature(-10))
+ice_heat_capacity = 2100 # J kg⁻¹ K⁻¹
+ice_density = 900 # kg m⁻³
+phase_transitions = PhaseTransitions(; ice_heat_capacity, ice_density)
 
-# The default bottom heat boundary condition for `SlabSeaIceModel` is
+# We set the top ice temperature,
+
+top_temperature = -10 # ᵒC
+top_heat_boundary_condition = PrescribedTemperature(-10)
+
+# Then we assemble it all into a model,
+
+model = SlabSeaIceModel(grid;
+                        internal_heat_flux,
+                        phase_transitions,
+                        top_heat_boundary_condition)
+
+# Note that the default bottom heat boundary condition for `SlabSeaIceModel` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!
 
 model.heat_boundary_conditions.bottom

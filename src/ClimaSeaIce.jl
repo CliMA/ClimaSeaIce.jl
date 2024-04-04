@@ -7,6 +7,7 @@ export
     MeltingConstrainedFluxBalance,
     PrescribedTemperature,
     RadiativeEmission,
+    PhaseTransitions,
     ConductiveFlux,
     FluxFunction,
     SlabSeaIceModel
@@ -92,7 +93,7 @@ liquid, and ``T₀`` is a reference temperature, all of which are assumed consta
 The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
-@inline function PhaseTransitions(FT=Float64,
+@inline function PhaseTransitions(FT=Float64;
                                   ice_density           = 917,    # kg m⁻³
                                   ice_heat_capacity     = 2000,   # J / (kg ᵒC)
                                   liquid_density        = 999.8,  # kg m⁻³
