@@ -1,6 +1,8 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
 
+import Oceananigans.BoundaryConditions: fill_halo_regions!
+
 ## The equations are solved in an iterative form following the mEVP rheology of
 ## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
 #
@@ -72,6 +74,15 @@ function ElastoViscoPlasticRheology(grid::AbstractGrid;
                                       substeps)
 end
 
+# Extend `fill_halo_regions!` for the ElastoViscoPlasticRheology
+function fill_halo_regions!(rheology::ElastoViscoPlasticRheology)
+    fill_halo_regions!(rheology.σ₁₁)
+    fill_halo_regions!(rheology.σ₂₂)
+    fill_halo_regions!(rheology.σ₁₂)
+
+    return nothing
+end
+
 """
     initialize_substepping!(model, rheology::ElastoViscoPlasticRheology)
 
@@ -88,10 +99,15 @@ function initialize_substepping!(model, rheology::ElastoViscoPlasticRheology)
     launch!(architecture(model.grid), model.grid, :xy, _store_initial_velocities!, rheology, uⁿ, vⁿ)
     launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!,     rheology, h, ℵ)
 
+    fill_halo_regions!(rheology.uⁿ)
+    fill_halo_regions!(rheology.vⁿ)
+    fill_halo_regions!(rheology.ice_strength)
+
     return nothing
 end
 
-@kernel function _store_initial_velocities!(rheology, uⁿ, vⁿ, h, ℵ)
+# We need initial velocities for the momentum update step
+@kernel function _store_initial_velocities!(rheology, uⁿ, vⁿ)
     i, j = @index(Global, NTuple)
 
     u, v = rheology.uⁿ, rheology.vⁿ
@@ -137,7 +153,7 @@ end
     ϵ₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
 
     # Center - Center variables:
-    ϵ₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, 1, grid, ϵ₁₂)
+    ϵ₁₂ᶜᶜᶜ = (ℑxyᶜᶜᶜ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + ℑxyᶜᶜᶜ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
 
     # Ice divergence 
     δ = ϵ₁₁ + ϵ₂₂
@@ -149,10 +165,10 @@ end
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
     Δᶜᶜᶜ = sqrt(δ^2 + (s / e)^2) + Δm
-    
+
     # Face - Face variables
-    ϵ₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ϵ₁₁)
-    ϵ₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ϵ₂₂)
+    ϵ₁₁ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
+    ϵ₂₂ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
 
     # Ice divergence
     δᶠᶠᶜ = ϵ₁₁ᶠᶠᶜ + ϵ₂₂ᶠᶠᶜ
@@ -168,7 +184,7 @@ end
     # ice strength calculation 
     # Note: can we interpolate P on faces or do we need to compute it on faces?
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
-    Pᶠᶠᶜ = @inbounds ℑxyᶠᶠᵃ(i, j, 1, grid, P)
+    Pᶠᶠᶜ = @inbounds ℑxyᶠᶠᶜ(i, j, 1, grid, P)
 
     # Yield curve parameters
     ζᶜᶜᶜ = Pᶜᶜᶜ / (2Δᶜᶜᶜ)

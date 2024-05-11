@@ -21,7 +21,9 @@ Cᴰ = 1e-3
 ρₐ = 1.225 # kg/m³
 set!(τₐ, ρₐ * 1.225 * uₐ^2)
 
-rheology = ElastoViscoPlasticRheology(grid; substeps = 100)
+Oceananigans.fill_halo_regions!(τₐ)
+
+rheology = ElastoViscoPlasticRheology(grid; substeps = 200)
 
 model = SlabSeaIceModel(grid; 
                         top_u_stress = τₐ,

@@ -1,5 +1,7 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
+using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
 
+""" The beta coefficient for the leap-frog scheme """
 @inline beta_coefficient(rheology, Δt) = rheology.substeps
 
 """ stepping the ice u-velocity using a forward leap-frog scheme """
@@ -24,7 +26,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
     uⁿ = rheology.uⁿ
 
-    mᵢ = @inbounds h[i, j, 1] * ℵ[i, j, 1] * ρᵢ
+    mᵢ = ℑxᶠᶜᶜ(i, j, 1, grid, Vᵢ, h, ℵ) * ρᵢ
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
     Δv = ℑxyᶠᶜᵃ(i, j, 1, grid, vₒ) - ℑxyᶠᶜᵃ(i, j, 1, grid, vᵢ)
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
@@ -81,7 +83,7 @@ end
 
     vⁿ = rheology.vⁿ
 
-    mᵢ = @inbounds h[i, j, 1] * ℵ[i, j, 1] * ρᵢ
+    mᵢ = ℑyᶜᶠᶜ(i, j, 1, grid, Vᵢ, h, ℵ) * ρᵢ
     Δu = ℑxyᶜᶠᵃ(i, j, 1, grid, uₒ) - ℑxyᶜᶠᵃ(i, j, 1, grid, uᵢ)
     Δv = @inbounds vₒ[i, j, 1] - vᵢ[i, j, 1]
     Δ𝒰 = sqrt(Δu^2 + Δv^2)

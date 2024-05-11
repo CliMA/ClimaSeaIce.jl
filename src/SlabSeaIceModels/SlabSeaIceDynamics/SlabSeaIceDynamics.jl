@@ -19,7 +19,12 @@ Abstract supertype for rheologies that inform the treatment of the stress diverg
 """
 abstract type AbstractRheology end
 
-include("nothing_dynamics.jl")
-include("ExplicitRheologies/ExplicitRheologies.jl")
+# The only function we need to extend to account for different rheologies
+# is the `step_momentum!` function.
+
+@inline Vᵢ(i, j, k, grid, h, ℵ) = @inbounds h[i, j, k] * ℵ[i, j, k]
+
+include("nothing_dynamics.jl") # nothing rheology, no sea-ice velocity
+include("ExplicitRheologies/ExplicitRheologies.jl") # explicit rheologies
 
 end

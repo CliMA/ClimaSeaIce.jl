@@ -22,6 +22,7 @@ using KernelAbstractions: @kernel, @index
 
 import ClimaSeaIce.SlabSeaIceModels: step_momentum!
 
+include("three_dimensional_interpolation.jl")
 include("explicit_dynamics.jl")
 include("cavitating_flow_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")

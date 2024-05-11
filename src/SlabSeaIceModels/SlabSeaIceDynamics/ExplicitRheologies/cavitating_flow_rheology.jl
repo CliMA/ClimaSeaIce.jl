@@ -54,6 +54,8 @@ function initialize_substepping!(model, rheology::CavitatingFlowRheology)
 end
 
 @kernel function _compute_ice_strength!(rheology, h, ℵ)
+    i, j = @index(Global, NTuple)
+    
     P    = rheology.ice_strength
     P★   = rheology.ice_compressive_strength
     C    = rheology.ice_compaction_hardening

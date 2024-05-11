@@ -28,9 +28,13 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
     # where we alternate the order of solving u and v 
     for substep in 1:rheology.substeps
         
+        fill_halo_regions!(model.velocities)
+        
         # Compute stresses! depends on the particular 
         # rheology implemented
         compute_stresses!(model, model.rheology, Δt)
+        
+        fill_halo_regions!(rheology)
 
         args = (model.velocities, grid, Δt, 
                 model.clock,
