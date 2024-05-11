@@ -1,5 +1,6 @@
-using Oceananigans.Grids: AbstractGrid
+using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.TimeSteppers: store_field_tendencies!
+using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: AbstractRheology
 using Printf
 
 abstract type AbstractExplicitRheology <: AbstractRheology end
@@ -17,8 +18,9 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
     grid = model.grid
     arch = architecture(grid)
 
-    Δτ = Δt / rheology.substeps
+    initialize_substepping!(model, rheology)
 
+    # The atmospheric stress component is fixed during time-stepping
     τua = model.external_momentum_stress.u
     τva = model.external_momentum_stress.v
 
@@ -26,15 +28,22 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
     # where we alternate the order of solving u and v 
     for substep in 1:rheology.substeps
         
-        compute_stresses!(model, model.rheology, Δτ)
+        # Compute stresses! depends on the particular 
+        # rheology implemented
+        compute_stresses!(model, model.rheology, Δt)
 
-        args = (model.velocities, grid, Δτ, 
+        args = (model.velocities, grid, Δt, 
                 model.clock,
                 model.ocean_velocities,
                 model.coriolis,
                 model.rheology,
-                model.ice_thickness)
+                model.ice_thickness,
+                model.concentration)
                 
+        # The momentum equations are solved using an alternating leap-frog algorithm
+        # for u and v (used for the ocean - ice stresses and the coriolis term)
+        # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
+        # In odd substeps we swith and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
         if iseven(substep)
             launch!(arch, grid, :xyz, _u_velocity_step!, args..., τua, nothing, fields(model))
             launch!(arch, grid, :xyz, _v_velocity_step!, args..., τva, nothing, fields(model))

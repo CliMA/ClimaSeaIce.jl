@@ -36,7 +36,7 @@ struct SlabSeaIceModel{GR, CL, TS, H, C, ST, S, U, UO, R, A, CO, STF, SVF, TBC, 
     top_surface_temperature :: ST
     salinity :: S
     velocities :: U
-    # Advection
+    # Momentum advection parameters
     ocean_velocities :: UO
     rheology :: R
     advection :: A
@@ -99,7 +99,7 @@ prognostic_fields(model::SSIM) = fields(model)
 Pretty simple model for sea ice.
 """
 function SlabSeaIceModel(grid;
-                         clock                          = Clock{eltype(grid)}(0, 0, 1),
+                         clock                          = Clock(; time = 0),
                          ice_thickness                  = Field{Center, Center, Nothing}(grid),
                          ice_consolidation_thickness    = 0.0, # m
                          concentration                  = Field{Center, Center, Nothing}(grid),
@@ -111,7 +111,7 @@ function SlabSeaIceModel(grid;
                          top_u_stress                   = Field{Face, Center, Nothing}(grid),
                          top_v_stress                   = Field{Center, Face, Nothing}(grid),
                          velocities                     = nothing,
-                         ocean_velocities               = (u = ZeroField(grid), v = ZeroField(grid)),
+                         ocean_velocities               = (u = ZeroField(), v = ZeroField()),
                          rheology                       = nothing,
                          advection                      = nothing,
                          coriolis                       = nothing,

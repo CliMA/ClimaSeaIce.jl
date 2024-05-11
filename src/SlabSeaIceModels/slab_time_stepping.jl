@@ -8,11 +8,14 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
 using Oceananigans.Utils: launch!
-using Oceananigans.ImmersedBoundaries: mask_immersed_field!
+import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
 using KernelAbstractions: @index, @kernel
 using Oceananigans.TimeSteppers: ab2_step_field!
 import Oceananigans.TimeSteppers: time_step!
+
+mask_immersed_field!(field::ConstantField) = nothing
+mask_immersed_field!(field::ZeroField)     = nothing
 
 function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
     grid = model.grid
@@ -59,10 +62,6 @@ function ab2_step_tracers!(model::SSIM, Δt, χ)
     return nothing
 end
 
-store_tendencies!(model::SSIM) = 
-    launch!(architecture(model.grid), model.grid, :xyz, _store_all_tendencies!, 
-                         model.timestepper.G⁻, model.timestepper.Gⁿ, Val(length(model.timestepper.Gⁿ)))
-
 function update_state!(model::SSIM)
     fields = prognostic_fields(model)
     
@@ -96,9 +95,11 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
     compute_tracer_tendencies!(model; callbacks)
     ab2_step_tracers!(model, Δt, χ)
 
-    # TODO: There should be an implicit (or split-explicit) step to advance momentum!
+    # TODO: This is an implicit (or split-explicit) step to advance momentum!
     step_momentum!(model, model.rheology, Δt, χ)
 
+    # Only the tracers are advanced through an AB2 scheme,
+    # so only tracers' tendencies are stored
     store_tendencies!(model)
 
     tick!(model.clock, Δt)
@@ -107,6 +108,10 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
     return nothing
 end
 
+# Thickness and concentration are updated using an AB2 scheme
+# We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
+# if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
+# to conserve the total ice volume in the cell.
 @kernel function _ab2_step_tracers!(h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, hᶜ, Δt, χ)
     i, j = @index(Global, NTuple)
 
@@ -132,6 +137,10 @@ end
     end 
 end
 
+store_tendencies!(model::SSIM) = 
+    launch!(architecture(model.grid), model.grid, :xyz, _store_all_tendencies!, 
+                         model.timestepper.G⁻, model.timestepper.Gⁿ, Val(length(model.timestepper.Gⁿ)))
+
 @kernel function _store_all_tendencies!(G⁻, Gⁿ, ::Val{N}) where N
     i, j = @index(Global, NTuple)
 
@@ -140,5 +149,6 @@ end
     end
 end
 
+# Fallback for no sea - ice dynamics
 step_momentum!(args...) = nothing
 
