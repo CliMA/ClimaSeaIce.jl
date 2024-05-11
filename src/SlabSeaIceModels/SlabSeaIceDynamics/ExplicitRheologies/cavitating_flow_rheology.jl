@@ -1,9 +1,10 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 
-struct CavitatingFlowRheology{P, FT} <: AbstractExplicitRheology
+struct CavitatingFlowRheology{P, I, FT} <: AbstractExplicitRheology
     p  :: P
-    P★ :: FT # compressive strength
-    C  :: FT # compaction hardening
+    ice_strength :: I
+    ice_compressive_strength :: FT # compressive strength
+    ice_compaction_hardening :: FT
     substeps :: Int
 end
 
@@ -30,13 +31,37 @@ Keyword Arguments
 - `substeps`: number of substeps
 
 """
-function CavitatingFlowRheology(grid::AbstractGrid; P★ = 25, C = 20, substeps = 100)
+function CavitatingFlowRheology(grid::AbstractGrid; 
+                                ice_compressive_strength = 27500, 
+                                ice_compaction_hardening = 20,
+                                substeps = 100)
     p = CenterField(grid)
+    P = CenterField(grid)
     FT = eltype(grid)
-    return CavitatingFlowRheology(p, convert(FT, P★), convert(FT, C), substeps)
+    return CavitatingFlowRheology(p, P, 
+                                  convert(FT, ice_compressive_strength), 
+                                  convert(FT, ice_compaction_hardening), 
+                                  substeps)
 end
 
-function compute_stresses!(model, rheology::CavitatingFlowRheology, Δτ) 
+function initialize_substepping!(model, rheology::CavitatingFlowRheology)
+    h = model.ice_thickness
+    ℵ = model.concentration
+
+    launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!, rheology, h, ℵ)
+
+    return nothing
+end
+
+@kernel function _compute_ice_strength!(rheology, h, ℵ)
+    P    = rheology.ice_strength
+    P★   = rheology.ice_compressive_strength
+    C    = rheology.ice_compaction_hardening
+
+    @inbounds P[i, j, 1] = @inbounds P★ * h[i, j, 1] * ℵ[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
+end
+
+function compute_stresses!(model, rheology::CavitatingFlowRheology, Δt) 
 
     grid = model.grid
     arch = architecture(grid)

@@ -7,7 +7,6 @@ using Oceananigans.Operators
 # Where:
 # uᵖ⁺¹ - uᵖ = β⁻¹ * (Δt / mᵢ * (∇ ⋅ σ + G) + uⁿ - uᵖ)
 #
-
 struct ElastoViscoPlasticRheology{S1, S2, S3, U, V, P, FT} <: AbstractExplicitRheology
     σ₁₁   :: S1
     σ₂₂   :: S2
@@ -73,30 +72,34 @@ function ElastoViscoPlasticRheology(grid::AbstractGrid;
                                       substeps)
 end
 
+"""
+    initialize_substepping!(model, rheology::ElastoViscoPlasticRheology)
+
+Initialize the substepping for the elasto-visco-plastic rheology.
+In this step we save down the velocities at the previous time step and
+calculate the ice strength given the ice mass (thickness and concentration).
+"""
 function initialize_substepping!(model, rheology::ElastoViscoPlasticRheology)
     uⁿ = model.velocities.u
     vⁿ = model.velocities.v
     h  = model.ice_thickness
     ℵ  = model.concentration
 
-    launch!(architecture(model.grid), model.grid, :xy, _initialize_evp_substepping!, rheology, uⁿ, vⁿ, h, ℵ)
+    launch!(architecture(model.grid), model.grid, :xy, _store_initial_velocities!, rheology, uⁿ, vⁿ)
+    launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!,     rheology, h, ℵ)
 
     return nothing
 end
 
-@kernel function _initialize_evp_substepping!(rheology, uⁿ, vⁿ, h, ℵ)
+@kernel function _store_initial_velocities!(rheology, uⁿ, vⁿ, h, ℵ)
     i, j = @index(Global, NTuple)
 
     u, v = rheology.uⁿ, rheology.vⁿ
-    P    = rheology.ice_strength
-    P★   = rheology.ice_compressive_strength
-    C    = rheology.ice_compaction_hardening
-
     @inbounds u[i, j, 1] = uⁿ[i, j, 1]
     @inbounds v[i, j, 1] = vⁿ[i, j, 1]
-    @inbounds P[i, j, 1] = @inbounds P★ * h[i, j, 1] * ℵ[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
 end
 
+# Specific compute stresses for the EVP rheology
 function compute_stresses!(model, rheology::ElastoViscoPlasticRheology, Δt) 
 
     grid = model.grid
@@ -112,6 +115,9 @@ function compute_stresses!(model, rheology::ElastoViscoPlasticRheology, Δt)
     return nothing
 end
 
+# Compute the modified elasto-visco-plastic stresses for a slab sea ice model.
+# The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
+# following the mEVP formulation of Kimmritz et al (2016).
 @kernel function _compute_modified_evp_stresses!(rheology, grid, u, v, h, ℵ, Δt)
     i, j = @index(Global, NTuple)
 
@@ -182,9 +188,9 @@ end
     # We assume here that β = substeps and calculate α accordingly
     α = ζᶜᶜᶜ / 4 * Δt / mᵢ * π^2 / Azᶜᶜᶜ(i, j, 1, grid) / β
 
-    @inbounds σ₁₁[i, j, 1] = ((α - 1) * σ₁₁[i, j, 1] + σ₁₁ᵖ⁺¹) / α
-    @inbounds σ₂₂[i, j, 1] = ((α - 1) * σ₂₂[i, j, 1] + σ₂₂ᵖ⁺¹) / α
-    @inbounds σ₁₂[i, j, 1] = ((α - 1) * σ₁₂[i, j, 1] + σ₁₂ᵖ⁺¹) / α
+    @inbounds σ₁₁[i, j, 1] = ifelse(mᵢ > 0, ((α - 1) * σ₁₁[i, j, 1] + σ₁₁ᵖ⁺¹) / α, σ₁₁[i, j, 1])
+    @inbounds σ₂₂[i, j, 1] = ifelse(mᵢ > 0, ((α - 1) * σ₂₂[i, j, 1] + σ₂₂ᵖ⁺¹) / α, σ₂₂[i, j, 1])
+    @inbounds σ₁₂[i, j, 1] = ifelse(mᵢ > 0, ((α - 1) * σ₁₂[i, j, 1] + σ₁₂ᵖ⁺¹) / α, σ₁₂[i, j, 1])
 end
 
 @inline function x_internal_stress_divergence(i, j, grid, r::ElastoViscoPlasticRheology) 
