@@ -8,15 +8,16 @@ using Oceananigans.Operators
 # uᵖ⁺¹ - uᵖ = β⁻¹ * (Δt / mᵢ * (∇ ⋅ σ + G) + uⁿ - uᵖ)
 #
 
-struct ElastoViscoPlasticRheology{S1, S2, S3, FT, U, V} <: AbstractExplicitRheology
+struct ElastoViscoPlasticRheology{S1, S2, S3, U, V, P, FT} <: AbstractExplicitRheology
     σ₁₁   :: S1
     σ₂₂   :: S2
     σ₁₂   :: S3
+    uⁿ    :: U
+    vⁿ    :: V
+    ice_strength :: P
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
-    uⁿ    :: U
-    vⁿ    :: V
     Δ_min :: FT # minimum plastic parameter (introduces viscous behaviour)
     substeps :: Int
 end
@@ -61,12 +62,13 @@ function ElastoViscoPlasticRheology(grid::AbstractGrid;
     σ₁₂ = Field{Face, Face, Center}(grid)
     uⁿ = XFaceField(grid) 
     vⁿ = YFaceField(grid) 
+
+    P  = CenterField(grid)
     FT = eltype(grid)
-    return ElastoViscoPlasticRheology(σ₁₁, σ₂₂, σ₁₂,    
+    return ElastoViscoPlasticRheology(σ₁₁, σ₂₂, σ₁₂, uⁿ, vⁿ, P, 
                                       convert(FT, ice_compressive_strength), 
                                       convert(FT, ice_compaction_hardening), 
                                       convert(FT, yield_curve_eccentricity),
-                                      uⁿ, vⁿ,
                                       convert(FT, Δ_min),
                                       substeps)
 end
@@ -74,11 +76,25 @@ end
 function initialize_substepping!(model, rheology::ElastoViscoPlasticRheology)
     uⁿ = model.velocities.u
     vⁿ = model.velocities.v
+    h  = model.ice_thickness
+    ℵ  = model.concentration
 
-    rheology.uⁿ .= uⁿ
-    rheology.vⁿ .= vⁿ
+    launch!(architecture(model.grid), model.grid, :xy, _initialize_evp_substepping!, rheology, uⁿ, vⁿ, h, ℵ)
 
     return nothing
+end
+
+@kernel function _initialize_evp_substepping!(rheology, uⁿ, vⁿ, h, ℵ)
+    i, j = @index(Global, NTuple)
+
+    u, v = rheology.uⁿ, rheology.vⁿ
+    P    = rheology.ice_strength
+    P★   = rheology.ice_compressive_strength
+    C    = rheology.ice_compaction_hardening
+
+    @inbounds u[i, j, 1] = uⁿ[i, j, 1]
+    @inbounds v[i, j, 1] = vⁿ[i, j, 1]
+    @inbounds P[i, j, 1] = @inbounds P★ * h[i, j, 1] * ℵ[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
 end
 
 function compute_stresses!(model, rheology::ElastoViscoPlasticRheology, Δt) 
@@ -99,8 +115,7 @@ end
 @kernel function _compute_modified_evp_stresses!(rheology, grid, u, v, h, ℵ, Δt)
     i, j = @index(Global, NTuple)
 
-    P★ = rheology.ice_compressive_strength
-    C  = rheology.ice_compaction_hardening
+    P  = rheology.ice_strength
     e  = rheology.yield_curve_eccentricity
     β  = rheology.substeps
     Δm = rheology.Δ_min
@@ -145,13 +160,9 @@ end
     Δᶠᶠᶜ = sqrt(δᶠᶠᶜ^2 + (sᶠᶠᶜ / e)^2) + Δm
 
     # ice strength calculation 
-    # Note: we can probably do this calculation just once since it does not change during substepping
-    Pᶜᶜᶜ = @inbounds P★ * h[i, j, 1] * ℵ[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
-    
-    # First interpolate then calculate P or the opposite?
-    hᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, h)
-    ℵᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
-    Pᶠᶠᶜ = @inbounds P★ * hᶠᶠᶜ * ℵᶠᶠᶜ * exp(- C * (1 - ℵᶠᶠᶜ)) 
+    # Note: can we interpolate P on faces or do we need to compute it on faces?
+    Pᶜᶜᶜ = @inbounds P[i, j, 1]
+    Pᶠᶠᶜ = @inbounds ℑxyᶠᶠᵃ(i, j, 1, grid, P)
 
     # Yield curve parameters
     ζᶜᶜᶜ = Pᶜᶜᶜ / (2Δᶜᶜᶜ)
