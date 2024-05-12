@@ -1,5 +1,5 @@
 ####
-#### For a `Nothing` rheology we assume that u = uₒ
+#### For a `Nothing` rheology, the ice does not move!
 ####
 
 # The only function we need! 

@@ -7,7 +7,8 @@ import Oceananigans.BoundaryConditions: fill_halo_regions!
 ## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
 #
 # Where:
-# uᵖ⁺¹ - uᵖ = β⁻¹ * (Δt / mᵢ * (∇ ⋅ σ + G) + uⁿ - uᵖ)
+# σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
+# uᵖ⁺¹ - uᵖ = β⁻¹ * (Δt / mᵢ * (∇ ⋅ σᵖ⁺¹ + fk̂ × uᵖ + τₐ + τₒ) + uⁿ - uᵖ)
 #
 struct ElastoViscoPlasticRheology{S1, S2, S3, U, V, P, FT, A} <: AbstractExplicitRheology
     σ₁₁   :: S1
@@ -29,13 +30,13 @@ end
                                ice_compressive_strength = 27500, 
                                ice_compaction_hardening = 20, 
                                yield_curve_eccentricity = 2, 
-                               Δ_min = 1e-10,
+                               Δ_min = 2e-9,
+                               substepping_coefficient = ModifiedEVPSteppingCoefficients(grid),
                                substeps = 1000)
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
 rheology for slab sea ice dynamics that follows the implementation of kimmritz et al (2016).
-The ice strength ``Pₚ`` is parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))`` 
-
+The `ice_strength` is parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))`` 
 
 Arguments
 =========
@@ -48,7 +49,10 @@ Keyword Arguments
 - `ice_compressive_strength`: parameter expressing compressive strength (in Nm²), default `27500`.
 - `ice_compaction_hardening`: exponent coefficient for compaction hardening, default `20`.
 - `yield_curve_eccentricity`: eccentricity of the elliptic yield curve, default `2`.
-- `Δ_min`: Minimum value for the visco-plastic parameter. Default value is `1e-10`.
+- `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice, 
+           transitioning the ice from a plastic to a viscous behaviour. Default value is `1e-10`.
+- `substepping_coefficient`: Coefficient for substepping momentum (β) and internal stresses (α) (depends on the particular EVP formulation).
+              Default value is `ModifiedEVPSteppingCoefficients(grid)`.
 - `substeps`: Number of substeps for the visco-plastic calculation. Default value is `100`.
               Note that we here assume that β (the modified EVP parameter that substeps velocity)
               is equal to the number of substeps.
@@ -129,7 +133,7 @@ function compute_stresses!(model, rheology::ElastoViscoPlasticRheology, Δt)
     ρᵢ = model.ice_density
     
     u, v = model.velocities
-    launch!(arch, grid, :xyz, _compute_modified_evp_stresses!, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
+    launch!(arch, grid, :xyz, _compute_evp_stresses!, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end
@@ -137,7 +141,8 @@ end
 # Compute the elasto-visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
-@kernel function _compute_modified_evp_stresses!(rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
+# This is the `meat` of the formulation.
+@kernel function _compute_evp_stresses!(rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
 
     P   = rheology.ice_strength
@@ -150,18 +155,18 @@ end
     σ₁₂ = rheology.σ₁₂
 
     # Strain rates
-    ϵ₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂yᶠᶠᶜ(i, j, 1, grid, u)) / 2
-    ϵ₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
+    ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
+    ϵ̇₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂yᶠᶠᶜ(i, j, 1, grid, u)) / 2
+    ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
 
     # Center - Center variables:
-    ϵ₁₂ᶜᶜᶜ = (ℑxyᶜᶜᶜ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + ℑxyᶜᶜᶜ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᶜ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + ℑxyᶜᶜᶜ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
 
     # Ice divergence 
-    δ = ϵ₁₁ + ϵ₂₂
+    δ = ϵ̇₁₁ + ϵ̇₂₂
 
     # Ice shear (at Centers)
-    s = sqrt((ϵ₁₁ - ϵ₂₂)^2 + 4ϵ₁₂ᶜᶜᶜ^2)
+    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
 
     # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
@@ -169,14 +174,14 @@ end
     Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
 
     # Face - Face variables
-    ϵ₁₁ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
-    ϵ₂₂ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
 
     # Ice divergence
-    δᶠᶠᶜ = ϵ₁₁ᶠᶠᶜ + ϵ₂₂ᶠᶠᶜ
+    δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
 
     # Ice shear
-    sᶠᶠᶜ = sqrt((ϵ₁₁ᶠᶠᶜ - ϵ₂₂ᶠᶠᶜ)^2 + 4ϵ₁₂^2)
+    sᶠᶠᶜ = sqrt((ϵ̇₁₁ᶠᶠᶜ - ϵ̇₂₂ᶠᶠᶜ)^2 + 4ϵ̇₁₂^2)
 
     # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
@@ -190,10 +195,10 @@ end
 
     # ζ: Bulk viscosity (viscosity which responds to compression) 
     # η: Shear viscosity (viscosity which responds to shear)
-    ζᶜᶜᶜ = min(Pᶜᶜᶜ / (2Δᶜᶜᶜ), 25e7)
+    ζᶜᶜᶜ = Pᶜᶜᶜ / (2Δᶜᶜᶜ)
     ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
 
-    ζᶠᶠᶜ = min(Pᶠᶠᶜ / (2Δᶠᶠᶜ), 25e7)
+    ζᶠᶠᶜ = Pᶠᶠᶜ / (2Δᶠᶠᶜ)
     ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
     # Replacement pressure
@@ -201,20 +206,29 @@ end
 
     # σ(uᵖ): the tangential stress depends only shear viscosity 
     # while the compressive stresses depend on the bulk viscosity and the ice strength
-    σ₁₁ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ₁₁ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ₁₁ + ϵ₂₂) - Pᵣ / 2) 
-    σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ₁₁ + ϵ₂₂) - Pᵣ / 2)
-    σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ₁₂
+    σ₁₁ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₁ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2) 
+    σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
+    σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
     mᵢ = @inbounds h[i, j, 1] * ℵ[i, j, 1] * ρᵢ
 
     c = rheology.substepping_coefficient
+
+    # Update coefficients for substepping if we are using dynamic substepping
+    # with spatially varying coefficients such as in Kimmritz et al (2016)
     update_stepping_coefficients!(i, j, 1, grid, c, ζᶜᶜᶜ, mᵢ, Δt)
+
+    # Coefficient for substepping internal stress
     α = get_stepping_coefficients(i, j, 1, grid, rheology, c)
 
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / α, 0)
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / α, 0)
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / α, 0)
 end
+
+#####
+##### Internal stress divergence for the EVP model
+#####
 
 @inline function x_internal_stress_divergence(i, j, grid, r::ElastoViscoPlasticRheology) 
     ∂xσ₁₁ = δxᶠᶜᶜ(i, j, 1, grid, Ax_qᶜᶜᶜ, r.σ₁₁)

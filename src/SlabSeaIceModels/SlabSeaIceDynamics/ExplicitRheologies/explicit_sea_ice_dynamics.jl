@@ -28,12 +28,13 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
     # where we alternate the order of solving u and v 
     for substep in 1:rheology.substeps
         
+        # Fill halos of the updated velocities
         fill_halo_regions!(model.velocities)
         
-        # Compute stresses! depends on the particular 
-        # rheology implemented
+        # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, model.rheology, Δt)
 
+        # Fill halos of the updated stresses
         fill_halo_regions!(rheology)
 
         args = (model.velocities, grid, Δt, 
@@ -43,7 +44,8 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
                 model.rheology,
                 model.ice_thickness,
                 model.concentration,
-                model.ice_density)
+                model.ice_density,
+                model.ocean_density)
                 
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)

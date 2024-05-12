@@ -5,8 +5,8 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
 # i.e:
 #
 #          Cᴰρₒ
-# τₒ =   ------- || uₒ - uⁿ ||   * (uₒ - uⁿ⁺¹)
-#        ρᵢ h ℵ
+# τₒ =    ------ || uₒ - uⁿ ||   * (uₒ - uⁿ⁺¹)
+#           mᵢ
 #      |-----------------------|
 # τₒ =  τₑ₀ (explicit component)  * Δu   
 #
@@ -20,6 +20,7 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
                                    thickness,
                                    concentration,
                                    ice_density,
+                                   ocean_density,
                                    u_top_stress,
                                    u_forcing,
                                    model_fields)
@@ -31,21 +32,23 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     h  = thickness
     ℵ  = concentration
     ρᵢ = ice_density
+    ρₒ = ocean_density
     uⁿ = rheology.uⁿ
 
     hf = ℑxᶠᶜᶜ(i, j, 1, grid, h)
-    ℵf = ℑxᶠᶜᶜ(i, j, 1, grid, h)
+    ℵf = ℑxᶠᶜᶜ(i, j, 1, grid, ℵ)
 
     # Ice mass interpolated on u points
     mᵢ = hf * ℵf * ρᵢ
 
-    # relative ice velocities
+    # relative ocean - ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
     Δv = ℑxyᶠᶜᶜ(i, j, 1, grid, vₒ) - ℑxyᶠᶜᶜ(i, j, 1, grid, vᵢ)
 
-    # relative ice speed
+    # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
+    # Coefficient for substepping momentum (depends on the particular EVP formulation)
     β = get_stepping_coefficients(i, j, 1, grid, rheology, rheology.substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
@@ -55,7 +58,7 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * uₒ - τₑₒ * uᵢⁿ⁺¹ 
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
-    τₑₒ = 5.5e-3 * 1026 * Δ𝒰 / mᵢ
+    τₑₒ = 5.5e-3 * ρₒ * Δ𝒰 / mᵢ
 
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
@@ -84,6 +87,7 @@ end
                                    thickness,
                                    concentration,
                                    ice_density,
+                                   ocean_density,
                                    v_top_stress,
                                    v_forcing,
                                    model_fields)
@@ -95,21 +99,23 @@ end
     h  = thickness
     ℵ  = concentration
     ρᵢ = ice_density
+    ρₒ = ocean_density
     vⁿ = rheology.vⁿ
 
     hf = ℑyᶜᶠᶜ(i, j, 1, grid, h)
-    ℵf = ℑyᶜᶠᶜ(i, j, 1, grid, h)
+    ℵf = ℑyᶜᶠᶜ(i, j, 1, grid, ℵ)
 
     # Ice mass interpolated on v points
     mᵢ = hf * ℵf * ρᵢ
     
-    # relative ice velocities
+    # relative ocean - ice velocities
     Δu = ℑxyᶜᶠᶜ(i, j, 1, grid, uₒ) - ℑxyᶜᶠᶜ(i, j, 1, grid, uᵢ)
     Δv = @inbounds vₒ[i, j, 1] - vᵢ[i, j, 1]
 
-    # relative ice speed
+    # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
+    # Coefficient for substepping momentum (depends on the particular EVP formulation)
     β = get_stepping_coefficients(i, j, 1, grid, rheology, rheology.substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
@@ -119,7 +125,7 @@ end
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * vₒ - τₑₒ * vᵢⁿ⁺¹ 
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
-    τₑₒ = 5.5e-3 * 1026 * Δ𝒰 / mᵢ
+    τₑₒ = 5.5e-3 * ρₒ * Δ𝒰 / mᵢ
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
