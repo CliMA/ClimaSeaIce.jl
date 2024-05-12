@@ -1,8 +1,15 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
 
-""" The beta coefficient for the leap-frog scheme """
-@inline beta_coefficient(rheology, Δt) = 300
+# The ice-ocean stress is treated semi-implicitly 
+# i.e:
+#
+#          Cᴰρₒ
+# τₒ =   ------- || uₒ - uⁿ ||   * (uₒ - uⁿ⁺¹)
+#        ρᵢ h ℵ
+#      |-----------------------|
+# τₒ =  τₑ₀ (explicit component)  * Δu   
+#
 
 """ stepping the ice u-velocity using a forward leap-frog scheme """
 @kernel function _u_velocity_step!(velocities, grid, Δt, 
@@ -26,8 +33,11 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     ρᵢ = ice_density
     uⁿ = rheology.uⁿ
 
+    hf = ℑxᶠᶜᶜ(i, j, 1, grid, h)
+    ℵf = ℑxᶠᶜᶜ(i, j, 1, grid, h)
+
     # Ice mass interpolated on u points
-    mᵢ = ℑxᶠᶜᶜ(i, j, 1, grid, Vᵢ, h, ℵ) * ρᵢ
+    mᵢ = hf * ℵf * ρᵢ
 
     # relative ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
@@ -36,16 +46,16 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     # relative ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
-    β = beta_coefficient(rheology, Δt)
+    β = get_stepping_coefficients(i, j, 1, grid, rheology, rheology.substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
-    @inbounds τuₐ = u_top_stress[i, j, 1]
+    @inbounds τuₐ = u_top_stress[i, j, 1] / mᵢ
 
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * uₒ - τₑₒ * uᵢⁿ⁺¹ 
-    # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) 
-    τₑₒ = 1e-3 * 1020 * Δ𝒰 / mᵢ
+    # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
+    τₑₒ = 5.5e-3 * 1026 * Δ𝒰 / mᵢ
 
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
@@ -56,7 +66,7 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, 0) 
     
     # Explicit step
-    @inbounds uᵢ[i, j, 1] = (uᵢ[i, j, 1] * (β - 1) + Δt * Gᵁ + uⁿ[i, j, 1]) / β
+    @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + uⁿ[i, j, 1] - uᵢ[i, j, 1]) / β
     
     # Implicit component of the ice-ocean stress
     τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, 0)
@@ -87,8 +97,11 @@ end
     ρᵢ = ice_density
     vⁿ = rheology.vⁿ
 
+    hf = ℑyᶜᶠᶜ(i, j, 1, grid, h)
+    ℵf = ℑyᶜᶠᶜ(i, j, 1, grid, h)
+
     # Ice mass interpolated on v points
-    mᵢ = ℑyᶜᶠᶜ(i, j, 1, grid, Vᵢ, h, ℵ) * ρᵢ
+    mᵢ = hf * ℵf * ρᵢ
     
     # relative ice velocities
     Δu = ℑxyᶜᶠᶜ(i, j, 1, grid, uₒ) - ℑxyᶜᶠᶜ(i, j, 1, grid, uᵢ)
@@ -97,16 +110,16 @@ end
     # relative ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
-    β = beta_coefficient(rheology, Δt)
+    β = get_stepping_coefficients(i, j, 1, grid, rheology, rheology.substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
-    @inbounds τva = v_top_stress[i, j, 1] / mᵢ
+    @inbounds τva = v_top_stress[i, j, 1] / mᵢ 
 
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * vₒ - τₑₒ * vᵢⁿ⁺¹ 
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
-    τₑₒ = 1e-3 * 1020 * Δ𝒰 / mᵢ
+    τₑₒ = 5.5e-3 * 1026 * Δ𝒰 / mᵢ
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
@@ -117,7 +130,7 @@ end
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, 0) 
 
     # Explicit step
-    @inbounds vᵢ[i, j, 1] = (vᵢ[i, j, 1] * (β - 1) + Δt * Gⱽ + vⁿ[i, j, 1]) / β
+    @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + vⁿ[i, j, 1] - vᵢ[i, j, 1]) / β
 
     # Implicit component of the ice-ocean stress
     τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, 0)
@@ -125,14 +138,3 @@ end
     # Implicit step
     @inbounds vᵢ[i, j, 1] /= (1 + τᵢ) 
 end
-
-# The ice-ocean stress is treated semi-implicitly 
-# i.e:
-#
-#           Cᴰρₒ
-# τₒ =    ------- || uₒ - uⁿ ||   * (uₒ - uⁿ⁺¹)
-#         ρᵢ h ℵ
-#      |-----------------------|
-# τₒ =  τₑ₀ (explicit component)  * Δu   
-#
-#

@@ -103,7 +103,7 @@ function SlabSeaIceModel(grid;
                          clock                          = Clock(; time = 0),
                          ice_thickness                  = Field{Center, Center, Nothing}(grid),
                          ice_consolidation_thickness    = 0.0, # m
-                         ice_density                    = 917, # kg/m³
+                         ice_density                    = 900, # kg/m³
                          concentration                  = Field{Center, Center, Nothing}(grid),
                          salinity                       = 0, # psu
                          tracers                        = (:h, :ℵ),

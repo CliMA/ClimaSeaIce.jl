@@ -1,7 +1,7 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 
 struct CavitatingFlowRheology{P, I, FT} <: AbstractExplicitRheology
-    p  :: P
+    pressure :: P
     ice_strength :: I
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT
@@ -49,6 +49,8 @@ function initialize_substepping!(model, rheology::CavitatingFlowRheology)
     ℵ = model.concentration
 
     launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!, rheology, h, ℵ)
+    
+    fill_halo_regions!(rheology.ice_strength)
 
     return nothing
 end
@@ -60,33 +62,32 @@ end
     P★   = rheology.ice_compressive_strength
     C    = rheology.ice_compaction_hardening
 
-    @inbounds P[i, j, 1] = @inbounds P★ * h[i, j, 1] * ℵ[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
+    @inbounds P[i, j, 1] = @inbounds P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
 end
 
 function compute_stresses!(model, rheology::CavitatingFlowRheology, Δt) 
 
     grid = model.grid
     arch = architecture(grid)
-    p = rheology.p
-    C = rheology.C
-    P★ = rheology.P★
+    p = rheology.pressure
+    P = rheology.ice_strength
 
     h = model.thickness
     ℵ = model.concentration
 
     u, v = model.velocities
 
-    launch!(arch, grid, :xyz, _compute_cavitating_pressure!, p, grid, u, v, h, ℵ, P★, C)
+    launch!(arch, grid, :xyz, _compute_cavitating_pressure!, p, grid, u, v, h, ℵ, P)
 
     return nothing
 end
    
-@kernel function _compute_cavitating_pressure!(p, grid, u, v, h, ℵ, P★, C)
+@kernel function _compute_cavitating_pressure!(p, grid, u, v, h, ℵ, P)
     i, j = @index(Global, NTuple)
 
     δ = div_xyᶜᶜᶜ(i, j, 1, grid, u, v)
 
-    @inbounds p[i, j, 1] = ifelse(δ <= 0, P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])), 0)
+    @inbounds p[i, j, 1] = ifelse(δ <= 0, P[i, j, k], 0)
 end
 
 @inline x_internal_stress_divergence(i, j, grid, r::CavitatingFlowRheology) = - ∂xᶠᶜᶜ(i, j, 1, grid, r.p)

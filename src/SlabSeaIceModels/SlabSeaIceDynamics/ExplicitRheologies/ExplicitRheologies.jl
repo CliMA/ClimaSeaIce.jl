@@ -24,6 +24,7 @@ import ClimaSeaIce.SlabSeaIceModels: step_momentum!
 
 include("three_dimensional_interpolation.jl")
 include("explicit_dynamics.jl")
+include("modified_evp_stepping_coefficients.jl")
 include("cavitating_flow_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")
 include("momentum_stepping_kernels.jl")
