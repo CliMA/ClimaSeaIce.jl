@@ -3,7 +3,7 @@ using Oceananigans.Grids: peripheral_node
 
 # Identity function for the interpolation operators
 @inline ı(i, j, k, grid, f::Function, args...) = f(i, j, k, grid, args...)
-@inline ı(i, j, k, grid, ϕ)                    = ϕ[i, j, k]
+@inline ı(i, j, k, grid, ϕ)                    = @inbounds ϕ[i, j, k]
 
 # Defining Interpolation operators for the immersed boundaries
 @inline conditional_ℑx_f(LY, LZ, i, j, k, grid, t, args...) = ifelse(peripheral_node(i,   j, k, grid, Center(), LY, LZ), ı(i-1, j, k, grid, t, args...), 

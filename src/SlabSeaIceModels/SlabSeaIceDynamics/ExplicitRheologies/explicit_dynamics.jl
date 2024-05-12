@@ -33,7 +33,7 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
         # Compute stresses! depends on the particular 
         # rheology implemented
         compute_stresses!(model, model.rheology, Δt)
-        
+
         fill_halo_regions!(rheology)
 
         args = (model.velocities, grid, Δt, 
@@ -42,18 +42,19 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
                 model.coriolis,
                 model.rheology,
                 model.ice_thickness,
-                model.concentration)
+                model.concentration,
+                model.ice_density)
                 
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
         # In odd substeps we swith and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
         if iseven(substep)
-            launch!(arch, grid, :xyz, _u_velocity_step!, args..., τua, nothing, fields(model))
-            launch!(arch, grid, :xyz, _v_velocity_step!, args..., τva, nothing, fields(model))
+            launch!(arch, grid, :xy, _u_velocity_step!, args..., τua, nothing, fields(model))
+            launch!(arch, grid, :xy, _v_velocity_step!, args..., τva, nothing, fields(model))
         else
-            launch!(arch, grid, :xyz, _v_velocity_step!, args..., τva, nothing, fields(model))
-            launch!(arch, grid, :xyz, _u_velocity_step!, args..., τua, nothing, fields(model))
+            launch!(arch, grid, :xy, _v_velocity_step!, args..., τva, nothing, fields(model))
+            launch!(arch, grid, :xy, _u_velocity_step!, args..., τua, nothing, fields(model))
         end
     end
 
