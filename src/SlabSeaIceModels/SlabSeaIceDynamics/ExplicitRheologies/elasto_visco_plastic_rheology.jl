@@ -3,7 +3,7 @@ using Oceananigans.Operators
 
 import Oceananigans.BoundaryConditions: fill_halo_regions!
 
-## The equations are solved in an iterative form following the mEVP rheology of
+## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
 #
 # Where:
@@ -11,16 +11,16 @@ import Oceananigans.BoundaryConditions: fill_halo_regions!
 # uᵖ⁺¹ - uᵖ = β⁻¹ * (Δt / mᵢ * (∇ ⋅ σᵖ⁺¹ + fk̂ × uᵖ + τₐ + τₒ) + uⁿ - uᵖ)
 #
 struct ElastoViscoPlasticRheology{S1, S2, S3, U, V, P, FT, A} <: AbstractExplicitRheology
-    σ₁₁   :: S1
-    σ₂₂   :: S2
-    σ₁₂   :: S3
-    uⁿ    :: U
-    vⁿ    :: V
-    ice_strength :: P
+    σ₁₁   :: S1 # internal stress xx
+    σ₂₂   :: S2 # internal stress yy
+    σ₁₂   :: S3 # internal stress xy
+    uⁿ    :: U  # ice u-velocity at time step n
+    vⁿ    :: V  # ice v-velocity at time step n
+    ice_strength :: P 
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
-    Δ_min :: FT # minimum plastic parameter (introduces viscous behaviour)
+    Δ_min :: FT # minimum plastic parameter (transitions to viscous behaviour)
     substepping_coefficient :: A
     substeps :: Int
 end

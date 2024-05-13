@@ -49,8 +49,8 @@ compute!(τᵤ)
 compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order for advection
-rheology  = ElastoViscoPlasticRheology(grid; substeps = 1000)
-advection = Centered()
+rheology  = ElastoViscoPlasticRheology(grid; substeps = 400)
+advection = WENO(; order = 7)
 
 # Define the model!
 model = SlabSeaIceModel(grid; 
@@ -70,7 +70,7 @@ set!(model, h = h₀)
 set!(model, ℵ = 1)
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 10hours)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -100,10 +100,10 @@ function accumulate_timeseries(sim)
     ℵ = sim.model.concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
-    push!(htimeseries, interior(h))
-    push!(ℵtimeseries, interior(ℵ))
-    push!(utimeseries, interior(u))
-    push!(vtimeseries, interior(v))
+    push!(htimeseries, deepcopy(interior(h)))
+    push!(ℵtimeseries, deepcopy(interior(ℵ)))
+    push!(utimeseries, deepcopy(interior(u)))
+    push!(vtimeseries, deepcopy(interior(v)))
 end
 
 wall_time = [time_ns()]
@@ -132,3 +132,26 @@ simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
 simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(5))
 
 run!(simulation)
+
+# Visualize!
+Nt = length(htimeseries)
+iter = Observable(1)
+
+hi = @lift(interior(htimeseries[$iter], :, :, 1))
+ℵi = @lift(interior(ℵtimeseries[$iter], :, :, 1))
+ui = @lift(interior(utimeseries[$iter], :, :, 1))
+vi = @lift(interior(vtimeseries[$iter], :, :, 1))
+
+fig = Figure()
+ax = Axis(fig[1, 1], title = "sea ice thickness")
+heatmap!(ax, hi, colormap = :magma)
+
+ax = Axis(fig[1, 2], title = "sea ice concentration")
+heatmap!(ax, ℵi, colormap = :deep, colorrange = (0.75, 1))
+
+ax = Axis(fig[1, 1], title = "zonal velocity")
+heatmap!(ax, ui, colorrange = (-0.1, 0.1))
+
+ax = Axis(fig[1, 2], title = "meridional concentration")
+heatmap!(ax, vi, colorrange = (-0.1, 0.1))
+

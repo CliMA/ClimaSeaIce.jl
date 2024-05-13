@@ -202,6 +202,7 @@ function SlabSeaIceModel(grid;
                            ice_density,
                            velocities,
                            ocean_velocities,
+                           ocean_density,
                            rheology,
                            advection,
                            coriolis,
