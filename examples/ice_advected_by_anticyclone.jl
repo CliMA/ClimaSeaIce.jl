@@ -2,6 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
+using GLMakie
 using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.ExplicitRheologies: ElastoViscoPlasticRheology
 
 # The experiment found in the paper: 
@@ -10,15 +11,23 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.ExplicitRheologies: Elasto
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
-𝓋ₐ = 30.0 # m / s maximum atmospheric speed times `e`
+𝓋ₐ = 30.0 # m / s maximum atmospheric speed modifier
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 ρₐ = 1.3 # kg/m³
 
 # 2 km domain
-grid = RectilinearGrid(size=(256, 256), 
-                         x = (0, L), 
-                         y = (0, L), 
-                  topology = (Bounded, Bounded, Flat))
+grid = RectilinearGrid(size = (256, 256), 
+                          x = (0, L), 
+                          y = (0, L), 
+                   topology = (Periodic, Bounded, Flat))
+
+#####
+##### Setup atmospheric and oceanic forcing
+#####
+
+bottom(x, y) = (- 10kilometers < x - L ÷ 2 < 10kilometers) & (y > 200kilometers)
+
+grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 
 # Constant ocean velocities corresponding to a cyclonic eddy
 Uₒ = XFaceField(grid)
@@ -48,8 +57,13 @@ set!(Vₐ, (x, y) -> va_time(x, y, 0))
 compute!(τᵤ)
 compute!(τᵥ)
 
-# We use an elasto-visco-plastic rheology and WENO seventh order for advection
-rheology  = ElastoViscoPlasticRheology(grid; substeps = 400)
+#####
+##### Numerical details
+#####
+
+# We use an elasto-visco-plastic rheology and WENO seventh order 
+# for advection of h and ℵ
+rheology  = ElastoViscoPlasticRheology(grid; substeps = 600)
 advection = WENO(; order = 7)
 
 # Define the model!
@@ -68,6 +82,10 @@ h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilo
 # We start with a concentration of ℵ = 1
 set!(model, h = h₀)
 set!(model, ℵ = 1)
+
+#####
+##### Setup the simulation
+#####
 
 # run the model for 2 days
 simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
@@ -128,7 +146,7 @@ function progress(sim)
      wall_time[1] = time_ns()
 end
 
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
+simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
 simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(5))
 
 run!(simulation)
@@ -137,10 +155,10 @@ run!(simulation)
 Nt = length(htimeseries)
 iter = Observable(1)
 
-hi = @lift(interior(htimeseries[$iter], :, :, 1))
-ℵi = @lift(interior(ℵtimeseries[$iter], :, :, 1))
-ui = @lift(interior(utimeseries[$iter], :, :, 1))
-vi = @lift(interior(vtimeseries[$iter], :, :, 1))
+hi = @lift(htimeseries[$iter][:, :, 1])
+ℵi = @lift(ℵtimeseries[$iter][:, :, 1])
+ui = @lift(utimeseries[$iter][:, :, 1])
+vi = @lift(vtimeseries[$iter][:, :, 1])
 
 fig = Figure()
 ax = Axis(fig[1, 1], title = "sea ice thickness")
@@ -149,9 +167,13 @@ heatmap!(ax, hi, colormap = :magma)
 ax = Axis(fig[1, 2], title = "sea ice concentration")
 heatmap!(ax, ℵi, colormap = :deep, colorrange = (0.75, 1))
 
-ax = Axis(fig[1, 1], title = "zonal velocity")
+ax = Axis(fig[2, 1], title = "zonal velocity")
 heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 
-ax = Axis(fig[1, 2], title = "meridional concentration")
+ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
+GLMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
+    iter[] = i
+    @info "doing iter $i"
+end

@@ -34,6 +34,7 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     ρᵢ = ice_density
     ρₒ = ocean_density
     uⁿ = rheology.uⁿ
+    Cᴰ = rheology.ocean_ice_drag_coefficient
 
     hf = ℑxᶠᶜᶜ(i, j, 1, grid, h)
     ℵf = ℑxᶠᶜᶜ(i, j, 1, grid, ℵ)
@@ -58,7 +59,7 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * uₒ - τₑₒ * uᵢⁿ⁺¹ 
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
-    τₑₒ = 5.5e-3 * ρₒ * Δ𝒰 / mᵢ
+    τₑₒ = Cᴰ * ρₒ * Δ𝒰 / mᵢ
 
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
@@ -101,6 +102,7 @@ end
     ρᵢ = ice_density
     ρₒ = ocean_density
     vⁿ = rheology.vⁿ
+    Cᴰ = rheology.ocean_ice_drag_coefficient
 
     hf = ℑyᶜᶠᶜ(i, j, 1, grid, h)
     ℵf = ℑyᶜᶠᶜ(i, j, 1, grid, ℵ)
@@ -125,7 +127,7 @@ end
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * vₒ - τₑₒ * vᵢⁿ⁺¹ 
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
-    τₑₒ = 5.5e-3 * ρₒ * Δ𝒰 / mᵢ
+    τₑₒ = Cᴰ * ρₒ * Δ𝒰 / mᵢ
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva

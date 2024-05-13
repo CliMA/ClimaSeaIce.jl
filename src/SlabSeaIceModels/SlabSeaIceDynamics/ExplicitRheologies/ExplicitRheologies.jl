@@ -5,6 +5,7 @@ using Oceananigans.Utils
 using Oceananigans.Units
 
 using KernelAbstractions: @kernel, @index
+using Adapt
 
 ## A Framework to solve for the ice momentum equation explicitly, in the form:
 ## 

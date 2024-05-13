@@ -20,6 +20,7 @@ struct ElastoViscoPlasticRheology{S1, S2, S3, U, V, P, FT, A} <: AbstractExplici
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
+    ocean_ice_drag_coefficient :: FT
     Δ_min :: FT # minimum plastic parameter (transitions to viscous behaviour)
     substepping_coefficient :: A
     substeps :: Int
@@ -30,6 +31,7 @@ end
                                ice_compressive_strength = 27500, 
                                ice_compaction_hardening = 20, 
                                yield_curve_eccentricity = 2, 
+                               ocean_ice_drag_coefficient = 5.5e-3,
                                Δ_min = 2e-9,
                                substepping_coefficient = ModifiedEVPSteppingCoefficients(grid),
                                substeps = 1000)
@@ -49,6 +51,7 @@ Keyword Arguments
 - `ice_compressive_strength`: parameter expressing compressive strength (in Nm²), default `27500`.
 - `ice_compaction_hardening`: exponent coefficient for compaction hardening, default `20`.
 - `yield_curve_eccentricity`: eccentricity of the elliptic yield curve, default `2`.
+- `ocean_ice_drag_coefficient`: coefficient for the ocean - ice drag, default `5.5e-3`.
 - `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice, 
            transitioning the ice from a plastic to a viscous behaviour. Default value is `1e-10`.
 - `substepping_coefficient`: Coefficient for substepping momentum (β) and internal stresses (α) (depends on the particular EVP formulation).
@@ -61,6 +64,7 @@ function ElastoViscoPlasticRheology(grid::AbstractGrid;
                                     ice_compressive_strength = 27500, 
                                     ice_compaction_hardening = 20, 
                                     yield_curve_eccentricity = 2, 
+                                    ocean_ice_drag_coefficient = 5.5e-3,
                                     Δ_min = 2e-9,
                                     substepping_coefficient = ModifiedEVPSteppingCoefficients(grid),
                                     substeps = 1000)
@@ -76,10 +80,27 @@ function ElastoViscoPlasticRheology(grid::AbstractGrid;
                                       convert(FT, ice_compressive_strength), 
                                       convert(FT, ice_compaction_hardening), 
                                       convert(FT, yield_curve_eccentricity),
+                                      convert(FT, ocean_ice_drag_coefficient),
                                       convert(FT, Δ_min),
                                       substepping_coefficient,
                                       substeps)
 end
+
+# Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
+Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
+    ElastoViscoPlasticRheology(Adapt.adapt(to, r.σ₁₁),
+                               Adapt.adapt(to, r.σ₂₂),
+                               Adapt.adapt(to, r.σ₁₂),
+                               Adapt.adapt(to, r.uⁿ),
+                               Adapt.adapt(to, r.vⁿ),
+                               Adapt.adapt(to, r.ice_strength),
+                               Adapt.adapt(to, r.ice_compressive_strength),
+                               Adapt.adapt(to, r.ice_compaction_hardening),
+                               Adapt.adapt(to, r.yield_curve_eccentricity),
+                               Adapt.adapt(to, r.ocean_ice_drag_coefficient),
+                               Adapt.adapt(to, r.Δ_min),
+                               Adapt.adapt(to, r.substepping_coefficient),
+                               r.substeps)
 
 # Extend `fill_halo_regions!` for the ElastoViscoPlasticRheology
 function fill_halo_regions!(rheology::ElastoViscoPlasticRheology)

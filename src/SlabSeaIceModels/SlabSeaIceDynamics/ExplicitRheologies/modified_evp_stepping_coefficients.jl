@@ -1,5 +1,6 @@
-struct ModifiedEVPSteppingCoefficients{A}
+struct ModifiedEVPSteppingCoefficients{A, FT}
     c :: A
+    minimum_c :: FT
 end
 
 """
@@ -15,10 +16,11 @@ This formulation allows fast convergence in regions where sqrt(4γ) is small. Re
 the coefficients are large correspond to regions where the ice is more solid and moves as a block
 and the convergence is slower.
 """
-function ModifiedEVPSteppingCoefficients(grid::AbstractGrid) 
+function ModifiedEVPSteppingCoefficients(grid::AbstractGrid;
+                                         minimum_c = 25) # smallest number of substeps
     c = CenterField(grid)
     set!(c, 300)
-    return ModifiedEVPSteppingCoefficients(c)
+    return ModifiedEVPSteppingCoefficients(c, minimum_c)
 end
 
 # Fallback for no specific scheme => α = β = substeps / 2
@@ -30,9 +32,9 @@ end
 # Following an mEVP formulation: α = β = sqrt(4γ) (Kimmritz et al 2016)
 # where γ = (ζ / 4) * π² * (Δt / mᵢ) / Az
 @inline function update_stepping_coefficients!(i, j, k, grid, coefficients::ModifiedEVPSteppingCoefficients, ζ, mᵢ, Δt)
-    A = Azᶜᶜᶜ(i, j, k, grid)
-    γ = ζ / 4 * π^2 * Δt / mᵢ / A
-    @inbounds coefficients.c[i, j, k] = sqrt(4γ)
-
+    A     = Azᶜᶜᶜ(i, j, k, grid)
+    γ     = ζ / 4 * π^2 * Δt / mᵢ / A
+    c_min = coefficients.minimum_c
+    @inbounds coefficients.c[i, j, k] = max(sqrt(4γ), c_min)
     return nothing
 end

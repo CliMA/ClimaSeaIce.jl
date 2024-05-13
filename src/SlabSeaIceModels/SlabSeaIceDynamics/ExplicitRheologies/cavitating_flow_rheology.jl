@@ -5,6 +5,7 @@ struct CavitatingFlowRheology{P, I, FT} <: AbstractExplicitRheology
     ice_strength :: I
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT
+    ocean_ice_drag_coefficient :: FT
     substeps :: Int
 end
 
@@ -34,6 +35,7 @@ Keyword Arguments
 function CavitatingFlowRheology(grid::AbstractGrid; 
                                 ice_compressive_strength = 27500, 
                                 ice_compaction_hardening = 20,
+                                ocean_ice_drag_coefficient = 5.5e-3,
                                 substeps = 100)
     p = CenterField(grid)
     P = CenterField(grid)
@@ -41,6 +43,7 @@ function CavitatingFlowRheology(grid::AbstractGrid;
     return CavitatingFlowRheology(p, P, 
                                   convert(FT, ice_compressive_strength), 
                                   convert(FT, ice_compaction_hardening), 
+                                  convert(FT, ocean_ice_drag_coefficient),
                                   substeps)
 end
 
