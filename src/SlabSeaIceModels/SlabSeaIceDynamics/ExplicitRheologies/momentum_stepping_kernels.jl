@@ -36,15 +36,15 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     uⁿ = rheology.uⁿ
     Cᴰ = rheology.ocean_ice_drag_coefficient
 
-    hf = ℑxᶠᶜᶜ(i, j, 1, grid, h)
-    ℵf = ℑxᶠᶜᶜ(i, j, 1, grid, ℵ)
+    hf = ℑxᶠᵃᵃ(i, j, 1, grid, h)
+    ℵf = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ)
 
     # Ice mass interpolated on u points
     mᵢ = hf * ℵf * ρᵢ
 
     # relative ocean - ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
-    Δv = ℑxyᶠᶜᶜ(i, j, 1, grid, vₒ) - ℑxyᶠᶜᶜ(i, j, 1, grid, vᵢ)
+    Δv = ℑxyᶠᶜᵃ(i, j, 1, grid, vₒ) - ℑxyᶠᶜᵃ(i, j, 1, grid, vᵢ)
 
     # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
@@ -104,14 +104,14 @@ end
     vⁿ = rheology.vⁿ
     Cᴰ = rheology.ocean_ice_drag_coefficient
 
-    hf = ℑyᶜᶠᶜ(i, j, 1, grid, h)
-    ℵf = ℑyᶜᶠᶜ(i, j, 1, grid, ℵ)
+    hf = ℑyᵃᶠᵃ(i, j, 1, grid, h)
+    ℵf = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
 
     # Ice mass interpolated on v points
     mᵢ = hf * ℵf * ρᵢ
     
     # relative ocean - ice velocities
-    Δu = ℑxyᶜᶠᶜ(i, j, 1, grid, uₒ) - ℑxyᶜᶠᶜ(i, j, 1, grid, uᵢ)
+    Δu = ℑxyᶜᶠᵃ(i, j, 1, grid, uₒ) - ℑxyᶜᶠᵃ(i, j, 1, grid, uᵢ)
     Δv = @inbounds vₒ[i, j, 1] - vᵢ[i, j, 1]
 
     # relative ocean - ice speed

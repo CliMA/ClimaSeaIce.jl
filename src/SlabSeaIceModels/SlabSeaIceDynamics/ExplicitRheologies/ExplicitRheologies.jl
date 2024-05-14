@@ -24,7 +24,6 @@ using Adapt
 # The only function we need to provide in SlabSeaIceDynamics.jl is the `step_momentum!` function.
 import ClimaSeaIce.SlabSeaIceModels: step_momentum!
 
-include("three_dimensional_interpolation.jl")
 include("explicit_sea_ice_dynamics.jl")
 include("modified_evp_stepping_coefficients.jl")
 include("cavitating_flow_rheology.jl")

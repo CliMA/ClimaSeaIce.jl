@@ -16,18 +16,14 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 ρₐ = 1.3 # kg/m³
 
 # 2 km domain
-grid = RectilinearGrid(size = (256, 256), 
+grid = RectilinearGrid(size = (128, 128), 
                           x = (0, L), 
                           y = (0, L), 
-                   topology = (Periodic, Bounded, Flat))
+                   topology = (Bounded, Bounded, Flat))
 
 #####
 ##### Setup atmospheric and oceanic forcing
 #####
-
-bottom(x, y) = (- 10kilometers < x - L ÷ 2 < 10kilometers) & (y > 200kilometers)
-
-grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 
 # Constant ocean velocities corresponding to a cyclonic eddy
 Uₒ = XFaceField(grid)
@@ -61,19 +57,38 @@ compute!(τᵥ)
 ##### Numerical details
 #####
 
+zero_value_bc = ValueBoundaryCondition(0)
+
+u_bcs = FieldBoundaryConditions(west   = OpenBoundaryCondition(0),
+                                east   = OpenBoundaryCondition(0),
+                                north  = zero_value_bc, 
+                                south  = zero_value_bc,
+                                top    = nothing,
+                                bottom = nothing)
+v_bcs = FieldBoundaryConditions(west   = zero_value_bc, 
+                                east   = zero_value_bc,
+                                north  = OpenBoundaryCondition(0),
+                                south  = OpenBoundaryCondition(0),
+                                top    = nothing,
+                                bottom = nothing)
+
+uᵢ = XFaceField(grid; boundary_conditions = u_bcs)
+vᵢ = YFaceField(grid; boundary_conditions = v_bcs)
+
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-rheology  = ElastoViscoPlasticRheology(grid; substeps = 600)
+rheology  = ElastoViscoPlasticRheology(grid; substeps = 1000)
 advection = WENO(; order = 7)
 
 # Define the model!
 model = SlabSeaIceModel(grid; 
                         top_u_stress = τᵤ,
                         top_v_stress = τᵥ,
+                        velocities = (u = uᵢ, v = vᵢ),
                         ocean_velocities = (u = Uₒ, v = Vₒ),
                         rheology,
                         advection,
-                        coriolis  = FPlane(f = 1e-4),
+                        coriolis = FPlane(f = 1e-4),
                         top_heat_boundary_condition=PrescribedTemperature(-10))
 
 # Initial height field with perturbations around 0.3 m
