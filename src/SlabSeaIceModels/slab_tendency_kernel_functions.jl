@@ -41,6 +41,12 @@ function ice_thickness_tendency(i, j, grid, clock,
     Qiᵢ = getflux(Qi, i, j, grid, Tuᵢ, clock, model_fields)
     Qbᵢ = getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
 
+    Qiᵢ = 0.0
+    #Qbᵢ = 0.0
+
+    #@show ℰb
+    #@show ℰu
+
     # Compute forcing
     Fh = zero(grid) #h_forcing(i, j, grid, clock, model_fields)
 
@@ -53,6 +59,14 @@ function ice_thickness_tendency(i, j, grid, clock,
     wb = (Qiᵢ - Qbᵢ) / ℰb # < 0 => freezing
 
     slabby_Gh = wu + wb + Fh
+
+    #@show consolidated_ice
+    #@show Quᵢ
+    #@show Qiᵢ
+    #@show Qbᵢ
+    #@show slabby_Gh
+    #@show slushy_Gh
+    #@show Fh
 
     return Gh_advection + ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
 end
