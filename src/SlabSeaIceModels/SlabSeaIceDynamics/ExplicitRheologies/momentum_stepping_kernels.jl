@@ -36,10 +36,10 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     uⁿ = rheology.uⁿ
     Cᴰ = rheology.ocean_ice_drag_coefficient
 
-    hf = ℑxᶠᵃᵃ(i, j, 1, grid, h)
-    ℵf = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ)
+    hf = ℑxᶠᵃᵃ(i, j, 1, grid, h) # thickness
+    ℵf = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ) # concentration
 
-    # Ice mass interpolated on u points
+    # Ice mass (per unit area) interpolated on u points
     mᵢ = hf * ℵf * ρᵢ
 
     # relative ocean - ice velocities
