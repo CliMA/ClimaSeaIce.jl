@@ -15,6 +15,8 @@ using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
+import Oceananigans.Architectures: AbstractArchitecture
+import Oceananigans.Grids: architecture
 import Oceananigans.Fields: set!
 import Oceananigans.Models: AbstractModel
 import Oceananigans.OutputWriters: default_included_properties
@@ -53,6 +55,7 @@ const SSIM = SlabSeaIceModel
 Base.summary(model::SSIM) = "SlabSeaIceModel"
 prettytime(model::SSIM) = prettytime(model.clock.time)
 iteration(model::SSIM) = model.clock.iteration
+architecture(model::SSIM) = architecture(model.grid)
 
 function Base.show(io::IO, model::SSIM)
     grid = model.grid
