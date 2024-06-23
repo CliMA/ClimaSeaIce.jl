@@ -3,6 +3,9 @@ struct ModifiedEVPSteppingCoefficients{A, FT}
     minimum_c :: FT
 end
 
+Adapt.adapt_structure(to, s::ModifiedEVPSteppingCoefficients) = 
+    ModifiedEVPSteppingCoefficients(Adapt.adapt(to, s.c), s.minimum_c)
+
 """
     ModifiedEVPSteppingCoefficients(grid::AbstractGrid)
 
