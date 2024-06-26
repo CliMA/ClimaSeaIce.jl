@@ -9,3 +9,9 @@ Modules = [ClimaSeaIce]
 Public = false
 ```
 
+## ClimaSeaIce.EnthalpyMethodSeaIceModels
+
+```@autodocs
+Modules = [ClimaSeaIce.EnthalpyMethodSeaIceModels]
+Public = false
+```
