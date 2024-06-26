@@ -136,6 +136,7 @@ include("EnthalpyMethodSeaIceModels.jl")
 include("SlabSeaIceModels/SlabSeaIceModels.jl")
 
 using .SeaIceDynamics
+using .SeaIceDynamics: ExplicitMomentumSolver, ExplicitViscoPlasticRheology
 using .EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel
 using .SlabSeaIceModels: SlabSeaIceModel, ConductiveFlux
 
