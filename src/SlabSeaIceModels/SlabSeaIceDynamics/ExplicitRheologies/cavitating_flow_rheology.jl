@@ -51,20 +51,19 @@ function initialize_substepping!(model, rheology::CavitatingFlowRheology)
     h = model.ice_thickness
     ℵ = model.concentration
 
-    launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!, rheology, h, ℵ)
+    P  = rheology.ice_strength
+    P★ = rheology.ice_compressive_strength
+    C  = rheology.ice_compaction_hardening
+
+    launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!, P, P★, C, h, ℵ)
     
     fill_halo_regions!(rheology.ice_strength)
 
     return nothing
 end
 
-@kernel function _compute_ice_strength!(rheology, h, ℵ)
+@kernel function _compute_ice_strength!(P, P★, C, h, ℵ)
     i, j = @index(Global, NTuple)
-    
-    P    = rheology.ice_strength
-    P★   = rheology.ice_compressive_strength
-    C    = rheology.ice_compaction_hardening
-
     @inbounds P[i, j, 1] = @inbounds P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
 end
 

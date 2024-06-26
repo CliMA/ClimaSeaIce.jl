@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using GLMakie
+using CairoMakie
 using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.ExplicitRheologies: ElastoViscoPlasticRheology
 
 # The experiment found in the paper: 
@@ -188,7 +188,7 @@ heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
-GLMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
+CairoMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "doing iter $i"
 end

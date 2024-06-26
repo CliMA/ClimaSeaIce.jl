@@ -119,28 +119,31 @@ In this step we save down the velocities at the previous time step and
 calculate the ice strength given the ice mass (thickness and concentration).
 """
 function initialize_substepping!(model, rheology::ElastoViscoPlasticRheology)
-    uⁿ = model.velocities.u
-    vⁿ = model.velocities.v
-    h  = model.ice_thickness
-    ℵ  = model.concentration
+    u = model.velocities.u
+    v = model.velocities.v
+    h = model.ice_thickness
+    ℵ = model.concentration
 
-    launch!(architecture(model.grid), model.grid, :xy, _store_initial_velocities!, rheology, uⁿ, vⁿ)
-    launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!,     rheology, h, ℵ)
+    uⁿ = rheology.uⁿ
+    vⁿ = rheology.vⁿ
+    P  = rheology.ice_strength
+    P★ = rheology.ice_compressive_strength
+    C  = rheology.ice_compaction_hardening
+    
+    launch!(architecture(model.grid), model.grid, :xy, _store_initial_velocities!, uⁿ, vⁿ, u, v)
+    launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!, P, P★, C, h, ℵ)
 
-    fill_halo_regions!(rheology.uⁿ)
-    fill_halo_regions!(rheology.vⁿ)
-    fill_halo_regions!(rheology.ice_strength)
-
+    fill_halo_regions!((uⁿ, vⁿ, P), model.clock, fields(model))
+    
     return nothing
 end
 
 # We need initial velocities for the momentum update step
-@kernel function _store_initial_velocities!(rheology, uⁿ, vⁿ)
+@kernel function _store_initial_velocities!(uⁿ, vⁿ, u, v)
     i, j = @index(Global, NTuple)
 
-    u, v = rheology.uⁿ, rheology.vⁿ
-    @inbounds u[i, j, 1] = uⁿ[i, j, 1]
-    @inbounds v[i, j, 1] = vⁿ[i, j, 1]
+    @inbounds uⁿ[i, j, 1] = u[i, j, 1]
+    @inbounds vⁿ[i, j, 1] = v[i, j, 1]
 end
 
 # Specific compute stresses for the EVP rheology

@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using GLMakie
+using CairoMakie
 using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.ExplicitRheologies: ElastoViscoPlasticRheology
 
 # The experiment found in the paper: 
@@ -11,20 +11,22 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.ExplicitRheologies: Elasto
 
 Lx = 512kilometers
 Ly = 256kilometers
-Nx = 256
+Nx = 512
 Ny = 256
 
 y_max = Ly / 2
+
+arch = GPU()
 
 𝓋ₐ = 10.0   # m / s 
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 ρₐ = 1.3    # kg/m³
 
 # 2 km domain
-grid = RectilinearGrid(size = (256, 256), 
-                          x = (-Lx/2, Lx/2), 
-                          y = (0, Ly), 
-                   topology = (Periodic, Bounded, Flat))
+grid = RectilinearGrid(arch; size = (Nx, Ny), 
+                                x = (-Lx/2, Lx/2), 
+                                y = (0, Ly), 
+                         topology = (Periodic, Bounded, Flat))
 
 # bottom(x, y) = ifelse(y > y_max, 0, 
 #                ifelse(abs(x / Lx) * Nx + y / Ly * Ny > 24, 0, 1))
@@ -91,10 +93,10 @@ function accumulate_timeseries(sim)
     ℵ = sim.model.concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
-    push!(htimeseries, deepcopy(interior(h)))
-    push!(ℵtimeseries, deepcopy(interior(ℵ)))
-    push!(utimeseries, deepcopy(interior(u)))
-    push!(vtimeseries, deepcopy(interior(v)))
+    push!(htimeseries, deepcopy(Array(interior(h))))
+    push!(ℵtimeseries, deepcopy(Array(interior(ℵ))))
+    push!(utimeseries, deepcopy(Array(interior(u))))
+    push!(vtimeseries, deepcopy(Array(interior(v))))
 end
 
 wall_time = [time_ns()]
