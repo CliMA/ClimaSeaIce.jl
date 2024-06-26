@@ -26,7 +26,7 @@ import Oceananigans.Utils: prettytime
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, H, C, ST, S, D, U, DO, UO, R, A, CO, STF, SVF, TBC, CF, P, MIT} <: AbstractModel{TS}
+struct SlabSeaIceModel{GR, CL, TS, H, C, ST, S, D, U, DO, UO, M, A, CO, STF, SVF, TBC, CF, P, MIT} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -40,7 +40,7 @@ struct SlabSeaIceModel{GR, CL, TS, H, C, ST, S, D, U, DO, UO, R, A, CO, STF, SVF
     # Momentum advection parameters
     ocean_velocities :: UO
     ocean_density :: DO
-    rheology :: R
+    momentum_solver :: M
     advection :: A
     coriolis :: CO
     # Boundary conditions
@@ -116,7 +116,7 @@ function SlabSeaIceModel(grid;
                          velocities                     = nothing,
                          ocean_velocities               = (u = ZeroField(), v = ZeroField()),
                          ocean_density                  = 1025, # kg/m³
-                         rheology                       = nothing,
+                         momentum_solver                = nothing,
                          advection                      = nothing,
                          coriolis                       = nothing,
                          top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
@@ -204,7 +204,7 @@ function SlabSeaIceModel(grid;
                            velocities,
                            ocean_velocities,
                            ocean_density,
-                           rheology,
+                           momentum_solver,
                            advection,
                            coriolis,
                            external_heat_fluxes,
