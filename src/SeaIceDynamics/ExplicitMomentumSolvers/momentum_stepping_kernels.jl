@@ -1,5 +1,5 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
+using ClimaSeaIce.SeaIceDynamics: Vᵢ
 
 # The ice-ocean stress is treated semi-implicitly 
 # i.e:

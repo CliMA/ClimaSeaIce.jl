@@ -1,6 +1,6 @@
 using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.TimeSteppers: store_field_tendencies!
-using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: AbstractRheology
+using ClimaSeaIce.SeaIceDynamics: AbstractRheology
 using Printf
 
 

@@ -4,7 +4,7 @@ using KernelAbstractions: @kernel, @index
 
 using Adapt
 
-using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics:
+using ClimaSeaIce.SeaIceDynamics:
     AbstractRheology,
     update_stepping_coefficients!,
     get_stepping_coefficients

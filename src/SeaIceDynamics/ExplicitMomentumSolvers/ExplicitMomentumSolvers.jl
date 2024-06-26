@@ -23,13 +23,13 @@ using Adapt
 ## - ice-atmosphere boundary stress (provided as an external flux)
 ## - ocean dynamic surface
 
-using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.Rheologies: 
+using ClimaSeaIce.SeaIceDynamics.Rheologies: 
     compute_stresses!,
     initialize_rheology!,
     x_internal_stress_divergence,
     y_internal_stress_divergence
 
-import ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: 
+import ClimaSeaIce.SeaIceDynamics: 
         AbstractMomentumSolver,
         step_momentum!,
         update_stepping_coefficients!,
