@@ -18,7 +18,7 @@ using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 end
 
 @inline function _advective_thickness_flux_y(i, j, k, grid, advection, V, ℵ, h)
-    ϕℵ = _advective_tracer_flux_x(i, j, k, grid, advection, V, ℵ) / Ayᶜᶠᶜ(i, j, k, grid)
+    ϕℵ = _advective_tracer_flux_y(i, j, k, grid, advection, V, ℵ) / Ayᶜᶠᶜ(i, j, k, grid)
     @inbounds ϕh = ϕℵ * _advective_tracer_flux_y(i, j, k, grid, advection, V, h) 
     @inbounds ϕh = ifelse(V[i, j, k] == 0, zero(grid), ϕh / V[i, j, k])
     return ϕh
