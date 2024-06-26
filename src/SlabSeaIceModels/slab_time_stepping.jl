@@ -137,7 +137,7 @@ end
     end 
 end
 
-@kernel function _store_all_tendencies!(G⁻, Gⁿ) where N
+@kernel function _store_all_tendencies!(G⁻, Gⁿ) 
     i, j, n = @index(Global, NTuple)
     @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end
