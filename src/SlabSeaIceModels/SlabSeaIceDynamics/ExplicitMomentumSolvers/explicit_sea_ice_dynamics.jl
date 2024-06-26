@@ -3,7 +3,6 @@ using Oceananigans.TimeSteppers: store_field_tendencies!
 using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: AbstractRheology
 using Printf
 
-abstract type AbstractExplicitRheology <: AbstractRheology end
 
 """
     step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
@@ -13,12 +12,12 @@ The sea-ice momentum equations are characterized by smaller time-scale than
 sea-ice thermodynamics, therefore explicit rheologies require substepping
 over a set number of substeps.
 """
-function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
+function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, χ)
 
     grid = model.grid
     arch = architecture(grid)
-
-    initialize_substepping!(model, rheology)
+    rheology = solver.rheology
+    initialize_substepping!(model, solver)
 
     # The atmospheric stress component is fixed during time-stepping
     τua = model.external_momentum_stress.u
@@ -26,27 +25,29 @@ function step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
 
     # We step the momentum equation using a leap-frog scheme
     # where we alternate the order of solving u and v 
-    for substep in 1:rheology.substeps
+    for substep in 1:solver.substeps
         
         # Fill halos of the updated velocities
-        fill_halo_regions!(model.velocities)
+        fill_halo_regions!(model.velocities, model.clock, fields(model))
         
         # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, model.rheology, Δt)
+        compute_stresses!(model, rheology, Δt)
 
         # Fill halos of the updated stresses
-        fill_halo_regions!(rheology)
+        fill_halo_regions!(rheology, model.clock, fields(model))
 
         args = (model.velocities, grid, Δt, 
                 model.clock,
                 model.ocean_velocities,
+                solver.previous_velocities,
                 model.coriolis,
-                model.rheology,
+                rheology,
                 model.ice_thickness,
                 model.concentration,
                 model.ice_density,
-                model.ocean_density)
-                
+                model.ocean_density,
+                solver.ocean_ice_drag_coefficient)
+
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).

@@ -10,6 +10,7 @@ using Oceananigans.TimeSteppers: tick!
 using Oceananigans.Utils: launch!, KernelParameters
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
+using Oceananigans: prognostic_fields
 using KernelAbstractions: @index, @kernel
 using Oceananigans.TimeSteppers: ab2_step_field!
 import Oceananigans.TimeSteppers: time_step!
@@ -80,7 +81,7 @@ end
 
 function update_state!(model::SSIM)
     
-    foreach(fields) do prognostic_fields(model)
+    foreach(prognostic_fields(model)) do field
         mask_immersed_field!(field)
     end
 
@@ -111,7 +112,7 @@ function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
     ab2_step_tracers!(model, Δt, χ)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
-    step_momentum!(model, model.rheology, Δt, χ)
+    step_momentum!(model, model.momentum_solver, Δt, χ)
 
     # Only the tracers are advanced through an AB2 scheme,
     # so only tracers' tendencies are stored

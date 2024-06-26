@@ -15,12 +15,16 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
 @kernel function _u_velocity_step!(velocities, grid, Δt, 
                                    clock,
                                    ocean_velocities,
+                                   previous_velocities,
                                    coriolis,
                                    rheology,
+                                   substeps,
+                                   substepping_coefficient,
                                    thickness,
                                    concentration,
                                    ice_density,
                                    ocean_density,
+                                   ocean_ice_drag_coefficient,
                                    u_top_stress,
                                    u_forcing,
                                    model_fields)
@@ -33,8 +37,8 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     ℵ  = concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
-    uⁿ = rheology.uⁿ
-    Cᴰ = rheology.ocean_ice_drag_coefficient
+    uⁿ = previous_velocities.uⁿ
+    Cᴰ = ocean_ice_drag_coefficient
 
     hf = ℑxᶠᵃᵃ(i, j, 1, grid, h) # thickness
     ℵf = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ) # concentration
@@ -50,7 +54,7 @@ using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics: Vᵢ
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular EVP formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, rheology, rheology.substepping_coefficient)
+    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -83,12 +87,16 @@ end
 @kernel function _v_velocity_step!(velocities, grid, Δt, 
                                    clock,
                                    ocean_velocities, 
+                                   previous_velocities,
                                    coriolis,
                                    rheology,
+                                   substeps,
+                                   substepping_coefficient,
                                    thickness,
                                    concentration,
                                    ice_density,
                                    ocean_density,
+                                   ocean_ice_drag_coefficient,
                                    v_top_stress,
                                    v_forcing,
                                    model_fields)
@@ -101,8 +109,8 @@ end
     ℵ  = concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
-    vⁿ = rheology.vⁿ
-    Cᴰ = rheology.ocean_ice_drag_coefficient
+    vⁿ = previous_velocities.vⁿ
+    Cᴰ = ocean_ice_drag_coefficient
 
     hf = ℑyᵃᶠᵃ(i, j, 1, grid, h)
     ℵf = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
@@ -118,7 +126,7 @@ end
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular EVP formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, rheology, rheology.substepping_coefficient)
+    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
