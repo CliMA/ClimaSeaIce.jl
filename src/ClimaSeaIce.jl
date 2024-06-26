@@ -131,6 +131,7 @@ using .HeatBoundaryConditions:
     FluxFunction,
     PrescribedTemperature
 
+include("SeaIceDynamics/SeaIceDynamics.jl")
 include("EnthalpyMethodSeaIceModels.jl")
 include("SlabSeaIceModels/SlabSeaIceModels.jl")
 
