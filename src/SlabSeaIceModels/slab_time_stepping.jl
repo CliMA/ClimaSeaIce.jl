@@ -79,7 +79,7 @@ function store_tendencies!(model::SSIM)
     return nothing
 end
 
-function update_state!(model::SSIM)
+function update_state!(model::SSIM, callbacks = nothing)
     
     foreach(prognostic_fields(model)) do field
         mask_immersed_field!(field)
@@ -91,30 +91,45 @@ function update_state!(model::SSIM)
 end
 
 function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
-
-    # Shenanigans for properly starting the AB2 loop with an Euler step
-    euler = euler || (Δt != model.timestepper.previous_Δt)
     
-    χ = ifelse(euler, convert(eltype(model.grid), -0.5), model.timestepper.χ)
+    # Be paranoid and update state at iteration 0
+    model.clock.iteration == 0 && update_state!(model, callbacks)
 
+    ab2_timestepper = model.timestepper
+
+    # Change the default χ if necessary, which occurs if:
+    #   * We detect that the time-step size has changed.
+    #   * We detect that this is the "first" time-step, which means we
+    #     need to take an euler step. Note that model.clock.last_Δt is
+    #     initialized as Inf
+    #   * The user has passed euler=true to time_step!
+    euler = euler || (Δt != model.clock.last_Δt)
+    
+    # If euler, then set χ = -0.5
+    minus_point_five = convert(eltype(model.grid), -0.5)
+    χ = ifelse(euler, minus_point_five, ab2_timestepper.χ)
+
+    # Set time-stepper χ (this is used in ab2_step!, but may also be used elsewhere)
+    χ₀ = ab2_timestepper.χ # Save initial value
+    ab2_timestepper.χ = χ
+
+    # Ensure zeroing out all previous tendency fields to avoid errors in
+    # case G⁻ includes NaNs. See https://github.com/CliMA/Oceananigans.jl/issues/2259
     if euler
         @debug "Taking a forward Euler step."
-        # Ensure zeroing out all previous tendency fields to avoid errors in
-        # case G⁻ includes NaNs. See https://github.com/CliMA/Oceananigans.jl/issues/2259
-        for field in model.timestepper.G⁻
+        for field in ab2_timestepper.G⁻
             !isnothing(field) && fill!(field, 0)
         end
     end
 
-    model.timestepper.previous_Δt = Δt
-    
     compute_tracer_tendencies!(model; callbacks)
     ab2_step_tracers!(model, Δt, χ)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     step_momentum!(model, model.momentum_solver, Δt, χ)
 
-    # Only the tracers are advanced through an AB2 scheme,
+    # Only the tracers are advanced through an AB2 scheme 
+    # (velocities are stepped in the dynamics step)
     # so only tracers' tendencies are stored
     store_tendencies!(model)
 

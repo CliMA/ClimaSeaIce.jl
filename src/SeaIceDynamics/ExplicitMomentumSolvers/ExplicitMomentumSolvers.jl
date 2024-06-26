@@ -5,6 +5,9 @@ export ExplicitMomentumSolver
 using Oceananigans
 using Oceananigans.Utils
 using Oceananigans.Units
+using Oceananigans.BoundaryConditions
+using Oceananigans.ImmersedBoundaries: mask_immersed_field!
+using Oceananigans.Operators
 
 using KernelAbstractions: @kernel, @index
 using Adapt
@@ -24,6 +27,7 @@ using Adapt
 ## - ocean dynamic surface
 
 using ClimaSeaIce.SeaIceDynamics.Rheologies: 
+    ExplicitViscoPlasticRheology,
     compute_stresses!,
     initialize_rheology!,
     x_internal_stress_divergence,
@@ -58,7 +62,13 @@ equation for sea ice:
    -- + f x u = ∇ ⋅ σ + --  + -- + g∇η
    ∂t                   mᵢ    mᵢ
 ```
-by substepping a `substeps` amount of time. 
+by substepping a `substeps` amount of time. In practice the substepping solves:
+
+```math
+  uᵖ⁺¹ - uᵖ = β⁻¹ * (Δt / mᵢ * (∇ ⋅ σᵖ⁺¹ + fk̂ × uᵖ + τₐ + τₒ) + uⁿ - uᵖ)
+```
+where `Δt` is the large advective time step and ``β`` is a `stepping_coefficient`
+designed to obtain convergence.
 
 # Arguments
 =============

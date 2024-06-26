@@ -37,7 +37,7 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     ℵ  = concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
-    uⁿ = previous_velocities.uⁿ
+    uⁿ = previous_velocities.u
     Cᴰ = ocean_ice_drag_coefficient
 
     hf = ℑxᶠᵃᵃ(i, j, 1, grid, h) # thickness
@@ -109,7 +109,7 @@ end
     ℵ  = concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
-    vⁿ = previous_velocities.vⁿ
+    vⁿ = previous_velocities.v
     Cᴰ = ocean_ice_drag_coefficient
 
     hf = ℑyᵃᶠᵃ(i, j, 1, grid, h)

@@ -29,11 +29,16 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
         # Fill halos of the updated velocities
         fill_halo_regions!(model.velocities, model.clock, fields(model))
         
+        mask_immersed_field!(model.velocities.u)
+        mask_immersed_field!(model.velocities.v)
+    
         # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, rheology, Δt)
+        compute_stresses!(model, solver, rheology, Δt)
 
         # Fill halos of the updated stresses
         fill_halo_regions!(rheology, model.clock, fields(model))
+
+        mask_immersed_field!(rheology)
 
         args = (model.velocities, grid, Δt, 
                 model.clock,
@@ -41,6 +46,8 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
                 solver.previous_velocities,
                 model.coriolis,
                 rheology,
+                solver.substeps,
+                solver.substepping_coefficient,
                 model.ice_thickness,
                 model.concentration,
                 model.ice_density,

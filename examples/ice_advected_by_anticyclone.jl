@@ -1,3 +1,9 @@
+# # Sea ice advected by an atmospheric anticyclone
+#
+#
+#
+#
+
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce

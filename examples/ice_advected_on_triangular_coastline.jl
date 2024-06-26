@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using CairoMakie
+using GLMakie
 using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
@@ -11,12 +11,12 @@ using ClimaSeaIce.SeaIceDynamics
 
 Lx = 512kilometers
 Ly = 256kilometers
-Nx = 512
-Ny = 256
+Nx = 256
+Ny = 128
 
 y_max = Ly / 2
 
-arch = GPU()
+arch = CPU()
 
 𝓋ₐ = 10.0   # m / s 
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
@@ -55,14 +55,14 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-rheology  = ExplicitViscoPlasticRheology(grid; substeps = 1000)
+solver    = ExplicitMomentumSolver(grid; substeps = 1000)
 advection = WENO(; order = 7)
 
 # Define the model!
 model = SlabSeaIceModel(grid; 
                         top_u_stress = τᵤ,
                         top_v_stress = τᵥ,
-                        rheology,
+                        momentum_solver = solver,
                         advection,
                         coriolis = FPlane(f = 1e-4),
                         top_heat_boundary_condition=PrescribedTemperature(-10))

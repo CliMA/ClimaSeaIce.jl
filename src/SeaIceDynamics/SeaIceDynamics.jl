@@ -20,7 +20,8 @@ using Adapt
 # - 2D ocean velocities : `u` and `v` (at the surface)
 # - 2D thickness field : `h`
 # - 2D concentration field `ℵ`
-# - an 
+# - a sea-ice density (Float)
+# - an ocean density (Float)
 """
     AbstractMomentumSolver
 

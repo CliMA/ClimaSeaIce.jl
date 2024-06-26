@@ -2,16 +2,13 @@ using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
 using Oceananigans.Grids: AbstractGrid
 
-import Oceananigans.BoundaryConditions: fill_halo_regions!
-
 ## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
 #
 # Where:
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
-# uᵖ⁺¹ - uᵖ = β⁻¹ * (Δt / mᵢ * (∇ ⋅ σᵖ⁺¹ + fk̂ × uᵖ + τₐ + τₒ) + uⁿ - uᵖ)
 #
-struct ExplicitViscoPlasticRheology{S1, S2, S3, U, V, P, FT} <: AbstractRheology
+struct ExplicitViscoPlasticRheology{S1, S2, S3, P, FT} <: AbstractRheology
     σ₁₁   :: S1 # internal stress xx
     σ₂₂   :: S2 # internal stress yy
     σ₁₂   :: S3 # internal stress xy
@@ -80,10 +77,19 @@ Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) =
                                  Adapt.adapt(to, r.Δ_min))
 
 # Extend `fill_halo_regions!` for the ExplicitViscoPlasticRheology
-function fill_halo_regions!(rheology::ExplicitViscoPlasticRheology)
-    fill_halo_regions!(rheology.σ₁₁)
-    fill_halo_regions!(rheology.σ₂₂)
-    fill_halo_regions!(rheology.σ₁₂)
+function fill_halo_regions!(rheology::ExplicitViscoPlasticRheology, args...)
+    fill_halo_regions!(rheology.σ₁₁, args...)
+    fill_halo_regions!(rheology.σ₂₂, args...)
+    fill_halo_regions!(rheology.σ₁₂, args...)
+
+    return nothing
+end
+
+# Extend `mask_immersed_field!` for the ExplicitViscoPlasticRheology
+function mask_immersed_field!(rheology::ExplicitViscoPlasticRheology)
+    mask_immersed_field!(rheology.σ₁₁)
+    mask_immersed_field!(rheology.σ₂₂)
+    mask_immersed_field!(rheology.σ₁₂)
 
     return nothing
 end
@@ -116,7 +122,7 @@ end
 end
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, rheology::ExplicitViscoPlasticRheology, Δt) 
+function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology, Δt) 
 
     grid = model.grid
     arch = architecture(grid)
@@ -124,14 +130,17 @@ function compute_stresses!(model, rheology::ExplicitViscoPlasticRheology, Δt)
     h  = model.ice_thickness
     ℵ  = model.concentration
     ρᵢ = model.ice_density
+
+    substeps = solver.substeps
+    stepping_coefficient = solver.substepping_coefficient
     
     u, v = model.velocities
-    launch!(arch, grid, :xyz, _compute_evp_stresses!, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
+    launch!(arch, grid, :xyz, _compute_evp_stresses!, rheology, grid, u, v, h, ℵ, ρᵢ, Δt, substeps, stepping_coefficient)
 
     return nothing
 end
 
-# Compute the elasto-visco-plastic stresses for a slab sea ice model.
+# Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
 # This is the `meat` of the formulation.
