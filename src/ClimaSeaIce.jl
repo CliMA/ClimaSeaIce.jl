@@ -122,8 +122,6 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-struct ForwardEulerTimestepper end
-
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
 using .HeatBoundaryConditions:
@@ -133,9 +131,11 @@ using .HeatBoundaryConditions:
     FluxFunction,
     PrescribedTemperature
 
+include("SeaIceDynamics/SeaIceDynamics.jl")
 include("EnthalpyMethodSeaIceModels.jl")
 include("SlabSeaIceModels/SlabSeaIceModels.jl")
 
+using .SeaIceDynamics
 using .EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel
 using .SlabSeaIceModels: SlabSeaIceModel, ConductiveFlux
 
