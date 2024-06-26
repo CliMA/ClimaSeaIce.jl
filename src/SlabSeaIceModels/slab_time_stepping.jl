@@ -131,6 +131,7 @@ end
         ℵ[i, j, 1] = ifelse(consolidated_ice, max(0, ℵ⁺), 0)
         
         # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
+        # to maintain a constant ice mass
         h[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, h[i, j, 1] * ℵ[i, j, 1], h[i, j, 1])
         ℵ[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, 1, ℵ[i, j, 1])
     end 
