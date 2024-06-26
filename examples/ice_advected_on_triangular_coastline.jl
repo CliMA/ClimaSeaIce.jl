@@ -28,10 +28,10 @@ grid = RectilinearGrid(arch; size = (Nx, Ny),
                                 y = (0, Ly), 
                          topology = (Periodic, Bounded, Flat))
 
-# bottom(x, y) = ifelse(y > y_max, 0, 
-#                ifelse(abs(x / Lx) * Nx + y / Ly * Ny > 24, 0, 1))
+bottom(x, y) = ifelse(y > y_max, 0, 
+               ifelse(abs(x / Lx) * Nx + y / Ly * Ny > 24, 0, 1))
 
-# grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
+grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 
 #####
 ##### Setup atmospheric and oceanic forcing
@@ -64,7 +64,6 @@ model = SlabSeaIceModel(grid;
                         top_v_stress = τᵥ,
                         momentum_solver = solver,
                         advection,
-                        coriolis = FPlane(f = 1e-4),
                         top_heat_boundary_condition=PrescribedTemperature(-10))
 
 # Initial height field with perturbations around 0.3 m
@@ -79,7 +78,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) #, stop_iteration = 1000)
 
 # Container to hold the data
 htimeseries = []
@@ -121,8 +120,8 @@ function progress(sim)
      wall_time[1] = time_ns()
 end
 
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
-simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(5))
+simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
+simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(1))
 
 run!(simulation)
 

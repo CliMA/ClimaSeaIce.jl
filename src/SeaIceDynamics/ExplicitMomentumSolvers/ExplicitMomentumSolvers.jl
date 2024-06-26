@@ -26,6 +26,8 @@ using Adapt
 ## - ice-atmosphere boundary stress (provided as an external flux)
 ## - ocean dynamic surface
 
+using ClimaSeaIce.SeaIceDynamics
+
 using ClimaSeaIce.SeaIceDynamics.Rheologies: 
     ExplicitViscoPlasticRheology,
     compute_stresses!,

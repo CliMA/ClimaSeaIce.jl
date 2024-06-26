@@ -40,15 +40,15 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     uⁿ = previous_velocities.u
     Cᴰ = ocean_ice_drag_coefficient
 
-    hf = ℑxᶠᵃᵃ(i, j, 1, grid, h) # thickness
-    ℵf = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ) # concentration
+    hf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, h) # thickness
+    ℵf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ℵ) # concentration
 
     # Ice mass (per unit area) interpolated on u points
     mᵢ = hf * ℵf * ρᵢ
 
     # relative ocean - ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
-    Δv = ℑxyᶠᶜᵃ(i, j, 1, grid, vₒ) - ℑxyᶠᶜᵃ(i, j, 1, grid, vᵢ)
+    Δv = ℑxyᴮᶠᶜᶜ(i, j, 1, grid, vₒ) - ℑxyᴮᶠᶜᶜ(i, j, 1, grid, vᵢ)
 
     # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
@@ -112,14 +112,14 @@ end
     vⁿ = previous_velocities.v
     Cᴰ = ocean_ice_drag_coefficient
 
-    hf = ℑyᵃᶠᵃ(i, j, 1, grid, h)
-    ℵf = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
+    hf = ℑyᴮᶜᶠᶜ(i, j, 1, grid, h)
+    ℵf = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ℵ)
 
     # Ice mass interpolated on v points
     mᵢ = hf * ℵf * ρᵢ
     
     # relative ocean - ice velocities
-    Δu = ℑxyᶜᶠᵃ(i, j, 1, grid, uₒ) - ℑxyᶜᶠᵃ(i, j, 1, grid, uᵢ)
+    Δu = ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uₒ) - ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uᵢ)
     Δv = @inbounds vₒ[i, j, 1] - vᵢ[i, j, 1]
 
     # relative ocean - ice speed

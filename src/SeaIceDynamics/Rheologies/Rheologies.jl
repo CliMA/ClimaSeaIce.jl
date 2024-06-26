@@ -13,6 +13,8 @@ using KernelAbstractions: @kernel, @index
 
 using Adapt
 
+using ClimaSeaIce.SeaIceDynamics
+
 using ClimaSeaIce.SeaIceDynamics:
     AbstractRheology,
     update_stepping_coefficients!,

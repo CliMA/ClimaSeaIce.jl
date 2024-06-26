@@ -57,7 +57,7 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
-        # In odd substeps we swith and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
+        # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
         if iseven(substep)
             launch!(arch, grid, :xy, _u_velocity_step!, args..., τua, nothing, fields(model))
             launch!(arch, grid, :xy, _v_velocity_step!, args..., τva, nothing, fields(model))

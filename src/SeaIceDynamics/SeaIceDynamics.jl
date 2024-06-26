@@ -1,6 +1,9 @@
 module SeaIceDynamics
 
-export ExplicitMomentumSolver, ExplicitViscoPlasticRheology
+export ExplicitMomentumSolver, ExplicitViscoPlasticRheology, 
+       ℑxᴮᶜᶜᶜ,  ℑxᴮᶠᶜᶜ,  ℑxᴮᶜᶠᶜ,  ℑxᴮᶠᶠᶜ,
+       ℑyᴮᶜᶜᶜ,  ℑyᴮᶠᶜᶜ,  ℑyᴮᶜᶠᶜ,  ℑyᴮᶠᶠᶜ,
+       ℑxyᴮᶜᶜᶜ, ℑxyᴮᶠᶜᶜ, ℑxyᴮᶜᶠᶜ, ℑxyᴮᶠᶠᶜ
 
 using ClimaSeaIce
 
@@ -45,6 +48,7 @@ abstract type AbstractRheology end
 update_stepping_coefficients!(args...) = nothing
 get_stepping_coefficients(args...) = nothing
 
+include("boundary_aware_operators.jl")
 include("nothing_dynamics.jl") # nothing dynamics, sea-ice velocity is zero!
 include("Rheologies/Rheologies.jl")
 include("ExplicitMomentumSolvers/ExplicitMomentumSolvers.jl") # explicit momentum solvers
