@@ -2,11 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-<<<<<<< HEAD
 project_hash = "ff56be0df055c36eca57fa1726732cb95aaf327e"
-=======
-project_hash = "1c1841b06a07dfbc5701021a4dd2fd83afd3e713"
->>>>>>> origin/ss-jmc/sea-ice-advection
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]

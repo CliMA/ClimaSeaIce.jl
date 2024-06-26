@@ -1,5 +1,7 @@
 module Rheologies
 
+export ExplicitViscoPlasticRheology
+
 using KernelAbstractions: @kernel, @index
 
 using Adapt

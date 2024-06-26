@@ -1,6 +1,6 @@
 module SeaIceDynamics
 
-export ExplicitMomentumSolver
+export ExplicitMomentumSolver, ExplicitViscoPlasticRheology
 
 using ClimaSeaIce
 

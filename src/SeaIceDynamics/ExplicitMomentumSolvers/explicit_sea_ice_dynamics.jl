@@ -3,16 +3,15 @@ using Oceananigans.TimeSteppers: store_field_tendencies!
 using ClimaSeaIce.SeaIceDynamics: AbstractRheology
 using Printf
 
-
 """
     step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
 
-function for stepping u and v in the case of _explicit_ rheologies.
+function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than 
-sea-ice thermodynamics, therefore explicit rheologies require substepping
-over a set number of substeps.
+sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
+substepping over a set number of substeps.
 """
-function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, χ)
+function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
 
     grid = model.grid
     arch = architecture(grid)

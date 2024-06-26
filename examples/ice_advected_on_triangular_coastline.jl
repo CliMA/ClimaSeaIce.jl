@@ -3,7 +3,7 @@ using Oceananigans.Units
 using ClimaSeaIce
 using Printf
 using CairoMakie
-using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.ExplicitRheologies: ElastoViscoPlasticRheology
+using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -55,7 +55,7 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-rheology  = ElastoViscoPlasticRheology(grid; substeps = 1000)
+rheology  = ExplicitViscoPlasticRheology(grid; substeps = 1000)
 advection = WENO(; order = 7)
 
 # Define the model!
