@@ -131,9 +131,11 @@ using .HeatBoundaryConditions:
     FluxFunction,
     PrescribedTemperature
 
+include("SeaIceDynamics/SeaIceDynamics.jl")
 include("EnthalpyMethodSeaIceModels.jl")
 include("SlabSeaIceModels/SlabSeaIceModels.jl")
 
+using .SeaIceDynamics
 using .EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel
 using .SlabSeaIceModels: SlabSeaIceModel, ConductiveFlux
 

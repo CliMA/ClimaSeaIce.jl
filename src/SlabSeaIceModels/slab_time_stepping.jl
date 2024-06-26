@@ -158,7 +158,3 @@ end
     i, j, n = @index(Global, NTuple)
     @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end
-
-# Fallback for no sea - ice dynamics
-step_momentum!(args...) = nothing
-

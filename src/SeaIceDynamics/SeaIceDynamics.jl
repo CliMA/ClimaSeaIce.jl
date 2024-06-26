@@ -1,9 +1,8 @@
-module SlabSeaIceDynamics
+module SeaIceDynamics
 
 export ExplicitMomentumSolver
 
 using ClimaSeaIce
-using ClimaSeaIce.SlabSeaIceModels
 
 using Oceananigans
 using KernelAbstractions: @kernel, @index
@@ -14,9 +13,14 @@ using Oceananigans.Grids: architecture
 
 using Adapt
 
-# The only function we need to provide in SlabSeaIceDynamics.jl is the `step_momentum!` function.
-import ClimaSeaIce.SlabSeaIceModels: step_momentum!
-
+# The only function we need to provide from the SeaIceDynamics.jl module
+# is the `step_momentum!` function. This module assumes that any model that uses
+# SeaIceDynamics has 
+# - 2D velocities : `u` and `v`
+# - 2D ocean velocities : `u` and `v` (at the surface)
+# - 2D thickness field : `h`
+# - 2D concentration field `ℵ`
+# - an 
 """
     AbstractMomentumSolver
 
