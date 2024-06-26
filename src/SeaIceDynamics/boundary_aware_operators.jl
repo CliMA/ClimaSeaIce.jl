@@ -3,6 +3,9 @@ using Oceananigans.ImmersedBoundaries
 using Oceananigans.ImmersedBoundaries: inactive_node
 using Oceananigans.Operators
 
+# These operators are crucial for sea-ice rheologies that require a lot
+# of interpolations. 
+
 const AUG = AbstractUnderlyingGrid
 const IBG = ImmersedBoundaryGrid
 
