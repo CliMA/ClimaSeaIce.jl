@@ -8,8 +8,8 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using CairoMakie
-using ClimaSeaIce.SlabSeaIceModels.SlabSeaIceDynamics.ExplicitRheologies: ElastoViscoPlasticRheology
+using GLMakie
+using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -83,7 +83,7 @@ vᵢ = YFaceField(grid; boundary_conditions = v_bcs)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-rheology  = ElastoViscoPlasticRheology(grid; substeps = 1000)
+momentum_solver = ExplicitMomentumSolver(grid)
 advection = WENO(; order = 7)
 
 # Define the model!
@@ -92,7 +92,7 @@ model = SlabSeaIceModel(grid;
                         top_v_stress = τᵥ,
                         velocities = (u = uᵢ, v = vᵢ),
                         ocean_velocities = (u = Uₒ, v = Vₒ),
-                        rheology,
+                        momentum_solver,
                         advection,
                         coriolis = FPlane(f = 1e-4),
                         top_heat_boundary_condition=PrescribedTemperature(-10))
