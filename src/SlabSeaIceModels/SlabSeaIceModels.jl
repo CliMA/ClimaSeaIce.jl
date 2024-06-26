@@ -11,7 +11,5 @@ include("slab_tendency_kernel_functions.jl")
 include("slab_sea_ice_model.jl")
 include("slab_time_stepping.jl")
 
-using .SlabSeaIceDynamics
-
 end # module
 
