@@ -71,13 +71,13 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
                      + x_internal_stress_divergence(i, j, grid, rheology) / mᵢ)
 
     # make sure we do not have NaNs!                 
-    Gᵁ = ifelse(mᵢ > 0, Gᵁ, 0) 
+    Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(0)) 
     
     # Explicit step
     @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + uⁿ[i, j, 1] - uᵢ[i, j, 1]) / β
     
     # Implicit component of the ice-ocean stress
-    τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, 0)
+    τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(grid))
 
     # Implicit step
     @inbounds uᵢ[i, j, 1] /= (1 + τᵢ) 
@@ -143,13 +143,13 @@ end
                      + y_internal_stress_divergence(i, j, grid, rheology) / mᵢ) 
 
     # make sure we do not have NaNs!
-    Gⱽ = ifelse(mᵢ > 0, Gⱽ, 0) 
+    Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(0)) 
 
     # Explicit step
     @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + vⁿ[i, j, 1] - vᵢ[i, j, 1]) / β
 
     # Implicit component of the ice-ocean stress
-    τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, 0)
+    τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(0)) 
 
     # Implicit step
     @inbounds vᵢ[i, j, 1] /= (1 + τᵢ) 
