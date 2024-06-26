@@ -1,3 +1,14 @@
+
+<p align="center">
+  <a href="https://codecov.io/gh/CliMA/ClimaSeaIce.jl" >
+    <img src="https://codecov.io/gh/CliMA/ClimaSeaIce.jl/graph/badge.svg?token=3Smw4jVzZG"/>
+  </a>
+  <a href="https://clima.github.io/ClimaSeaIceDocumentation/dev">
+    <img alt="Development documentation" src="https://img.shields.io/badge/documentation-in%20development-orange">
+  </a>
+</p>
+
+
 <!-- Title -->
 <h1 align="center">
   ClimaSeaIce.jl

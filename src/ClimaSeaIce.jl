@@ -1,3 +1,4 @@
+""" Ocean 🌊 Sea ice component of CliMa's Earth system model. """
 module ClimaSeaIce
 
 import Oceananigans.TimeSteppers: time_step!
@@ -6,6 +7,7 @@ export
     MeltingConstrainedFluxBalance,
     PrescribedTemperature,
     RadiativeEmission,
+    PhaseTransitions,
     ConductiveFlux,
     FluxFunction,
     SlabSeaIceModel
@@ -81,17 +83,17 @@ The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
 a function of temperature ``T`` via
 
 ```math
-ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρℓ cℓ - ρᵢ cᵢ) * (T - T₀)    
+ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρ_ℓ c_ℓ - ρᵢ cᵢ) (T - T₀)    
 ```
 
-where ``ρᵢ`` is the `ice_density`, ``ρℓ`` is the liquid density,
-``cᵢ`` is the heat capacity of ice, and ``cℓ`` is the heat capacity of
+where ``ρᵢ`` is the `ice_density`, ``ρ_ℓ`` is the liquid density,
+``cᵢ`` is the heat capacity of ice, and ``c_ℓ`` is the heat capacity of
 liquid, and ``T₀`` is a reference temperature, all of which are assumed constant.
 
 The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
-@inline function PhaseTransitions(FT=Float64,
+@inline function PhaseTransitions(FT=Float64;
                                   ice_density           = 917,    # kg m⁻³
                                   ice_heat_capacity     = 2000,   # J / (kg ᵒC)
                                   liquid_density        = 999.8,  # kg m⁻³

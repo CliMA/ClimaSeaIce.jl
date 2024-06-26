@@ -7,7 +7,7 @@ using ClimaSeaIce.HeatBoundaryConditions:
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
-using Oceananigans.Utils: launch!
+using Oceananigans.Utils: launch!, KernelParameters
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
 using KernelAbstractions: @index, @kernel
@@ -62,14 +62,29 @@ function ab2_step_tracers!(model::SSIM, Δt, χ)
     return nothing
 end
 
+function store_tendencies!(model::SSIM) 
+
+    grid = model.grid
+    arch = architecture(grid)
+    Nx, Ny, _ = size(grid)
+
+    Gⁿ = model.timestepper.Gⁿ
+    G⁻ = model.timestepper.G⁻
+    Nt = length(Gⁿ)
+
+    params = KernelParameters((Nx, Ny, Nt), (0, 0, 0))
+    launch!(architecture(model.grid), model.grid, params, _store_all_tendencies!, G⁻, Gⁿ)
+
+    return nothing
+end
+
 function update_state!(model::SSIM)
-    fields = prognostic_fields(model)
     
-    foreach(fields) do field
+    foreach(fields) do prognostic_fields(model)
         mask_immersed_field!(field)
     end
 
-    fill_halo_regions!(fields)
+    fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
 
     return nothing
 end
@@ -138,16 +153,9 @@ end
     end 
 end
 
-store_tendencies!(model::SSIM) = 
-    launch!(architecture(model.grid), model.grid, :xyz, _store_all_tendencies!, 
-                         model.timestepper.G⁻, model.timestepper.Gⁿ, Val(length(model.timestepper.Gⁿ)))
-
-@kernel function _store_all_tendencies!(G⁻, Gⁿ, ::Val{N}) where N
-    i, j = @index(Global, NTuple)
-
-    @unroll for n in 1:N
-        G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
-    end
+@kernel function _store_all_tendencies!(G⁻, Gⁿ) where N
+    i, j, n = @index(Global, NTuple)
+    @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end
 
 # Fallback for no sea - ice dynamics

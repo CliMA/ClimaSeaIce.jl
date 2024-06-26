@@ -209,7 +209,7 @@ set_theme!(Theme(fontsize=24))
 x = xnodes(ocean_grid, Center())
 y = ynodes(ocean_grid, Center())
 
-fig = Figure(resolution=(2400, 700))
+fig = Figure(size=(2400, 700))
 
 axh = Axis(fig[1, 1], xlabel="x (km)", ylabel="y (km)", title="Ice thickness")
 axℵ = Axis(fig[1, 2], xlabel="x (km)", ylabel="y (km)", title="Ice Concentration")
