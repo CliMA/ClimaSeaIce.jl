@@ -78,7 +78,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) #, stop_iteration = 1000)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) #, stop_iteration = 1) # 
 
 # Container to hold the data
 htimeseries = []
@@ -134,20 +134,20 @@ hi = @lift(htimeseries[$iter][:, :, 1])
 ui = @lift(utimeseries[$iter][:, :, 1])
 vi = @lift(vtimeseries[$iter][:, :, 1])
 
-fig = Figure()
+fig = Figure(size = (1000, 500))
 ax = Axis(fig[1, 1], title = "sea ice thickness")
-heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
+heatmap!(ax, hi, colormap = :magma,         colorrange = (0.0, 2.0))
 
 ax = Axis(fig[1, 2], title = "sea ice concentration")
-heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
+heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.0, 1))
 
 ax = Axis(fig[2, 1], title = "zonal velocity")
-heatmap!(ax, ui, colorrange = (-0.1, 0.1))
+heatmap!(ax, ui, colorrange = (0, 0.12), colormap = :balance)
 
 ax = Axis(fig[2, 2], title = "meridional velocity")
-heatmap!(ax, vi, colorrange = (-0.1, 0.1))
+heatmap!(ax, vi, colorrange = (-0.025, 0.025), colormap = :bwr)
 
-GLMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
+GLMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 50) do i
     iter[] = i
     @info "doing iter $i"
 end
