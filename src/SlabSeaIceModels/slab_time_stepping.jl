@@ -81,9 +81,9 @@ end
 
 function update_state!(model::SSIM, callbacks = nothing)
     
-    # foreach(prognostic_fields(model)) do field
-    #     mask_immersed_field!(field)
-    # end
+    foreach(prognostic_fields(model)) do field
+        mask_immersed_field!(field)
+    end
 
     fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
 

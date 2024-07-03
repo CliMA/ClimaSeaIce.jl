@@ -3,10 +3,10 @@ using Oceananigans.Advection
 using Oceananigans.Operators
 using Oceananigans.Advection: _advective_tracer_flux_x, _advective_tracer_flux_y
 
-@inline horizontal_div_Uc(i, j, grid, ::Nothing, U, c) = zero(grid)
-@inline horizontal_div_Uc(i, j, grid, advection, U, c) = 
-    1 / Vᶜᶜᶜ(i, j, 1, grid) * (δxᶜᵃᵃ(i, j, 1, grid, _advective_tracer_flux_x, advection, U.u, c) +
-                               δyᵃᶜᵃ(i, j, 1, grid, _advective_tracer_flux_y, advection, U.v, c))
+@inline horizontal_div_Uc(i, j, k, grid, ::Nothing, U, c) = zero(grid)
+@inline horizontal_div_Uc(i, j, k, grid, advection, U, c) = 
+    1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_x, advection, U.u, c) +
+                               δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_y, advection, U.v, c))
                                
 @kernel function _compute_tracer_tendencies!(tendencies,
                                              grid,
@@ -87,7 +87,7 @@ function thickness_tendency(i, j, grid, clock,
                             h_forcing,
                             model_fields)
 
-    Gh_advection = - div_Uℵh(i, j, grid, advection, velocities, concentration, ice_thickness)
+    Gh_advection = - div_Uℵh(i, j, 1, grid, advection, velocities, concentration, ice_thickness)
 
     @inbounds begin
         hᶜ  = ice_consolidation_thickness[i, j, 1]
@@ -144,7 +144,7 @@ function concentration_tendency(i, j, grid, clock,
                                 a_forcing,
                                 model_fields)
 
-    Gℵ_advection = - horizontal_div_Uc(i, j, grid, advection, velocities, concentration)
+    Gℵ_advection = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, concentration)
 
     return Gℵ_advection 
 end
@@ -165,5 +165,5 @@ function tracer_tendency(i, j, grid, clock,
                          phase_transitions,
                          model_fields)
 
-    return  - div_Uh(i, j, grid, advection, velocities, concentration, tracer)
+    return  - div_Uh(i, j, 1, grid, advection, velocities, concentration, tracer)
 end
