@@ -232,16 +232,16 @@ end
 ##### Internal stress divergence for the EVP model
 #####
 
-@inline function x_internal_stress_divergence(i, j, grid, r::ExplicitViscoPlasticRheology) 
-    ∂xσ₁₁ = δxᶠᶜᶜ(i, j, 1, grid, Ax_qᶜᶜᶜ, r.σ₁₁)
-    ∂yσ₁₂ = δyᶠᶜᶜ(i, j, 1, grid, Ay_qᶠᶠᶜ, r.σ₁₂)
+@inline function x_internal_stress_divergence(i, j, k, grid, r::ExplicitViscoPlasticRheology) 
+    ∂xσ₁₁ = δxᶠᶜᶜ(i, j, k, grid, Ax_qᶜᶜᶜ, r.σ₁₁)
+    ∂yσ₁₂ = δyᶠᶜᶜ(i, j, k, grid, Ay_qᶠᶠᶜ, r.σ₁₂)
 
-    return (∂xσ₁₁ + ∂yσ₁₂) / Vᶠᶜᶜ(i, j, 1, grid)
+    return (∂xσ₁₁ + ∂yσ₁₂) / Vᶠᶜᶜ(i, j, k, grid)
 end
 
-@inline function y_internal_stress_divergence(i, j, grid, r::ExplicitViscoPlasticRheology) 
+@inline function y_internal_stress_divergence(i, j, k, grid, r::ExplicitViscoPlasticRheology) 
     ∂xσ₁₂ = δxᶜᶠᶜ(i, j, 1, grid, Ax_qᶠᶠᶜ, r.σ₁₂)
     ∂yσ₂₂ = δyᶜᶠᶜ(i, j, 1, grid, Ay_qᶜᶜᶜ, r.σ₂₂)
 
-    return (∂xσ₁₂ + ∂yσ₂₂) / Vᶜᶠᶜ(i, j, 1, grid)
+    return (∂xσ₁₂ + ∂yσ₂₂) / Vᶜᶠᶜ(i, j, k, grid)
 end

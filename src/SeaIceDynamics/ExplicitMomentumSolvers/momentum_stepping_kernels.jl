@@ -68,7 +68,7 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + x_internal_stress_divergence(i, j, grid, rheology) / mᵢ)
+                     + x_internal_stress_divergence(i, j, 1, grid, rheology) / mᵢ)
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(0)) 
@@ -140,7 +140,7 @@ end
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
                      + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + y_internal_stress_divergence(i, j, grid, rheology) / mᵢ) 
+                     + y_internal_stress_divergence(i, j, 1, grid, rheology) / mᵢ) 
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(0)) 
