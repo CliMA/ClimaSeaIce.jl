@@ -99,7 +99,7 @@ prognostic_fields(model::SSIM) = fields(model)
 Pretty simple model for sea ice.
 """
 function SlabSeaIceModel(grid;
-                         clock                          = Clock{eltype(grid)}(0, 0, 1),
+                         clock                          = Clock{eltype(grid)}(time = 0),
                          ice_thickness                  = Field{Center, Center, Nothing}(grid),
                          ice_consolidation_thickness    = 0.0, # m
                          concentration                  = Field{Center, Center, Nothing}(grid),
