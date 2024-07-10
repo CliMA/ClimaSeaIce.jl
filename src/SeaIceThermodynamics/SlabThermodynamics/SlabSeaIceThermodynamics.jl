@@ -1,4 +1,4 @@
-module SlabSeaIceModels
+module SlabSeaIceThermodynamics
 
 # using RootSolvers: find_zero
 

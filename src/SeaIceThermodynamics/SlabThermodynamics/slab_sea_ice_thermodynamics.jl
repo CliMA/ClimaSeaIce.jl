@@ -26,17 +26,9 @@ import Oceananigans.Utils: prettytime
 # import Oceananigans.Fields: field
 # field(loc, a::Number, grid) = ConstantField(a)
 
-struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <: AbstractModel{TS}
-    grid :: GR
-    clock :: CL
-    timestepper :: TS
-    # State
-    ice_thickness :: IT
-    ice_concentration :: IC
+struct SlabSeaIceModel{ST, STF, TBC, CF, P, MIT} <: AbstractModel{TS}
     top_surface_temperature :: ST
-    ice_salinity :: IS
-    velocities :: U
-    # Boundary conditions
+    # External boundary conditions
     external_heat_fluxes :: STF
     heat_boundary_conditions :: TBC
     # Internal flux
@@ -44,8 +36,6 @@ struct SlabSeaIceModel{GR, CL, TS, IT, IC, ST, IS, U, STF, TBC, CF, P, MIT, A} <
     # Melting and freezing stuff
     phase_transitions :: P
     ice_consolidation_thickness :: MIT
-    # Numerics
-    advection :: A
 end
 
 const SSIM = SlabSeaIceModel
