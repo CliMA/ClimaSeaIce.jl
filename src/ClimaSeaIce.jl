@@ -6,6 +6,8 @@ using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 
+using KernelAbstractions: @kernel, @index
+
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!

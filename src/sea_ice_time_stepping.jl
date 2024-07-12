@@ -9,8 +9,10 @@ using KernelAbstractions: @index, @kernel
 using Oceananigans.TimeSteppers: ab2_step_field!
 import Oceananigans.TimeSteppers: time_step!
 
-mask_immersed_field!(field::ConstantField) = nothing
-mask_immersed_field!(field::ZeroField)     = nothing
+using ClimaSeaIce.SeaIceDynamics: step_momentum!
+
+mask_immersed_field!(::ConstantField) = nothing
+mask_immersed_field!(::ZeroField)     = nothing
 
 function compute_tracer_tendencies!(model::SIM; callbacks = nothing)
     grid = model.grid

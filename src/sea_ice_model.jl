@@ -2,7 +2,7 @@ using Oceananigans.Fields: TracerFields
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using Oceananigans: tupleit
 
-struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -11,10 +11,14 @@ struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractMode
     tracers :: T
     ice_thickness :: IT
     ice_concentration :: IC
+    ice_density :: ID
     # Thermodynamics
     sea_ice_thermodynamics :: TD
     # Dynamics
     sea_ice_dynamics :: D
+    ocean_velocities :: UO
+    ocean_density :: DO
+    coriolis :: CO
     # External boundary conditions
     external_heat_fluxes :: STF
     external_momentum_stresses :: SMS
@@ -27,11 +31,16 @@ function SeaIceModel(grid;
                      ice_thickness          = Field{Center, Center, Nothing}(grid),
                      ice_concentration      = Field{Center, Center, Nothing}(grid),
                      ice_salinity           = 0, # psu
+                     ice_density            = 900, # kg/m³
                      top_heat_flux          = nothing,
                      bottom_heat_flux       = 0,
                      velocities             = nothing,
                      advection              = nothing,
-                     top_momentum_stress    = nothing, # Fix when introducing dynamics
+                     top_u_stress           = Field{Face, Center, Nothing}(grid),
+                     top_v_stress           = Field{Center, Face, Nothing}(grid),
+                     ocean_velocities       = (u = ZeroField(), v = ZeroField()),
+                     ocean_density          = 1025, # kg/m³
+                     coriolis               = nothing,
                      tracers                = (),
                      boundary_conditions    = NamedTuple(),
                      sea_ice_thermodynamics = SlabSeaIceThermodynamics(grid),
@@ -65,6 +74,9 @@ function SeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 
 
+    external_momentum_stress = (u = top_u_stress,
+                                v = top_v_stress)
+
     return SeaIceModel(grid,
                        clock,
                        timestepper,
@@ -72,10 +84,14 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
+                       ice_density,
                        sea_ice_thermodynamics,
                        sea_ice_dynamics,
+                       ocean_velocities,
+                       ocean_density,
+                       coriolis,
                        external_heat_fluxes,
-                       top_momentum_stress,
+                       external_momentum_stress,
                        advection)
 end
 
