@@ -138,7 +138,6 @@ using .HeatBoundaryConditions:
 # include("EnthalpyMethodThermodynamics.jl")
 include("SlabThermodynamics/SlabThermodynamics.jl")
 
-# using .EnthalpyMethodThermodynamics: EnthalpyMethodThermodynamics
 using .SlabThermodynamics: SlabSeaIceThermodynamics, ConductiveFlux
 
 end
