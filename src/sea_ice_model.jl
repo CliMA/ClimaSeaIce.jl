@@ -50,6 +50,7 @@ function SeaIceModel(grid;
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    tracers = merge(tracers, (; S = ice_salinity))
 
     top_heat_flux = external_top_heat_flux(sea_ice_thermodynamics, top_heat_flux)
 
@@ -99,3 +100,18 @@ function Base.show(io::IO, model::SIM)
     print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
 end
          
+reset!(::SIM) = nothing
+initialize!(::SIM) = nothing
+default_included_properties(::SIM) = tuple(:grid)
+
+fields(model::SIM) = merge((; h  = model.ice_thickness,
+                              ℵ  = model.ice_concentration),
+                           model.tracers,
+                           model.velocities,
+                           fields(model.sea_ice_thermodynamics))
+
+# TODO: make this correct
+prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
+                                         ℵ  = model.ice_concentration),
+                                      model.tracers,
+                                      model.velocities)

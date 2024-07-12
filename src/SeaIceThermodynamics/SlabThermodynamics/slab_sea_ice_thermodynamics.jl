@@ -1,6 +1,8 @@
+import Oceananigans: fields
+
 struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodynamics
     top_surface_temperature :: ST
-    heat_boundady_conditions :: HBC
+    heat_boundary_conditions :: HBC
     # Internal flux
     internal_heat_flux :: CF
     # Melting and freezing stuff
@@ -17,18 +19,8 @@ function Base.show(io::IO, therm::SSIT)
     print(io, "├── top_surface_temperature: ", summary(therm.top_surface_temperature), '\n')
     print(io, "└── minimium_ice_thickness: ", prettysummary(therm.ice_consolidation_thickness), '\n')
 end
-         
-reset!(::SSIT) = nothing
-initialize!(::SSIT) = nothing
-default_included_properties(::SSIT) = tuple(:grid)
-
-fields(model::SSIT) = (h = model.ice_thickness,
-                       ℵ = model.ice_concentration,
-                       Tᵤ = model.top_surface_temperature,
-                       Sᵢ = model.ice_salinity)
-
-# TODO: make this correct
-prognostic_fields(model::SSIT) = fields(model)
+       
+fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
 
 """
     SlabSeaIceThermodynamics(grid; kw...)
@@ -43,8 +35,6 @@ function SlabSeaIceThermodynamics(grid;
                                   # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
                                   internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
                                   phase_transitions              = PhaseTransitions(eltype(grid)))
-
-    FT = eltype(grid)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_consolidation_thickness in a field

@@ -1,4 +1,5 @@
 using Oceananigans.Advection
+using ClimaSeaIce.SeaIceThermodynamics: ice_thickness_growth
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
 function ice_thickness_tendency(i, j, k, grid, clock,

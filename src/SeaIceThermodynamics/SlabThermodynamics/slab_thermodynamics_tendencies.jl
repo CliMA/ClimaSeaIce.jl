@@ -1,3 +1,4 @@
+import ClimaSeaIce.SeaIceThermodynamics: ice_thickness_growth
 
 @inline function ice_thickness_growth(i, j, k, grid,
                                       ice_thickness,

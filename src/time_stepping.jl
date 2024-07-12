@@ -42,7 +42,8 @@ end
                                     model_fields)
 
     i, j = @index(Global, NTuple)
-
+    h  = ice_thickness
+    
     Gh = ice_thickness_tendency(i, j, 1, grid, clock,
                                 velocities,
                                 advection,
