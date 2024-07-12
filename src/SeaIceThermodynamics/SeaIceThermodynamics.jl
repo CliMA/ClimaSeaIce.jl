@@ -1,6 +1,12 @@
 module SeaIceThermodynamics
 
-export SlabSeaIceThermodynamics
+export SlabSeaIceThermodynamics, 
+       PhaseTransitions,
+       MeltingConstrainedFluxBalance,
+       PrescribedTemperature,
+       RadiativeEmission,
+       ConductiveFlux,
+       FluxFunction
 
 #####
 ##### A bit of thermodynamics to start the day

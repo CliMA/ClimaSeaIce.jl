@@ -1,5 +1,11 @@
 module HeatBoundaryConditions
 
+export MeltingConstrainedFluxBalance,
+       PrescribedTemperature,
+       RadiativeEmission,
+       ConductiveFlux,
+       FluxFunction
+
 using Adapt
 
 """

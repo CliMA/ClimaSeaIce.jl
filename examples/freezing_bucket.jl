@@ -59,8 +59,7 @@ thermodynamics = SlabSeaIceThermodynamics(grid;
 
 # Then we assemble it all into a model,
 
-model = SlabSeaIceModel(grid;
-                        sea_ice_thermodynamics = thermodynamics)
+model = SeaIceModel(grid; sea_ice_thermodynamics = thermodynamics)
 
 # Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!

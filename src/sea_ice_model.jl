@@ -1,16 +1,8 @@
 using Oceananigans.Fields: TracerFields
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
+using Oceananigans: tupleit
 
-# Simulations interface
-import Oceananigans: fields, prognostic_fields
-import Oceananigans.Fields: set!
-import Oceananigans.Models: AbstractModel
-import Oceananigans.OutputWriters: default_included_properties
-import Oceananigans.Simulations: reset!, initialize!, iteration
-import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.Utils: prettytime
-
-struct SeaIceModel{GR, CL, TS, U, T, IT, IC, TD, D, STF, TBC, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, CL, TS, U, T, IT, IC, TD, D, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
