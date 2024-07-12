@@ -1,4 +1,3 @@
-using ClimaSeaIce: latent_heat
 using Oceananigans.Advection
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
