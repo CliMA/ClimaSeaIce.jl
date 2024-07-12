@@ -22,15 +22,9 @@ import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
 
-# TODO: move to Oceananigans
-# import Oceananigans.Fields: field
-# field(loc, a::Number, grid) = ConstantField(a)
-
-struct SlabSeaIceModel{ST, STF, TBC, CF, P, MIT} <: AbstractModel{TS}
+struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodynamics
     top_surface_temperature :: ST
-    # External boundary conditions
-    external_heat_fluxes :: STF
-    heat_boundary_conditions :: TBC
+    heat_boundady_conditions :: HBC
     # Internal flux
     internal_heat_flux :: CF
     # Melting and freezing stuff
@@ -38,9 +32,9 @@ struct SlabSeaIceModel{ST, STF, TBC, CF, P, MIT} <: AbstractModel{TS}
     ice_consolidation_thickness :: MIT
 end
 
-const SSIM = SlabSeaIceModel
+const SSIM = SlabThermodynamics
 
-Base.summary(model::SSIM) = "SlabSeaIceModel"
+Base.summary(model::SSIM) = "SlabThermodynamics"
 prettytime(model::SSIM) = prettytime(model.clock.time)
 iteration(model::SSIM) = model.clock.iteration
 
@@ -50,7 +44,7 @@ function Base.show(io::IO, model::SSIM)
     gridname = typeof(grid).name.wrapper
     timestr = string("(time = ", prettytime(model), ", iteration = ", iteration(model), ")")
 
-    print(io, "SlabSeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
+    print(io, "SlabThermodynamics{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
     print(io, "├── top_surface_temperature: ", summary(model.top_surface_temperature), '\n')
     print(io, "├── minimium_ice_thickness: ", prettysummary(model.ice_consolidation_thickness), '\n')
@@ -72,38 +66,23 @@ fields(model::SSIM) = (h = model.ice_thickness,
 prognostic_fields(model::SSIM) = fields(model)
 
 """
-    SlabSeaIceModel(grid; kw...)
+    SlabSeaIceThermodynamics(grid; kw...)
 
 Pretty simple model for sea ice.
 """
-function SlabSeaIceModel(grid;
-                         clock                          = Clock{eltype(grid)}(time = 0),
-                         ice_thickness                  = Field{Center, Center, Nothing}(grid),
-                         ice_consolidation_thickness    = 0.0, # m
-                         ice_concentration              = Field{Center, Center, Nothing}(grid),
-                         ice_salinity                   = 0, # psu
-                         top_surface_temperature        = nothing,
-                         top_heat_flux                  = nothing,
-                         bottom_heat_flux               = 0,
-                         velocities                     = nothing,
-                         advection                      = nothing,
-                         top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
-                         bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
-                         # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
-                         internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
-                         phase_transitions              = PhaseTransitions(eltype(grid)))
+function SlabThermodynamics(grid;
+                            ice_consolidation_thickness    = 0.0, # m
+                            top_surface_temperature        = nothing,
+                            top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
+                            bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
+                            # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
+                            internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
+                            phase_transitions              = PhaseTransitions(eltype(grid)))
 
-    if isnothing(velocities)
-        velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
-    end
-
-    # Only one time-stepper is supported currently
-    timestepper = ForwardEulerTimestepper()
     FT = eltype(grid)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field
-    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    # Wrap ice_consolidation_thickness in a field
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
     # Construct an internal heat flux function that captures the liquidus and
@@ -115,17 +94,6 @@ function SlabSeaIceModel(grid;
     internal_heat_flux_function = FluxFunction(slab_internal_heat_flux;
                                                parameters,
                                                top_temperature_dependent=true)
-
-    # Construct default top heat flux if one is not provided
-    if isnothing(top_heat_flux)
-        if top_heat_boundary_condition isa PrescribedTemperature  
-            # Default: external top flux is in equilibrium with internal fluxes
-            top_heat_flux = internal_heat_flux_function
-        else
-            # Default: no external top surface flux
-            top_heat_flux = 0
-        end
-    end
 
     # Construct default top temperature if one is not provided
     if isnothing(top_surface_temperature)
@@ -140,32 +108,27 @@ function SlabSeaIceModel(grid;
     # Convert to `field` (does nothing if it's already a Field)
     top_surface_temperature = field((Center, Center, Nothing), top_surface_temperature, grid)
 
-    # Package the external fluxes and boundary conditions
-    external_heat_fluxes = (top = top_heat_flux,    
-                            bottom = bottom_heat_flux) 
-
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                 bottom = bottom_heat_boundary_condition)
 
-    return SlabSeaIceModel(grid,
-                           clock,
-                           timestepper,
-                           ice_thickness,
-                           ice_concentration,
-                           top_surface_temperature,
-                           ice_salinity,
-                           velocities,
-                           external_heat_fluxes,
-                           heat_boundary_conditions,
-                           internal_heat_flux_function,
-                           phase_transitions,
-                           ice_consolidation_thickness,
-                           advection)
+    return SlabSeaIceThermodynamics(grid,
+                                    top_surface_temperature,
+                                    heat_boundary_conditions,
+                                    internal_heat_flux_function,
+                                    phase_transitions,
+                                    ice_consolidation_thickness)
 end
 
-function set!(model::SSIM; h=nothing, α=nothing)
-    !isnothing(h) && set!(model.ice_thickness, h)
-    !isnothing(α) && set!(model.ice_conentration, α)
-    return nothing
-end
+function thermodynamically_consistent_top_heat_flux(top_heat_flux, thermodynamics :: SlabThermodynamics)   # Construct default top heat flux if one is not provided
+    if isnothing(top_heat_flux)
+        if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature  
+            # Default: external top flux is in equilibrium with internal fluxes
+            top_heat_flux = internal_heat_flux_function
+        else
+            # Default: no external top surface flux
+            top_heat_flux = 0
+        end
+    end
 
+    return top_heat_flux
+end

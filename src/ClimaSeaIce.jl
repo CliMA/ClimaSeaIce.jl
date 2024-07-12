@@ -12,4 +12,11 @@ export
     FluxFunction,
     SlabSeaIceModel
 
+include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
+include("sea_ice_model.jl")
+include("tracer_tendency_kernel_functions.jl")
+include("time_stepping.jl")
+
+using .SeaIceThermodynamics
+
 end # module

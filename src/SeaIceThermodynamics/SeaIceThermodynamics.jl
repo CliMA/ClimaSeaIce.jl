@@ -1,6 +1,6 @@
 module SeaIceThermodynamics
 
-
+export SlabThermodynamics
 
 #####
 ##### A bit of thermodynamics to start the day
@@ -112,6 +112,8 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
+@inline thermodynamically_consistent_top_heat_flux(top_heat_flux, sea_ice_thermodynamics) = top_heat_flux
+
 struct ForwardEulerTimestepper end
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
@@ -123,10 +125,11 @@ using .HeatBoundaryConditions:
     FluxFunction,
     PrescribedTemperature
 
-include("EnthalpyMethodThermodynamics.jl")
+# TODO: Fix this after this PR
+# include("EnthalpyMethodThermodynamics.jl")
 include("SlabThermodynamics/SlabThermodynamics.jl")
 
-using .EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel
-using .SlabSeaIceModels: SlabSeaIceModel, ConductiveFlux
+# using .EnthalpyMethodThermodynamics: EnthalpyMethodThermodynamics
+using .SlabThermodynamics: SlabSeaIceThermodynamics, ConductiveFlux
 
 end
