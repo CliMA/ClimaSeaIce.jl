@@ -16,7 +16,7 @@ function time_step!(model::SSIM, Δt; callbacks=nothing)
     arch = architecture(grid)
 
     launch!(arch, grid, :xyz,
-            slab_model_time_step!,
+            sea_ice_time_step!,
             model.ice_thickness,
             Δt,
             grid,

@@ -114,9 +114,7 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-@inline thermodynamically_consistent_top_heat_flux(top_heat_flux, sea_ice_thermodynamics) = top_heat_flux
-
-struct ForwardEulerTimestepper end
+@inline external_top_heat_flux(sea_ice_thermodynamics, top_heat_flux) = top_heat_flux
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 

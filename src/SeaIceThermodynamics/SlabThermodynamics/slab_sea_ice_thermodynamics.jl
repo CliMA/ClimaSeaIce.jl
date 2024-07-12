@@ -1,8 +1,10 @@
 using ClimaSeaIce:
-    PhaseTransitions,
     ForwardEulerTimestepper
 
-using ClimaSeaIce.HeatBoundaryConditions:
+using ClimaSeaIce.SeaIceThermodynamics:
+    PhaseTransitions
+
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions:
     MeltingConstrainedFluxBalance,
     IceWaterThermalEquilibrium,
     PrescribedTemperature,
@@ -32,25 +34,14 @@ struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodyna
     ice_consolidation_thickness :: MIT
 end
 
-const SSIM = SlabThermodynamics
+const SSIM = SlabSeaIceThermodynamics
 
-Base.summary(model::SSIM) = "SlabThermodynamics"
-prettytime(model::SSIM) = prettytime(model.clock.time)
-iteration(model::SSIM) = model.clock.iteration
+Base.summary(therm::SSIM) = "SlabThermodynamics"
 
-function Base.show(io::IO, model::SSIM)
-    grid = model.grid
-    arch = architecture(grid)
-    gridname = typeof(grid).name.wrapper
-    timestr = string("(time = ", prettytime(model), ", iteration = ", iteration(model), ")")
-
-    print(io, "SlabThermodynamics{", typeof(arch), ", ", gridname, "}", timestr, '\n')
-    print(io, "├── grid: ", summary(model.grid), '\n')
-    print(io, "├── top_surface_temperature: ", summary(model.top_surface_temperature), '\n')
-    print(io, "├── minimium_ice_thickness: ", prettysummary(model.ice_consolidation_thickness), '\n')
-    print(io, "└── external_heat_fluxes: ", '\n')
-    print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
-    print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
+function Base.show(io::IO, therm::SSIM)
+    print(io, "SlabSeaIceThermodynamics", '\n')
+    print(io, "├── top_surface_temperature: ", summary(therm.top_surface_temperature), '\n')
+    print(io, "└── minimium_ice_thickness: ", prettysummary(therm.ice_consolidation_thickness), '\n')
 end
          
 reset!(::SSIM) = nothing
@@ -70,14 +61,14 @@ prognostic_fields(model::SSIM) = fields(model)
 
 Pretty simple model for sea ice.
 """
-function SlabThermodynamics(grid;
-                            ice_consolidation_thickness    = 0.0, # m
-                            top_surface_temperature        = nothing,
-                            top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
-                            bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
-                            # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
-                            internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
-                            phase_transitions              = PhaseTransitions(eltype(grid)))
+function SlabSeaIceThermodynamics(grid;
+                                  ice_consolidation_thickness    = 0.0, # m
+                                  top_surface_temperature        = nothing,
+                                  top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
+                                  bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
+                                  # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
+                                  internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
+                                  phase_transitions              = PhaseTransitions(eltype(grid)))
 
     FT = eltype(grid)
 
@@ -111,15 +102,15 @@ function SlabThermodynamics(grid;
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                 bottom = bottom_heat_boundary_condition)
 
-    return SlabSeaIceThermodynamics(grid,
-                                    top_surface_temperature,
+    return SlabSeaIceThermodynamics(top_surface_temperature,
                                     heat_boundary_conditions,
                                     internal_heat_flux_function,
                                     phase_transitions,
                                     ice_consolidation_thickness)
 end
 
-function thermodynamically_consistent_top_heat_flux(top_heat_flux, thermodynamics :: SlabThermodynamics)   # Construct default top heat flux if one is not provided
+function external_top_heat_flux(thermodynamics::SlabSeaIceThermodynamics,
+                                                    top_heat_flux)   # Construct default top heat flux if one is not provided
     if isnothing(top_heat_flux)
         if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature  
             # Default: external top flux is in equilibrium with internal fluxes

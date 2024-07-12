@@ -12,6 +12,8 @@ export
     FluxFunction,
     SlabSeaIceModel
 
+struct ForwardEulerTimestepper end
+
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
 include("sea_ice_model.jl")
 include("tracer_tendency_kernel_functions.jl")

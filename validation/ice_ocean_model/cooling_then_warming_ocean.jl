@@ -3,7 +3,7 @@ using Oceananigans.Utils: prettysummary
 using Oceananigans.Units
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using ClimaSeaIce
-using ClimaSeaIce: melting_temperature
+using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
 using SeawaterPolynomials: TEOS10EquationOfState
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 using GLMakie

@@ -1,5 +1,14 @@
 using Oceananigans.Fields: TracerFields
-using ClimaSeaIce.SeaIceThermodynamics: themodynamics_consistent_top_heat_flux
+using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
+
+# Simulations interface
+import Oceananigans: fields, prognostic_fields
+import Oceananigans.Fields: set!
+import Oceananigans.Models: AbstractModel
+import Oceananigans.OutputWriters: default_included_properties
+import Oceananigans.Simulations: reset!, initialize!, iteration
+import Oceananigans.TimeSteppers: time_step!, update_state!
+import Oceananigans.Utils: prettytime
 
 struct SeaIceModel{GR, CL, TS, U, T, IT, IC, TD, D, STF, TBC, SMS, A} <: AbstractModel{TS}
     grid :: GR
@@ -50,29 +59,51 @@ function SeaIceModel(grid;
     # Wrap ice_salinity in a field
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
-    top_heat_flux = thermodynamically_consistent_top_heat_flux(top_heat_flux, sea_ice_thermodynamics)
+    top_heat_flux = external_top_heat_flux(sea_ice_thermodynamics, top_heat_flux)
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 
 
-    return SlabSeaIceThermodynamics(grid,
-                                    clock,
-                                    timestepper,
-                                    velocities,
-                                    tracers,
-                                    ice_thickness,
-                                    ice_concentration,
-                                    sea_ice_thermodynamics,
-                                    sea_ice_dynamics,
-                                    external_heat_fluxes,
-                                    top_momentum_stress,
-                                    advection)
+    return SeaIceModel(grid,
+                       clock,
+                       timestepper,
+                       velocities,
+                       tracers,
+                       ice_thickness,
+                       ice_concentration,
+                       sea_ice_thermodynamics,
+                       sea_ice_dynamics,
+                       external_heat_fluxes,
+                       top_momentum_stress,
+                       advection)
 end
 
-function set!(model::SSIM; h=nothing, ℵ=nothing)
+const SIM = SeaIceModel
+
+function set!(model::SIM; h=nothing, ℵ=nothing)
     !isnothing(h) && set!(model.ice_thickness, h)
     !isnothing(ℵ) && set!(model.ice_conentration, ℵ)
     return nothing
 end
 
+Base.summary(model::SIM) = "SeaIceModel"
+prettytime(model::SIM) = prettytime(model.clock.time)
+iteration(model::SIM) = model.clock.iteration
+
+function Base.show(io::IO, model::SIM)
+    grid = model.grid
+    arch = architecture(grid)
+    gridname = typeof(grid).name.wrapper
+    timestr = string("(time = ", prettytime(model), ", iteration = ", iteration(model), ")")
+
+    print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
+    print(io, "├── grid: ", summary(model.grid), '\n')
+    print(io, "├── sea ice thermodynamics: ", summary(model.sea_ice_thermodynamics), '\n')
+    print(io, "├── sea ice dynamics: ", summary(model.sea_ice_dynamics), '\n')
+    print(io, "├── advection: ", summary(model.advection), '\n')
+    print(io, "└── external_heat_fluxes: ", '\n')
+    print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
+    print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
+end
+         
