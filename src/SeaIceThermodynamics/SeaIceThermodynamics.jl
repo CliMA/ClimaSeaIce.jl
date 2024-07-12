@@ -1,10 +1,12 @@
 module SeaIceThermodynamics
 
-export SlabThermodynamics
+export SlabSeaIceThermodynamics
 
 #####
 ##### A bit of thermodynamics to start the day
 #####
+
+abstract type AbstractSeaIceThermodynamics end
 
 struct LinearLiquidus{FT}
     freshwater_melting_temperature :: FT
