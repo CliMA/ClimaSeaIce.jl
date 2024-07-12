@@ -8,27 +8,27 @@ struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodyna
     ice_consolidation_thickness :: MIT
 end
 
-const SSIM = SlabSeaIceThermodynamics
+const SSIT = SlabSeaIceThermodynamics
 
-Base.summary(therm::SSIM) = "SlabThermodynamics"
+Base.summary(therm::SSIT) = "SlabThermodynamics"
 
-function Base.show(io::IO, therm::SSIM)
+function Base.show(io::IO, therm::SSIT)
     print(io, "SlabSeaIceThermodynamics", '\n')
     print(io, "├── top_surface_temperature: ", summary(therm.top_surface_temperature), '\n')
     print(io, "└── minimium_ice_thickness: ", prettysummary(therm.ice_consolidation_thickness), '\n')
 end
          
-reset!(::SSIM) = nothing
-initialize!(::SSIM) = nothing
-default_included_properties(::SSIM) = tuple(:grid)
+reset!(::SSIT) = nothing
+initialize!(::SSIT) = nothing
+default_included_properties(::SSIT) = tuple(:grid)
 
-fields(model::SSIM) = (h = model.ice_thickness,
+fields(model::SSIT) = (h = model.ice_thickness,
                        ℵ = model.ice_concentration,
                        Tᵤ = model.top_surface_temperature,
                        Sᵢ = model.ice_salinity)
 
 # TODO: make this correct
-prognostic_fields(model::SSIM) = fields(model)
+prognostic_fields(model::SSIT) = fields(model)
 
 """
     SlabSeaIceThermodynamics(grid; kw...)

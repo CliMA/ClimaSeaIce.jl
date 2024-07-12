@@ -1,9 +1,3 @@
-using ClimaSeaIce.HeatBoundaryConditions:
-    PrescribedTemperature,
-    bottom_temperature,
-    top_surface_temperature,
-    getflux
-
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
@@ -11,7 +5,7 @@ using Oceananigans.Utils: launch!
 
 using KernelAbstractions: @index, @kernel
 
-function time_step!(model::SSIM, Δt; callbacks=nothing)
+function time_step!(model::SIM, Δt; callbacks=nothing)
     grid = model.grid
     arch = architecture(grid)
 
@@ -72,7 +66,7 @@ end
     end
 end
 
-function update_state!(model::SSIM)
+function update_state!(model::SIM)
     h = model.ice_thickness
     fill_halo_regions!(h)
     return nothing

@@ -38,7 +38,7 @@ IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
     return melting_temperature(liquidus, Sₒ)
 end
 
-@inline function bottom_flux_imbalance(i, j, k, grid, bottom_heat_bc, top_temperature,
+@inline function bottom_flux_imbalance(i, j, grid, bottom_heat_bc, top_temperature,
                                        internal_fluxes, external_fluxes, clock, model_fields)
 
     #          
@@ -49,8 +49,8 @@ end
     #   water      ↑   Qx ≡ external_fluxes
     #        
 
-    Qi = getflux(internal_fluxes, i, j, k, grid, top_temperature, clock, model_fields)
-    Qx = getflux(external_fluxes, i, j, k, grid, top_temperature, clock, model_fields)
+    Qi = getflux(internal_fluxes, i, j, grid, top_temperature, clock, model_fields)
+    Qx = getflux(external_fluxes, i, j, grid, top_temperature, clock, model_fields)
 
     return Qi - Qx
 end

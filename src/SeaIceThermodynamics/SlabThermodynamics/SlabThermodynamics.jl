@@ -5,10 +5,11 @@ export SlabSeaIceThermodynamics
 using ClimaSeaIce:
     ForwardEulerTimestepper
 
+using ClimaSeaIce.SeaIceThermodynamics
 using ClimaSeaIce.SeaIceThermodynamics:
-    PhaseTransitions
     AbstractSeaIceThermodynamics,
-    latent_heat,
+    PhaseTransitions,
+    latent_heat
 
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions:
     MeltingConstrainedFluxBalance,
