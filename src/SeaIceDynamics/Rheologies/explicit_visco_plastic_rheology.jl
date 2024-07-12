@@ -83,7 +83,7 @@ function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology
     arch = architecture(grid)
 
     h  = model.ice_thickness
-    ℵ  = model.concentration
+    ℵ  = model.ice_concentration
     ρᵢ = model.ice_density
 
     substeps = solver.substeps

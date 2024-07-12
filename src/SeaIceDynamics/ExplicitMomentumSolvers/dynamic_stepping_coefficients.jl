@@ -32,7 +32,7 @@ end
 # where γ = (ζ / 4) * π² * (Δt / mᵢ) / Az
 @inline function update_stepping_coefficients!(i, j, k, grid, coefficients::DynamicSteppingCoefficient, ζ, mᵢ, Δt)
     A     = Azᶜᶜᶜ(i, j, k, grid)
-    γ     = ζ / 4 * π^2 * Δt / mᵢ / A
+    γ     = ifelse(mᵢ == 0, zero(A), ζ / 4 * π^2 * Δt / mᵢ / A)
     c_min = coefficients.minimum_substeps
     @inbounds coefficients.c[i, j, k] = max(sqrt(4γ), c_min)
     return nothing
