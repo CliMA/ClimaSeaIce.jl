@@ -1,9 +1,3 @@
-using ClimaSeaIce.HeatBoundaryConditions:
-    PrescribedTemperature,
-    bottom_temperature,
-    top_surface_temperature,
-    getflux
-
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
@@ -18,39 +12,33 @@ import Oceananigans.TimeSteppers: time_step!
 mask_immersed_field!(field::ConstantField) = nothing
 mask_immersed_field!(field::ZeroField)     = nothing
 
-function compute_tracer_tendencies!(model::SSIM; callbacks = nothing)
+function compute_tracer_tendencies!(model::SIM; callbacks = nothing)
     grid = model.grid
     arch = architecture(grid)
    
     launch!(arch, grid, :xyz,
             _compute_tracer_tendencies!,
             model.timestepper.Gⁿ,
+            model.ice_thickness,
             grid,
             model.clock,
-            model.ice_thickness,
-            model.concentration,
             model.velocities,
             model.advection,
-            model.top_surface_temperature,
-            model.heat_boundary_conditions.top,
-            model.heat_boundary_conditions.bottom,
+            model.ice_concentration,
+            model.sea_ice_thermodynamics,
             model.external_heat_fluxes.top,
-            model.internal_heat_flux,
             model.external_heat_fluxes.bottom,
-            model.ice_consolidation_thickness,
-            model.phase_transitions,
-            nothing, #model.forcing
+            nothing, #model.forcing.h,
             fields(model))
 
     return nothing
 end
 
-function ab2_step_tracers!(model::SSIM, Δt, χ)
+function ab2_step_tracers!(model::SIM, Δt, χ)
     grid = model.grid
     arch = architecture(grid)
 
     h  = model.ice_thickness
-    hᶜ = model.ice_consolidation_thickness
     ℵ  = model.concentration
 
     Ghⁿ = model.timestepper.Gⁿ.h
@@ -58,12 +46,12 @@ function ab2_step_tracers!(model::SSIM, Δt, χ)
     Gℵⁿ = model.timestepper.Gⁿ.ℵ
     Gℵ⁻ = model.timestepper.G⁻.ℵ    
 
-    launch!(arch, grid, :xyz, _ab2_step_tracers!, h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, hᶜ, Δt, χ)
+    launch!(arch, grid, :xyz, _ab2_step_tracers!, h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, Δt, χ)
 
     return nothing
 end
 
-function store_tendencies!(model::SSIM) 
+function store_tendencies!(model::SIM) 
 
     grid = model.grid
     arch = architecture(grid)
@@ -79,7 +67,7 @@ function store_tendencies!(model::SSIM)
     return nothing
 end
 
-function update_state!(model::SSIM, callbacks = nothing)
+function update_state!(model::SIM, callbacks = nothing)
     
     foreach(prognostic_fields(model)) do field
         mask_immersed_field!(field)
@@ -90,7 +78,7 @@ function update_state!(model::SSIM, callbacks = nothing)
     return nothing
 end
 
-function time_step!(model::SSIM, Δt; callbacks=nothing, euler=false)
+function time_step!(model::SIM, Δt; callbacks=nothing, euler=false)
     
     # Be paranoid and update state at iteration 0
     model.clock.iteration == 0 && update_state!(model, callbacks)
@@ -143,7 +131,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _ab2_step_tracers!(h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, hᶜ, Δt, χ)
+@kernel function _ab2_step_tracers!(h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, Δt, χ)
     i, j = @index(Global, NTuple)
 
     FT = eltype(χ)
@@ -158,9 +146,8 @@ end
 
         # Belongs in update state?
         # That's certainly a simple model for ice concentration
-        consolidated_ice = h[i, j, 1] >= hᶜ[i, j, 1]
         ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, 1] - (oh_point_five + χ) * Gℵ⁻[i, j, 1])
-        ℵ[i, j, 1] = ifelse(consolidated_ice, max(0, ℵ⁺), 0)
+        ℵ[i, j, 1] = ℵ⁺
         
         # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
         # to maintain a constant ice volume

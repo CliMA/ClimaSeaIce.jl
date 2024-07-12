@@ -21,14 +21,14 @@ import Oceananigans.Fields: set!
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Simulations: reset!
 
-mutable struct EnthalpyMethodSeaIceModel{Grid,
-                                         Tim,
-                                         Clk,
-                                         Clo,
-                                         State,
-                                         Cp,
-                                         Fu,
-                                         Tend} <: AbstractModel{Nothing}
+mutable struct EnthalpyMethodThermodynamics{Grid,
+                                            Tim,
+                                            Clk,
+                                            Clo,
+                                            State,
+                                            Cp,
+                                            Fu,
+                                            Tend} <: AbstractModel{Nothing}
     grid :: Grid
     timestepper :: Tim # unused placeholder for now
     clock :: Clk
