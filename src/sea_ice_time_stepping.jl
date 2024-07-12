@@ -14,72 +14,6 @@ using ClimaSeaIce.SeaIceDynamics: step_momentum!
 mask_immersed_field!(::ConstantField) = nothing
 mask_immersed_field!(::ZeroField)     = nothing
 
-function compute_tracer_tendencies!(model::SIM; callbacks = nothing)
-    grid = model.grid
-    arch = architecture(grid)
-   
-    launch!(arch, grid, :xyz,
-            _compute_tracer_tendencies!,
-            model.timestepper.Gⁿ,
-            model.ice_thickness,
-            grid,
-            model.clock,
-            model.velocities,
-            model.advection,
-            model.ice_concentration,
-            model.sea_ice_thermodynamics,
-            model.external_heat_fluxes.top,
-            model.external_heat_fluxes.bottom,
-            nothing, #model.forcing.h,
-            fields(model))
-
-    return nothing
-end
-
-function ab2_step_tracers!(model::SIM, Δt, χ)
-    grid = model.grid
-    arch = architecture(grid)
-
-    h  = model.ice_thickness
-    ℵ  = model.concentration
-
-    Ghⁿ = model.timestepper.Gⁿ.h
-    Gh⁻ = model.timestepper.G⁻.h
-    Gℵⁿ = model.timestepper.Gⁿ.ℵ
-    Gℵ⁻ = model.timestepper.G⁻.ℵ    
-
-    launch!(arch, grid, :xyz, _ab2_step_tracers!, h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, Δt, χ)
-
-    return nothing
-end
-
-function store_tendencies!(model::SIM) 
-
-    grid = model.grid
-    arch = architecture(grid)
-    Nx, Ny, _ = size(grid)
-
-    Gⁿ = model.timestepper.Gⁿ
-    G⁻ = model.timestepper.G⁻
-    Nt = length(Gⁿ)
-
-    params = KernelParameters((Nx, Ny, Nt), (0, 0, 0))
-    launch!(architecture(model.grid), model.grid, params, _store_all_tendencies!, G⁻, Gⁿ)
-
-    return nothing
-end
-
-function update_state!(model::SIM, callbacks = nothing)
-    
-    foreach(prognostic_fields(model)) do field
-        mask_immersed_field!(field)
-    end
-
-    fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
-
-    return nothing
-end
-
 function time_step!(model::SIM, Δt; callbacks=nothing, euler=false)
     
     # Be paranoid and update state at iteration 0
@@ -116,7 +50,7 @@ function time_step!(model::SIM, Δt; callbacks=nothing, euler=false)
     ab2_step_tracers!(model, Δt, χ)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
-    step_momentum!(model, model.momentum_solver, Δt, χ)
+    step_momentum!(model, model.sea_ice_dynamics, Δt, χ)
 
     # Only the tracers are advanced through an AB2 scheme 
     # (velocities are stepped in the dynamics step)
@@ -129,36 +63,107 @@ function time_step!(model::SIM, Δt; callbacks=nothing, euler=false)
     return nothing
 end
 
+function compute_tracer_tendencies!(model::SIM; callbacks = nothing)
+    grid = model.grid
+    arch = architecture(grid)
+   
+    launch!(arch, grid, :xyz,
+            _compute_tracer_tendencies!,
+            model.timestepper.Gⁿ,
+            model.ice_thickness,
+            grid,
+            model.clock,
+            model.velocities,
+            model.advection,
+            model.ice_concentration,
+            model.sea_ice_thermodynamics,
+            model.external_heat_fluxes.top,
+            model.external_heat_fluxes.bottom,
+            nothing, #model.forcing.h,
+            fields(model))
+
+    return nothing
+end
+
+function ab2_step_tracers!(model::SIM, Δt, χ)
+    grid = model.grid
+    arch = architecture(grid)
+
+    h  = model.ice_thickness
+    ℵ  = model.ice_concentration
+    tracers = model.tracers
+
+    Gⁿ = model.timestepper.Gⁿ
+    G⁻ = model.timestepper.G⁻
+
+    launch!(arch, grid, :xyz, _ab2_step_tracers!, h, ℵ, tracers, Gⁿ, G⁻, Δt, χ)
+
+    return nothing
+end
+
+function store_tendencies!(model::SIM) 
+
+    grid = model.grid
+    arch = architecture(grid)
+    Nx, Ny, _ = size(grid)
+
+    Gⁿ = model.timestepper.Gⁿ
+    G⁻ = model.timestepper.G⁻
+    Nt = length(Gⁿ)
+
+    params = KernelParameters((Nx, Ny, Nt), (0, 0, 0))
+    launch!(arch, model.grid, params, _store_all_tendencies!, G⁻, Gⁿ)
+
+    return nothing
+end
+
 # Thickness and concentration are updated using an AB2 scheme
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _ab2_step_tracers!(h, ℵ, Ghⁿ, Gℵⁿ, Gh⁻, Gℵ⁻, Δt, χ)
-    i, j = @index(Global, NTuple)
+@kernel function _ab2_step_tracers!(h, ℵ, tracers, Gⁿ, G⁻, Δt, χ)
+    i, j, k = @index(Global, NTuple)
 
     FT = eltype(χ)
     Δt = convert(FT, Δt)
     one_point_five = convert(FT, 1.5)
     oh_point_five  = convert(FT, 0.5)
 
+    Ghⁿ = Gⁿ.h
+    Gℵⁿ = Gⁿ.ℵ
+    
+    Gh⁻ = G⁻.h
+    Gℵ⁻ = G⁻.ℵ
+
     # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = h[i, j, 1] + Δt * ((one_point_five + χ) * Ghⁿ[i, j, 1] - (oh_point_five + χ) * Gh⁻[i, j, 1])
-        h[i, j, 1] = max(0, h⁺)
+        h⁺ = h[i, j, k] + Δt * ((one_point_five + χ) * Ghⁿ[i, j, k] - (oh_point_five + χ) * Gh⁻[i, j, k])
+        h⁺ = max(0, h⁺)
 
         # Belongs in update state?
         # That's certainly a simple model for ice concentration
-        ℵ⁺ = ℵ[i, j, 1] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, 1] - (oh_point_five + χ) * Gℵ⁻[i, j, 1])
-        ℵ[i, j, 1] = ℵ⁺
+        ℵ⁺ = ℵ[i, j, k] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, k] - (oh_point_five + χ) * Gℵ⁻[i, j, k])
+        ℵ⁺ = max(0, ℵ⁺)
         
         # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
         # to maintain a constant ice volume
-        h[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, h[i, j, 1] * ℵ[i, j, 1], h[i, j, 1])
-        ℵ[i, j, 1] = ifelse(ℵ[i, j, 1] > 1, 1, ℵ[i, j, 1])
+        h[i, j, k] = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
+        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, 1, ℵ⁺)
     end 
 end
 
 @kernel function _store_all_tendencies!(G⁻, Gⁿ) 
     i, j, n = @index(Global, NTuple)
     @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
+end
+
+function update_state!(model::SIM, callbacks = nothing)
+    
+    foreach(prognostic_fields(model)) do field
+        mask_immersed_field!(field)
+    end
+
+    fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
+
+    return nothing
 end

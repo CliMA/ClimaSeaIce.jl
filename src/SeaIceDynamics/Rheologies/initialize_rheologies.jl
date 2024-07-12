@@ -25,7 +25,7 @@ In this step we calculate the ice strength given the ice mass (thickness and con
 """
 function initialize_rheology!(model, rheology::AbstractRheology)
     h = model.ice_thickness
-    ℵ = model.concentration
+    ℵ = model.ice_concentration
 
     P  = rheology.ice_strength
     P★ = rheology.ice_compressive_strength

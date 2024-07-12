@@ -88,7 +88,7 @@ vtimeseries = []
 ## Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
     h = sim.model.ice_thickness
-    ℵ = sim.model.concentration
+    ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
     push!(htimeseries, deepcopy(Array(interior(h))))

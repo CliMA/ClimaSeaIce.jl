@@ -41,7 +41,7 @@ function ice_thickness_tendency(i, j, k, grid, clock,
                                 h_forcing,
                                 model_fields)
 
-    Gh_advection = - div_Uc(i, j, k, grid, advection, velocities, ice_thickness)
+    Gh_advection = - div_Uℵh(i, j, k, grid, advection, velocities, concentration, ice_thickness)
 
     Gh_growth = ice_thickness_growth(i, j, k, grid, 
                                      ice_thickness, 

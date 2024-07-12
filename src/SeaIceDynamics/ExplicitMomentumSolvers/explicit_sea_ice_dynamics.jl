@@ -19,8 +19,8 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
     initialize_substepping!(model, solver)
 
     # The atmospheric stress component is fixed during time-stepping
-    τua = model.external_momentum_stress.u
-    τva = model.external_momentum_stress.v
+    τua = model.external_momentum_stresses.u
+    τva = model.external_momentum_stresses.v
 
     # We step the momentum equation using a leap-frog scheme
     # where we alternate the order of solving u and v 
