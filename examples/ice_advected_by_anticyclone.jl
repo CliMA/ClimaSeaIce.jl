@@ -88,14 +88,14 @@ momentum_solver = ExplicitMomentumSolver(grid)
 advection = WENO(; order = 7)
 
 # Define the model!
-model = SlabSeaIceModel(grid; 
-                        top_u_stress = τᵤ,
-                        top_v_stress = τᵥ,
-                        velocities = (u = uᵢ, v = vᵢ),
-                        ocean_velocities = (u = Uₒ, v = Vₒ),
-                        sea_ice_dynamics = momentum_solver,
-                        advection,
-                        coriolis = FPlane(f = 1e-4))
+model = SeaIceModel(grid; 
+                    top_u_stress = τᵤ,
+                    top_v_stress = τᵥ,
+                    velocities = (u = uᵢ, v = vᵢ),
+                    ocean_velocities = (u = Uₒ, v = Vₒ),
+                    sea_ice_dynamics = momentum_solver,
+                    advection,
+                    coriolis = FPlane(f = 1e-4))
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))

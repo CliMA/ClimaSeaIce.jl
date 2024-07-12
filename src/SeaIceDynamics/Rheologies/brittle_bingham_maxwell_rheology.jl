@@ -1,5 +1,5 @@
 
-struct BrittleBinghamMaxwellRheology{S1, S2, S3, E, η, D, P, FT} <: AbstractRheology
+struct BrittleBinghamMaxwellRheology{S1, S2, S3, E, H, D, P, FT} <: AbstractRheology
     σ₁₁ :: S1 # internal stress xx
     σ₂₂ :: S2 # internal stress yy
     σ₁₂ :: S3 # internal stress xy
@@ -87,12 +87,14 @@ end
 # The parameterization for an `ExplicitViscoPlasticRheology`
 @kernel function _compute_initial_parameters!(P, E, η, P★, C, E₀, η₀, α, h, ℵ)
     i, j = @index(Global, NTuple)
-    K₁ = exp(- C * (1 - ℵ[i, j, 1]))
-    K₂ = exp(- α * C * (1 - ℵ[i, j, 1]))
-
-    @inbounds P[i, j, 1] = P★ * h[i, j, 1] * K₁
-    @inbounds E[i, j, 1] = E₀ * K₁ 
-    @inbounds η[i, j, 1] = η₀ * K₂
+    
+    @inbounds begin 
+        K₁ = exp(- C * (1 - ℵ[i, j, 1]))
+        K₂ = exp(- α * C * (1 - ℵ[i, j, 1]))
+        P[i, j, 1] = P★ * h[i, j, 1] * K₁
+        E[i, j, 1] = E₀ * K₁ 
+        η[i, j, 1] = η₀ * K₂
+    end
 end
 
 # Specific compute stresses for the BBM rheology
@@ -102,7 +104,7 @@ function compute_stresses!(model, solver, rheology::BrittleBinghamMaxwellRheolog
     arch = architecture(grid)
 
     h  = model.ice_thickness
-    ℵ  = model.concentration
+    ℵ  = model.ice_concentration
     ρᵢ = model.ice_density
 
     substeps = solver.substeps
@@ -122,14 +124,19 @@ end
     E   = rheology.young_modulus
     η   = rheology.bulk_viscosity
     σ₁₁ = rheology.σ₁₁
-    σ₂₂ = rheology.σ₁₁
-    σ₁₂ = rheology.σ₁₁
+    σ₂₂ = rheology.σ₂₂
+    σ₁₂ = rheology.σ₁₂
 
-    @inbuonds E₀ = E[i, j, 1]
-    @inbuonds η₀ = η[i, j, 1]
+    @inbounds E₀ = E[i, j, 1]
+    @inbounds η₀ = η[i, j, 1]
 
     λ = η₀ / E₀
 
-    @inbounds σ₁₁′ = λ * (Δt * E * stiffness + σ₁₁[i, j, 1]) / (λ + Δt * (1 - P̃))
+    den = 1 / (λ + Δt * (1 - P̃))
 
+    @inbounds σ₁₁′ = λ * (Δt * E * stiffness + σ₁₁[i, j, 1]) * den
+    @inbounds σ₂₂′ = λ * (Δt * E * stiffness + σ₂₂[i, j, 1]) * den
+    @inbounds σ₁₂′ = λ * (Δt * E * stiffness + σ₁₂[i, j, 1]) * den
+
+    # TODO: finish the rheology
 end

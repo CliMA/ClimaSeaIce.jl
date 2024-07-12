@@ -94,7 +94,7 @@ function ExplicitMomentumSolver(grid;
                                 rheology = ExplicitViscoPlasticRheology(grid),
                                 ocean_ice_drag_coefficient = 5.5e-3,
                                 substepping_coefficient = DynamicSteppingCoefficient(grid),
-                                substeps = 400)
+                                substeps = 150)
 
     uⁿ = XFaceField(grid) 
     vⁿ = YFaceField(grid) 

@@ -45,8 +45,8 @@ abstract type AbstractRheology end
 @inline Vᵢ(i, j, k, grid, h, ℵ) = @inbounds h[i, j, k] * ℵ[i, j, k]
 
 # Fallback functions common to `ExplicitMomentumSolvers` and `Rheologies`
-update_stepping_coefficients!(args...) = nothing
-get_stepping_coefficients(args...) = nothing
+@inline update_stepping_coefficients!(args...) = nothing
+@inline get_stepping_coefficients(args...) = nothing
 
 include("boundary_aware_operators.jl")
 include("nothing_dynamics.jl") # nothing dynamics, sea-ice velocity is zero!
