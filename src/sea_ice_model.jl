@@ -1,6 +1,7 @@
 using Oceananigans.Fields: TracerFields
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
-using Oceananigans: tupleit
+using Oceananigans: tupleit, tracernames
+using Oceananigans.TimeSteppers: TimeStepper
 
 struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
@@ -46,8 +47,10 @@ function SeaIceModel(grid;
                      sea_ice_thermodynamics = SlabSeaIceThermodynamics(grid),
                      sea_ice_dynamics       = ExplicitMomentumSolver(grid))
 
-    if isnothing(velocities)
-        velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
+    if isnothing(velocities) 
+        u = XFaceField(grid)
+        v = YFaceField(grid)
+        velocities = (; u, v)
     end
 
     # Only one time-stepper is supported currently
@@ -61,7 +64,7 @@ function SeaIceModel(grid;
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
     # Adding thickness and concentration if not there
-    tracer_names = tuple(unique(tracernames(tracers)..., :h, :ℵ))
+    tracer_names = tuple(unique((tracernames(tracers)..., :h, :ℵ))...)
 
     # Only one time-stepper is supported currently
     timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracer_names;
@@ -99,7 +102,7 @@ const SIM = SeaIceModel
 
 function set!(model::SIM; h=nothing, ℵ=nothing)
     !isnothing(h) && set!(model.ice_thickness, h)
-    !isnothing(ℵ) && set!(model.ice_conentration, ℵ)
+    !isnothing(ℵ) && set!(model.ice_concentration, ℵ)
     return nothing
 end
 

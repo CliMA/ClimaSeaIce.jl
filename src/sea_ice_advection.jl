@@ -37,22 +37,22 @@ end
 
 # For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
 @inline function div_Uℵh(i, j, k, grid, advection, U, ℵ, h)
-    div_Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection, U.u, ℵ, h) +
-                                         δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection, U.v, ℵ, h))
+    ∇Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection, U.u, ℵ, h) +
+                                      δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection, U.v, ℵ, h))
 
     @inbounds ℵ⁻¹ = ifelse(ℵ[i, j, k] != 0, 1 / ℵ[i, j, k], zero(grid))
 
-    return ℵ⁻¹ * div_Uℵh
+    return ℵ⁻¹ * ∇Uℵh
 end
 
 # For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
 @inline function div_Uℵh(i, j, k, grid, advection::TracerAdvection, U, ℵ, h)
-    div_Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
-                                         δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))
+    ∇Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
+                                      δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))
 
     @inbounds ℵ⁻¹ = ifelse(ℵ[i, j, k] != 0, 1 / ℵ[i, j, k], zero(grid))
 
-    return ℵ⁻¹ * div_Uℵh
+    return ℵ⁻¹ * ∇Uℵh
 end
 
 @inline horizontal_div_Uc(i, j, k, grid, ::Nothing, U, c) = zero(grid)

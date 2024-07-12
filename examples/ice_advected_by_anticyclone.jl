@@ -71,6 +71,7 @@ u_bcs = FieldBoundaryConditions(west   = OpenBoundaryCondition(0),
                                 south  = zero_value_bc,
                                 top    = nothing,
                                 bottom = nothing)
+
 v_bcs = FieldBoundaryConditions(west   = zero_value_bc, 
                                 east   = zero_value_bc,
                                 north  = OpenBoundaryCondition(0),
@@ -92,10 +93,9 @@ model = SlabSeaIceModel(grid;
                         top_v_stress = τᵥ,
                         velocities = (u = uᵢ, v = vᵢ),
                         ocean_velocities = (u = Uₒ, v = Vₒ),
-                        momentum_solver,
+                        sea_ice_dynamics = momentum_solver,
                         advection,
-                        coriolis = FPlane(f = 1e-4),
-                        top_heat_boundary_condition=PrescribedTemperature(-10))
+                        coriolis = FPlane(f = 1e-4))
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))

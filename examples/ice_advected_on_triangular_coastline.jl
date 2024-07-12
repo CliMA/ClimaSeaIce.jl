@@ -59,12 +59,11 @@ solver    = ExplicitMomentumSolver(grid; substeps = 1000)
 advection = WENO(; order = 7)
 
 # Define the model!
-model = SlabSeaIceModel(grid; 
-                        top_u_stress = τᵤ,
-                        top_v_stress = τᵥ,
-                        momentum_solver = solver,
-                        advection,
-                        top_heat_boundary_condition=PrescribedTemperature(-10))
+model = SeaIceModel(grid; 
+                    top_u_stress = τᵤ,
+                    top_v_stress = τᵥ,
+                    advection,
+                    sea_ice_dynamics = solver)
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 1.0
@@ -102,7 +101,7 @@ wall_time = [time_ns()]
 
 function progress(sim) 
     h = sim.model.ice_thickness
-    ℵ = sim.model.concentration
+    ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
 
