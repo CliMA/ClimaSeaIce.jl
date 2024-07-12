@@ -41,10 +41,10 @@ end
                                     h_forcing,
                                     model_fields)
 
-    i, j = @index(Global, NTuple)
+    i, j, k = @index(Global, NTuple)
     h  = ice_thickness
     
-    Gh = ice_thickness_tendency(i, j, 1, grid, clock,
+    Gh = ice_thickness_tendency(i, j, k, grid, clock,
                                 velocities,
                                 advection,
                                 ice_thickness,
@@ -58,8 +58,8 @@ end
     # Update ice thickness, clipping negative values
 
     @inbounds begin
-        h⁺ = h[i, j, 1] + Δt * Gh
-        h[i, j, 1] = max(zero(grid), h⁺)
+        h⁺ = h[i, j, k] + Δt * Gh
+        h[i, j, k] = max(zero(grid), h⁺)
         # Belongs in update state?
         # That's certainly a simple model for ice concentration
         # consolidated_ice = h[i, j, 1] >= hᶜ[i, j, 1]
