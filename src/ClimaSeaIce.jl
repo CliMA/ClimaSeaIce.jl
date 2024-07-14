@@ -34,6 +34,7 @@ include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
 include("tracer_tendency_kernel_functions.jl")
 include("sea_ice_time_stepping.jl")
+include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
 using .SeaIceDynamics

@@ -120,7 +120,7 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-@inline external_top_heat_flux(sea_ice_thermodynamics, top_heat_flux) = top_heat_flux
+@inline external_top_heat_flux(ice_thermodynamics, top_heat_flux) = top_heat_flux
 
 # Fallback for no thermodynamics
 @inline thickness_thermodynamic_tendency(i, j, grid, args...) = zero(grid)
@@ -138,7 +138,6 @@ using .HeatBoundaryConditions:
 # include("EnthalpyMethodThermodynamics.jl")
 include("SlabThermodynamics/SlabThermodynamics.jl")
 
-# using .EnthalpyMethodThermodynamics: EnthalpyMethodThermodynamics
 using .SlabThermodynamics: SlabSeaIceThermodynamics, ConductiveFlux
 
 end
