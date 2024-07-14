@@ -1,6 +1,6 @@
-import ClimaSeaIce.SeaIceThermodynamics: ice_thickness_growth
+import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
-@inline function ice_thickness_growth(i, j, k, grid,
+@inline function thickness_thermodynamic_tendency(i, j, k, grid,
                                       ice_thickness,
                                       concentration,
                                       thermodynamics::SlabSeaIceThermodynamics,
