@@ -1,12 +1,12 @@
-import ClimaSeaIce.SeaIceThermodynamics: ice_thickness_growth
+import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
-@inline function ice_thickness_growth(i, j, k, grid,
-                                      ice_thickness,
-                                      concentration,
-                                      thermodynamics::SlabSeaIceThermodynamics,
-                                      top_external_heat_flux,
-                                      bottom_external_heat_flux,
-                                      clock, model_fields)
+@inline function thickness_thermodynamic_tendency(i, j, k, grid,
+                                                  ice_thickness,
+                                                  concentration,
+                                                  thermodynamics::SlabSeaIceThermodynamics,
+                                                  top_external_heat_flux,
+                                                  bottom_external_heat_flux,
+                                                  clock, model_fields)
 
     phase_transitions = thermodynamics.phase_transitions
 

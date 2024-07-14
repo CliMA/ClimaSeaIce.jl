@@ -123,7 +123,7 @@ end
 @inline external_top_heat_flux(sea_ice_thermodynamics, top_heat_flux) = top_heat_flux
 
 # Fallback for no thermodynamics
-@inline ice_thickness_growth(i, j, grid, args...) = zero(grid)
+@inline thickness_thermodynamic_tendency(i, j, grid, args...) = zero(grid)
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 

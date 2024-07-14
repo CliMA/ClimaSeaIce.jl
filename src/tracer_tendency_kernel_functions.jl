@@ -1,5 +1,5 @@
 using Oceananigans.Advection
-using ClimaSeaIce.SeaIceThermodynamics: ice_thickness_growth
+using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
 @kernel function _compute_tracer_tendencies!(Gⁿ, ice_thickness,
                                              grid,
@@ -43,17 +43,17 @@ function ice_thickness_tendency(i, j, k, grid, clock,
 
     Gh_advection = - div_Uℵh(i, j, k, grid, advection, velocities, concentration, ice_thickness)
 
-    Gh_growth = ice_thickness_growth(i, j, k, grid, 
-                                     ice_thickness, 
-                                     concentration,
-                                     thermodynamics,
-                                     top_external_heat_flux,
-                                     bottom_external_heat_flux,
-                                     clock, model_fields)
+    Gh_thermodynamics = thickness_thermodynamic_tendency(i, j, k, grid, 
+                                                         ice_thickness, 
+                                                         concentration,
+                                                         thermodynamics,
+                                                         top_external_heat_flux,
+                                                         bottom_external_heat_flux,
+                                                         clock, model_fields)
 
     
     # Compute forcing
     Fh = zero(grid) #h_forcing(i, j, grid, clock, model_fields)
 
-    return Gh_advection + Gh_growth + Fh
+    return Gh_advection + Gh_thermodynamics + Fh
 end
