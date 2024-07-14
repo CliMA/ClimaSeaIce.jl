@@ -18,7 +18,7 @@ function time_step!(model::SIM, Δt; callbacks=nothing)
             model.velocities,
             model.advection,
             model.ice_concentration,
-            model.sea_ice_thermodynamics,
+            model.ice_thermodynamics,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
             nothing, #model.forcing.h,

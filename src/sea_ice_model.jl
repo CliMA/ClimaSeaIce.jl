@@ -12,9 +12,9 @@ struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractMode
     ice_thickness :: IT
     ice_concentration :: IC
     # Thermodynamics
-    sea_ice_thermodynamics :: TD
+    ice_thermodynamics :: TD
     # Dynamics
-    sea_ice_dynamics :: D
+    ice_dynamics :: D
     # External boundary conditions
     external_heat_fluxes :: STF
     external_momentum_stresses :: SMS
@@ -34,8 +34,8 @@ function SeaIceModel(grid;
                      top_momentum_stress    = nothing, # Fix when introducing dynamics
                      tracers                = (),
                      boundary_conditions    = NamedTuple(),
-                     sea_ice_thermodynamics = SlabSeaIceThermodynamics(grid),
-                     sea_ice_dynamics       = nothing)
+                     ice_thermodynamics = SlabSeaIceThermodynamics(grid),
+                     ice_dynamics       = nothing)
 
     if isnothing(velocities)
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
@@ -52,7 +52,7 @@ function SeaIceModel(grid;
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
     tracers = merge(tracers, (; S = ice_salinity))
 
-    top_heat_flux = external_top_heat_flux(sea_ice_thermodynamics, top_heat_flux)
+    top_heat_flux = external_top_heat_flux(ice_thermodynamics, top_heat_flux)
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,    
@@ -65,8 +65,8 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
-                       sea_ice_thermodynamics,
-                       sea_ice_dynamics,
+                       ice_thermodynamics,
+                       ice_dynamics,
                        external_heat_fluxes,
                        top_momentum_stress,
                        advection)
@@ -92,8 +92,8 @@ function Base.show(io::IO, model::SIM)
 
     print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
-    print(io, "├── sea ice thermodynamics: ", summary(model.sea_ice_thermodynamics), '\n')
-    print(io, "├── sea ice dynamics: ", summary(model.sea_ice_dynamics), '\n')
+    print(io, "├── sea ice thermodynamics: ", summary(model.ice_thermodynamics), '\n')
+    print(io, "├── sea ice dynamics: ", summary(model.ice_dynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
@@ -108,7 +108,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                               ℵ  = model.ice_concentration),
                            model.tracers,
                            model.velocities,
-                           fields(model.sea_ice_thermodynamics))
+                           fields(model.ice_thermodynamics))
 
 # TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,

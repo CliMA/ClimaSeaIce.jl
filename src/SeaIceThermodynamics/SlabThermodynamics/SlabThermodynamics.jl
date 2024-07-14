@@ -32,7 +32,7 @@ import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
 
 include("slab_heat_and_tracer_fluxes.jl")
-include("slab_sea_ice_thermodynamics.jl")
+include("slab_ice_thermodynamics.jl")
 
 end # module
 
