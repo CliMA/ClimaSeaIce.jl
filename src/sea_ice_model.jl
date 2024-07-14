@@ -23,19 +23,19 @@ struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractMode
 end
 
 function SeaIceModel(grid;
-                     clock                  = Clock{eltype(grid)}(time = 0),
-                     ice_thickness          = Field{Center, Center, Nothing}(grid),
-                     ice_concentration      = Field{Center, Center, Nothing}(grid),
-                     ice_salinity           = 0, # psu
-                     top_heat_flux          = nothing,
-                     bottom_heat_flux       = 0,
-                     velocities             = nothing,
-                     advection              = nothing,
-                     top_momentum_stress    = nothing, # Fix when introducing dynamics
-                     tracers                = (),
-                     boundary_conditions    = NamedTuple(),
-                     ice_thermodynamics = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics       = nothing)
+                     clock               = Clock{eltype(grid)}(time = 0),
+                     ice_thickness       = Field{Center, Center, Nothing}(grid),
+                     ice_concentration   = Field{Center, Center, Nothing}(grid),
+                     ice_salinity        = 0, # psu
+                     top_heat_flux       = nothing,
+                     bottom_heat_flux    = 0,
+                     velocities          = nothing,
+                     advection           = nothing,
+                     top_momentum_stress = nothing, # Fix when introducing dynamics
+                     tracers             = (),
+                     boundary_conditions = NamedTuple(),
+                     ice_thermodynamics  = SlabSeaIceThermodynamics(grid),
+                     ice_dynamics        = nothing)
 
     if isnothing(velocities)
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
