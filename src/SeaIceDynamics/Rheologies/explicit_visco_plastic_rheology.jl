@@ -97,6 +97,24 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
     return nothing
 end
 
+# Extend `fill_halo_regions!` for the AbstractRheology
+function fill_halo_regions!(rheology::ExplicitViscoPlasticRheology, args...)
+    fill_halo_regions!(rheology.σ₁₁, args...)
+    fill_halo_regions!(rheology.σ₂₂, args...)
+    fill_halo_regions!(rheology.σ₁₂, args...)
+
+    return nothing
+end
+
+# Extend `mask_immersed_field!` for the AbstractRheology
+function mask_immersed_field!(rheology::ExplicitViscoPlasticRheology)
+    mask_immersed_field!(rheology.σ₁₁)
+    mask_immersed_field!(rheology.σ₂₂)
+    mask_immersed_field!(rheology.σ₁₂)
+
+    return nothing
+end
+
 # The parameterization for an `ExplicitViscoPlasticRheology`
 @kernel function _compute_ice_strength!(P, P★, C, h, ℵ)
     i, j = @index(Global, NTuple)
@@ -222,8 +240,8 @@ end
 end
 
 @inline function y_internal_stress_divergence(i, j, k, grid, r::ExplicitViscoPlasticRheology) 
-    ∂xσ₁₂ = δxᶜᶠᶜ(i, j, 1, grid, Ax_qᶠᶠᶜ, r.σ₁₂)
-    ∂yσ₂₂ = δyᶜᶠᶜ(i, j, 1, grid, Ay_qᶜᶜᶜ, r.σ₂₂)
+    ∂xσ₁₂ = δxᶜᶠᶜ(i, j, k, grid, Ax_qᶠᶠᶜ, r.σ₁₂)
+    ∂yσ₂₂ = δyᶜᶠᶜ(i, j, k, grid, Ay_qᶜᶜᶜ, r.σ₂₂)
 
     return (∂xσ₁₂ + ∂yσ₂₂) / Vᶜᶠᶜ(i, j, k, grid)
 end
