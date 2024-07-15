@@ -17,6 +17,7 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
                                    ocean_velocities,
                                    coriolis,
                                    rheology,
+                                   auxiliary_fields,
                                    substeps,
                                    substepping_coefficient,
                                    thickness,
@@ -66,11 +67,11 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + x_internal_stress_divergence(i, j, 1, grid, rheology) / mᵢ)
+                     + x_internal_stress_divergence(i, j, 1, grid, auxiliary_fields, rheology) / mᵢ)
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(0)) 
-    Gᴿ = rheology_specific_numerical_terms_x(i, j, 1, grid, rheology, uᵢ)
+    Gᴿ = rheology_specific_numerical_terms_x(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
     
     # Explicit step
     @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + Gᴿ) / β
@@ -88,6 +89,7 @@ end
                                    ocean_velocities, 
                                    coriolis,
                                    rheology,
+                                   auxiliary_fields,
                                    substeps,
                                    substepping_coefficient,
                                    thickness,
@@ -137,11 +139,11 @@ end
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τva
                      + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + y_internal_stress_divergence(i, j, 1, grid, rheology) / mᵢ) 
+                     + y_internal_stress_divergence(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(0)) 
-    Gᴿ = rheology_specific_numerical_terms_y(i, j, 1, grid, rheology, vᵢ)
+    Gᴿ = rheology_specific_numerical_terms_y(i, j, 1, grid, rheology, auxiliary_fields, vᵢ)
 
     # Explicit step
     @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + Gᴿ) / β

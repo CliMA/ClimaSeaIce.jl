@@ -1,4 +1,5 @@
 # Free drift!
+required_auxiliary_fields(::Nothing) = nothing
 
 compute_stresses!(model, solver, ::Nothing, args...) = nothing
 initialize_rheology!(model, ::Nothing) = nothing
