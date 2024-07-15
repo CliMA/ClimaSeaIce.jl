@@ -346,20 +346,27 @@ end
 
     c = stepping_coefficient
 
+    mᵢᶜᶜᶜ = ice_volume(i, j, 1, grid, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ) 
+
+    c = stepping_coefficient
+
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
-    update_stepping_coefficients!(i, j, 1, grid, c, ζᶜᶜᶜ, mᵢ, Δt)
+    update_stepping_coefficients!(i, j, 1, grid, c, ζᶜᶜᶜ, mᵢᶜᶜᶜ, Δt)
 
     # Coefficient for substepping internal stress
-    α = get_stepping_coefficients(i, j, 1, grid, substeps, c)
+    αᶜᶜᶜ = get_stepping_coefficients(i, j, 1, grid, substeps, c)
+    αᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, c)
 
-    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / α, zero(grid))
-    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / α, zero(grid))
-    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / α, zero(grid))
 
-    @inbounds σ̂₁₁[i, j, 1] += ifelse(mᵢ > 0, (σ̂₁₁ᵖ⁺¹ - σ̂₁₁[i, j, 1]) / α, zero(grid))
-    @inbounds σ̂₂₂[i, j, 1] += ifelse(mᵢ > 0, (σ̂₂₂ᵖ⁺¹ - σ̂₂₂[i, j, 1]) / α, zero(grid))
-    @inbounds σ̂₁₂[i, j, 1] += ifelse(mᵢ > 0, (σ̂₁₂ᵖ⁺¹ - σ̂₁₂[i, j, 1]) / α, zero(grid))
+    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / αᶜᶜᶜ, zero(grid))
+    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
+    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / αᶠᶠᶜ, zero(grid))
+
+    @inbounds σ̂₁₁[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ̂₁₁ᵖ⁺¹ - σ̂₁₁[i, j, 1]) / αᶠᶠᶜ, zero(grid))
+    @inbounds σ̂₂₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ̂₂₂ᵖ⁺¹ - σ̂₂₂[i, j, 1]) / αᶠᶠᶜ, zero(grid))
+    @inbounds σ̂₁₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ̂₁₂ᵖ⁺¹ - σ̂₁₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
 end
 
 

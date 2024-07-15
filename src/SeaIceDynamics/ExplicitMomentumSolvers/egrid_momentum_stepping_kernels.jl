@@ -1,5 +1,4 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
-using ClimaSeaIce.SeaIceDynamics: Vᵢ
 
 
 @inline fᶠᶜᶜ(i, j, k, grid, coriolis) = ℑyᴮᶠᶜᶜ(i, j, k, grid, fᶠᶠᵃ, coriolis)
@@ -44,15 +43,9 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
-    hᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, h) # thickness
-    ℵᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ℵ) # concentration
-
-    hᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, h) # thickness
-    ℵᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ℵ) # concentration
-
     # Ice mass (per unit area) interpolated on u points
-    mᵢᶠᶜᶜ = hᶠᶜᶜ * ℵᶠᶜᶜ * ρᵢ
-    mᵢᶜᶠᶜ = hᶜᶠᶜ * ℵᶜᶠᶜ * ρᵢ
+    mᵢᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
+    mᵢᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
     Δuᶠᶜᶜ = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
@@ -66,7 +59,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     Δ𝒰ᶜᶠᶜ = sqrt(Δuᶜᶠᶜ^2 + Δvᶜᶠᶜ^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
+    βᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
+    βᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -96,8 +90,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     Gᴿᶜᶠᶜ = rheology_specific_numerical_terms_xᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields, ûᵢ)
     
     # Explicit step
-    @inbounds uᵢ[i, j, 1] += (Δt * Gᵁᶠᶜᶜ + Gᴿᶠᶜᶜ) / β
-    @inbounds ûᵢ[i, j, 1] += (Δt * Gᵁᶜᶠᶜ + Gᴿᶜᶠᶜ) / β
+    @inbounds uᵢ[i, j, 1] += (Δt * Gᵁᶠᶜᶜ + Gᴿᶠᶜᶜ) / βᶠᶜᶜ
+    @inbounds ûᵢ[i, j, 1] += (Δt * Gᵁᶜᶠᶜ + Gᴿᶜᶠᶜ) / βᶜᶠᶜ
     
     # Implicit component of the ice-ocean stress
     τᵢᶠᶜᶜ = ifelse(mᵢ > 0, Δt * τₑₒᶠᶜᶜ / β, zero(grid))
@@ -136,16 +130,10 @@ end
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
-    hᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, h) # thickness
-    ℵᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ℵ) # concentration
-
-    hᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, h) # thickness
-    ℵᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ℵ) # concentration
-
     # Ice mass (per unit area) interpolated on u points
-    mᵢᶠᶜᶜ = hᶠᶜᶜ * ℵᶠᶜᶜ * ρᵢ
-    mᵢᶜᶠᶜ = hᶜᶠᶜ * ℵᶜᶠᶜ * ρᵢ
-
+    mᵢᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
+    mᵢᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
+    
     # relative ocean - ice velocities
     Δuᶠᶜᶜ = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
     Δvᶠᶜᶜ = @inbounds ℑxyᴮᶠᶜᶜ(i, j, 1, grid, vₒ) - v̂ᵢ[i, j, 1]
@@ -158,7 +146,8 @@ end
     Δ𝒰ᶜᶠᶜ = sqrt(Δuᶜᶠᶜ^2 + Δvᶜᶠᶜ^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
+    βᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
+    βᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -188,8 +177,8 @@ end
     Gᴿᶠᶜᶜ = rheology_specific_numerical_terms_yᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields, v̂ᵢ)
 
     # Explicit step
-    @inbounds vᵢ[i, j, 1] += (Δt * Gⱽᶜᶠᶜ + Gᴿᶜᶠᶜ) / β
-    @inbounds v̂ᵢ[i, j, 1] += (Δt * Gⱽᶠᶜᶜ + Gᴿᶠᶜᶜ) / β
+    @inbounds vᵢ[i, j, 1] += (Δt * Gⱽᶜᶠᶜ + Gᴿᶜᶠᶜ) / βᶜᶠᶜ
+    @inbounds v̂ᵢ[i, j, 1] += (Δt * Gⱽᶠᶜᶜ + Gᴿᶠᶜᶜ) / βᶠᶜᶜ
 
     # Implicit component of the ice-ocean stress
     τᵢᶜᶠᶜ = ifelse(mᵢ > 0, Δt * τₑₒᶜᶠᶜ / β, zero(0)) 
