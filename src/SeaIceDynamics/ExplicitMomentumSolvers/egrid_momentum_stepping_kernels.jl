@@ -1,5 +1,9 @@
-using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
+using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
 using ClimaSeaIce.SeaIceDynamics: Vᵢ
+
+
+@inline fᶠᶜᶜ(i, j, k, grid, coriolis) = ℑyᴮᶠᶜᶜ(i, j, k, grid, fᶠᶠᵃ, coriolis)
+@inline fᶜᶠᶜ(i, j, k, grid, coriolis) = ℑxᴮᶜᶠᶜ(i, j, k, grid, fᶠᶠᵃ, coriolis)
 
 # The ice-ocean stress is treated semi-implicitly 
 # i.e:
@@ -75,12 +79,12 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     τₑₒᶠᶜᶜ = Cᴰ * ρₒ * Δ𝒰ᶠᶜᶜ / mᵢᶠᶜᶜ
     τₑₒᶜᶠᶜ = Cᴰ * ρₒ * Δ𝒰ᶜᶠᶜ / mᵢᶜᶠᶜ
 
-    @inbounds Gᵁᶠᶜᶜ = ( - fᶠᶜᶜ(i, j, 1, grid, coriolis) * v̂ᵢ[i, j, 1] 
+    @inbounds Gᵁᶠᶜᶜ = ( + fᶠᶜᶜ(i, j, 1, grid, coriolis) * v̂ᵢ[i, j, 1] 
                         + τuₐᶠᶜᶜ
                         + τₑₒᶠᶜᶜ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
                         + x_internal_stress_divergenceᶠᶜᶜ(i, j, 1, grid, auxiliary_fields, rheology) / mᵢᶠᶜᶜ)
 
-    @inbounds Gᵁᶜᶠᶜ = ( - fᶜᶠᶜ(i, j, 1, grid, coriolis) * vᵢ[i, j, 1] 
+    @inbounds Gᵁᶜᶠᶜ = ( + fᶜᶠᶜ(i, j, 1, grid, coriolis) * vᵢ[i, j, 1] 
                         + τuₐᶜᶠᶜ
                         + τₑₒᶜᶠᶜ * ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uₒ) # Explicit component of the ice-ocean stress
                         + x_internal_stress_divergenceᶜᶠᶜ(i, j, 1, grid, auxiliary_fields, rheology) / mᵢᶜᶠᶜ)
