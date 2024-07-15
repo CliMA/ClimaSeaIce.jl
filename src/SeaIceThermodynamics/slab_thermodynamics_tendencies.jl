@@ -1,8 +1,9 @@
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
 @inline function thickness_thermodynamic_tendency(i, j, k, grid,
                                       ice_thickness,
-                                      concentration,
+                                      ice_concentration,
                                       thermodynamics::SlabSeaIceThermodynamics,
                                       top_external_heat_flux,
                                       bottom_external_heat_flux,
@@ -10,11 +11,11 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
     phase_transitions = thermodynamics.phase_transitions
 
-    top_heat_bc = thermodynamics.top_heat_bc
-    bottom_heat_bc = thermodynamics.bottom_heat_bc
+    top_heat_bc = thermodynamics.heat_boundary_conditions.top
+    bottom_heat_bc = thermodynamics.heat_boundary_conditions.bottom
     liquidus = phase_transitions.liquidus
 
-    Qi = themodynamics.internal_heat_flux
+    Qi = thermodynamics.internal_heat_flux
     Qu = top_external_heat_flux
     Qb = bottom_external_heat_flux
     Tu = thermodynamics.top_surface_temperature
@@ -46,10 +47,6 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     Tbᵢ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
     ℰb = latent_heat(phase_transitions, Tbᵢ)
     ℰu = latent_heat(phase_transitions, Tuᵢ)
-
-    Qi = thermodynamics.internal_heat_flux
-    Qb = bottom_external_heat_flux
-    Qu = top_external_heat_flux
 
     # Retrieve fluxes
     Quᵢ = getflux(Qu, i, j, grid, Tuᵢ, clock, model_fields)

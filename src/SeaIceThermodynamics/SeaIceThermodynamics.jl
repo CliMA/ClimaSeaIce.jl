@@ -8,6 +8,8 @@ export SlabSeaIceThermodynamics,
        ConductiveFlux,
        FluxFunction
 
+using Adapt
+
 #####
 ##### A bit of thermodynamics to start the day
 #####

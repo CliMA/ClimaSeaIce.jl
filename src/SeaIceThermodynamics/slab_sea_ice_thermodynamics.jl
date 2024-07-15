@@ -10,6 +10,13 @@ struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodyna
     ice_consolidation_thickness :: MIT
 end
 
+Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) = 
+    SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
+                             Adapt.adapt(to, t.heat_boundary_conditions),
+                             Adapt.adapt(to, t.internal_heat_flux),
+                             Adapt.adapt(to, t.phase_transitions),
+                             Adapt.adapt(to, t.ice_consolidation_thickness))
+
 const SSIT = SlabSeaIceThermodynamics
 
 Base.summary(therm::SSIT) = "SlabThermodynamics"
