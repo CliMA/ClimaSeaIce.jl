@@ -8,6 +8,8 @@ export SlabSeaIceThermodynamics,
        ConductiveFlux,
        FluxFunction
 
+using Adapt
+
 #####
 ##### A bit of thermodynamics to start the day
 #####
@@ -132,7 +134,8 @@ using .HeatBoundaryConditions:
     MeltingConstrainedFluxBalance,
     RadiativeEmission,
     FluxFunction,
-    PrescribedTemperature
+    PrescribedTemperature,
+    getflux
 
 using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock

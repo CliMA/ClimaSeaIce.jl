@@ -1,6 +1,7 @@
 using Oceananigans.Fields: TracerFields
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using Oceananigans: tupleit
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
