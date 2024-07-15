@@ -1,5 +1,4 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-using ClimaSeaIce.SeaIceDynamics: Vᵢ
 
 # The ice-ocean stress is treated semi-implicitly 
 # i.e:
@@ -39,11 +38,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
-    hf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, h) # thickness
-    ℵf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ℵ) # concentration
-
     # Ice mass (per unit area) interpolated on u points
-    mᵢ = hf * ℵf * ρᵢ
+    mᵢ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
@@ -53,7 +49,7 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
+    β = ℑxᴮᶠᶜᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -111,12 +107,9 @@ end
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
-    hf = ℑyᴮᶜᶠᶜ(i, j, 1, grid, h)
-    ℵf = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ℵ)
+    # Ice mass (per unit area) interpolated on u points
+    mᵢ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
 
-    # Ice mass interpolated on v points
-    mᵢ = hf * ℵf * ρᵢ
-    
     # relative ocean - ice velocities
     Δu = ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uₒ) - ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uᵢ)
     Δv = @inbounds vₒ[i, j, 1] - vᵢ[i, j, 1]
@@ -125,11 +118,11 @@ end
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
+    β = ℑyᴮᶜᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
-    @inbounds τva = v_top_stress[i, j, 1] / mᵢ 
+    @inbounds τvₐ = v_top_stress[i, j, 1] / mᵢ 
 
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * vₒ - τₑₒ * vᵢⁿ⁺¹ 
@@ -137,7 +130,7 @@ end
     τₑₒ = Cᴰ * ρₒ * Δ𝒰 / mᵢ
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
-                     + τva
+                     + τvₐ
                      + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
                      + y_internal_stress_divergenceᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
 

@@ -135,6 +135,8 @@ using .HeatBoundaryConditions:
     RadiativeEmission,
     FluxFunction,
     PrescribedTemperature,
+    bottom_temperature, 
+    top_surface_temperature,
     getflux
 
 using Oceananigans.Utils: prettysummary

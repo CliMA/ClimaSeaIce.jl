@@ -27,6 +27,7 @@ using Adapt
 ## - ocean dynamic surface
 
 using ClimaSeaIce.SeaIceDynamics
+using ClimaSeaIce.SeaIceDynamics: ice_volume
 
 using ClimaSeaIce.SeaIceDynamics.Rheologies: 
     required_auxiliary_fields,
@@ -52,7 +53,7 @@ import ClimaSeaIce.SeaIceDynamics:
 
 struct ExplicitMomentumSolver{G, R, T, FT, A} <: AbstractMomentumSolver{G}
     rheology :: R # Rheology to compute stresses
-    auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses or additional velocities if on the E-grid)
+    auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses, ice strength or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 
     substepping_coefficient :: A
     substeps :: Int

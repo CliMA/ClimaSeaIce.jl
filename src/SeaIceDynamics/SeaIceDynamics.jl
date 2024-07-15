@@ -48,7 +48,7 @@ struct EGridDynamics end
 dynamics_grid(::AbstractMomentumSolver{G}) where G = G()
 
 # Ice volume
-@inline Vᵢ(i, j, k, grid, h, ℵ) = @inbounds h[i, j, k] * ℵ[i, j, k]
+@inline ice_volume(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ℵ[i, j, k] * ρ
 
 # Fallback functions common to `ExplicitMomentumSolvers` and `Rheologies`
 @inline update_stepping_coefficients!(args...) = nothing
