@@ -26,6 +26,9 @@ export SeaIceModel,
        FluxFunction,
        SlabSeaIceThermodynamics
 
+export ExplicitMomentumSolvers, ExplicitViscoPlasticRheology
+export CGridDynamics, EGridDynamics
+
 struct ForwardEulerTimestepper end
 
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")

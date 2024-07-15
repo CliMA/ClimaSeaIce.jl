@@ -366,18 +366,32 @@ end
 ##### Internal stress divergence for the EVP model
 #####
 
-@inline function x_internal_stress_divergence(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+@inline function x_internal_stress_divergenceᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
     ∂xσ₁₁ = δxᶠᶜᶜ(i, j, k, grid, Ax_qᶜᶜᶜ, fields.σ₁₁)
     ∂yσ₁₂ = δyᶠᶜᶜ(i, j, k, grid, Ay_qᶠᶠᶜ, fields.σ₁₂)
 
     return (∂xσ₁₁ + ∂yσ₁₂) / Vᶠᶜᶜ(i, j, k, grid)
 end
 
-@inline function y_internal_stress_divergence(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+@inline function y_internal_stress_divergenceᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
     ∂xσ₁₂ = δxᶜᶠᶜ(i, j, k, grid, Ax_qᶠᶠᶜ, fields.σ₁₂)
     ∂yσ₂₂ = δyᶜᶠᶜ(i, j, k, grid, Ay_qᶜᶜᶜ, fields.σ₂₂)
 
     return (∂xσ₁₂ + ∂yσ₂₂) / Vᶜᶠᶜ(i, j, k, grid)
+end
+
+@inline function x_internal_stress_divergenceᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+    ∂xσ₁₁ = δxᶜᶠᶜ(i, j, k, grid, Ax_qᶜᶜᶜ, fields.σ̂₁₁)
+    ∂yσ₁₂ = δyᶜᶠᶜ(i, j, k, grid, Ay_qᶠᶠᶜ, fields.σ̂₁₂)
+
+    return (∂xσ₁₁ + ∂yσ₁₂) / Vᶜᶠᶜ(i, j, k, grid)
+end
+
+@inline function y_internal_stress_divergenceᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+    ∂xσ₁₂ = δxᶠᶜᶜ(i, j, k, grid, Ax_qᶠᶠᶜ, fields.σ̂₁₂)
+    ∂yσ₂₂ = δyᶠᶜᶜ(i, j, k, grid, Ay_qᶜᶜᶜ, fields.σ̂₂₂)
+
+    return (∂xσ₁₂ + ∂yσ₂₂) / Vᶠᶜᶜ(i, j, k, grid)
 end
 
 # To help convergence to the right velocities
