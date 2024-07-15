@@ -98,13 +98,13 @@ end
 
 @kernel function _initialize_evp_rhology!(fields, P★, C, h, ℵ, u, v)
     i, j = @index(Global, NTuple)    
-    @inbounds fields.P[i, j, 1]  = ice_strength(P★, C, h, ℵ)
+    @inbounds fields.P[i, j, 1]  = ice_strength(i, j, P★, C, h, ℵ)
     @inbounds fields.uⁿ[i, j, 1] = u[i, j, 1]
     @inbounds fields.vⁿ[i, j, 1] = v[i, j, 1]
 end
 
 # The parameterization for an `ExplicitViscoPlasticRheology`
-@inline ice_strength(P★, C, h, ℵ) = P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
+@inline ice_strength(i, j, P★, C, h, ℵ) = P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology, Δt) 
@@ -137,7 +137,7 @@ end
     Δm  = rheology.Δ_min
 
     # Extract auxiliary fields 
-    P   = fields.ice_strength
+    P   = fields.P
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
@@ -198,7 +198,8 @@ end
     σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
-    mᵢ = @inbounds h[i, j, 1] * ℵ[i, j, 1] * ρᵢ
+    mᵢᶜᶜᶜ = ice_volume(i, j, 1, grid, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ) 
 
     c = stepping_coefficient
 
@@ -207,11 +208,12 @@ end
     update_stepping_coefficients!(i, j, 1, grid, c, ζᶜᶜᶜ, mᵢ, Δt)
 
     # Coefficient for substepping internal stress
-    α = get_stepping_coefficients(i, j, 1, grid, substeps, c)
+    αᶜᶜᶜ = get_stepping_coefficients(i, j, 1, grid, substeps, c)
+    αᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, c)
 
-    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / α, zero(grid))
-    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / α, zero(grid))
-    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / α, zero(grid))
+    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / αᶜᶜᶜ, zero(grid))
+    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
+    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / αᶠᶠᶜ, zero(grid))
 end
 
 #####

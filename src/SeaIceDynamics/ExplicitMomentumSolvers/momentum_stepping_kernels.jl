@@ -1,5 +1,4 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-using ClimaSeaIce.SeaIceDynamics: Vᵢ
 
 # The ice-ocean stress is treated semi-implicitly 
 # i.e:
@@ -39,11 +38,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
-    hf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, h) # thickness
-    ℵf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ℵ) # concentration
-
     # Ice mass (per unit area) interpolated on u points
-    mᵢ = hf * ℵf * ρᵢ
+    mᵢ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
@@ -111,12 +107,9 @@ end
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
-    hf = ℑyᴮᶜᶠᶜ(i, j, 1, grid, h)
-    ℵf = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ℵ)
+    # Ice mass (per unit area) interpolated on u points
+    mᵢ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
 
-    # Ice mass interpolated on v points
-    mᵢ = hf * ℵf * ρᵢ
-    
     # relative ocean - ice velocities
     Δu = ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uₒ) - ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uᵢ)
     Δv = @inbounds vₒ[i, j, 1] - vᵢ[i, j, 1]

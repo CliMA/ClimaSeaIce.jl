@@ -27,6 +27,7 @@ using Adapt
 ## - ocean dynamic surface
 
 using ClimaSeaIce.SeaIceDynamics
+using ClimaSeaIce.SeaIceDynamics: ice_volume
 
 using ClimaSeaIce.SeaIceDynamics.Rheologies: 
     ExplicitViscoPlasticRheology,
