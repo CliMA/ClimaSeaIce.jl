@@ -15,7 +15,6 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
 @kernel function _u_velocity_step!(velocities, grid, Δt, 
                                    clock,
                                    ocean_velocities,
-                                   previous_velocities,
                                    coriolis,
                                    rheology,
                                    substeps,
@@ -87,7 +86,6 @@ end
 @kernel function _v_velocity_step!(velocities, grid, Δt, 
                                    clock,
                                    ocean_velocities, 
-                                   previous_velocities,
                                    coriolis,
                                    rheology,
                                    substeps,
@@ -109,7 +107,6 @@ end
     ℵ  = concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
-    vⁿ = previous_velocities.v
     Cᴰ = ocean_ice_drag_coefficient
 
     hf = ℑyᴮᶜᶠᶜ(i, j, 1, grid, h)

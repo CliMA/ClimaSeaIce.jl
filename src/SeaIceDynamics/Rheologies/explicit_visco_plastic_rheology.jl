@@ -261,5 +261,5 @@ end
 end
 
 # To help convergence to the right velocities
-@inline rheology_specific_numerical_terms_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, uᵢ) = r.uⁿ[i, j, k] - uᵢ[i, j, k]
-@inline rheology_specific_numerical_terms_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, vᵢ) = r.vⁿ[i, j, k] - vᵢ[i, j, k]
+@inline rheology_specific_numerical_terms_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, uᵢ) = r.previous_velocities.u[i, j, k] - uᵢ[i, j, k]
+@inline rheology_specific_numerical_terms_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, vᵢ) = r.previous_velocities.v[i, j, k] - vᵢ[i, j, k]
