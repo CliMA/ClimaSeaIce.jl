@@ -55,13 +55,13 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
     # If ice is consolidated, compute tendency for an ice slab; otherwise
     # just add ocean fluxes from frazil ice formation or melting
-    slushy_Gh = - Qbᵢ / ℰb + Fh 
+    slushy_Gh = - Qbᵢ / ℰb
 
     # Upper (top) and bottom interface velocities
     wu = (Quᵢ - Qiᵢ) / ℰu # < 0 => melting
     wb = (Qiᵢ - Qbᵢ) / ℰb # < 0 => freezing
 
-    slabby_Gh = wu + wb + Fh
+    slabby_Gh = wu + wb
 
     return ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
 end

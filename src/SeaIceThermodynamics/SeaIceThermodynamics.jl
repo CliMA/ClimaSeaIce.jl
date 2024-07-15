@@ -134,7 +134,8 @@ using .HeatBoundaryConditions:
     MeltingConstrainedFluxBalance,
     RadiativeEmission,
     FluxFunction,
-    PrescribedTemperature
+    PrescribedTemperature,
+    getflux
 
 using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock

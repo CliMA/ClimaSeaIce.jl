@@ -6,7 +6,7 @@ function ice_thickness_tendency(i, j, k, grid, clock,
                                 velocities,
                                 advection,
                                 ice_thickness,
-                                concentration,
+                                ice_concentration,
                                 thermodynamics,
                                 top_external_heat_flux,
                                 bottom_external_heat_flux,
@@ -16,12 +16,12 @@ function ice_thickness_tendency(i, j, k, grid, clock,
     Gh_advection = - div_Uc(i, j, k, grid, advection, velocities, ice_thickness)
 
     Gh_growth = thickness_thermodynamic_tendency(i, j, k, grid, 
-                                     ice_thickness, 
-                                     concentration,
-                                     thermodynamics,
-                                     top_external_heat_flux,
-                                     bottom_external_heat_flux,
-                                     clock, model_fields)
+                                                 ice_thickness, 
+                                                 ice_concentration,
+                                                 thermodynamics,
+                                                 top_external_heat_flux,
+                                                 bottom_external_heat_flux,
+                                                 clock, model_fields)
 
     
     # Compute forcing
