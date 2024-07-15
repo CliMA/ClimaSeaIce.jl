@@ -45,7 +45,7 @@ import ClimaSeaIce.SeaIceDynamics:
 
 struct ExplicitMomentumSolver{R, T, FT, A} <: AbstractMomentumSolver
     rheology :: R # Rheology to compute stresses
-    auxiliary_fields :: T # auxiliary fields required for updating the velocity
+    auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 
     substepping_coefficient :: A
     substeps :: Int
