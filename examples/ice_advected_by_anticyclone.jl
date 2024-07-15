@@ -93,7 +93,7 @@ model = SeaIceModel(grid;
                     top_v_stress = τᵥ,
                     velocities = (u = uᵢ, v = vᵢ),
                     ocean_velocities = (u = Uₒ, v = Vₒ),
-                    sea_ice_dynamics = momentum_solver,
+                    ice_dynamics = momentum_solver,
                     advection,
                     coriolis = FPlane(f = 1e-4))
 
