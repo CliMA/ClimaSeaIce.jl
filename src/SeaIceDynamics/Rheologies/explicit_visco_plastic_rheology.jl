@@ -83,7 +83,6 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
     h = model.ice_thickness
     ℵ = model.ice_concentration
 
-    P  = rheology.ice_strength
     P★ = rheology.ice_compressive_strength
     C  = rheology.ice_compaction_hardening
     
@@ -91,7 +90,7 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
     fields = model.ice_dynamics.auxiliary_fields
 
     # compute on the whole grid including halos
-    parameters = KernelParameters(size(P.data), P.data.offsets)
+    parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
     launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, P★, C, h, ℵ, u, v)
     
     return nothing
@@ -236,3 +235,13 @@ end
 # To help convergence to the right velocities
 @inline rheology_specific_numerical_terms_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
 @inline rheology_specific_numerical_terms_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
+
+function fill_stresses_halo_regions!(fields, ::ExplicitViscoPlasticRheology, args...)
+    σ₁₁ = fields.σ₁₁
+    σ₁₂ = fields.σ₁₂
+    σ₂₂ = fields.σ₂₂
+
+    fill_halo_regions!((σ₁₁, σ₁₂, σ₂₂), args...)
+
+    return nothing
+end

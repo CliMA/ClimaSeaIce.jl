@@ -33,7 +33,7 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
         compute_stresses!(model, solver, rheology, Δt)
 
         # Fill halos of the updated stresses
-        fill_halo_regions!(rheology, model.clock, fields(model))
+        fill_stresses_halo_regions!(solver.auxiliary_fields, rheology, model.clock, fields(model))
 
         args = (model.velocities, grid, Δt, 
                 model.clock,
