@@ -24,9 +24,7 @@ import Oceananigans.BoundaryConditions: fill_halo_regions!
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
 include("nothing_rheology.jl")
-include("initialize_rheologies.jl")
 include("explicit_visco_plastic_rheology.jl")
-include("brittle_bingham_maxwell_rheology.jl")
 
 end
 

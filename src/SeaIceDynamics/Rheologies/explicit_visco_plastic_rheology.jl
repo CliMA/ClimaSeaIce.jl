@@ -8,10 +8,11 @@ using Oceananigans.Grids: AbstractGrid
 # Where:
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
 #
-struct ExplicitViscoPlasticRheology{S1, S2, S3, P, FT} <: AbstractRheology
+struct ExplicitViscoPlasticRheology{S1, S2, S3, U, P, FT} <: AbstractRheology
     σ₁₁   :: S1 # internal stress xx
     σ₂₂   :: S2 # internal stress yy
     σ₁₂   :: S3 # internal stress xy
+    previous_velocities :: U # ice velocities at time step n
     ice_strength :: P # field containing the precomputed ice strength
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
@@ -56,9 +57,14 @@ function ExplicitViscoPlasticRheology(grid::AbstractGrid;
     σ₂₂ = CenterField(grid)
     σ₁₂ = Field{Face, Face, Center}(grid)
 
+    uⁿ = XFaceField(grid) 
+    vⁿ = YFaceField(grid) 
+
+    previous_velocities = (u = uⁿ, v = vⁿ)
+
     P  = CenterField(grid)
     FT = eltype(grid)
-    return ExplicitViscoPlasticRheology(σ₁₁, σ₂₂, σ₁₂, P, 
+    return ExplicitViscoPlasticRheology(σ₁₁, σ₂₂, σ₁₂, P, previous_velocities,
                                       convert(FT, ice_compressive_strength), 
                                       convert(FT, ice_compaction_hardening), 
                                       convert(FT, yield_curve_eccentricity),
@@ -70,6 +76,7 @@ Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) =
     ExplicitViscoPlasticRheology(Adapt.adapt(to, r.σ₁₁),
                                  Adapt.adapt(to, r.σ₂₂),
                                  Adapt.adapt(to, r.σ₁₂),
+                                 Adapt.adapt(to, r.previous_velocities),
                                  Adapt.adapt(to, r.ice_strength),
                                  Adapt.adapt(to, r.ice_compressive_strength),
                                  Adapt.adapt(to, r.ice_compaction_hardening),
@@ -90,9 +97,12 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
     P★ = rheology.ice_compressive_strength
     C  = rheology.ice_compaction_hardening
     
-    launch!(architecture(model.grid), model.grid, :xy, _compute_ice_strength!, P, P★, C, h, ℵ)
+    u, v   = model.velocities
+    uⁿ, vⁿ = rheology.previous_velocities
 
-    fill_halo_regions!(P, model.clock, fields(model))
+    # compute on the whole grid including halos
+    parameters = KernelParameters(size(P.data), P.data.offsets)
+    launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, P, P★, C, h, ℵ, uⁿ, vⁿ, u, v)
     
     return nothing
 end
@@ -115,11 +125,15 @@ function mask_immersed_field!(rheology::ExplicitViscoPlasticRheology)
     return nothing
 end
 
-# The parameterization for an `ExplicitViscoPlasticRheology`
-@kernel function _compute_ice_strength!(P, P★, C, h, ℵ)
-    i, j = @index(Global, NTuple)
-    @inbounds P[i, j, 1] = @inbounds P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
+@kernel function _initialize_evp_rhology!(P, P★, C, h, ℵ, uⁿ, vⁿ, u, v)
+    i, j = @index(Global, NTuple)    
+    @inbounds  P[i, j, 1] = ice_strength(P★, C, h, ℵ)
+    @inbounds uⁿ[i, j, 1] = u[i, j, 1]
+    @inbounds vⁿ[i, j, 1] = v[i, j, 1]
 end
+
+# The parameterization for an `ExplicitViscoPlasticRheology`
+@inline ice_strength(P★, C, h, ℵ) = P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology, Δt) 
@@ -245,3 +259,7 @@ end
 
     return (∂xσ₁₂ + ∂yσ₂₂) / Vᶜᶠᶜ(i, j, k, grid)
 end
+
+# To help convergence to the right velocities
+@inline rheology_specific_numerical_terms_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, uᵢ) = r.uⁿ[i, j, k] - uᵢ[i, j, k]
+@inline rheology_specific_numerical_terms_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, vᵢ) = r.vⁿ[i, j, k] - vᵢ[i, j, k]

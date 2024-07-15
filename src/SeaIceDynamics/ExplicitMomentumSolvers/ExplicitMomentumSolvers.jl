@@ -33,7 +33,9 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     compute_stresses!,
     initialize_rheology!,
     x_internal_stress_divergence,
-    y_internal_stress_divergence
+    y_internal_stress_divergence,
+    rheology_specific_numerical_terms_x,
+    rheology_specific_numerical_terms_y
 
 import ClimaSeaIce.SeaIceDynamics: 
         AbstractMomentumSolver,
@@ -42,7 +44,6 @@ import ClimaSeaIce.SeaIceDynamics:
         get_stepping_coefficients
 
 struct ExplicitMomentumSolver{U, R, FT, A} <: AbstractMomentumSolver
-    previous_velocities :: U # ice velocities at time step n
     rheology :: R # Rheology to compute stresses
     ocean_ice_drag_coefficient :: FT 
     substepping_coefficient :: A
@@ -96,36 +97,14 @@ function ExplicitMomentumSolver(grid;
                                 substepping_coefficient = DynamicSteppingCoefficient(grid),
                                 substeps = 150)
 
-    uⁿ = XFaceField(grid) 
-    vⁿ = YFaceField(grid) 
-
-    previous_velocities = (u = uⁿ, v = vⁿ)
-
-    return ExplicitMomentumSolver(previous_velocities,
-                                  rheology,
+    return ExplicitMomentumSolver(rheology,
                                   ocean_ice_drag_coefficient,
                                   substepping_coefficient,
                                   substeps)
 end
 
-function initialize_substepping!(model, solver::ExplicitMomentumSolver)
-    uⁿ, vⁿ = solver.previous_velocities
-    u,  v  = model.velocities
-
-    launch!(architecture(model.grid), model.grid, :xy, _store_initial_velocities!, uⁿ, vⁿ, u, v)
-    fill_halo_regions!((uⁿ, vⁿ), model.clock, fields(model))
+initialize_substepping!(model, solver::ExplicitMomentumSolver) = 
     initialize_rheology!(model, solver.rheology)
-
-    return nothing
-end
-
-# We need initial velocities for the momentum update step
-@kernel function _store_initial_velocities!(uⁿ, vⁿ, u, v)
-    i, j = @index(Global, NTuple)
-
-    @inbounds uⁿ[i, j, 1] = u[i, j, 1]
-    @inbounds vⁿ[i, j, 1] = v[i, j, 1]
-end
 
 include("explicit_sea_ice_dynamics.jl")
 include("simple_stepping_coefficients.jl")

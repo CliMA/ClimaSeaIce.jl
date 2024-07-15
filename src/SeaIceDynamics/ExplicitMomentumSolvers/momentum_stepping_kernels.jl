@@ -37,7 +37,6 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     ℵ  = concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
-    uⁿ = previous_velocities.u
     Cᴰ = ocean_ice_drag_coefficient
 
     hf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, h) # thickness
@@ -53,7 +52,7 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
-    # Coefficient for substepping momentum (depends on the particular EVP formulation)
+    # Coefficient for substepping momentum (depends on the particular substepping formulation)
     β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
@@ -72,9 +71,10 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(0)) 
+    Gᴿ = rheology_specific_numerical_terms_x(i, j, 1, grid, rheology, uᵢ)
     
     # Explicit step
-    @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + uⁿ[i, j, 1] - uᵢ[i, j, 1]) / β
+    @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + Gᴿ) / β
     
     # Implicit component of the ice-ocean stress
     τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(grid))
@@ -125,7 +125,7 @@ end
     # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
-    # Coefficient for substepping momentum (depends on the particular EVP formulation)
+    # Coefficient for substepping momentum (depends on the particular substepping formulation)
     β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
@@ -144,9 +144,10 @@ end
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(0)) 
+    Gᴿ = rheology_specific_numerical_terms_y(i, j, 1, grid, rheology, vᵢ)
 
     # Explicit step
-    @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + vⁿ[i, j, 1] - vᵢ[i, j, 1]) / β
+    @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + Gᴿ) / β
 
     # Implicit component of the ice-ocean stress
     τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(0)) 
