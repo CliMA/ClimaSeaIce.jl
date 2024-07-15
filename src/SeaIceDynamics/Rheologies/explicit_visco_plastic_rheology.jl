@@ -110,17 +110,16 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
     h = model.ice_thickness
     ℵ = model.ice_concentration
 
-    P  = rheology.ice_strength
     P★ = rheology.ice_compressive_strength
     C  = rheology.ice_compaction_hardening
     
     u, v   = model.velocities
     fields = model.ice_dynamics.auxiliary_fields
-    dgrid  = dynamics_grid(model.solver) 
+    dgrid  = dynamics_grid(model.ice_dynamics) 
     grid   = model.grid
 
     # compute on the whole grid including halos
-    parameters = KernelParameters(size(P.data), P.data.offsets)
+    parameters = KernelParameters(size(P.data)[1:2], P.data.offsets[1:2])
     launch!(architecture(grid), grid, parameters, _initialize_evp_rhology!, fields, dgrid, grid, P★, C, h, ℵ, u, v)
     
     return nothing

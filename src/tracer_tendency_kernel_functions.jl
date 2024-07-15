@@ -6,7 +6,7 @@ using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
                                              clock,
                                              velocities,
                                              advection,
-                                             concentration,
+                                             ice_concentration,
                                              thermodynamics,
                                              top_external_heat_flux,
                                              bottom_external_heat_flux,
@@ -19,14 +19,14 @@ using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
                                                      velocities,
                                                      advection,
                                                      ice_thickness,
-                                                     concentration,
+                                                     ice_concentration,
                                                      thermodynamics,
                                                      top_external_heat_flux,
                                                      bottom_external_heat_flux,
                                                      h_forcing,
                                                      model_fields)
      
-    @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, concentration)
+    @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ice_concentration)
 end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
@@ -41,7 +41,7 @@ function ice_thickness_tendency(i, j, k, grid, clock,
                                 h_forcing,
                                 model_fields)
 
-    Gh_advection = - div_Uℵh(i, j, k, grid, advection, velocities, concentration, ice_thickness)
+    Gh_advection = - div_Uℵh(i, j, k, grid, advection, velocities, ice_concentration, ice_thickness)
 
     Gh_thermodynamics = thickness_thermodynamic_tendency(i, j, k, grid, 
                                                          ice_thickness, 
