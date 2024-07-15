@@ -1,7 +1,8 @@
 module SeaIceDynamics
 
-export ExplicitMomentumSolver, ExplicitViscoPlasticRheology, 
-       ℑxᴮᶜᶜᶜ,  ℑxᴮᶠᶜᶜ,  ℑxᴮᶜᶠᶜ,  ℑxᴮᶠᶠᶜ,
+export ExplicitMomentumSolver, ExplicitViscoPlasticRheology
+export CGridDynamics, EGridDynamics
+export ℑxᴮᶜᶜᶜ,  ℑxᴮᶠᶜᶜ,  ℑxᴮᶜᶠᶜ,  ℑxᴮᶠᶠᶜ,
        ℑyᴮᶜᶜᶜ,  ℑyᴮᶠᶜᶜ,  ℑyᴮᶜᶠᶜ,  ℑyᴮᶠᶠᶜ,
        ℑxyᴮᶜᶜᶜ, ℑxyᴮᶠᶜᶜ, ℑxyᴮᶜᶠᶜ, ℑxyᴮᶠᶠᶜ
 
@@ -32,7 +33,7 @@ Abstract supertype for solvers of the momentum equation. Could be explicit or im
 For example an explicit solver resort to substepping the momentum equation within a larger
 tracer advection step.
 """
-abstract type AbstractMomentumSolver end
+abstract type AbstractMomentumSolver{G} end
 
 """
     AbstractRheology
@@ -40,6 +41,11 @@ abstract type AbstractMomentumSolver end
 Abstract supertype for rheologies that calculate the stress divergence ∇⋅σ. 
 """
 abstract type AbstractRheology end
+
+struct CGridDynamics end
+struct EGridDynamics end
+
+dynamics_grid(::AbstractMomentumSolver{G}) = G()
 
 # Ice volume
 @inline Vᵢ(i, j, k, grid, h, ℵ) = @inbounds h[i, j, k] * ℵ[i, j, k]

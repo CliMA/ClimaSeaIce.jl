@@ -1,5 +1,6 @@
 # Free drift!
-required_auxiliary_fields(::Nothing) = nothing
+required_auxiliary_fields(grid, ::Nothing, ::CgridDynamics) = nothing
+required_auxiliary_fields(grid, ::Nothing, ::EgridDynamics) = (û = YFaceField(grid), v̂ = XFaceField(grid))
 
 compute_stresses!(model, solver, ::Nothing, args...) = nothing
 initialize_rheology!(model, ::Nothing) = nothing
