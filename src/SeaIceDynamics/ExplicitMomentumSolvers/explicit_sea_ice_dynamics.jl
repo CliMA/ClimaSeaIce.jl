@@ -43,7 +43,6 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
         args = (model.velocities, grid, Δt, 
                 model.clock,
                 model.ocean_velocities,
-                solver.previous_velocities,
                 model.coriolis,
                 rheology,
                 solver.substeps,
