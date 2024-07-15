@@ -10,3 +10,5 @@ initialize_rheology!(model, ::Nothing) = nothing
 
 @inline rheology_specific_numerical_terms_x(i, j, k, grid, args...) = zero(grid) 
 @inline rheology_specific_numerical_terms_y(i, j, k, grid, args...) = zero(grid)
+
+fill_stresses_halo_regions!(fields, dgrid, ::Nothing, args...) = nothing

@@ -22,26 +22,24 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
     τua = model.external_momentum_stresses.u
     τva = model.external_momentum_stresses.v
 
-    _u_velocity_step! = dynamics_grid(solver) isa CGridDynamics ? _u_cgrid_velocity_step! : _u_egrid_velocity_step!
-    _v_velocity_step! = dynamics_grid(solver) isa CGridDynamics ? _v_cgrid_velocity_step! : _v_egrid_velocity_step!
+    # Either a C-grid or an E-grid
+    dgrid = dynamics_grid(solver)
+
+    _u_velocity_step! = dgrid isa CGridDynamics ? _u_cgrid_velocity_step! : _u_egrid_velocity_step!
+    _v_velocity_step! = dgrid isa CGridDynamics ? _v_cgrid_velocity_step! : _v_egrid_velocity_step!
 
     # We step the momentum equation using a leap-frog scheme
     # where we alternate the order of solving u and v 
     for substep in 1:solver.substeps
         
         # Fill halos of the updated velocities
-        fill_halo_regions!(model.velocities, model.clock, fields(model))
-        
-        mask_immersed_field!(model.velocities.u)
-        mask_immersed_field!(model.velocities.v)
+        fill_velocities_halo_regions!(model, solver, model.clock, fields(model))
     
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, solver, rheology, Δt)
 
         # Fill halos of the updated stresses
-        fill_halo_regions!(rheology, model.clock, fields(model))
-
-        mask_immersed_field!(rheology)
+        fill_stresses_halo_regions!(solver.auxiliary_fields, dgrid, rheology, model.clock, fields(model))
 
         args = (model.velocities, grid, Δt, 
                 model.clock,

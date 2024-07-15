@@ -36,7 +36,8 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     x_internal_stress_divergence,
     y_internal_stress_divergence,
     rheology_specific_numerical_terms_x,
-    rheology_specific_numerical_terms_y
+    rheology_specific_numerical_terms_y,
+    fill_stresses_halo_regions!
 
 import ClimaSeaIce.SeaIceDynamics: 
         AbstractMomentumSolver,
@@ -119,5 +120,19 @@ include("simple_stepping_coefficients.jl")
 include("dynamic_stepping_coefficients.jl")
 include("cgrid_momentum_stepping_kernels.jl")
 include("egrid_momentum_stepping_kernels.jl")
+
+fill_velocities_halo_regions!(model, ::ExplicitMomentumSolver{<:CGridDynamics}, args...) = 
+    fill_halo_regions!(model.velocities, args...)
+
+function fill_velocities_halo_regions!(model, solver::ExplicitMomentumSolver{<:EGridDynamics}, args...)
+    fill_halo_regions!(model.velocities, args...)
+
+    û = solver.auxiliary_fields.v̂
+    v̂ = solver.auxiliary_fields.û
+    
+    fill_halo_regions((û, v̂), args...)
+
+    return nothing
+end
 
 end

@@ -381,5 +381,27 @@ end
 end
 
 # To help convergence to the right velocities
-@inline rheology_specific_numerical_terms_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
-@inline rheology_specific_numerical_terms_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
+@inline rheology_specific_numerical_terms_x(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
+@inline rheology_specific_numerical_terms_y(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
+
+function fill_stresses_halo_regions!(fields, ::CGridDynamics, ::ExplicitViscoPlasticRheology, args...)
+    σ₁₁ = fields.σ₁₁
+    σ₁₂ = fields.σ₁₂
+    σ₂₂ = fields.σ₂₂
+
+    fill_halo_regions!((σ₁₁, σ₁₂, σ₂₂), args...)
+    return nothing
+end
+
+function fill_stresses_halo_regions!(fields, ::CGridDynamics, ::ExplicitViscoPlasticRheology, args...)
+    σ₁₁ = fields.σ₁₁
+    σ₁₂ = fields.σ₁₂
+    σ₂₂ = fields.σ₂₂
+
+    σ̂₁₁ = fields.σ̂₁₁
+    σ̂₁₂ = fields.σ̂₁₂
+    σ̂₂₂ = fields.σ̂₂₂
+
+    fill_halo_regions!((σ₁₁, σ₁₂, σ₂₂, σ̂₁₁, σ̂₁₂, σ̂₂₂), args...)
+    return nothing
+end
