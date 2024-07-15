@@ -43,8 +43,9 @@ import ClimaSeaIce.SeaIceDynamics:
         update_stepping_coefficients!,
         get_stepping_coefficients
 
-struct ExplicitMomentumSolver{U, R, FT, A} <: AbstractMomentumSolver
+struct ExplicitMomentumSolver{R, T, FT, A} <: AbstractMomentumSolver
     rheology :: R # Rheology to compute stresses
+    auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 
     substepping_coefficient :: A
     substeps :: Int
@@ -92,12 +93,15 @@ designed to obtain convergence.
 An instance of `ExplicitMomentumSolver` with the specified parameters.
 """
 function ExplicitMomentumSolver(grid; 
-                                rheology = ExplicitViscoPlasticRheology(grid),
+                                rheology = ExplicitViscoPlasticRheology(eltype(grid)),
                                 ocean_ice_drag_coefficient = 5.5e-3,
                                 substepping_coefficient = DynamicSteppingCoefficient(grid),
                                 substeps = 150)
 
+    auxiliary_fields = required_auxiliary_fields(rheology)
+    
     return ExplicitMomentumSolver(rheology,
+                                  auxiliary_fields,
                                   ocean_ice_drag_coefficient,
                                   substepping_coefficient,
                                   substeps)
