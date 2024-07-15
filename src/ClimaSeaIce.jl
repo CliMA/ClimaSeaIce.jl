@@ -15,7 +15,7 @@ import Oceananigans.Models: AbstractModel
 import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.Utils: prettytime
+import Oceananigans.Utils: prettytime, KernelParameters
 
 export SeaIceModel, 
        MeltingConstrainedFluxBalance,

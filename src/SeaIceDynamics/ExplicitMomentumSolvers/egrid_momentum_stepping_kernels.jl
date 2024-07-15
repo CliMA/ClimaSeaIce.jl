@@ -24,8 +24,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
                                          auxiliary_fields,
                                          substeps,
                                          substepping_coefficient,
-                                         thickness,
-                                         concentration,
+                                         ice_thickness,
+                                         ice_concentration,
                                          ice_density,
                                          ocean_density,
                                          ocean_ice_drag_coefficient,
@@ -38,8 +38,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     uᵢ, vᵢ = velocities
     uₒ, vₒ = ocean_velocities
     ûᵢ, v̂ᵢ = auxiliary_fields.û, auxiliary_fields.v̂
-    h  = thickness
-    ℵ  = concentration
+    h  = ice_thickness
+    ℵ  = ice_concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
@@ -82,12 +82,12 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     @inbounds Gᵁᶠᶜᶜ = ( + fᶠᶜᶜ(i, j, 1, grid, coriolis) * v̂ᵢ[i, j, 1] 
                         + τuₐᶠᶜᶜ
                         + τₑₒᶠᶜᶜ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                        + x_internal_stress_divergenceᶠᶜᶜ(i, j, 1, grid, auxiliary_fields, rheology) / mᵢᶠᶜᶜ)
+                        + x_internal_stress_divergenceᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢᶠᶜᶜ)
 
     @inbounds Gᵁᶜᶠᶜ = ( + fᶜᶠᶜ(i, j, 1, grid, coriolis) * vᵢ[i, j, 1] 
                         + τuₐᶜᶠᶜ
                         + τₑₒᶜᶠᶜ * ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uₒ) # Explicit component of the ice-ocean stress
-                        + x_internal_stress_divergenceᶜᶠᶜ(i, j, 1, grid, auxiliary_fields, rheology) / mᵢᶜᶠᶜ)
+                        + x_internal_stress_divergenceᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢᶜᶠᶜ)
 
     # make sure we do not have NaNs!                 
     Gᵁᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gᵁᶠᶜᶜ, zero(0)) 
@@ -117,8 +117,8 @@ end
                                          auxiliary_fields,
                                          substeps,
                                          substepping_coefficient,
-                                         thickness,
-                                         concentration,
+                                         ice_thickness,
+                                         ice_concentration,
                                          ice_density,
                                          ocean_density,
                                          ocean_ice_drag_coefficient,
@@ -130,8 +130,8 @@ end
 
     uᵢ, vᵢ = velocities
     uₒ, vₒ = ocean_velocities
-    h  = thickness
-    ℵ  = concentration
+    h  = ice_thickness
+    ℵ  = ice_concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
