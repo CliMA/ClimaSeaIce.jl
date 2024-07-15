@@ -17,10 +17,10 @@ initialize_rheology!(model, ::Nothing) = nothing
 @inline x_internal_stress_divergenceᶜᶠᶜ(i, j, k, grid, ::Nothing) = zero(grid)
 @inline y_internal_stress_divergenceᶜᶠᶜ(i, j, k, grid, ::Nothing) = zero(grid)
 
-@inline rheology_specific_numerical_terms_xᶠᶜᶜ(i, j, k, grid, args...) = zero(grid) 
-@inline rheology_specific_numerical_terms_yᶠᶜᶜ(i, j, k, grid, args...) = zero(grid)
+@inline rheology_specific_numerical_terms_xᶠᶜᶜ(i, j, k, grid, ::Nothing, args...) = zero(grid) 
+@inline rheology_specific_numerical_terms_yᶠᶜᶜ(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
-@inline rheology_specific_numerical_terms_xᶜᶠᶜ(i, j, k, grid, args...) = zero(grid) 
-@inline rheology_specific_numerical_terms_yᶜᶠᶜ(i, j, k, grid, args...) = zero(grid)
+@inline rheology_specific_numerical_terms_xᶜᶠᶜ(i, j, k, grid, ::Nothing, args...) = zero(grid) 
+@inline rheology_specific_numerical_terms_yᶜᶠᶜ(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
 fill_stresses_halo_regions!(fields, dgrid, ::Nothing, args...) = nothing
