@@ -78,7 +78,7 @@ function external_top_heat_flux(thermodynamics::SlabSeaIceThermodynamics,
     if isnothing(top_heat_flux)
         if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature  
             # Default: external top flux is in equilibrium with internal fluxes
-            top_heat_flux = internal_heat_flux
+            top_heat_flux = thermodynamics.internal_heat_flux
         else
             # Default: no external top surface flux
             top_heat_flux = 0
