@@ -3,8 +3,10 @@ using Oceananigans.ImmersedBoundaries
 using Oceananigans.ImmersedBoundaries: inactive_node
 using Oceananigans.Operators
 
-# These operators are crucial for sea-ice rheologies that require a lot
-# of interpolations. 
+# These operators are crucial for sea-ice rheologies and explicit solvers that operate 
+# on a C-grid because they require a looooot of interpolations. For this reason it is
+# better to have a the dynamics solved on an E-grid (next PR)
+# TODO: Move them to Oceananigans?
 
 const AUG = AbstractUnderlyingGrid
 const IBG = ImmersedBoundaryGrid
