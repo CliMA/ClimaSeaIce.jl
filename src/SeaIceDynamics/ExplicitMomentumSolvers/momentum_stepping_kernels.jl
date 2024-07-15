@@ -83,6 +83,78 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     @inbounds uᵢ[i, j, 1] /= (1 + τᵢ) 
 end
 
+""" stepping the ice u-velocity using a forward leap-frog scheme """
+@kernel function _u_auxiliary_velocity_step!(velocities, grid, Δt, 
+                                             clock,
+                                             ocean_velocities,
+                                             previous_velocities,
+                                             coriolis,
+                                             rheology,
+                                             substeps,
+                                             substepping_coefficient,
+                                             thickness,
+                                             concentration,
+                                             ice_density,
+                                             ocean_density,
+                                             ocean_ice_drag_coefficient,
+                                             u_top_stress,
+                                             u_forcing,
+                                             model_fields)
+
+    i, j = @index(Global, NTuple)
+
+    uᵢ, vᵢ = velocities
+    uₒ, vₒ = ocean_velocities
+    h  = thickness
+    ℵ  = concentration
+    ρᵢ = ice_density
+    ρₒ = ocean_density
+    Cᴰ = ocean_ice_drag_coefficient
+
+    hf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, h) # thickness
+    ℵf = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ℵ) # concentration
+
+    # Ice mass (per unit area) interpolated on u points
+    mᵢ = hf * ℵf * ρᵢ
+
+    # relative ocean - ice velocities
+    Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
+    Δv = ℑxyᴮᶠᶜᶜ(i, j, 1, grid, vₒ) - ℑxyᴮᶠᶜᶜ(i, j, 1, grid, vᵢ)
+
+    # relative ocean - ice speed
+    Δ𝒰 = sqrt(Δu^2 + Δv^2)
+    
+    # Coefficient for substepping momentum (depends on the particular substepping formulation)
+    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
+
+    # The atmosphere - ice stress is prescribed at each time step
+    # (i.e. it only depends on wind speed)
+    @inbounds τuₐ = u_top_stress[i, j, 1] / mᵢ
+
+    # The ocean - ice stress is computed semi-implicitly as
+    # τₒ = τₑₒ * uₒ - τₑₒ * uᵢⁿ⁺¹ 
+    # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
+    τₑₒ = Cᴰ * ρₒ * Δ𝒰 / mᵢ
+
+    @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
+                     + τuₐ
+                     + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
+                     + x_internal_stress_divergence(i, j, 1, grid, rheology) / mᵢ)
+
+    # make sure we do not have NaNs!                 
+    Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(0)) 
+    Gᴿ = rheology_specific_numerical_terms_x(i, j, 1, grid, rheology, uᵢ)
+    
+    # Explicit step
+    @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + Gᴿ) / β
+    
+    # Implicit component of the ice-ocean stress
+    τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(grid))
+
+    # Implicit step
+    @inbounds uᵢ[i, j, 1] /= (1 + τᵢ) 
+end
+
 """ stepping the ice v-velocity using a forward leap-frog scheme """
 @kernel function _v_velocity_step!(velocities, grid, Δt, 
                                    clock,
