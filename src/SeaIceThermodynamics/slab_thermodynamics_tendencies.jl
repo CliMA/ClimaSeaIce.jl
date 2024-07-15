@@ -21,8 +21,8 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     Tu = thermodynamics.top_surface_temperature
 
     @inbounds begin
-        hᶜ  = thermodynamics.ice_consolidation_thickness[i, j, k]
-        hᵢ  = ice_thickness[i, j, k]
+        hᶜ = thermodynamics.ice_consolidation_thickness[i, j, k]
+        hᵢ = ice_thickness[i, j, k]
     end
 
     # Consolidation criteria
