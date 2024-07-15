@@ -20,8 +20,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
                                    auxiliary_fields,
                                    substeps,
                                    substepping_coefficient,
-                                   thickness,
-                                   concentration,
+                                   ice_thickness,
+                                   ice_concentration,
                                    ice_density,
                                    ocean_density,
                                    ocean_ice_drag_coefficient,
@@ -33,8 +33,8 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
 
     uᵢ, vᵢ = velocities
     uₒ, vₒ = ocean_velocities
-    h  = thickness
-    ℵ  = concentration
+    h  = ice_thickness
+    ℵ  = ice_concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
@@ -67,7 +67,7 @@ using ClimaSeaIce.SeaIceDynamics: Vᵢ
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + x_internal_stress_divergence(i, j, 1, grid, auxiliary_fields, rheology) / mᵢ)
+                     + x_internal_stress_divergence(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(0)) 
@@ -92,8 +92,8 @@ end
                                    auxiliary_fields,
                                    substeps,
                                    substepping_coefficient,
-                                   thickness,
-                                   concentration,
+                                   ice_thickness,
+                                   ice_concentration,
                                    ice_density,
                                    ocean_density,
                                    ocean_ice_drag_coefficient,
@@ -105,8 +105,8 @@ end
 
     uᵢ, vᵢ = velocities
     uₒ, vₒ = ocean_velocities
-    h  = thickness
-    ℵ  = concentration
+    h  = ice_thickness
+    ℵ  = ice_concentration
     ρᵢ = ice_density
     ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient

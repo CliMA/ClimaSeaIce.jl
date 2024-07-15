@@ -32,6 +32,7 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     ExplicitViscoPlasticRheology,
     compute_stresses!,
     initialize_rheology!,
+    required_auxiliary_fields,
     x_internal_stress_divergence,
     y_internal_stress_divergence,
     rheology_specific_numerical_terms_x,
@@ -98,7 +99,7 @@ function ExplicitMomentumSolver(grid;
                                 substepping_coefficient = DynamicSteppingCoefficient(grid),
                                 substeps = 150)
 
-    auxiliary_fields = required_auxiliary_fields(rheology)
+    auxiliary_fields = required_auxiliary_fields(grid, rheology)
     
     return ExplicitMomentumSolver(rheology,
                                   auxiliary_fields,
