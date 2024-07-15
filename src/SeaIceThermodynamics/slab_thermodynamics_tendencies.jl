@@ -35,7 +35,7 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
             Tu⁻ = @inbounds Tu[i, j, k]
             Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
         else # slab is unconsolidated and does not have an independent surface temperature
-            Tuⁿ = bottom_temperature(i, j, k, grid, bottom_heat_bc, liquidus)
+            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
         end
 
         @inbounds Tu[i, j, k] = Tuⁿ
@@ -43,7 +43,7 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
     @inbounds Tuᵢ = Tu[i, j, k]
 
-    Tbᵢ = bottom_temperature(i, j, k, grid, bottom_heat_bc, liquidus)
+    Tbᵢ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
     ℰb = latent_heat(phase_transitions, Tbᵢ)
     ℰu = latent_heat(phase_transitions, Tuᵢ)
 
