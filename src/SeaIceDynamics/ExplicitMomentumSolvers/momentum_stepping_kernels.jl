@@ -49,7 +49,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
+    β = ℑxᴮᶠᶜᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -118,11 +118,11 @@ end
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = get_stepping_coefficients(i, j, 1, grid, substeps, substepping_coefficient)
+    β = ℑyᴮᶜᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, substepping_coefficient)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
-    @inbounds τva = v_top_stress[i, j, 1] / mᵢ 
+    @inbounds τvₐ = v_top_stress[i, j, 1] / mᵢ 
 
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * vₒ - τₑₒ * vᵢⁿ⁺¹ 
@@ -130,7 +130,7 @@ end
     τₑₒ = Cᴰ * ρₒ * Δ𝒰 / mᵢ
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
-                     + τva
+                     + τvₐ
                      + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
                      + y_internal_stress_divergence(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
 

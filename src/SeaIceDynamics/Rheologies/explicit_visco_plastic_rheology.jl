@@ -205,7 +205,7 @@ end
 
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
-    update_stepping_coefficients!(i, j, 1, grid, c, ζᶜᶜᶜ, mᵢ, Δt)
+    update_stepping_coefficients!(i, j, 1, grid, c, ζᶜᶜᶜ, mᵢᶜᶜᶜ, Δt)
 
     # Coefficient for substepping internal stress
     αᶜᶜᶜ = get_stepping_coefficients(i, j, 1, grid, substeps, c)

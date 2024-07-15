@@ -15,7 +15,7 @@ const c = Center()
 const f = Face()
 
 @inline ı(i, j, k, grid, F::Function, args...) = F(i, j, k, grid, args...)
-@inline ı(i, j, k, grid, ϕ)                    = ϕ[i, j, k]
+@inline ı(i, j, k, grid, ϕ)                    = @inbounds ϕ[i, j, k]
 
 # Defining Interpolation operators for the immersed boundaries
 @inline conditional_ℑx_f(LY, LZ, i, j, k, aug::AUG, ℑx, args...) = ℑx(i, j, k, aug, args...)

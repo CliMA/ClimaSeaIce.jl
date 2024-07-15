@@ -46,11 +46,11 @@ function time_step!(model::SIM, Δt; callbacks=nothing, euler=false)
         end
     end
 
-    compute_tracer_tendencies!(model; callbacks)
-    ab2_step_tracers!(model, Δt, χ)
-
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     step_momentum!(model, model.ice_dynamics, Δt, χ)
+
+    compute_tracer_tendencies!(model; callbacks)
+    ab2_step_tracers!(model, Δt, χ)
 
     # Only the tracers are advanced through an AB2 scheme 
     # (velocities are stepped in the dynamics step)
