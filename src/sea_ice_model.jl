@@ -2,6 +2,7 @@ using Oceananigans.Fields: TracerFields
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using Oceananigans: tupleit, tracernames
 using Oceananigans.TimeSteppers: TimeStepper
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR

@@ -5,8 +5,8 @@
 # This file shows all the functions that an "explicit" rheology should 
 # extend to work correctly with an `ExplicitMomentumSolver`
 
-required_auxiliary_fields(grid, ::Nothing, ::CgridDynamics) = nothing
-required_auxiliary_fields(grid, ::Nothing, ::EgridDynamics) = (û = YFaceField(grid), v̂ = XFaceField(grid))
+required_auxiliary_fields(grid, ::Nothing, ::CGridDynamics) = nothing
+required_auxiliary_fields(grid, ::Nothing, ::EGridDynamics) = (û = YFaceField(grid), v̂ = XFaceField(grid))
 
 compute_stresses!(model, solver, ::Nothing, args...) = nothing
 initialize_rheology!(model, ::Nothing) = nothing

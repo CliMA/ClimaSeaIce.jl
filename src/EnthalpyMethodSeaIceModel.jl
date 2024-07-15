@@ -72,7 +72,7 @@ function EnthalpyMethodSeaIceModel(; grid,
     state = TracerFields(field_names, grid, user_boundary_conditions)
 
     tendencies = (; H=CenterField(grid))
-    clock = Clock{eltype(grid)}(0, 0, 1)
+    clock = Clock{eltype(grid)}(time = 0)
 
     return EnthalpyMethodSeaIceModel(grid,
                                     nothing,

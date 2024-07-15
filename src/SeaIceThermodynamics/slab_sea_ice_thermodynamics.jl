@@ -10,6 +10,13 @@ struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodyna
     ice_consolidation_thickness :: MIT
 end
 
+Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) = 
+    SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
+                             Adapt.adapt(to, t.heat_boundary_conditions),
+                             Adapt.adapt(to, t.internal_heat_flux),
+                             Adapt.adapt(to, t.phase_transitions),
+                             Adapt.adapt(to, t.ice_consolidation_thickness))
+
 const SSIT = SlabSeaIceThermodynamics
 
 Base.summary(therm::SSIT) = "SlabThermodynamics"
@@ -74,11 +81,11 @@ function SlabSeaIceThermodynamics(grid;
 end
 
 function external_top_heat_flux(thermodynamics::SlabSeaIceThermodynamics,
-                                                    top_heat_flux)   # Construct default top heat flux if one is not provided
+                                top_heat_flux)   # Construct default top heat flux if one is not provided
     if isnothing(top_heat_flux)
         if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature  
             # Default: external top flux is in equilibrium with internal fluxes
-            top_heat_flux = internal_heat_flux_function
+            top_heat_flux = thermodynamics.internal_heat_flux
         else
             # Default: no external top surface flux
             top_heat_flux = 0

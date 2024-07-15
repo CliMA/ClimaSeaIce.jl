@@ -45,7 +45,7 @@ abstract type AbstractRheology end
 struct CGridDynamics end
 struct EGridDynamics end
 
-dynamics_grid(::AbstractMomentumSolver{G}) = G()
+dynamics_grid(::AbstractMomentumSolver{G}) where G = G()
 
 # Ice volume
 @inline Vᵢ(i, j, k, grid, h, ℵ) = @inbounds h[i, j, k] * ℵ[i, j, k]

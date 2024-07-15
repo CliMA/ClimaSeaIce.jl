@@ -409,7 +409,7 @@ function fill_stresses_halo_regions!(fields, ::CGridDynamics, ::ExplicitViscoPla
     return nothing
 end
 
-function fill_stresses_halo_regions!(fields, ::CGridDynamics, ::ExplicitViscoPlasticRheology, args...)
+function fill_stresses_halo_regions!(fields, ::EGridDynamics, ::ExplicitViscoPlasticRheology, args...)
     σ₁₁ = fields.σ₁₁
     σ₁₂ = fields.σ₁₂
     σ₂₂ = fields.σ₂₂
