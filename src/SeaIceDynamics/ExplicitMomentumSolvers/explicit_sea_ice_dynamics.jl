@@ -52,6 +52,7 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
                 model.ice_thickness,
                 model.ice_concentration,
                 model.ice_density,
+                model.ocean_density,
                 solver.ocean_ice_drag_coefficient)
 
         # The momentum equations are solved using an alternating leap-frog algorithm

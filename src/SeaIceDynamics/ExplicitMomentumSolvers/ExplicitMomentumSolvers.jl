@@ -47,7 +47,8 @@ import ClimaSeaIce.SeaIceDynamics:
         AbstractMomentumSolver,
         step_momentum!,
         update_stepping_coefficients!,
-        get_stepping_coefficients
+        get_stepping_coefficients,
+        dynamics_grid
 
 struct ExplicitMomentumSolver{G, R, T, FT, A} <: AbstractMomentumSolver{G}
     rheology :: R # Rheology to compute stresses
