@@ -134,10 +134,24 @@ using .HeatBoundaryConditions:
     FluxFunction,
     PrescribedTemperature
 
+using Oceananigans.Utils: prettysummary
+using Oceananigans.TimeSteppers: Clock
+using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
+
+# Simulations interface
+import Oceananigans: fields, prognostic_fields
+import Oceananigans.Fields: set!
+import Oceananigans.Models: AbstractModel
+import Oceananigans.OutputWriters: default_included_properties
+import Oceananigans.Simulations: reset!, initialize!, iteration
+import Oceananigans.TimeSteppers: time_step!, update_state!
+import Oceananigans.Utils: prettytime
+
 # TODO: Fix this after this PR
 # include("EnthalpyMethodThermodynamics.jl")
-include("SlabThermodynamics/SlabThermodynamics.jl")
 
-using .SlabThermodynamics: SlabSeaIceThermodynamics, ConductiveFlux
+include("slab_sea_ice_thermodynamics.jl")
+include("slab_heat_and_tracer_fluxes.jl")
+include("slab_thermodynamics_tendencies.jl")
 
 end
