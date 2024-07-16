@@ -74,7 +74,7 @@ function SlabSeaIceThermodynamics(grid;
 end
 
 function external_top_heat_flux(thermodynamics::SlabSeaIceThermodynamics,
-                                                    top_heat_flux)   # Construct default top heat flux if one is not provided
+                                top_heat_flux)   # Construct default top heat flux if one is not provided
     if isnothing(top_heat_flux)
         if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature  
             # Default: external top flux is in equilibrium with internal fluxes

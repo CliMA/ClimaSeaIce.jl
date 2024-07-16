@@ -39,7 +39,7 @@ function SeaIceModel(grid;
                      advection           = nothing,
                      top_u_stress        = Field{Face, Center, Nothing}(grid),
                      top_v_stress        = Field{Center, Face, Nothing}(grid),
-                     ocean_velocities    = (u = ZeroField(), v = ZeroField()),
+                     ocean_velocities    = (u = ZeroField(eltype(grid)), v = ZeroField(eltype(grid))),
                      ocean_density       = 1025, # kg/m³
                      coriolis            = nothing,
                      tracers             = (),
@@ -48,8 +48,8 @@ function SeaIceModel(grid;
                      ice_dynamics        = ExplicitMomentumSolver(grid))
 
     if isnothing(velocities) 
-        u = XFaceField(grid)
-        v = YFaceField(grid)
+        u = Field{Face, Center, Nothing}(grid)
+        v = Field{Center, Face, Nothing}(grid)
         velocities = (; u, v)
     end
 

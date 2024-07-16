@@ -32,8 +32,7 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     # This is updating the temperature inside the thermodynamics module
     if !isa(top_heat_bc, PrescribedTemperature) # update surface temperature?
         if consolidated_ice # slab is consolidated and has an independent surface temperature
-            Tu⁻ = @inbounds Tu[i, j, k]
-            Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
+            Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu, Qi, Qu, clock, model_fields)
         else # slab is unconsolidated and does not have an independent surface temperature
             Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
         end

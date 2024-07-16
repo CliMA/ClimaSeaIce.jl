@@ -30,8 +30,10 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
     i, j = @index(Global, NTuple)
 
-    uᵢ, vᵢ = velocities
-    uₒ, vₒ = ocean_velocities
+    uᵢ = velocities.u
+    vᵢ = velocities.v
+    uₒ = ocean_velocities.u
+    vₒ = ocean_velocities.v
     h  = ice_thickness
     ℵ  = ice_concentration
     ρᵢ = ice_density
@@ -39,7 +41,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     Cᴰ = ocean_ice_drag_coefficient
 
     # Ice mass (per unit area) interpolated on u points
-    mᵢ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
+    mᵢ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
@@ -99,8 +101,10 @@ end
 
     i, j = @index(Global, NTuple)
 
-    uᵢ, vᵢ = velocities
-    uₒ, vₒ = ocean_velocities
+    uᵢ = velocities.u
+    vᵢ = velocities.v
+    uₒ = ocean_velocities.u
+    vₒ = ocean_velocities.v
     h  = ice_thickness
     ℵ  = ice_concentration
     ρᵢ = ice_density
@@ -108,7 +112,7 @@ end
     Cᴰ = ocean_ice_drag_coefficient
 
     # Ice mass (per unit area) interpolated on u points
-    mᵢ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
+    mᵢ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
     Δu = ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uₒ) - ℑxyᴮᶜᶠᶜ(i, j, 1, grid, uᵢ)

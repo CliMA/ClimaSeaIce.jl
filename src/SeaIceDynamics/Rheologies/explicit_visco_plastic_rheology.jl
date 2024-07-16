@@ -54,14 +54,13 @@ end
 
 function required_auxiliary_fields(grid, ::ExplicitViscoPlasticRheology)
 
-    σ₁₁ = CenterField(grid)
-    σ₂₂ = CenterField(grid)
-    σ₁₂ = Field{Face, Face, Center}(grid)
+    σ₁₁ = Field{Center, Center, Nothing}(grid)
+    σ₂₂ = Field{Center, Center, Nothing}(grid)
+    σ₁₂ = Field{Face, Face, Nothing}(grid)
 
-    uⁿ = XFaceField(grid) 
-    vⁿ = YFaceField(grid) 
-
-    P  = CenterField(grid)
+    uⁿ = Field{Face, Center, Nothing}(grid)
+    vⁿ = Field{Center, Face, Nothing}(grid)
+    P  = Field{Center, Center, Nothing}(grid)
 
     return (; σ₁₁, σ₂₂, σ₁₂, uⁿ, vⁿ, P)
 end
@@ -198,8 +197,8 @@ end
     σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
-    mᵢᶜᶜᶜ = ice_volume(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ) 
+    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
 
     c = stepping_coefficient
 

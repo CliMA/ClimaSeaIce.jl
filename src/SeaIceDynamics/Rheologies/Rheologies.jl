@@ -19,7 +19,7 @@ using ClimaSeaIce.SeaIceDynamics:
     AbstractRheology,
     update_stepping_coefficients!,
     get_stepping_coefficients,
-    ice_volume
+    ice_mass
 
 import Oceananigans.BoundaryConditions: fill_halo_regions!
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!

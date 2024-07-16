@@ -1,10 +1,11 @@
-struct DynamicSteppingCoefficient{A}
+struct DynamicSteppingCoefficient{A, FT}
     c :: A
-    minimum_substeps :: Int
+    min_coeff :: FT
+    max_coeff :: FT
 end
 
 Adapt.adapt_structure(to, s::DynamicSteppingCoefficient) = 
-    DynamicSteppingCoefficient(Adapt.adapt(to, s.c), s.minimum_substeps)
+    DynamicSteppingCoefficient(Adapt.adapt(to, s.c), s.min_coeff, s.max_coeff)
 
 """
     DynamicSteppingCoefficient(grid::AbstractGrid)
@@ -20,22 +21,26 @@ the coefficients are large correspond to regions where the ice is more solid and
 and the convergence is slower.
 """
 function DynamicSteppingCoefficient(grid::AbstractGrid;
-                                    minimum_substeps = 25) # smallest number of substeps
+                                    min_coeff = 50, # lower limit to `c` (as found in Kimmritz et al (2016))
+                                    max_coeff = 1000)
     c = CenterField(grid)
-    set!(c, 1000) # Start with a veeery large coefficient, it will be updated as soon as the viscosity is calculated
+    set!(c, max_coeff) # Start with a veeery large coefficient, it will be updated as soon as the viscosity is calculated
 
-    return DynamicSteppingCoefficient(c, minimum_substeps)
+    FT = eltype(grid)
+    return DynamicSteppingCoefficient(c, 
+                                      convert(FT, min_coeff), 
+                                      convert(FT, max_coeff))
 end
 
-@inline get_stepping_coefficients(i, j, k, grid, substeps, coefficients::DynamicSteppingCoefficient) = @inbounds max(coefficients.minimum_substeps, coefficients.c[i, j, k])
+@inline get_stepping_coefficients(i, j, k, grid, substeps, coeff::DynamicSteppingCoefficient) = @inbounds min(coeff.max_coeff, max(coeff.min_coeff, coeff.c[i, j, k]))
 
 # Following an mEVP formulation: α = β = sqrt(γ) (Kimmritz et al 2016)
 # where γ = ζ * π² * (Δt / mᵢ) / Az
-@inline function update_stepping_coefficients!(i, j, k, grid, coefficients::DynamicSteppingCoefficient, ζ, mᵢ, Δt)
+@inline function update_stepping_coefficients!(i, j, k, grid, coeff::DynamicSteppingCoefficient, ζ, mᵢ, Δt)
     A     = Azᶜᶜᶜ(i, j, k, grid)
-    c_min = coefficients.minimum_substeps
-    γ     = ifelse(mᵢ == 0, c_min^2, ζ * π^2 * Δt / mᵢ / A)
-    @inbounds coefficients.c[i, j, k] = sqrt(γ)
+    c_max = coeff.max_coeff
+    γ     = ifelse(mᵢ == 0, c_max^2, ζ * π^2 * Δt / mᵢ / A)
+    @inbounds coeff.c[i, j, k] = sqrt(γ)
 
     return nothing
 end

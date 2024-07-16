@@ -42,7 +42,7 @@ Abstract supertype for rheologies that calculate the stress divergence ∇⋅σ.
 abstract type AbstractRheology end
 
 # Ice volume
-@inline ice_volume(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ℵ[i, j, k] * ρ
+@inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ℵ[i, j, k] * ρ
 
 # Fallback functions common to `ExplicitMomentumSolvers` and `Rheologies`
 @inline update_stepping_coefficients!(args...) = nothing
