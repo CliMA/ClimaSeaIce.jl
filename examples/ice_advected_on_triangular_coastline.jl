@@ -55,7 +55,7 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-solver    = ExplicitMomentumSolver(grid; substeps = 100)
+solver    = ExplicitMomentumSolver(grid; substeps = 1000)
 advection = WENO(; order = 7)
 
 # Define the model!
@@ -63,8 +63,7 @@ model = SeaIceModel(grid;
                     top_u_stress = τᵤ,
                     top_v_stress = τᵥ,
                     advection,
-                    ice_dynamics = solver,
-                    ice_thermodynamics = nothing)
+                    ice_dynamics = solver)
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 1.0

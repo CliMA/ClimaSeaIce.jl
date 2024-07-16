@@ -20,7 +20,7 @@ the coefficients are large correspond to regions where the ice is more solid and
 and the convergence is slower.
 """
 function DynamicSteppingCoefficient(grid::AbstractGrid;
-                                    minimum_substeps = 10) # smallest number of substeps
+                                    minimum_substeps = 25) # smallest number of substeps
     c = CenterField(grid)
     set!(c, 1000) # Start with a veeery large coefficient, it will be updated as soon as the viscosity is calculated
 
