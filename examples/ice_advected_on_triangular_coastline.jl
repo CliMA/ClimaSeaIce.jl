@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using GLMakie
+using CairoMakie
 using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
@@ -16,7 +16,7 @@ Ny = 128
 
 y_max = Ly / 2
 
-arch = CPU()
+arch = GPU()
 
 𝓋ₐ = 10.0   # m / s 
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
@@ -120,7 +120,7 @@ function progress(sim)
 end
 
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
-simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(1))
+simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(10))
 
 run!(simulation)
 
