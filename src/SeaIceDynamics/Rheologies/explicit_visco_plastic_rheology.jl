@@ -29,7 +29,7 @@ The `ice_strength` is parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))``
 Arguments
 =========
     
-- `grid`: the `SlabSeaIceModel` grid
+- `FT`: the floating point precision
 
 Keyword Arguments
 =================
@@ -38,7 +38,7 @@ Keyword Arguments
 - `ice_compaction_hardening`: exponent coefficient for compaction hardening, default `20`.
 - `yield_curve_eccentricity`: eccentricity of the elliptic yield curve, default `2`.
 - `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice, 
-           transitioning the ice from a plastic to a viscous behaviour. Default value is `1e-10`.
+           transitioning the ice from a plastic to a viscous behaviour. Default value is `2e-9`.
 """
 function ExplicitViscoPlasticRheology(FT::DataType = Float64; 
                                       ice_compressive_strength = 27500, 
@@ -134,7 +134,7 @@ end
 end
 
 # Initialize the rheology on an E-grid
-@kernel function _initialize_evp_rhology!(fields, ::EGridDynamics, P★, C, h, ℵ, u, v)
+@kernel function _initialize_evp_rhology!(fields, ::EGridDynamics, grid, P★, C, h, ℵ, u, v)
     i, j = @index(Global, NTuple)    
     @inbounds begin
         fields.P[i, j, 1]  = ice_strength(i, j, 1, grid, P★, C, h, ℵ)
@@ -281,6 +281,8 @@ end
     σ̂₁₁ = fields.σ̂₁₁
     σ̂₂₂ = fields.σ̂₂₂
     σ̂₁₂ = fields.σ̂₁₂
+    û   = fields.û
+    v̂   = fields.v̂
  
     # Strain rates
     ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
@@ -342,10 +344,6 @@ end
     σ̂₂₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₂₂ᶠᶠᶜ + ((ζᶠᶠᶜ - ηᶠᶠᶜ) * (ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ) - Pᵣᶠᶠᶜ / 2)
     σ̂₁₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₂ᶜᶜᶜ
 
-    mᵢ = @inbounds h[i, j, 1] * ℵ[i, j, 1] * ρᵢ
-
-    c = stepping_coefficient
-
     mᵢᶜᶜᶜ = ice_volume(i, j, 1, grid, h, ℵ, ρᵢ) 
     mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ) 
 
@@ -358,7 +356,6 @@ end
     # Coefficient for substepping internal stress
     αᶜᶜᶜ = get_stepping_coefficients(i, j, 1, grid, substeps, c)
     αᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, c)
-
 
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / αᶜᶜᶜ, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
@@ -389,15 +386,15 @@ end
 end
 
 @inline function x_internal_stress_divergenceᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₁ = δxᶜᶠᶜ(i, j, k, grid, Ax_qᶜᶜᶜ, fields.σ̂₁₁)
-    ∂yσ₁₂ = δyᶜᶠᶜ(i, j, k, grid, Ay_qᶠᶠᶜ, fields.σ̂₁₂)
+    ∂xσ₁₁ = δxᶜᶠᶜ(i, j, k, grid, Ax_qᶠᶠᶜ, fields.σ̂₁₁)
+    ∂yσ₁₂ = δyᶜᶠᶜ(i, j, k, grid, Ay_qᶜᶜᶜ, fields.σ̂₁₂)
 
     return (∂xσ₁₁ + ∂yσ₁₂) / Vᶜᶠᶜ(i, j, k, grid)
 end
 
 @inline function y_internal_stress_divergenceᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₂ = δxᶠᶜᶜ(i, j, k, grid, Ax_qᶠᶠᶜ, fields.σ̂₁₂)
-    ∂yσ₂₂ = δyᶠᶜᶜ(i, j, k, grid, Ay_qᶜᶜᶜ, fields.σ̂₂₂)
+    ∂xσ₁₂ = δxᶠᶜᶜ(i, j, k, grid, Ax_qᶜᶜᶜ, fields.σ̂₁₂)
+    ∂yσ₂₂ = δyᶠᶜᶜ(i, j, k, grid, Ay_qᶠᶠᶜ, fields.σ̂₂₂)
 
     return (∂xσ₁₂ + ∂yσ₂₂) / Vᶠᶜᶜ(i, j, k, grid)
 end

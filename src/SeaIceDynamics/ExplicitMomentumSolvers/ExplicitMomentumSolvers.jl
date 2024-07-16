@@ -133,10 +133,10 @@ fill_velocities_halo_regions!(model, ::ExplicitMomentumSolver{<:CGridDynamics}, 
 function fill_velocities_halo_regions!(model, solver::ExplicitMomentumSolver{<:EGridDynamics}, args...)
     fill_halo_regions!(model.velocities, args...)
 
-    û = solver.auxiliary_fields.v̂
-    v̂ = solver.auxiliary_fields.û
+    û = solver.auxiliary_fields.û
+    v̂ = solver.auxiliary_fields.v̂
     
-    fill_halo_regions((û, v̂), args...)
+    fill_halo_regions!((û, v̂), args...)
 
     return nothing
 end

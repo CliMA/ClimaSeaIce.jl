@@ -1,6 +1,5 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
 
-
 @inline fᶠᶜᶜ(i, j, k, grid, coriolis) = ℑyᴮᶠᶜᶜ(i, j, k, grid, fᶠᶠᵃ, coriolis)
 @inline fᶜᶠᶜ(i, j, k, grid, coriolis) = ℑxᴮᶜᶠᶜ(i, j, k, grid, fᶠᶠᵃ, coriolis)
 
@@ -84,8 +83,8 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
                         + x_internal_stress_divergenceᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢᶜᶠᶜ)
 
     # make sure we do not have NaNs!                 
-    Gᵁᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gᵁᶠᶜᶜ, zero(0)) 
-    Gᵁᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Gᵁᶜᶠᶜ, zero(0)) 
+    Gᵁᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gᵁᶠᶜᶜ, zero(grid)) 
+    Gᵁᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Gᵁᶜᶠᶜ, zero(grid)) 
     Gᴿᶠᶜᶜ = rheology_specific_numerical_terms_xᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
     Gᴿᶜᶠᶜ = rheology_specific_numerical_terms_xᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields, ûᵢ)
     
@@ -94,8 +93,8 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
     @inbounds ûᵢ[i, j, 1] += (Δt * Gᵁᶜᶠᶜ + Gᴿᶜᶠᶜ) / βᶜᶠᶜ
     
     # Implicit component of the ice-ocean stress
-    τᵢᶠᶜᶜ = ifelse(mᵢ > 0, Δt * τₑₒᶠᶜᶜ / β, zero(grid))
-    τᵢᶜᶠᶜ = ifelse(mᵢ > 0, Δt * τₑₒᶜᶠᶜ / β, zero(grid))
+    τᵢᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Δt * τₑₒᶠᶜᶜ / βᶠᶜᶜ, zero(grid))
+    τᵢᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Δt * τₑₒᶜᶠᶜ / βᶜᶠᶜ, zero(grid))
 
     # Implicit step
     @inbounds uᵢ[i, j, 1] /= (1 + τᵢᶠᶜᶜ) 
@@ -124,6 +123,7 @@ end
 
     uᵢ, vᵢ = velocities
     uₒ, vₒ = ocean_velocities
+    ûᵢ, v̂ᵢ = auxiliary_fields.û, auxiliary_fields.v̂
     h  = ice_thickness
     ℵ  = ice_concentration
     ρᵢ = ice_density
@@ -171,8 +171,8 @@ end
                         + y_internal_stress_divergenceᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢᶠᶜᶜ) 
 
     # make sure we do not have NaNs!
-    Gⱽᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Gⱽᶜᶠᶜ, zero(0)) 
-    Gⱽᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gⱽᶠᶜᶜ, zero(0)) 
+    Gⱽᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Gⱽᶜᶠᶜ, zero(grid)) 
+    Gⱽᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gⱽᶠᶜᶜ, zero(grid)) 
     Gᴿᶜᶠᶜ = rheology_specific_numerical_terms_yᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields, vᵢ)
     Gᴿᶠᶜᶜ = rheology_specific_numerical_terms_yᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields, v̂ᵢ)
 
@@ -181,8 +181,8 @@ end
     @inbounds v̂ᵢ[i, j, 1] += (Δt * Gⱽᶠᶜᶜ + Gᴿᶠᶜᶜ) / βᶠᶜᶜ
 
     # Implicit component of the ice-ocean stress
-    τᵢᶜᶠᶜ = ifelse(mᵢ > 0, Δt * τₑₒᶜᶠᶜ / β, zero(0)) 
-    τᵢᶠᶜᶜ = ifelse(mᵢ > 0, Δt * τₑₒᶠᶜᶜ / β, zero(0)) 
+    τᵢᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Δt * τₑₒᶜᶠᶜ / βᶜᶠᶜ, zero(grid)) 
+    τᵢᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Δt * τₑₒᶠᶜᶜ / βᶠᶜᶜ, zero(grid)) 
 
     # Implicit step
     @inbounds vᵢ[i, j, 1] /= (1 + τᵢᶜᶠᶜ) 
