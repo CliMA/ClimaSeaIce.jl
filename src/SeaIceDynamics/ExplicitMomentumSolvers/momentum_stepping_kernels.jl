@@ -66,7 +66,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
                      + x_internal_stress_divergence(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
 
     # make sure we do not have NaNs!                 
-    Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(0)) 
+    Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(grid)) 
     Gᴿ = rheology_specific_numerical_terms_x(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
     
     # Explicit step
@@ -135,14 +135,14 @@ end
                      + y_internal_stress_divergence(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
 
     # make sure we do not have NaNs!
-    Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(0)) 
+    Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 
     Gᴿ = rheology_specific_numerical_terms_y(i, j, 1, grid, rheology, auxiliary_fields, vᵢ)
 
     # Explicit step
     @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + Gᴿ) / β
 
     # Implicit component of the ice-ocean stress
-    τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(0)) 
+    τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(grid)) 
 
     # Implicit step
     @inbounds vᵢ[i, j, 1] /= (1 + τᵢ) 
