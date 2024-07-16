@@ -33,8 +33,11 @@ IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
 @inline bottom_temperature(i, j, grid, bc::PrescribedTemperature, args...) = @inbounds bc.temperature[i, j]
 @inline bottom_temperature(i, j, grid, bc::PrescribedTemperature{<:Number}, args...) = bc.temperature
 
+@inline getsalinity(i, j, k, S::Number) = S
+@inline getsalinity(i, j, k, S::AbstractArray) = @inbounds S[i, j, k]
+
 @inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, liquidus)
-    Sₒ = @inbounds bc.salinity[i, j, 1]
+    Sₒ = getsalinity(i, j, 1, bc.salinity)
     return melting_temperature(liquidus, Sₒ)
 end
 

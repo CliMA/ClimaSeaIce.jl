@@ -138,17 +138,17 @@ end
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁺ = h[i, j, k] + Δt * ((one_point_five + χ) * Ghⁿ[i, j, k] - (oh_point_five + χ) * Gh⁻[i, j, k])
-        h⁺ = max(0, h⁺)
+        h⁺ = max(zero(FT), h⁺)
 
         # Belongs in update state?
         # That's certainly a simple model for ice concentration
         ℵ⁺ = ℵ[i, j, k] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, k] - (oh_point_five + χ) * Gℵ⁻[i, j, k])
-        ℵ⁺ = max(0, ℵ⁺)
+        ℵ⁺ = max(zero(FT), ℵ⁺)
         
         # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
         # to maintain a constant ice volume
         h[i, j, k] = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
-        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, 1, ℵ⁺)
+        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(FT), ℵ⁺)
     end 
 end
 

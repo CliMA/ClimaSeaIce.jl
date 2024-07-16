@@ -27,7 +27,7 @@ using Adapt
 ## - ocean dynamic surface
 
 using ClimaSeaIce.SeaIceDynamics
-using ClimaSeaIce.SeaIceDynamics: ice_volume
+using ClimaSeaIce.SeaIceDynamics: ice_mass
 
 using ClimaSeaIce.SeaIceDynamics.Rheologies: 
     required_auxiliary_fields,
