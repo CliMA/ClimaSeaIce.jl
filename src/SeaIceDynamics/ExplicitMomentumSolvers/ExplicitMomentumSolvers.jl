@@ -42,8 +42,7 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     rheology_specific_forcing_xᶠᶜᶜ,
     rheology_specific_forcing_yᶠᶜᶜ,
     rheology_specific_forcing_xᶜᶠᶜ,
-    rheology_specific_forcing_yᶜᶠᶜ,
-    fill_stresses_halo_regions!
+    rheology_specific_forcing_yᶜᶠᶜ
 
 import ClimaSeaIce.SeaIceDynamics: 
         AbstractMomentumSolver,

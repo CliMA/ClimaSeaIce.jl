@@ -22,7 +22,7 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
     # The atmospheric stress component is fixed during time-stepping
     τua = model.external_momentum_stresses.u
     τva = model.external_momentum_stresses.v
-    
+
     # Either a C-grid or an E-grid
     dgrid = dynamics_grid(solver)
 
@@ -76,6 +76,8 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             end
         end
     end
+
+    fill_halo_regions!(model.velocities, model.clock, fields(model))
 
     return nothing
 end

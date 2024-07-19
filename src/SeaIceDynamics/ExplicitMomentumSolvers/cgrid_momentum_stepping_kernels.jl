@@ -66,7 +66,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
+                     + ∂ⱼ_σ₁ⱼᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(grid)) 
@@ -138,7 +138,7 @@ end
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τvₐ
                      + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
+                     + ∂ⱼ_σ₂ⱼᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 
