@@ -34,8 +34,8 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     compute_stresses!,
     initialize_rheology!,
     required_auxiliary_fields,
-    x_internal_stress_divergence,
-    y_internal_stress_divergence,
+    ∂ⱼ_σ₁ⱼ,
+    ∂ⱼ_σ₂ⱼ,
     rheology_specific_numerical_terms_x,
     rheology_specific_numerical_terms_y,
     fill_stresses_halo_regions!
