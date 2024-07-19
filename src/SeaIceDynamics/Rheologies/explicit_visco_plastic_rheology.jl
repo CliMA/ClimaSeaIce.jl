@@ -284,14 +284,14 @@ end
     v̂   = fields.v̂
  
     # Strain rates
-    ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ̇₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂xᶠᶠᶜ(i, j, 1, grid, u)) / 2
-    ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
+    ϵ̇₁₁ =  ∂xᶜᶜᶜ_U(i, j, 1, grid, u)
+    ϵ̇₁₂ = (∂xᶠᶠᶜ_c(i, j, 1, grid, v) + ∂yᶠᶠᶜ_c(i, j, 1, grid, u)) / 2
+    ϵ̇₂₂ =  ∂yᶜᶜᶜ_V(i, j, 1, grid, v)
 
     # Complementary strain rates
-    ϵ̇₁₂ᶜᶜᶜ = (∂xᶜᶜᶜ(i, j, 1, grid, v̂) + ∂yᶜᶜᶜ(i, j, 1, grid, û)) / 2
-    ϵ̇₁₁ᶠᶠᶜ = ∂xᶠᶠᶜ(i, j, 1, grid, û)
-    ϵ̇₂₂ᶠᶠᶜ = ∂xᶠᶠᶜ(i, j, 1, grid, v̂)
+    ϵ̇₁₂ᶜᶜᶜ = (∂xᶜᶜᶜ_U(i, j, 1, grid, v̂) + ∂yᶜᶜᶜ_V(i, j, 1, grid, û)) / 2
+    ϵ̇₁₁ᶠᶠᶜ =  ∂xᶠᶠᶜ_c(i, j, 1, grid, û)
+    ϵ̇₂₂ᶠᶠᶜ =  ∂xᶠᶠᶜ_c(i, j, 1, grid, v̂)
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
