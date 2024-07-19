@@ -12,6 +12,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
 """ stepping the ice u-velocity using a forward leap-frog scheme """
 @kernel function _u_velocity_step!(velocities, grid, Δt, 
+                                   boundary_conditions,
                                    clock,
                                    ocean_velocities,
                                    coriolis,
@@ -65,7 +66,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + x_internal_stress_divergence(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
+                     + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(grid)) 
@@ -83,6 +84,7 @@ end
 
 """ stepping the ice v-velocity using a forward leap-frog scheme """
 @kernel function _v_velocity_step!(velocities, grid, Δt, 
+                                   boundary_conditions,
                                    clock,
                                    ocean_velocities, 
                                    coriolis,
@@ -136,7 +138,7 @@ end
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τvₐ
                      + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + y_internal_stress_divergence(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
+                     + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 

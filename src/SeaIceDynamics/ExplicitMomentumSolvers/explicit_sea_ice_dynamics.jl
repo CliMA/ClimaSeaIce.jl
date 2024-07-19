@@ -23,9 +23,15 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
     τua = model.external_momentum_stresses.u
     τva = model.external_momentum_stresses.v
 
+    u, v = model.velocities
+
+    velocity_boundary_conditions = (; u = u.boundary_conditions, 
+                                      v = v.boundary_conditions)
+
     # We step the momentum equation using a leap-frog scheme
     # where we alternate the order of solving u and v 
     args = (model.velocities, grid, Δt, 
+            velocity_boundary_conditions,
             model.clock,
             model.ocean_velocities,
             model.coriolis,

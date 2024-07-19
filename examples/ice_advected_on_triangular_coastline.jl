@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using CairoMakie
+using GLMakie
 using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
@@ -11,12 +11,12 @@ using ClimaSeaIce.SeaIceDynamics
 
 Lx = 512kilometers
 Ly = 256kilometers
-Nx = 2500
-Ny = 2500
+Nx = 256
+Ny = 256
 
 y_max = Ly / 2
 
-arch = GPU()
+arch = CPU()
 
 𝓋ₐ = 10.0   # m / s 
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
@@ -56,7 +56,7 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-solver    = ExplicitMomentumSolver(grid; substeps = 100) 
+solver    = ExplicitMomentumSolver(grid; substeps = 120) 
 advection = WENO(; order = 7)
 
 # Define the model!
@@ -148,7 +148,7 @@ heatmap!(ax, ui, colorrange = (0, 0.12), colormap = :balance)
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.025, 0.025), colormap = :bwr)
 
-CairoMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 50) do i
+GLMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 50) do i
     iter[] = i
     @info "doing iter $i"
 end

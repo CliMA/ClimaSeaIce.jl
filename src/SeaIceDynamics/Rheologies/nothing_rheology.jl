@@ -15,8 +15,8 @@ initialize_rheology!(model, ::Nothing) = nothing
 compute_stresses!(model, solver, ::Nothing, args...) = nothing
 
 # Internal stress divergence terms in the velocity tendencies
-@inline x_internal_stress_divergence(i, j, k, grid, ::Nothing) = zero(grid)
-@inline y_internal_stress_divergence(i, j, k, grid, ::Nothing) = zero(grid)
+@inline ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::Nothing) = zero(grid)
+@inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::Nothing) = zero(grid)
 
 # Additional tendency terms specific to a certain rheology
 @inline rheology_specific_numerical_terms_x(i, j, k, grid, args...) = zero(grid) 
