@@ -70,7 +70,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(grid)) 
-    Gᴿ = rheology_specific_numerical_terms_x(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
+    Gᴿ = rheology_specific_forcing_x(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
     
     # Explicit step
     @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + Gᴿ) / β
@@ -142,7 +142,7 @@ end
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 
-    Gᴿ = rheology_specific_numerical_terms_y(i, j, 1, grid, rheology, auxiliary_fields, vᵢ)
+    Gᴿ = rheology_specific_forcing_y(i, j, 1, grid, rheology, auxiliary_fields, vᵢ)
 
     # Explicit step
     @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + Gᴿ) / β

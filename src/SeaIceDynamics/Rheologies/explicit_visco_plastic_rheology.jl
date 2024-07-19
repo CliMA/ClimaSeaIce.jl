@@ -234,5 +234,5 @@ end
 end
 
 # To help convergence to the right velocities
-@inline rheology_specific_numerical_terms_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
-@inline rheology_specific_numerical_terms_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
+@inline rheology_specific_forcing_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
+@inline rheology_specific_forcing_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]

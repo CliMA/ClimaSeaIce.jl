@@ -36,8 +36,8 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     required_auxiliary_fields,
     ∂ⱼ_σ₁ⱼ,
     ∂ⱼ_σ₂ⱼ,
-    rheology_specific_numerical_terms_x,
-    rheology_specific_numerical_terms_y,
+    rheology_specific_forcing_x,
+    rheology_specific_forcing_y,
     fill_stresses_halo_regions!
 
 import ClimaSeaIce.SeaIceDynamics: 

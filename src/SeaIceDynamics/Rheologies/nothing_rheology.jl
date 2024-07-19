@@ -19,8 +19,5 @@ compute_stresses!(model, solver, ::Nothing, args...) = nothing
 @inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::Nothing) = zero(grid)
 
 # Additional tendency terms specific to a certain rheology
-@inline rheology_specific_numerical_terms_x(i, j, k, grid, args...) = zero(grid) 
-@inline rheology_specific_numerical_terms_y(i, j, k, grid, args...) = zero(grid)
-
-# Filling the halo regions of the stress components (held in `fields`)
-fill_stresses_halo_regions!(fields, ::Nothing, args...) = nothing
+@inline rheology_specific_forcing_x(i, j, k, grid, args...) = zero(grid) 
+@inline rheology_specific_forcing_y(i, j, k, grid, args...) = zero(grid)
