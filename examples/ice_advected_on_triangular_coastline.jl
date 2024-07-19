@@ -11,8 +11,8 @@ using ClimaSeaIce.SeaIceDynamics
 
 Lx = 512kilometers
 Ly = 256kilometers
-Nx = 256
-Ny = 128
+Nx = 2500
+Ny = 2500
 
 y_max = Ly / 2
 
@@ -26,6 +26,7 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 grid = RectilinearGrid(arch; size = (Nx, Ny), 
                                 x = (-Lx/2, Lx/2), 
                                 y = (0, Ly), 
+                             halo = (4, 4),
                          topology = (Periodic, Bounded, Flat))
 
 bottom(x, y) = ifelse(y > y_max, 0, 
@@ -55,7 +56,7 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-solver    = ExplicitMomentumSolver(grid; substeps = 1000)
+solver    = ExplicitMomentumSolver(grid; substeps = 100) 
 advection = WENO(; order = 7)
 
 # Define the model!
@@ -63,7 +64,8 @@ model = SeaIceModel(grid;
                     top_u_stress = τᵤ,
                     top_v_stress = τᵥ,
                     advection,
-                    ice_dynamics = solver)
+                    ice_dynamics = solver,
+                    ice_thermodynamics = nothing)
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 1.0
@@ -77,7 +79,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) #, stop_iteration = 1) # 
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) # , stop_iteration = 100) # 
 
 # Container to hold the data
 htimeseries = []
@@ -119,7 +121,7 @@ function progress(sim)
      wall_time[1] = time_ns()
 end
 
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
+simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
 simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(10))
 
 run!(simulation)
@@ -146,7 +148,7 @@ heatmap!(ax, ui, colorrange = (0, 0.12), colormap = :balance)
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.025, 0.025), colormap = :bwr)
 
-GLMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 50) do i
+CairoMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 50) do i
     iter[] = i
     @info "doing iter $i"
 end

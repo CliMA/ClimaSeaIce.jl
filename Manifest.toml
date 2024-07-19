@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "19484cf8dfad99c0f33810f2fcf7362f476ab5bf"
+project_hash = "ff56be0df055c36eca57fa1726732cb95aaf327e"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -425,16 +425,17 @@ uuid = "40713840-3770-5561-ab4c-a76e7d0d7895"
 version = "0.2.1"
 
 [[deps.InlineStrings]]
-deps = ["Parsers"]
-git-tree-sha1 = "86356004f30f8e737eff143d57d41bd580e437aa"
+git-tree-sha1 = "45521d31238e87ee9f9732561bfee12d4eebd52d"
 uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
-version = "1.4.1"
+version = "1.4.2"
 
     [deps.InlineStrings.extensions]
     ArrowTypesExt = "ArrowTypes"
+    ParsersExt = "Parsers"
 
     [deps.InlineStrings.weakdeps]
     ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
+    Parsers = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -448,9 +449,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "e7cbed5032c4c397a6ac23d1493f3289e01231c4"
+git-tree-sha1 = "18c59411ece4838b18cd7f537e56cf5e41ce5bfd"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.14"
+version = "0.1.15"
 weakdeps = ["Dates"]
 
     [deps.InverseFunctions.extensions]
@@ -479,9 +480,9 @@ version = "1.0.0"
 
 [[deps.JLD2]]
 deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "PrecompileTools", "Reexport", "Requires", "TranscodingStreams", "UUIDs", "Unicode"]
-git-tree-sha1 = "84642bc18a79d715b39d3724b03cbdd2e7d48c62"
+git-tree-sha1 = "5fe858cb863e211c6dedc8cce2dc0752d4ab6e2b"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.49"
+version = "0.4.50"
 
 [[deps.JLLWrappers]]
 deps = ["Artifacts", "Preferences"]
@@ -1004,9 +1005,9 @@ weakdeps = ["ChainRulesCore"]
 
 [[deps.Static]]
 deps = ["CommonWorldInvalidations", "IfElse", "PrecompileTools"]
-git-tree-sha1 = "0bbff21027dd8a107551847528127b62a35f7594"
+git-tree-sha1 = "87d51a3ee9a4b0d2fe054bdd3fc2436258db2603"
 uuid = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
-version = "1.1.0"
+version = "1.1.1"
 
 [[deps.StaticArrayInterface]]
 deps = ["ArrayInterface", "Compat", "IfElse", "LinearAlgebra", "PrecompileTools", "Requires", "SparseArrays", "Static", "SuiteSparse"]

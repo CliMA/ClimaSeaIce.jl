@@ -15,6 +15,8 @@ using ClimaSeaIce.SeaIceDynamics
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
+arch = GPU()
+
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
 𝓋ₐ = 30.0 # m / s maximum atmospheric speed modifier
@@ -22,7 +24,8 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 ρₐ = 1.3 # kg/m³
 
 # 2 km domain
-grid = RectilinearGrid(size = (256, 256), 
+grid = RectilinearGrid(arch;
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
                    topology = (Bounded, Bounded, Flat))
