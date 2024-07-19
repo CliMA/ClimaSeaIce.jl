@@ -34,8 +34,8 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
 
     i, j = @index(Global, NTuple)
 
-    uᵢ, vᵢ = velocities
-    uₒ, vₒ = ocean_velocities
+    uᵢ, vᵢ = velocities.u, velocities.v
+    uₒ, vₒ = ocean_velocities.u, ocean_velocities.v
     ûᵢ, v̂ᵢ = auxiliary_fields.û, auxiliary_fields.v̂
     h  = ice_thickness
     ℵ  = ice_concentration
@@ -86,6 +86,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
     # make sure we do not have NaNs!                 
     Gᵁᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gᵁᶠᶜᶜ, zero(grid)) 
     Gᵁᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Gᵁᶜᶠᶜ, zero(grid)) 
+    
     Gᴿᶠᶜᶜ = rheology_specific_forcing_xᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
     Gᴿᶜᶠᶜ = rheology_specific_forcing_xᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields, ûᵢ)
     
@@ -123,8 +124,8 @@ end
 
     i, j = @index(Global, NTuple)
 
-    uᵢ, vᵢ = velocities
-    uₒ, vₒ = ocean_velocities
+    uᵢ, vᵢ = velocities.u, velocities.v
+    uₒ, vₒ = ocean_velocities.u, ocean_velocities.v
     ûᵢ, v̂ᵢ = auxiliary_fields.û, auxiliary_fields.v̂
     h  = ice_thickness
     ℵ  = ice_concentration
@@ -175,6 +176,7 @@ end
     # make sure we do not have NaNs!
     Gⱽᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Gⱽᶜᶠᶜ, zero(grid)) 
     Gⱽᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gⱽᶠᶜᶜ, zero(grid)) 
+
     Gᴿᶜᶠᶜ = rheology_specific_forcing_yᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields, vᵢ)
     Gᴿᶠᶜᶜ = rheology_specific_forcing_yᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields, v̂ᵢ)
 
