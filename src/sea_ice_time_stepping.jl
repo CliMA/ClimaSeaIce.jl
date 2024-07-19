@@ -34,7 +34,6 @@ function time_step!(model::SIM, Δt; callbacks=nothing, euler=false)
     χ = ifelse(euler, minus_point_five, ab2_timestepper.χ)
 
     # Set time-stepper χ (this is used in ab2_step!, but may also be used elsewhere)
-    χ₀ = ab2_timestepper.χ # Save initial value
     ab2_timestepper.χ = χ
 
     # Ensure zeroing out all previous tendency fields to avoid errors in

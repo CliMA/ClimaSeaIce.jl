@@ -25,13 +25,13 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
 
     u, v = model.velocities
 
-    velocity_boundary_conditions = (; u = u.boundary_conditions, 
-                                      v = v.boundary_conditions)
+    immersed_bc = (; u = u.boundary_conditions.immersed, 
+                     v = v.boundary_conditions.immersed)
 
     # We step the momentum equation using a leap-frog scheme
     # where we alternate the order of solving u and v 
     args = (model.velocities, grid, Δt, 
-            velocity_boundary_conditions,
+            immersed_bc,
             model.clock,
             model.ocean_velocities,
             model.coriolis,

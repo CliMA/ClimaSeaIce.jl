@@ -12,7 +12,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
 """ stepping the ice u-velocity using a forward leap-frog scheme """
 @kernel function _u_velocity_step!(velocities, grid, Δt, 
-                                   boundary_conditions,
+                                   immersed_bc,
                                    clock,
                                    ocean_velocities,
                                    coriolis,
@@ -84,7 +84,7 @@ end
 
 """ stepping the ice v-velocity using a forward leap-frog scheme """
 @kernel function _v_velocity_step!(velocities, grid, Δt, 
-                                   boundary_conditions,
+                                   immersed_bc,
                                    clock,
                                    ocean_velocities, 
                                    coriolis,
