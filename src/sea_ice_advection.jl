@@ -35,6 +35,9 @@ end
     return ϕh
 end
 
+# Fallback!
+@inline div_Uℵh(i, j, k, grid, ::Nothing, args...) = zero(grid)
+
 # For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
 @inline function div_Uℵh(i, j, k, grid, advection, U, ℵ, h)
     ∇Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection, U.u, ℵ, h) +

@@ -4,7 +4,9 @@ export ExplicitMomentumSolver, ExplicitViscoPlasticRheology
 export CGridDynamics, EGridDynamics
 export ℑxᴮᶜᶜᶜ,  ℑxᴮᶠᶜᶜ,  ℑxᴮᶜᶠᶜ,  ℑxᴮᶠᶠᶜ,
        ℑyᴮᶜᶜᶜ,  ℑyᴮᶠᶜᶜ,  ℑyᴮᶜᶠᶜ,  ℑyᴮᶠᶠᶜ,
-       ℑxyᴮᶜᶜᶜ, ℑxyᴮᶠᶜᶜ, ℑxyᴮᶜᶠᶜ, ℑxyᴮᶠᶠᶜ
+       ℑxyᴮᶜᶜᶜ, ℑxyᴮᶠᶜᶜ, ℑxyᴮᶜᶠᶜ, ℑxyᴮᶠᶠᶜ,
+       ∂xᶠᶜᶜ_c, ∂yᶜᶠᶜ_c, ∂xᶠᶠᶜ_c, ∂yᶠᶠᶜ_c,
+       ∂xᶜᶜᶜ_U, ∂yᶜᶜᶜ_V, ∂xᶜᶠᶜ_U, ∂yᶠᶜᶜ_V 
 
 using ClimaSeaIce
 

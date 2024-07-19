@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using CairoMakie
+using GLMakie
 using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
@@ -12,11 +12,11 @@ using ClimaSeaIce.SeaIceDynamics
 Lx = 512kilometers
 Ly = 256kilometers
 Nx = 256
-Ny = 128
+Ny = 256
 
 y_max = Ly / 2
 
-arch = GPU()
+arch = CPU()
 
 𝓋ₐ = 10.0   # m / s 
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
@@ -26,6 +26,7 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 grid = RectilinearGrid(arch; size = (Nx, Ny), 
                                 x = (-Lx/2, Lx/2), 
                                 y = (0, Ly), 
+                             halo = (4, 4),
                          topology = (Periodic, Bounded, Flat))
 
 bottom(x, y) = ifelse(y > y_max, 0, 
@@ -63,7 +64,8 @@ model = SeaIceModel(grid;
                     top_u_stress = τᵤ,
                     top_v_stress = τᵥ,
                     advection,
-                    ice_dynamics = solver)
+                    ice_dynamics = solver,
+                    ice_thermodynamics = nothing)
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 1.0
@@ -77,7 +79,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) #, stop_iteration = 1) # 
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) # , stop_iteration = 100) # 
 
 # Container to hold the data
 htimeseries = []
@@ -119,7 +121,7 @@ function progress(sim)
      wall_time[1] = time_ns()
 end
 
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
+simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
 simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(10))
 
 run!(simulation)

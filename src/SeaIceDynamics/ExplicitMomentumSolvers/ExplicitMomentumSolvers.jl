@@ -34,14 +34,15 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     ExplicitViscoPlasticRheology,
     compute_stresses!,
     initialize_rheology!,
-    x_internal_stress_divergenceᶠᶜᶜ,
-    y_internal_stress_divergenceᶠᶜᶜ,
-    rheology_specific_numerical_terms_xᶠᶜᶜ,
-    rheology_specific_numerical_terms_yᶠᶜᶜ,
-    x_internal_stress_divergenceᶜᶠᶜ,
-    y_internal_stress_divergenceᶜᶠᶜ,
-    rheology_specific_numerical_terms_xᶜᶠᶜ,
-    rheology_specific_numerical_terms_yᶜᶠᶜ,
+    required_auxiliary_fields,
+    ∂ⱼ_σ₁ⱼᶠᶜᶜ,
+    ∂ⱼ_σ₂ⱼᶠᶜᶜ,
+    ∂ⱼ_σ₁ⱼᶜᶠᶜ,
+    ∂ⱼ_σ₂ⱼᶜᶠᶜ,
+    rheology_specific_forcing_xᶠᶜᶜ,
+    rheology_specific_forcing_yᶠᶜᶜ,
+    rheology_specific_forcing_xᶜᶠᶜ,
+    rheology_specific_forcing_yᶜᶠᶜ,
     fill_stresses_halo_regions!
 
 import ClimaSeaIce.SeaIceDynamics: 

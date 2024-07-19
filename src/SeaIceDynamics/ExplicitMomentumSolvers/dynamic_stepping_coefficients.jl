@@ -22,7 +22,7 @@ and the convergence is slower.
 """
 function DynamicSteppingCoefficient(grid::AbstractGrid;
                                     min_coeff = 50, # lower limit to `c` (as found in Kimmritz et al (2016))
-                                    max_coeff = 1000)
+                                    max_coeff = Inf)
     c = CenterField(grid)
     set!(c, max_coeff) # Start with a veeery large coefficient, it will be updated as soon as the viscosity is calculated
 

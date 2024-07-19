@@ -187,12 +187,12 @@ end
     σ₁₂ = fields.σ₁₂
 
     # Strain rates
-    ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ̇₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂yᶠᶠᶜ(i, j, 1, grid, u)) / 2
-    ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
+    ϵ̇₁₁ =  ∂xᶜᶜᶜ_U(i, j, 1, grid, u)
+    ϵ̇₁₂ = (∂xᶠᶠᶜ_c(i, j, 1, grid, v) + ∂yᶠᶠᶜ_c(i, j, 1, grid, u)) / 2
+    ϵ̇₂₂ =  ∂yᶜᶜᶜ_V(i, j, 1, grid, v)
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᴮᶜᶜᶜ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + ℑxyᴮᶜᶜᶜ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᴮᶜᶜᶜ(i, j, 1, grid, ∂xᶠᶠᶜ_c, v) + ℑxyᴮᶜᶜᶜ(i, j, 1, grid, ∂yᶠᶠᶜ_c, u)) / 2
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -206,8 +206,8 @@ end
     Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
 
     # Face - Face variables
-    ϵ̇₁₁ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
-    ϵ̇₂₂ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ_U, u)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ_V, v)
 
     # Ice divergence
     δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
@@ -370,58 +370,36 @@ end
 ##### Internal stress divergence for the EVP model
 #####
 
-@inline function x_internal_stress_divergenceᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₁ = δxᶠᶜᶜ(i, j, k, grid, Ax_qᶜᶜᶜ, fields.σ₁₁)
-    ∂yσ₁₂ = δyᶠᶜᶜ(i, j, k, grid, Ay_qᶠᶠᶜ, fields.σ₁₂)
+@inline function ∂ⱼ_σ₁ⱼᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+    ∂xσ₁₁ = ∂xᶠᶜᶜ_c(i, j, k, grid, fields.σ₁₁)
+    ∂yσ₁₂ = ∂yᶠᶜᶜ_V(i, j, k, grid, fields.σ₁₂)
 
-    return (∂xσ₁₁ + ∂yσ₁₂) / Vᶠᶜᶜ(i, j, k, grid)
+    return ∂xσ₁₁ + ∂yσ₁₂ 
 end
 
-@inline function y_internal_stress_divergenceᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₂ = δxᶜᶠᶜ(i, j, k, grid, Ax_qᶠᶠᶜ, fields.σ₁₂)
-    ∂yσ₂₂ = δyᶜᶠᶜ(i, j, k, grid, Ay_qᶜᶜᶜ, fields.σ₂₂)
+@inline function ∂ⱼ_σ₁ⱼᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+    ∂xσ₁₁ = ∂xᶜᶠᶜ_U(i, j, k, grid, fields.σ̂₁₁)
+    ∂yσ₁₂ = ∂yᶜᶠᶜ_c(i, j, k, grid, fields.σ̂₁₂)
 
-    return (∂xσ₁₂ + ∂yσ₂₂) / Vᶜᶠᶜ(i, j, k, grid)
+    return ∂xσ₁₁ + ∂yσ₁₂ 
 end
 
-@inline function x_internal_stress_divergenceᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₁ = δxᶜᶠᶜ(i, j, k, grid, Ax_qᶠᶠᶜ, fields.σ̂₁₁)
-    ∂yσ₁₂ = δyᶜᶠᶜ(i, j, k, grid, Ay_qᶜᶜᶜ, fields.σ̂₁₂)
+@inline function ∂ⱼ_σ₂ⱼᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+    ∂xσ₁₂ = ∂xᶜᶠᶜ_U(i, j, k, grid, fields.σ₁₂)
+    ∂yσ₂₂ = ∂yᶜᶠᶜ_c(i, j, k, grid, fields.σ₂₂)
 
-    return (∂xσ₁₁ + ∂yσ₁₂) / Vᶜᶠᶜ(i, j, k, grid)
+    return ∂xσ₁₂ + ∂yσ₂₂
 end
 
-@inline function y_internal_stress_divergenceᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₂ = δxᶠᶜᶜ(i, j, k, grid, Ax_qᶜᶜᶜ, fields.σ̂₁₂)
-    ∂yσ₂₂ = δyᶠᶜᶜ(i, j, k, grid, Ay_qᶠᶠᶜ, fields.σ̂₂₂)
+@inline function ∂ⱼ_σ₂ⱼᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+    ∂xσ₁₂ = ∂xᶠᶜᶜ_c(i, j, k, grid, fields.σ̂₁₂)
+    ∂yσ₂₂ = ∂yᶠᶜᶜ_V(i, j, k, grid, fields.σ̂₂₂)
 
-    return (∂xσ₁₂ + ∂yσ₂₂) / Vᶠᶜᶜ(i, j, k, grid)
+    return ∂xσ₁₂ + ∂yσ₂₂
 end
 
 # To help convergence to the right velocities
-@inline rheology_specific_numerical_terms_xᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
-@inline rheology_specific_numerical_terms_yᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
-@inline rheology_specific_numerical_terms_xᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, ûᵢ) = fields.ûⁿ[i, j, k] - ûᵢ[i, j, k]
-@inline rheology_specific_numerical_terms_yᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, v̂ᵢ) = fields.v̂ⁿ[i, j, k] - v̂ᵢ[i, j, k]
-
-function fill_stresses_halo_regions!(fields, ::CGridDynamics, ::ExplicitViscoPlasticRheology, args...)
-    σ₁₁ = fields.σ₁₁
-    σ₁₂ = fields.σ₁₂
-    σ₂₂ = fields.σ₂₂
-
-    fill_halo_regions!((σ₁₁, σ₁₂, σ₂₂), args...)
-    return nothing
-end
-
-function fill_stresses_halo_regions!(fields, ::EGridDynamics, ::ExplicitViscoPlasticRheology, args...)
-    σ₁₁ = fields.σ₁₁
-    σ₁₂ = fields.σ₁₂
-    σ₂₂ = fields.σ₂₂
-
-    σ̂₁₁ = fields.σ̂₁₁
-    σ̂₁₂ = fields.σ̂₁₂
-    σ̂₂₂ = fields.σ̂₂₂
-
-    fill_halo_regions!((σ₁₁, σ₁₂, σ₂₂, σ̂₁₁, σ̂₁₂, σ̂₂₂), args...)
-    return nothing
-end
+@inline rheology_specific_forcing_xᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
+@inline rheology_specific_forcing_yᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
+@inline rheology_specific_forcing_xᶜᶠᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, ûᵢ) = fields.ûⁿ[i, j, k] - ûᵢ[i, j, k]
+@inline rheology_specific_forcing_yᶠᶜᶜ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields, v̂ᵢ) = fields.v̂ⁿ[i, j, k] - v̂ᵢ[i, j, k]
