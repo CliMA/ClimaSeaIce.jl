@@ -44,8 +44,8 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
     Cᴰ = ocean_ice_drag_coefficient
 
     # Ice mass (per unit area) interpolated on u points
-    mᵢᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
-    mᵢᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
+    mᵢᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
+    mᵢᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
     Δuᶠᶜᶜ = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
@@ -86,7 +86,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
     # make sure we do not have NaNs!                 
     Gᵁᶠᶜᶜ = ifelse(mᵢᶠᶜᶜ > 0, Gᵁᶠᶜᶜ, zero(grid)) 
     Gᵁᶜᶠᶜ = ifelse(mᵢᶜᶠᶜ > 0, Gᵁᶜᶠᶜ, zero(grid)) 
-    
+
     Gᴿᶠᶜᶜ = rheology_specific_forcing_xᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
     Gᴿᶜᶠᶜ = rheology_specific_forcing_xᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields, ûᵢ)
     
@@ -134,8 +134,8 @@ end
     Cᴰ = ocean_ice_drag_coefficient
 
     # Ice mass (per unit area) interpolated on u points
-    mᵢᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
-    mᵢᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ)
+    mᵢᶠᶜᶜ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
+    mᵢᶜᶠᶜ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
     
     # relative ocean - ice velocities
     Δuᶠᶜᶜ = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
@@ -168,7 +168,7 @@ end
                         + τₑₒᶜᶠᶜ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
                         + ∂ⱼ_σ₂ⱼᶜᶠᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢᶜᶠᶜ) 
 
-    @inbounds Gⱽᶠᶜᶜ = ( - fᶠᶜᶜ(i, j, 1, grid, coriolis) * ûᵢ[i, j, 1] 
+    @inbounds Gⱽᶠᶜᶜ = ( - fᶠᶜᶜ(i, j, 1, grid, coriolis) * uᵢ[i, j, 1] 
                         + τvₐᶠᶜᶜ
                         + τₑₒᶠᶜᶜ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
                         + ∂ⱼ_σ₂ⱼᶠᶜᶜ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢᶠᶜᶜ) 

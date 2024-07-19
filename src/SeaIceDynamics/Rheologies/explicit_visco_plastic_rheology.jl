@@ -9,6 +9,7 @@ using Oceananigans.Grids: AbstractGrid
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
 #
 struct ExplicitViscoPlasticRheology{FT} <: AbstractRheology
+    cross_nudging :: FT
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
@@ -17,6 +18,7 @@ end
 
 """
     ExplicitViscoPlasticRheology(grid::AbstractGrid; 
+                                 cross_nudging = 2,
                                  ice_compressive_strength = 27500, 
                                  ice_compaction_hardening = 20, 
                                  yield_curve_eccentricity = 2, 
@@ -41,12 +43,14 @@ Keyword Arguments
            transitioning the ice from a plastic to a viscous behaviour. Default value is `2e-9`.
 """
 function ExplicitViscoPlasticRheology(FT::DataType = Float64; 
+                                      cross_nudging = 2,
                                       ice_compressive_strength = 27500, 
                                       ice_compaction_hardening = 20, 
                                       yield_curve_eccentricity = 2, 
                                       Δ_min = 2e-9)
 
-    return ExplicitViscoPlasticRheology(convert(FT, ice_compressive_strength), 
+    return ExplicitViscoPlasticRheology(convert(FT, cross_nudging),
+                                        convert(FT, ice_compressive_strength), 
                                         convert(FT, ice_compaction_hardening), 
                                         convert(FT, yield_curve_eccentricity),
                                         convert(FT, Δ_min))
@@ -94,7 +98,8 @@ end
 
 # Extend the `adapt_structure` function for the ExplicitViscoPlasticRheology
 Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) = 
-    ExplicitViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
+    ExplicitViscoPlasticRheology(Adapt.adapt(to, r.cross_nudging),
+                                 Adapt.adapt(to, r.ice_compressive_strength),
                                  Adapt.adapt(to, r.ice_compaction_hardening),
                                  Adapt.adapt(to, r.yield_curve_eccentricity),
                                  Adapt.adapt(to, r.Δ_min))
@@ -269,6 +274,7 @@ end
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.Δ_min
+    γc  = rheology.cross_nudging
 
     # Extract auxiliary fields 
     P   = fields.P
@@ -289,9 +295,9 @@ end
     ϵ̇₂₂ =  ∂yᶜᶜᶜ_V(i, j, 1, grid, v)
 
     # Complementary strain rates
-    ϵ̇₁₂ᶜᶜᶜ = (∂xᶜᶜᶜ_U(i, j, 1, grid, v̂) + ∂yᶜᶜᶜ_V(i, j, 1, grid, û)) / 2
     ϵ̇₁₁ᶠᶠᶜ =  ∂xᶠᶠᶜ_c(i, j, 1, grid, û)
-    ϵ̇₂₂ᶠᶠᶜ =  ∂xᶠᶠᶜ_c(i, j, 1, grid, v̂)
+    ϵ̇₁₂ᶜᶜᶜ = (∂xᶜᶜᶜ_U(i, j, 1, grid, v̂) + ∂yᶜᶜᶜ_V(i, j, 1, grid, û)) / 2
+    ϵ̇₂₂ᶠᶠᶜ =  ∂yᶠᶠᶜ_c(i, j, 1, grid, v̂)
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -343,8 +349,8 @@ end
     σ̂₂₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₂₂ᶠᶠᶜ + ((ζᶠᶠᶜ - ηᶠᶠᶜ) * (ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ) - Pᵣᶠᶠᶜ / 2)
     σ̂₁₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₂ᶜᶜᶜ
 
-    mᵢᶜᶜᶜ = ice_volume(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_volume, h, ℵ, ρᵢ) 
+    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
 
     c = stepping_coefficient
 
@@ -356,15 +362,22 @@ end
     αᶜᶜᶜ = get_stepping_coefficients(i, j, 1, grid, substeps, c)
     αᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, c)
 
-    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / αᶜᶜᶜ, zero(grid))
-    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
-    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / αᶠᶠᶜ, zero(grid))
+    @inbounds σ₁₁ₚ = (1 + γc) * σ₁₁[i, j, 1] - γc * ℑxyᴮᶜᶜᶜ(i, j, 1, grid, σ̂₁₁)
+    @inbounds σ₂₂ₚ = (1 + γc) * σ₂₂[i, j, 1] - γc * ℑxyᴮᶜᶜᶜ(i, j, 1, grid, σ̂₂₂)
+    @inbounds σ₁₂ₚ = (1 + γc) * σ₁₂[i, j, 1] - γc * ℑxyᴮᶠᶠᶜ(i, j, 1, grid, σ̂₁₂) 
 
-    @inbounds σ̂₁₁[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ̂₁₁ᵖ⁺¹ - σ̂₁₁[i, j, 1]) / αᶠᶠᶜ, zero(grid))
-    @inbounds σ̂₂₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ̂₂₂ᵖ⁺¹ - σ̂₂₂[i, j, 1]) / αᶠᶠᶜ, zero(grid))
-    @inbounds σ̂₁₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ̂₁₂ᵖ⁺¹ - σ̂₁₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
+    @inbounds σ̂₁₁ₚ = (1 + γc) * σ̂₁₁[i, j, 1] - γc * ℑxyᴮᶠᶠᶜ(i, j, 1, grid, σ₁₁)
+    @inbounds σ̂₂₂ₚ = (1 + γc) * σ̂₂₂[i, j, 1] - γc * ℑxyᴮᶠᶠᶜ(i, j, 1, grid, σ₂₂)
+    @inbounds σ̂₁₂ₚ = (1 + γc) * σ̂₁₂[i, j, 1] - γc * ℑxyᴮᶜᶜᶜ(i, j, 1, grid, σ₁₂) 
+
+    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁ₚ) / αᶜᶜᶜ, zero(grid))
+    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂ₚ) / αᶜᶜᶜ, zero(grid))
+    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂ₚ) / αᶠᶠᶜ, zero(grid))
+
+    @inbounds σ̂₁₁[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ̂₁₁ᵖ⁺¹ - σ̂₁₁ₚ) / αᶠᶠᶜ, zero(grid))
+    @inbounds σ̂₂₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ̂₂₂ᵖ⁺¹ - σ̂₂₂ₚ) / αᶠᶠᶜ, zero(grid))
+    @inbounds σ̂₁₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ̂₁₂ᵖ⁺¹ - σ̂₁₂ₚ) / αᶜᶜᶜ, zero(grid))
 end
-
 
 #####
 ##### Internal stress divergence for the EVP model
