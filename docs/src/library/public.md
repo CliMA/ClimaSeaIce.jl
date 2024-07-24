@@ -11,6 +11,13 @@ Modules = [ClimaSeaIce]
 Private = false
 ```
 
+## ClimaSeaIce.SeaIceThermodynamics
+
+```@autodocs
+Modules = [ClimaSeaIce.SeaIceThermodynamics]
+Private = false
+```
+
 ## ClimaSeaIce.EnthalpyMethodSeaIceModels
 
 ```@autodocs
