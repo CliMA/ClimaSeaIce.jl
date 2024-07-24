@@ -32,7 +32,7 @@ struct FluxFunction{P, T, F}
         T = SurfaceTemperatureDependence
         P = typeof(parameters)
         F = typeof(func)
-        new{P, T, F}(func, parameters)
+        return new{P, T, F}(func, parameters)
     end
 end
 
@@ -140,4 +140,3 @@ function flux_summary(fluxes::Tuple, padchar=" ")
                       "$padchar   └── ", summary(fluxes[end]))
     end
 end
- 
