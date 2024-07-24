@@ -41,7 +41,7 @@ The residual flux is consumed by the cost of transforming ice into liquid water,
 and is related to the rate of change of ice thickness, ``h``, by
 
 ```math
-d/dt hₛ = δQ / ℒ(Tᵤ)
+\\frac{dhₛ}{dt} = δQ / ℒ(Tᵤ)
 ```
 
 where ``ℒ(Tᵤ)`` is the latent heat, equal to the different between
