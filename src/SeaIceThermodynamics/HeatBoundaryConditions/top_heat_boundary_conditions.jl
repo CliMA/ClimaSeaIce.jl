@@ -93,9 +93,8 @@ using RootSolvers: SecantMethod, find_zero, CompactSolution
 
     flux_balance(T) = getflux(external_fluxes, i, j, grid, T, clock, model_fields) -
                       getflux(internal_fluxes, i, j, grid, T, clock, model_fields)
-                      
+
     solution = find_zero(flux_balance, method, solution_type)
-    
+
     return solution.root
 end
-
