@@ -37,9 +37,8 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     ∂ⱼ_σ₁ⱼ,
     ∂ⱼ_σ₂ⱼ,
     rheology_specific_forcing_x,
-    rheology_specific_forcing_y,
-    fill_stresses_halo_regions!
-
+    rheology_specific_forcing_y
+    
 import ClimaSeaIce.SeaIceDynamics: 
         AbstractMomentumSolver,
         step_momentum!,
