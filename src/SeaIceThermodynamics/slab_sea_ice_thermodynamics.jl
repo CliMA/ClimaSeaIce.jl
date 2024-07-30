@@ -1,6 +1,6 @@
 import Oceananigans: fields
 
-struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodynamics
+struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT}
     top_surface_temperature :: ST
     heat_boundary_conditions :: HBC
     # Internal flux
