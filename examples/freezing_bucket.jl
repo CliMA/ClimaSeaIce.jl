@@ -49,17 +49,22 @@ phase_transitions = PhaseTransitions(; ice_heat_capacity, ice_density)
 top_temperature = -10 # ᵒC
 top_heat_boundary_condition = PrescribedTemperature(-10)
 
+# Construct the thermodynamics of sea ice, for this we use a simple
+# slab sea ice representation of thermodynamics
+
+ice_thermodynamics = SlabSeaIceThermodynamics(grid;
+                                              internal_heat_flux,
+                                              phase_transitions,
+                                              top_heat_boundary_condition)
+
 # Then we assemble it all into a model,
 
-model = SlabSeaIceModel(grid;
-                        internal_heat_flux,
-                        phase_transitions,
-                        top_heat_boundary_condition)
+model = SeaIceModel(grid; ice_thermodynamics)
 
-# Note that the default bottom heat boundary condition for `SlabSeaIceModel` is
+# Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!
 
-model.heat_boundary_conditions.bottom
+model.ice_thermodynamics.heat_boundary_conditions.bottom
 
 # Ok, we're ready to freeze the bucket for 10 straight days with an initial ice
 # thickness of 1 cm,

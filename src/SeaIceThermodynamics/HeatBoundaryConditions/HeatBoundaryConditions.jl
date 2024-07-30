@@ -1,5 +1,11 @@
 module HeatBoundaryConditions
 
+export MeltingConstrainedFluxBalance,
+       PrescribedTemperature,
+       RadiativeEmission,
+       ConductiveFlux,
+       FluxFunction
+
 using Adapt
 
 """
@@ -19,4 +25,3 @@ include("top_heat_boundary_conditions.jl")
 include("boundary_fluxes.jl")
 
 end
-

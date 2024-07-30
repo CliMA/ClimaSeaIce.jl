@@ -41,7 +41,7 @@ The residual flux is consumed by the cost of transforming ice into liquid water,
 and is related to the rate of change of ice thickness, ``h``, by
 
 ```math
-d/dt hₛ = δQ / ℒ(Tᵤ)
+\\frac{dhₛ}{dt} = δQ / ℒ(Tᵤ)
 ```
 
 where ``ℒ(Tᵤ)`` is the latent heat, equal to the different between
@@ -93,9 +93,8 @@ using RootSolvers: SecantMethod, find_zero, CompactSolution
 
     flux_balance(T) = getflux(external_fluxes, i, j, grid, T, clock, model_fields) -
                       getflux(internal_fluxes, i, j, grid, T, clock, model_fields)
-                      
+
     solution = find_zero(flux_balance, method, solution_type)
-    
+
     return solution.root
 end
-
