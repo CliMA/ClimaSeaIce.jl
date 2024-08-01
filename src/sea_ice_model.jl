@@ -47,7 +47,7 @@ function SeaIceModel(grid;
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field (should we )
+    # Wrap ice_salinity in a field 
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
     # Adding thickness and concentration if not there
@@ -57,6 +57,8 @@ function SeaIceModel(grid;
         tuple(unique((tracernames(tracers)..., :S, :h, :ℵ))...)
     end
     
+    # TODO: should we have ice thickness and concentration as part of the tracers or
+    # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
 
     # Only one time-stepper is supported currently
