@@ -29,6 +29,7 @@ export SeaIceModel,
 struct ForwardEulerTimestepper end
 
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
+include("SeaIceDynamics/SeaIceDynamics.jl")
 include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
 include("tracer_tendency_kernel_functions.jl")
