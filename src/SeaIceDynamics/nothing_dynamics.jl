@@ -1,5 +1,5 @@
 ####
-#### For a `Nothing` rheology we assume that u = uₒ
+#### For a `Nothing` dynamics, nothing happens!
 ####
 
 step_momentum!(model, ::Nothing, Δt, χ) = nothing
