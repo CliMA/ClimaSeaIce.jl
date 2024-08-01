@@ -2,6 +2,7 @@ using Oceananigans.Fields: TracerFields
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using Oceananigans: tupleit
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+using Oceananigans.Fields: ConstantField
 
 struct SeaIceModel{GR, TD, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
@@ -46,9 +47,22 @@ function SeaIceModel(grid;
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field
+    # Wrap ice_salinity in a field (should we )
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+
+    # Adding thickness and concentration if not there
+    tracer_names = if ice_salinity isa ConstantField 
+        tuple(unique((tracernames(tracers)..., :h, :ℵ))...) 
+    else 
+        tuple(unique((tracernames(tracers)..., :S, :h, :ℵ))...)
+    end
+    
     tracers = merge(tracers, (; S = ice_salinity))
+
+    # Only one time-stepper is supported currently
+    timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracer_names;
+                              Gⁿ = TracerFields(tracer_names, grid),
+                              G⁻ = TracerFields(tracer_names, grid))
 
     top_heat_flux = external_top_heat_flux(ice_thermodynamics, top_heat_flux)
 
