@@ -148,7 +148,7 @@ end
         # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
         # to maintain a constant ice volume
         h[i, j, k] = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
-        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, 1, ℵ⁺)
+        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
     end 
 end
 
