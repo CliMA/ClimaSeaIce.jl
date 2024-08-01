@@ -1,10 +1,11 @@
 using Oceananigans.Fields: TracerFields
+using Oceananigans.TimeSteppers: TimeStepper
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using Oceananigans: tupleit, tracernames
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using Oceananigans.Fields: ConstantField
 
-struct SeaIceModel{GR, TD, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -15,6 +16,7 @@ struct SeaIceModel{GR, TD, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{T
     ice_concentration :: IC
     # Thermodynamics
     ice_thermodynamics :: TD
+    ice_dynamics :: D
     # External boundary conditions
     external_heat_fluxes :: STF
     external_momentum_stresses :: SMS
@@ -34,7 +36,8 @@ function SeaIceModel(grid;
                      top_momentum_stress = nothing, # Fix when introducing dynamics
                      tracers             = (),
                      boundary_conditions = NamedTuple(),
-                     ice_thermodynamics  = SlabSeaIceThermodynamics(grid))
+                     ice_thermodynamics  = SlabSeaIceThermodynamics(grid),
+                     ice_dynamics        = nothing)
 
     if isnothing(velocities)
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
@@ -75,6 +78,7 @@ function SeaIceModel(grid;
                        ice_thickness,
                        ice_concentration,
                        ice_thermodynamics,
+                       ice_dynamics,
                        external_heat_fluxes,
                        top_momentum_stress,
                        advection)
