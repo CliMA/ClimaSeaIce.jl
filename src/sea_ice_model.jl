@@ -53,9 +53,6 @@ function SeaIceModel(grid;
         velocities = (; u, v)
     end
 
-    # Only one time-stepper is supported currently
-    timestepper = ForwardEulerTimestepper()
-
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
