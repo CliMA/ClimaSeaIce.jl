@@ -1,6 +1,6 @@
 using Oceananigans.Fields: TracerFields
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
-using Oceananigans: tupleit
+using Oceananigans: tupleit, tracernames
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using Oceananigans.Fields: ConstantField
 
