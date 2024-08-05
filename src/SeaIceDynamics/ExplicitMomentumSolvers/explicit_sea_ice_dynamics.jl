@@ -1,7 +1,7 @@
 using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.Architectures: convert_args
 using Oceananigans.TimeSteppers: store_field_tendencies!
-using Oceananigans.ImmersedBoundaries: active_surface_map, 
+using Oceananigans.ImmersedBoundaries: active_surface_map
 using Printf
 
 """
