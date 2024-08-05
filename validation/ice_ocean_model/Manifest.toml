@@ -184,15 +184,15 @@ weakdeps = ["SparseArrays"]
 
 [[deps.ClimaOcean]]
 deps = ["Adapt", "CFTime", "CUDA", "ClimaSeaIce", "CubicSplines", "DataDeps", "Dates", "Downloads", "ImageMorphology", "JLD2", "KernelAbstractions", "NCDatasets", "Oceananigans", "Printf", "Scratch", "SeawaterPolynomials", "StaticArrays", "Statistics", "SurfaceFluxes", "Thermodynamics"]
-git-tree-sha1 = "f3d925c0e66519614fb08a43b9b84520a71132b0"
-repo-rev = "main"
-repo-url = "git@github.com:CliMA/ClimaOcean.jl.git"
+path = "../../../ClimaOcean.jl"
 uuid = "0376089a-ecfe-4b0e-a64f-9c555d74d754"
 version = "0.2.0"
 
 [[deps.ClimaSeaIce]]
 deps = ["Adapt", "KernelAbstractions", "Oceananigans", "RootSolvers", "Roots", "SeawaterPolynomials"]
-git-tree-sha1 = "36752a8f020c7f1c959fea0e5a98b113d54fc74f"
+git-tree-sha1 = "6518a0329b2188dec091d85e895975557312ea89"
+repo-rev = "ss/adapt-validation"
+repo-url = "../.."
 uuid = "6ba0ff68-24e6-4315-936c-2e99227c95a4"
 version = "0.1.1"
 

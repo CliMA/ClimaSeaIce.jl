@@ -8,8 +8,8 @@ using Oceananigans.Utils: prettysummary
 using SeawaterPolynomials: TEOS10EquationOfState, thermal_expansion, haline_contraction
 
 using ClimaSeaIce
-using ClimaSeaIce: melting_temperature
-using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
+using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 
 using Printf
 using GLMakie
@@ -21,16 +21,17 @@ arch = CPU()
 Nx = Ny = 256
 Nz = 10
 Lz = 400
-x = y = (-50kilometers, 50kilometers)
-halo = (4, 4, 4)
+longitude = (-10, 10)
+latitude = (-70, -60)
+halo = (6, 6, 6)
 topology = (Periodic, Bounded, Bounded)
 
-ice_grid = RectilinearGrid(arch; x, y,
+ice_grid = LatitudeLongitudeGrid(arch; longitude, latitude,
                            size = (Nx, Ny),
                            topology = (topology[1], topology[2], Flat),
                            halo = halo[1:2])
 
-ocean_grid = RectilinearGrid(arch; topology, halo, x, y,
+ocean_grid = LatitudeLongitudeGrid(arch; topology, halo, longitude, latitude,
                              size = (Nx, Ny, Nz),
                              z = (-Lz, 0))
 
@@ -41,18 +42,20 @@ ocean = ocean_simulation(ocean_grid)
 ocean.Δt = 20minutes
 
 Nz = size(ocean_grid, 3)
-u, v, w = ocean_model.velocities
-ocean_velocities = (u = view(u, :, :, Nz)
-                    v = view(v, :, :, Nz))
+u, v, w = ocean.model.velocities
+ocean_velocities = (u = interior(u, :, :, Nz),
+                    v = interior(v, :, :, Nz))
+
+bottom_bc = IceWaterThermalEquilibrium(ConstantField(30)) #ocean_surface_salinity)
 
 ice_thermodynamics = SlabSeaIceThermodynamics(ice_grid;
                                               top_heat_boundary_condition = PrescribedTemperature(0),
-                                              bottom_heat_boundary_condition = bottom_bc
+                                              bottom_heat_boundary_condition = bottom_bc,
                                               ice_consolidation_thickness = 0.05,
                                               internal_heat_flux = ConductiveFlux(conductivity=2))
 
 ice_model = SeaIceModel(ice_grid;
-                        velocities = ocean_surface_velocities,
+                        velocities = ocean_velocities,
                         advection  = WENO(),
                         ice_thermodynamics,
                         ice_salinity = 4,
@@ -66,13 +69,12 @@ S₀ = 30
 T₀ = melting_temperature(ice_model.phase_transitions.liquidus, S₀) + 2.0
 
 N²S = 1e-6
-β = haline_contraction(T₀, S₀, 0, equation_of_state)
 g = ocean_model.buoyancy.model.gravitational_acceleration
 dSdz = - g * β * N²S
 
 uᵢ(x, y, z) = 0.0
-Tᵢ(x, y, z) = T₀ # + 0.1 * randn()
-Sᵢ(x, y, z) = S₀ + dSdz * z #+ 0.1 * randn()
+Tᵢ(x, y, z) = 0.0
+Sᵢ(x, y, z) = 4.0 + dSdz * z #+ 0.1 * randn()
 
 function hᵢ(x, y)
     if sqrt(x^2 + y^2) < 20kilometers
@@ -83,10 +85,10 @@ function hᵢ(x, y)
     end
 end
 
-set!(ocean.model, u=uᵢ, S=Sᵢ, T=T₀)
-set!(seaice.model, h=hᵢ)
+set!(ocean.model, u=uᵢ, S=4, T=0.0)
+set!(sea_ice.model, h=hᵢ)
 
-coupled_model = OceanSeaIceModel(ocean, seaice; radiation = nothing, atmosphere = nothing)
+coupled_model = OceanSeaIceModel(ocean, sea_ice; radiation = nothing, atmosphere = nothing)
 coupled_simulation = Simulation(coupled_model, Δt=20minutes, stop_time=20days)
 
 S = ocean_model.tracers.S
