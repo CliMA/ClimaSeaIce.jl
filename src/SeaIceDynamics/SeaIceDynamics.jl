@@ -26,22 +26,6 @@ using Adapt
 # - 2D thickness field : `h`
 # - 2D concentration field `ℵ`
 # - a sea-ice density (Float)
-# - an ocean density (Float)
-"""
-    AbstractMomentumSolver
-
-Abstract supertype for solvers of the momentum equation. Could be explicit or impicit.
-For example an explicit solver resort to substepping the momentum equation within a larger
-tracer advection step.
-"""
-abstract type AbstractMomentumSolver end
-
-"""
-    AbstractRheology
-
-Abstract supertype for rheologies that calculate the stress divergence ∇⋅σ. 
-"""
-abstract type AbstractRheology end
 
 # Ice volume
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ℵ[i, j, k] * ρ

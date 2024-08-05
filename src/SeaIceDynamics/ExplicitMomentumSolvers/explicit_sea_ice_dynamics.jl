@@ -1,7 +1,6 @@
 using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.Architectures: convert_args
 using Oceananigans.TimeSteppers: store_field_tendencies!
-using ClimaSeaIce.SeaIceDynamics: AbstractRheology
 using Printf
 
 """
@@ -42,7 +41,6 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             model.ice_thickness,
             model.ice_concentration,
             model.ice_density,
-            model.ocean_density,
             solver.ocean_ice_drag_coefficient)
 
     GC.@preserve args begin

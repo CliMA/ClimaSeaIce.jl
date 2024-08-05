@@ -40,12 +40,11 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     rheology_specific_forcing_y
     
 import ClimaSeaIce.SeaIceDynamics: 
-        AbstractMomentumSolver,
         step_momentum!,
         update_stepping_coefficients!,
         get_stepping_coefficients
 
-struct ExplicitMomentumSolver{R, T, FT, A} <: AbstractMomentumSolver
+struct ExplicitMomentumSolver{R, T, FT, A} 
     rheology :: R # Rheology to compute stresses
     auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses, ice strength or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 
@@ -82,12 +81,12 @@ designed to obtain convergence.
 
 # Keyword Arguments
 ====================
-- `ocean_ice_drag_coefficient`: coefficient for the ocean - ice drag, default `5.5e-3`.
+- `ocean_ice_drag_coefficient`: coefficient for the ocean - ice drag, it includes ocean density!!, default `5.5e-3 x 1000`.
 - `rheology`: The rheology model used to calculate the divergence of the internal stresses ∇ ⋅ σ. Defaults to `ExplicitViscoPlasticRheology(grid)`.
 - `ocean_ice_drag_coefficient`: The drag coefficient between ocean and ice. Defaults to `5.5e-3`.
 - `substepping_coefficient`: Coefficient for substepping momentum (β) and internal stresses (α) (depends on the particular formulation).
               Default value is `DynamicSteppingCoefficient(grid)`.
-- `substeps`: Number of substeps for the visco-plastic calculation. Default value is `400`.
+- `substeps`: Number of substeps for the momentum solver. Default value is `120`.
               Note that we here assume that β (the modified EVP parameter that substeps velocity)
               is equal to the number of substeps.
 
@@ -96,9 +95,9 @@ An instance of `ExplicitMomentumSolver` with the specified parameters.
 """
 function ExplicitMomentumSolver(grid; 
                                 rheology = ExplicitViscoPlasticRheology(eltype(grid)),
-                                ocean_ice_drag_coefficient = 5.5e-3,
+                                ocean_ice_drag_coefficient = 5.5,
                                 substepping_coefficient = DynamicSteppingCoefficient(grid),
-                                substeps = 150)
+                                substeps = 120)
 
     auxiliary_fields = required_auxiliary_fields(grid, rheology)
     

@@ -23,7 +23,6 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
                                    ice_thickness,
                                    ice_concentration,
                                    ice_density,
-                                   ocean_density,
                                    ocean_ice_drag_coefficient,
                                    u_top_stress,
                                    u_forcing,
@@ -38,7 +37,6 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     h  = ice_thickness
     ℵ  = ice_concentration
     ρᵢ = ice_density
-    ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
     # Ice mass (per unit area) interpolated on u points
@@ -61,7 +59,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * uₒ - τₑₒ * uᵢⁿ⁺¹ 
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
-    τₑₒ = Cᴰ * ρₒ * Δ𝒰 / mᵢ
+    τₑₒ = Cᴰ * Δ𝒰 / mᵢ
 
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
@@ -95,7 +93,6 @@ end
                                    ice_thickness,
                                    ice_concentration,
                                    ice_density,
-                                   ocean_density,
                                    ocean_ice_drag_coefficient,
                                    v_top_stress,
                                    v_forcing,
@@ -110,7 +107,6 @@ end
     h  = ice_thickness
     ℵ  = ice_concentration
     ρᵢ = ice_density
-    ρₒ = ocean_density
     Cᴰ = ocean_ice_drag_coefficient
 
     # Ice mass (per unit area) interpolated on u points
@@ -133,7 +129,7 @@ end
     # The ocean - ice stress is computed semi-implicitly as
     # τₒ = τₑₒ * vₒ - τₑₒ * vᵢⁿ⁺¹ 
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
-    τₑₒ = Cᴰ * ρₒ * Δ𝒰 / mᵢ
+    τₑₒ = Cᴰ * Δ𝒰 / mᵢ
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τvₐ

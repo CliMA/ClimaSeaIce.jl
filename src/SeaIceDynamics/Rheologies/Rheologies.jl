@@ -16,7 +16,6 @@ using Adapt
 using ClimaSeaIce.SeaIceDynamics
 
 using ClimaSeaIce.SeaIceDynamics:
-    AbstractRheology,
     update_stepping_coefficients!,
     get_stepping_coefficients,
     ice_mass
