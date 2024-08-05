@@ -1,5 +1,5 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-
+using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple, ActiveZColumnsIBG, ZColumnMap
 # The ice-ocean stress is treated semi-implicitly 
 # i.e:
 #
@@ -10,25 +10,47 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 # τₒ =  τₑ₀ (explicit component)  * Δu   
 #
 
-""" stepping the ice u-velocity using a forward leap-frog scheme """
-@kernel function _u_velocity_step!(velocities, grid, Δt, 
-                                   immersed_bc,
-                                   clock,
-                                   ocean_velocities,
-                                   coriolis,
-                                   rheology,
-                                   auxiliary_fields,
-                                   substeps,
-                                   substepping_coefficient,
-                                   ice_thickness,
-                                   ice_concentration,
-                                   ice_density,
-                                   ocean_ice_drag_coefficient,
-                                   u_top_stress,
-                                   u_forcing,
-                                   model_fields)
-
+# Make sure we do not compute inside the immersed boundary
+@kernel function _u_velocity_step!(velocities, grid, args...)
     i, j = @index(Global, NTuple)
+    u_velocity_step!(i, j, velocities, grid, args...)
+end
+
+@kernel function _v_velocity_step!(velocities, grid, args...)
+    i, j = @index(Global, NTuple)
+    v_velocity_step!(i, j, velocities, grid, args...)
+end
+
+@kernel function _u_velocity_step!(velocities, grid::ActiveZColumnsIBG, args...)
+    idx = @index(Global, Linear)
+    i, j = active_linear_index_to_tuple(idx, ZColumnMap(), grid)
+    u_velocity_step!(i, j, velocities, grid, args...)
+end
+
+@kernel function _v_velocity_step!(velocities, grid::ActiveZColumnsIBG, args...)
+    idx = @index(Global, Linear)
+    i, j = active_linear_index_to_tuple(idx, ZColumnMap(), grid)
+    v_velocity_step!(i, j, velocities, grid, args...)
+end
+
+""" stepping the ice u-velocity using a forward leap-frog scheme """
+@inline function u_velocity_step!(i, j, 
+                                  velocities, grid, Δt, 
+                                  immersed_bc,
+                                  clock,
+                                  ocean_velocities,
+                                  coriolis,
+                                  rheology,
+                                  auxiliary_fields,
+                                  substeps,
+                                  substepping_coefficient,
+                                  ice_thickness,
+                                  ice_concentration,
+                                  ice_density,
+                                  ocean_ice_drag_coefficient,
+                                  u_top_stress,
+                                  u_forcing,
+                                  model_fields)
 
     uᵢ = velocities.u
     vᵢ = velocities.v
@@ -81,24 +103,23 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 end
 
 """ stepping the ice v-velocity using a forward leap-frog scheme """
-@kernel function _v_velocity_step!(velocities, grid, Δt, 
-                                   immersed_bc,
-                                   clock,
-                                   ocean_velocities, 
-                                   coriolis,
-                                   rheology,
-                                   auxiliary_fields,
-                                   substeps,
-                                   substepping_coefficient,
-                                   ice_thickness,
-                                   ice_concentration,
-                                   ice_density,
-                                   ocean_ice_drag_coefficient,
-                                   v_top_stress,
-                                   v_forcing,
-                                   model_fields)
-
-    i, j = @index(Global, NTuple)
+@inline function v_velocity_step!(i, j, 
+                                  velocities, grid, Δt, 
+                                  immersed_bc,
+                                  clock,
+                                  ocean_velocities, 
+                                  coriolis,
+                                  rheology,
+                                  auxiliary_fields,
+                                  substeps,
+                                  substepping_coefficient,
+                                  ice_thickness,
+                                  ice_concentration,
+                                  ice_density,
+                                  ocean_ice_drag_coefficient,
+                                  v_top_stress,
+                                  v_forcing,
+                                  model_fields)
 
     uᵢ = velocities.u
     vᵢ = velocities.v

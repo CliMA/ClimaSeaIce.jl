@@ -2,6 +2,7 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.TimeSteppers: tick!
 using Oceananigans.Utils: launch!, KernelParameters
+using Oceananigans.ImmersedBoundaries: active_interior_map
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
 using Oceananigans: prognostic_fields
