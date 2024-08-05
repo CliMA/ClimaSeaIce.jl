@@ -7,8 +7,7 @@ using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
 using SeawaterPolynomials: TEOS10EquationOfState
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 using GLMakie
-
-import Oceananigans.Simulations: time_step!, time
+using ClimaOcean
 
 include("ice_ocean_model.jl")
 
@@ -75,14 +74,14 @@ ice_model = SlabSeaIceModel(ice_grid;
 
 ice_simulation = Simulation(ice_model, Δt=1hour)
 
-using SeawaterPolynomials: heat_expansion, haline_contraction
+using SeawaterPolynomials: thermal_expansion, haline_contraction
 
 # Double stratification
 N²θ = 0
 T₀ = 0
 S₀ = 30
 g = ocean_model.buoyancy.model.gravitational_acceleration
-α = heat_expansion(T₀, S₀, 0, equation_of_state)
+α = thermal_expansion(T₀, S₀, 0, equation_of_state)
 dTdz = N²θ / (α * g)
 
 N²S = 1e-4

@@ -5,7 +5,7 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using Oceananigans.Units
 using Oceananigans.Utils: prettysummary
 
-using SeawaterPolynomials: TEOS10EquationOfState, heat_expansion, haline_contraction
+using SeawaterPolynomials: TEOS10EquationOfState, thermal_expansion, haline_contraction
 
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
@@ -17,7 +17,7 @@ using Statistics
 
 include("ice_ocean_model.jl")
 
-arch = GPU()
+arch = CPU()
 Nx = Ny = 256
 Nz = 10
 Lz = 400
@@ -37,54 +37,29 @@ ocean_grid = RectilinearGrid(arch; topology, halo, x, y,
 # Top boundary conditions:
 #   - outgoing radiative fluxes emitted from surface
 #   - incoming shortwave radiation starting after 40 days
-
-ice_ocean_heat_flux      = Field{Center, Center, Nothing}(ice_grid)
-top_ocean_heat_flux = Qᵀ = Field{Center, Center, Nothing}(ice_grid)
-top_salt_flux       = Qˢ = Field{Center, Center, Nothing}(ice_grid)
-# top_salt_flux       = Qˢ = arch_array(arch, zeros(Nx, Ny))
-
-# Generate a zero-dimensional grid for a single column slab model 
-
-boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Qᵀ)),
-                       S = FieldBoundaryConditions(top=FluxBoundaryCondition(Qˢ)))
-
-equation_of_state = TEOS10EquationOfState()
-buoyancy = SeawaterBuoyancy(; equation_of_state)
-horizontal_biharmonic_diffusivity = HorizontalScalarBiharmonicDiffusivity(κ=5e6)
-
-ocean_model = HydrostaticFreeSurfaceModel(; buoyancy, boundary_conditions,
-                                          grid = ocean_grid,
-                                          momentum_advection = WENO(),
-                                          tracer_advection = WENO(),
-                                          #closure = (horizontal_biharmonic_diffusivity, CATKEVerticalDiffusivity()),
-                                          closure = CATKEVerticalDiffusivity(),
-                                          coriolis = FPlane(f=1.4e-4),
-                                          tracers = (:T, :S, :e))
+ocean = ocean_simulation(ocean_grid)
+ocean.Δt = 20minutes
 
 Nz = size(ocean_grid, 3)
-So = ocean_model.tracers.S
-ocean_surface_salinity = view(So, :, :, Nz)
-bottom_bc = IceWaterThermalEquilibrium(ConstantField(30)) #ocean_surface_salinity)
-
 u, v, w = ocean_model.velocities
-ocean_surface_velocities = (u = view(u, :, :, Nz), #interior(u, :, :, Nz),
-                            v = view(v, :, :, Nz), #interior(v, :, :, Nz),    
-                            w = ZeroField())
+ocean_velocities = (u = view(u, :, :, Nz)
+                    v = view(v, :, :, Nz))
 
-ice_model = SlabSeaIceModel(ice_grid;
-                            velocities = ocean_surface_velocities,
-                            advection = nothing, #WENO(),
-                            ice_consolidation_thickness = 0.05,
-                            ice_salinity = 4,
-                            internal_heat_flux = ConductiveFlux(conductivity=2),
-                            #top_heat_flux = ConstantField(-100), # W m⁻²
-                            top_heat_flux = ConstantField(0), # W m⁻²
-                            top_heat_boundary_condition = PrescribedTemperature(0),
-                            bottom_heat_boundary_condition = bottom_bc,
-                            bottom_heat_flux = ice_ocean_heat_flux)
+ice_thermodynamics = SlabSeaIceThermodynamics(ice_grid;
+                                              top_heat_boundary_condition = PrescribedTemperature(0),
+                                              bottom_heat_boundary_condition = bottom_bc
+                                              ice_consolidation_thickness = 0.05,
+                                              internal_heat_flux = ConductiveFlux(conductivity=2))
 
-ocean_simulation = Simulation(ocean_model; Δt=20minutes, verbose=false)
-ice_simulation = Simulation(ice_model, Δt=20minutes, verbose=false)
+ice_model = SeaIceModel(ice_grid;
+                        velocities = ocean_surface_velocities,
+                        advection  = WENO(),
+                        ice_thermodynamics,
+                        ice_salinity = 4,
+                        top_heat_flux = ConstantField(0), # W m⁻²
+                        bottom_heat_flux = IceWaterThermalEquilibrium(ConstantField(30)))
+
+sea_ice = Simulation(ice_model, Δt=20minutes, verbose=false)
 
 # Initial condition
 S₀ = 30
@@ -108,11 +83,11 @@ function hᵢ(x, y)
     end
 end
 
-set!(ocean_model, u=uᵢ, S=Sᵢ, T=T₀)
-set!(ice_model, h=hᵢ)
+set!(ocean.model, u=uᵢ, S=Sᵢ, T=T₀)
+set!(seaice.model, h=hᵢ)
 
-coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
-coupled_simulation = Simulation(coupled_model, Δt=1minutes, stop_time=20days)
+coupled_model = OceanSeaIceModel(ocean, seaice; radiation = nothing, atmosphere = nothing)
+coupled_simulation = Simulation(coupled_model, Δt=20minutes, stop_time=20days)
 
 S = ocean_model.tracers.S
 by = - g * β * ∂y(S)
