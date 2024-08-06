@@ -58,10 +58,13 @@ function SeaIceModel(grid;
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field
-    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
     # Adding thickness and concentration if not there
     tracer_names = tuple(unique((tracernames(tracers)..., :h, :ℵ))...)
+    tracer_names = ice_salinity isa Number ? tracer_names : tuple(tracer_names..., :S)
+
+    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    tracers = merge(tracers, (; S = ice_salinity))
 
     # Only one time-stepper is supported currently
     timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracer_names;
