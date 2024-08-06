@@ -91,27 +91,22 @@ using Oceananigans.ImmersedBoundaries: conditional_δx_f,
 const c = Center()
 const f = Face()
 
-for ℓx in (:ᶠ, :ᶜ), ℓy in (:ᶠ, :ᶜ)
+@inline ∂xᶠᶠᶜ_c(i, j, k, grid, args...) = ∂xᶠᵃᵃ_c(i, j, k, grid, args...)
+@inline ∂yᶠᶠᶜ_c(i, j, k, grid, args...) = ∂yᵃᶠᵃ_c(i, j, k, grid, args...)
+@inline ∂xᶜᶠᶜ_U(i, j, k, grid, args...) = ∂xᶜᵃᵃ_U(i, j, k, grid, args...)
+@inline ∂yᶠᶜᶜ_V(i, j, k, grid, args...) = ∂yᵃᶜᵃ_V(i, j, k, grid, args...)
 
-    ∂x_c = Symbol(:∂x, :ᶠ, ℓy, :ᶜ_c)
-    ∂y_c = Symbol(:∂y, ℓx, :ᶠ, :ᶜ_c)
-    
-    ∂x_U = Symbol(:∂x, :ᶜ, ℓy, :ᶜ_U)
-    ∂y_V = Symbol(:∂y, ℓx, :ᶜ, :ᶜ_V)
-    
-    Lx = translate_loc(ℓx)
-    Ly = translate_loc(ℓy)
-    Lz = c
-            
-    @eval begin
-        @inline $∂x_c(i, j, k, grid, args...) = ∂xᶠᵃᵃ_c(i, j, k, grid, args...)
-        @inline $∂y_c(i, j, k, grid, args...) = ∂yᵃᶠᵃ_c(i, j, k, grid, args...)
-        @inline $∂x_U(i, j, k, grid, args...) = ∂xᶜᵃᵃ_U(i, j, k, grid, args...)
-        @inline $∂y_V(i, j, k, grid, args...) = ∂yᵃᶜᵃ_V(i, j, k, grid, args...)
+@inline ∂xᶠᶠᶜ_c(i, j, k, grid::IBG, args...) = conditional_δx_f(f, c, i, j, k, grid, ∂xᶠᵃᵃ_c, args...)
+@inline ∂yᶠᶠᶜ_c(i, j, k, grid::IBG, args...) = conditional_δy_f(f, c, i, j, k, grid, ∂yᵃᶠᵃ_c, args...)
+@inline ∂xᶜᶠᶜ_U(i, j, k, grid::IBG, args...) = conditional_δx_c(f, c, i, j, k, grid, ∂xᶜᵃᵃ_U, args...)
+@inline ∂yᶠᶜᶜ_V(i, j, k, grid::IBG, args...) = conditional_δy_c(f, c, i, j, k, grid, ∂yᵃᶜᵃ_V, args...)
 
-        @inline $∂x_c(i, j, k, grid::IBG, args...) = conditional_δx_f($Ly, $Lz, i, j, k, grid, ∂xᶠᵃᵃ_c, args...)
-        @inline $∂y_c(i, j, k, grid::IBG, args...) = conditional_δy_f($Lx, $Lz, i, j, k, grid, ∂yᵃᶠᵃ_c, args...)
-        @inline $∂x_U(i, j, k, grid::IBG, args...) = conditional_δx_c($Ly, $Lz, i, j, k, grid, ∂xᶜᵃᵃ_U, args...)
-        @inline $∂y_V(i, j, k, grid::IBG, args...) = conditional_δy_c($Lx, $Lz, i, j, k, grid, ∂yᵃᶜᵃ_V, args...)
-    end
-end
+@inline ∂xᶠᶜᶜ_c(i, j, k, grid, args...) = ∂xᶠᵃᵃ_c(i, j, k, grid, args...)
+@inline ∂yᶜᶠᶜ_c(i, j, k, grid, args...) = ∂yᵃᶠᵃ_c(i, j, k, grid, args...)
+@inline ∂xᶜᶜᶜ_U(i, j, k, grid, args...) = ∂xᶜᵃᵃ_U(i, j, k, grid, args...)
+@inline ∂yᶜᶜᶜ_V(i, j, k, grid, args...) = ∂yᵃᶜᵃ_V(i, j, k, grid, args...)
+
+@inline ∂xᶠᶜᶜ_c(i, j, k, grid::IBG, args...) = conditional_δx_f(c, c, i, j, k, grid, ∂xᶠᵃᵃ_c, args...)
+@inline ∂yᶜᶠᶜ_c(i, j, k, grid::IBG, args...) = conditional_δy_f(c, c, i, j, k, grid, ∂yᵃᶠᵃ_c, args...)
+@inline ∂xᶜᶜᶜ_U(i, j, k, grid::IBG, args...) = conditional_δx_c(c, c, i, j, k, grid, ∂xᶜᵃᵃ_U, args...)
+@inline ∂yᶜᶜᶜ_V(i, j, k, grid::IBG, args...) = conditional_δy_c(c, c, i, j, k, grid, ∂yᵃᶜᵃ_V, args...)
