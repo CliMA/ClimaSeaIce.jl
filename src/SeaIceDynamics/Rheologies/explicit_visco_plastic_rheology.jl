@@ -1,6 +1,7 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
 using Oceananigans.Grids: AbstractGrid
+using ClimaSeaIce.SeaIceDynamics: NoSlip, Slip
 
 ## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
@@ -118,9 +119,10 @@ function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology
     fields   = solver.auxiliary_fields
     substeps = solver.substeps
     stepping_coefficient = solver.substepping_coefficient
+    boundary_conditions  = solver.boundary_conditions
 
     u, v = model.velocities
-    launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt, substeps, stepping_coefficient)
+    launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt, boundary_conditions, substeps, stepping_coefficient)
 
     return nothing
 end
@@ -129,7 +131,7 @@ end
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
 # This is the `meat` of the formulation.
-@kernel function _compute_evp_stresses!(fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt, substeps, stepping_coefficient)
+@kernel function _compute_evp_stresses!(fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt, bc, substeps, stepping_coefficient)
     i, j = @index(Global, NTuple)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
@@ -142,12 +144,13 @@ end
     σ₁₂ = fields.σ₁₂
 
     # Strain rates
-    ϵ̇₁₁ =  ∂xᶜᶜᶜ_U(i, j, 1, grid, u)
-    ϵ̇₁₂ = (∂xᶠᶠᶜ_c(i, j, 1, grid, v) + ∂yᶠᶠᶜ_c(i, j, 1, grid, u)) / 2
-    ϵ̇₂₂ =  ∂yᶜᶜᶜ_V(i, j, 1, grid, v)
+    ϵ̇₁₁ =  ∂xᶜᶜᶜ_U(i, j, 1, grid, bc, u)
+    ϵ̇₁₂ = (∂xᶠᶠᶜ_c(i, j, 1, grid, bc, v) + ∂yᶠᶠᶜ_c(i, j, 1, grid, bc, u)) / 2
+    ϵ̇₂₂ =  ∂yᶜᶜᶜ_V(i, j, 1, grid, bc, v)
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᴮᶜᶜᶜ(i, j, 1, grid, ∂xᶠᶠᶜ_c, v) + ℑxyᴮᶜᶜᶜ(i, j, 1, grid, ∂yᶠᶠᶜ_c, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᴮᶜᶜᶜ(i, j, 1, grid, bc, ∂xᶠᶠᶜ_c, bc, v) + 
+              ℑxyᴮᶜᶜᶜ(i, j, 1, grid, bc, ∂yᶠᶠᶜ_c, bc, u)) / 2
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -161,8 +164,8 @@ end
     Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
 
     # Face - Face variables
-    ϵ̇₁₁ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ_U, u)
-    ϵ̇₂₂ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ_V, v)
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, bc, ∂xᶜᶜᶜ_U, bc, u)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, bc, ∂yᶜᶜᶜ_V, bc, v)
 
     # Ice divergence
     δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
@@ -178,7 +181,7 @@ end
     # Ice strength calculation 
     # Note: can we interpolate P on faces or do we need to compute it on faces?
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
-    Pᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, P)
+    Pᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, Slip(), P)
 
     # ζ: Bulk viscosity (viscosity which responds to compression) 
     # η: Shear viscosity (viscosity which responds to shear)
@@ -198,7 +201,7 @@ end
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
     mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, Slip(), ice_mass, h, ℵ, ρᵢ) 
 
     c = stepping_coefficient
 
@@ -208,7 +211,7 @@ end
 
     # Coefficient for substepping internal stress
     αᶜᶜᶜ = get_stepping_coefficients(i, j, 1, grid, substeps, c)
-    αᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, get_stepping_coefficients, substeps, c)
+    αᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, Slip(), get_stepping_coefficients, substeps, c)
 
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / αᶜᶜᶜ, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
@@ -220,15 +223,15 @@ end
 #####
 
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₁ = ∂xᶠᶜᶜ_c(i, j, k, grid, fields.σ₁₁)
-    ∂yσ₁₂ = ∂yᶠᶜᶜ_V(i, j, k, grid, fields.σ₁₂)
+    ∂xσ₁₁ = ∂xᶠᶜᶜ_c(i, j, k, grid, Slip(), fields.σ₁₁)
+    ∂yσ₁₂ = ∂yᶠᶜᶜ_V(i, j, k, grid, Slip(), fields.σ₁₂)
 
     return ∂xσ₁₁ + ∂yσ₁₂ 
 end
 
 @inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₂ = ∂xᶜᶠᶜ_U(i, j, k, grid, fields.σ₁₂)
-    ∂yσ₂₂ = ∂yᶜᶠᶜ_c(i, j, k, grid, fields.σ₂₂)
+    ∂xσ₁₂ = ∂xᶜᶠᶜ_U(i, j, k, grid, Slip(), fields.σ₁₂)
+    ∂yσ₂₂ = ∂yᶜᶠᶜ_c(i, j, k, grid, Slip(), fields.σ₂₂)
 
     return ∂xσ₁₂ + ∂yσ₂₂
 end

@@ -39,6 +39,7 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             solver.auxiliary_fields,
             solver.substeps,
             solver.substepping_coefficient,
+            solver.boundary_conditions,
             model.ice_thickness,
             model.ice_concentration,
             model.ice_density,

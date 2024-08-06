@@ -15,7 +15,7 @@ using ClimaSeaIce.SeaIceDynamics
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-arch = GPU()
+arch = CPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
@@ -66,35 +66,17 @@ compute!(τᵥ)
 ##### Numerical details
 #####
 
-zero_value_bc = ValueBoundaryCondition(0)
-
-u_bcs = FieldBoundaryConditions(west   = OpenBoundaryCondition(0),
-                                east   = OpenBoundaryCondition(0),
-                                north  = zero_value_bc, 
-                                south  = zero_value_bc,
-                                top    = nothing,
-                                bottom = nothing)
-
-v_bcs = FieldBoundaryConditions(west   = zero_value_bc, 
-                                east   = zero_value_bc,
-                                north  = OpenBoundaryCondition(0),
-                                south  = OpenBoundaryCondition(0),
-                                top    = nothing,
-                                bottom = nothing)
-
-uᵢ = XFaceField(grid; boundary_conditions = u_bcs)
-vᵢ = YFaceField(grid; boundary_conditions = v_bcs)
+using ClimaSeaIce.SeaIceDynamics: NoSlip
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-momentum_solver = ExplicitMomentumSolver(grid)
+momentum_solver = ExplicitMomentumSolver(grid; boundary_conditions = NoSlip())
 advection = WENO(; order = 7)
 
 # Define the model!
 model = SeaIceModel(grid; 
                     top_u_stress = τᵤ,
                     top_v_stress = τᵥ,
-                    velocities = (u = uᵢ, v = vᵢ),
                     ocean_velocities = (u = Uₒ, v = Vₒ),
                     ice_dynamics = momentum_solver,
                     advection,
@@ -139,7 +121,7 @@ vtimeseries = []
 ## Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
     h = sim.model.ice_thickness
-    ℵ = sim.model.concentration
+    ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
     push!(htimeseries, deepcopy(interior(h)))
@@ -152,7 +134,7 @@ wall_time = [time_ns()]
 
 function progress(sim) 
     h = sim.model.ice_thickness
-    ℵ = sim.model.concentration
+    ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
 
