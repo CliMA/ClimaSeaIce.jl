@@ -8,6 +8,8 @@ export SlabSeaIceThermodynamics,
        ConductiveFlux,
        FluxFunction
 
+using Adapt
+
 #####
 ##### A bit of thermodynamics to start the day
 #####
@@ -108,6 +110,15 @@ and that temperature is degrees Celsius.
                             convert(FT, reference_temperature),
                             liquidus)
 end
+
+Adapt.adapt_structure(to, p::PhaseTransitions) = 
+    PhaseTransitions(Adapt.adapt(to, p.ice_density),
+                     Adapt.adapt(to, p.ice_heat_capacity),
+                     Adapt.adapt(to, p.liquid_density),
+                     Adapt.adapt(to, p.liquid_heat_capacity),
+                     Adapt.adapt(to, p.reference_latent_heat),
+                     Adapt.adapt(to, p.reference_temperature),
+                     Adapt.adapt(to, p.liquidus))
 
 @inline function latent_heat(thermo::PhaseTransitions, T)
     T₀ = thermo.reference_temperature    
