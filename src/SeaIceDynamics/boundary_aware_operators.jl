@@ -146,7 +146,7 @@ const f = Face()
 
 @inline δy_c(ℓx, ℓz, i, j, k, ibg::IBG, bc::NoSlip, δy, V) = 
     @inbounds ifelse(immersed_inactive_node(i, j,   k, ibg, ℓx, f, ℓz),
-                     2V[i, j, k],
+                     2V[i, j+1, k],
               ifelse(immersed_inactive_node(i, j+1, k, ibg, ℓx, f, ℓz),
                      2V[i, j, k],
                      δy(i, j, k, ibg.underlying_grid, bc, V)))
