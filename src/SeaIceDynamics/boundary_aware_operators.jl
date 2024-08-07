@@ -1,6 +1,6 @@
 using Oceananigans.Grids: AbstractUnderlyingGrid
 using Oceananigans.ImmersedBoundaries
-using Oceananigans.ImmersedBoundaries: inactive_node
+using Oceananigans.ImmersedBoundaries: inactive_node, immersed_inactive_node
 using Oceananigans.Operators
 
 struct Slip end
