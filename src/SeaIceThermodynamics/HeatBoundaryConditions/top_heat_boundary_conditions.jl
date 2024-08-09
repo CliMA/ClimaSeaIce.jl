@@ -98,6 +98,6 @@ using RootSolvers: SecantMethod, find_zero, CompactSolution
    
     h = @inbounds model_fields.h[i, j, 1]
 
-    return ifelse(h >= 0, solution.root, zero(h))
+    return ifelse(h > 0, solution.root, Tu)
 end
 
