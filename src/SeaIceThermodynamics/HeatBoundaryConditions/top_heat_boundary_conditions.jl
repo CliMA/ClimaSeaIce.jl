@@ -95,7 +95,9 @@ using RootSolvers: SecantMethod, find_zero, CompactSolution
                       getflux(internal_fluxes, i, j, grid, T, clock, model_fields)
                       
     solution = find_zero(flux_balance, method, solution_type)
-    
-    return solution.root
+   
+    h = @inbounds fields.h[i, j, 1]
+
+    return ifelse(h >= 0, solution.root, zero(h))
 end
 
