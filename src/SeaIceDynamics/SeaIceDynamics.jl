@@ -1,6 +1,6 @@
 module SeaIceDynamics
 
-export ExplicitMomentumSolver, ExplicitViscoPlasticRheology, 
+export ExplicitMomentumSolver, ExplicitViscoPlasticRheology, Slip, NoSlip,
        ℑxᴮᶜᶜᶜ,  ℑxᴮᶠᶜᶜ,  ℑxᴮᶜᶠᶜ,  ℑxᴮᶠᶠᶜ,
        ℑyᴮᶜᶜᶜ,  ℑyᴮᶠᶜᶜ,  ℑyᴮᶜᶠᶜ,  ℑyᴮᶠᶠᶜ,
        ℑxyᴮᶜᶜᶜ, ℑxyᴮᶠᶜᶜ, ℑxyᴮᶜᶠᶜ, ℑxyᴮᶠᶠᶜ,

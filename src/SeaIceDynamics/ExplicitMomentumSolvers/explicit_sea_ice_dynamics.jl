@@ -28,9 +28,12 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
     immersed_bc = (; u = u.boundary_conditions.immersed, 
                      v = v.boundary_conditions.immersed)
 
+    active_cells_map = retrieve_surface_active_cells_map(grid)
+
     # We step the momentum equation using a leap-frog scheme
     # where we alternate the order of solving u and v 
-    args = (model.velocities, grid, Δt, 
+    args = (model.velocities, grid, 
+            active_cells_map, Δt, 
             immersed_bc,
             model.clock,
             model.ocean_velocities,
@@ -44,6 +47,9 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             model.ice_concentration,
             model.ice_density,
             solver.ocean_ice_drag_coefficient)
+
+    u_velocity_kernel! = configured_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
+    v_velocity_kernel! = configured_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
     GC.@preserve args begin
         # We need to perform ~100 time-steps which means
@@ -62,11 +68,11 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
             # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
             if iseven(substep) 
-                launch!(arch, grid, :xy, _u_velocity_step!, converted_args..., τua, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
-                launch!(arch, grid, :xy, _v_velocity_step!, converted_args..., τva, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
+                u_velocity_kernel!(converted_args..., τua, nothing, fields(model))
+                v_velocity_kernel!(converted_args..., τva, nothing, fields(model))
             else
-                launch!(arch, grid, :xy, _v_velocity_step!, converted_args..., τva, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
-                launch!(arch, grid, :xy, _u_velocity_step!, converted_args..., τua, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
+                v_velocity_kernel!(converted_args..., τva, nothing, fields(model))
+                u_velocity_kernel!(converted_args..., τua, nothing, fields(model))
             end
         end
     end
