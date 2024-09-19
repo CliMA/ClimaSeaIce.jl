@@ -1,5 +1,5 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple, ActiveZColumnsIBG, ZColumnMap
+using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 # The ice-ocean stress is treated semi-implicitly 
 # i.e:
 #

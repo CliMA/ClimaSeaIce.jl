@@ -5,7 +5,6 @@ version = "0.1.1"
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -17,9 +16,9 @@ SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
 Adapt = "3, 4"
 KernelAbstractions = "0.9"
 Oceananigans = "0.90.11, 0.91, 0.91.5"
-SeawaterPolynomials = "0.3.4"
 RootSolvers = "0.3, 0.4"
 Roots = "2"
+SeawaterPolynomials = "0.3.4"
 julia = "1.9"
 
 [extras]
