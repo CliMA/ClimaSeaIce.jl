@@ -11,25 +11,25 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple, ActiveZColu
 #
 
 # Make sure we do not compute inside the immersed boundary
-@kernel function _u_velocity_step!(velocities, grid, args...)
+@kernel function _u_velocity_step!(velocities, grid, ::Nothing, args...)
     i, j = @index(Global, NTuple)
     u_velocity_step!(i, j, velocities, grid, args...)
 end
 
-@kernel function _v_velocity_step!(velocities, grid, args...)
+@kernel function _v_velocity_step!(velocities, grid, ::Nothing, args...)
     i, j = @index(Global, NTuple)
     v_velocity_step!(i, j, velocities, grid, args...)
 end
 
-@kernel function _u_velocity_step!(velocities, grid::ActiveZColumnsIBG, args...)
+@kernel function _u_velocity_step!(velocities, grid, active_surface_map, args...)
     idx = @index(Global, Linear)
-    i, j = active_linear_index_to_tuple(idx, ZColumnMap(), grid)
+    i, j = active_linear_index_to_tuple(idx, active_surface_map)
     u_velocity_step!(i, j, velocities, grid, args...)
 end
 
-@kernel function _v_velocity_step!(velocities, grid::ActiveZColumnsIBG, args...)
+@kernel function _v_velocity_step!(velocities, grid, active_surface_map, args...)
     idx = @index(Global, Linear)
-    i, j = active_linear_index_to_tuple(idx, ZColumnMap(), grid)
+    i, j = active_linear_index_to_tuple(idx, active_surface_map)
     v_velocity_step!(i, j, velocities, grid, args...)
 end
 

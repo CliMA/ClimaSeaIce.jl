@@ -1,7 +1,7 @@
 using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.Architectures: convert_args
 using Oceananigans.TimeSteppers: store_field_tendencies!
-using Oceananigans.ImmersedBoundaries: active_surface_map
+using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map
 using Printf
 
 """
@@ -62,11 +62,11 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
             # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
             if iseven(substep) 
-                launch!(arch, grid, :xy, _u_velocity_step!, converted_args..., τua, nothing, fields(model); active_cells_map = active_surface_map(grid))
-                launch!(arch, grid, :xy, _v_velocity_step!, converted_args..., τva, nothing, fields(model); active_cells_map = active_surface_map(grid))
+                launch!(arch, grid, :xy, _u_velocity_step!, converted_args..., τua, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
+                launch!(arch, grid, :xy, _v_velocity_step!, converted_args..., τva, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
             else
-                launch!(arch, grid, :xy, _v_velocity_step!, converted_args..., τva, nothing, fields(model); active_cells_map = active_surface_map(grid))
-                launch!(arch, grid, :xy, _u_velocity_step!, converted_args..., τua, nothing, fields(model); active_cells_map = active_surface_map(grid))
+                launch!(arch, grid, :xy, _v_velocity_step!, converted_args..., τva, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
+                launch!(arch, grid, :xy, _u_velocity_step!, converted_args..., τua, nothing, fields(model); active_cells_map = retrieve_surface_active_cells_map(grid))
             end
         end
     end
