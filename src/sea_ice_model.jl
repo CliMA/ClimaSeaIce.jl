@@ -1,9 +1,11 @@
 using Oceananigans.Fields: TracerFields
+using Oceananigans.TimeSteppers: TimeStepper
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
-using Oceananigans: tupleit
+using Oceananigans: tupleit, tracernames
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+using Oceananigans.Fields: ConstantField
 
-struct SeaIceModel{GR, TD, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -14,6 +16,7 @@ struct SeaIceModel{GR, TD, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{T
     ice_concentration :: IC
     # Thermodynamics
     ice_thermodynamics :: TD
+    ice_dynamics :: D
     # External boundary conditions
     external_heat_fluxes :: STF
     external_momentum_stresses :: SMS
@@ -33,22 +36,35 @@ function SeaIceModel(grid;
                      top_momentum_stress = nothing, # Fix when introducing dynamics
                      tracers             = (),
                      boundary_conditions = NamedTuple(),
-                     ice_thermodynamics  = SlabSeaIceThermodynamics(grid))
+                     ice_thermodynamics  = SlabSeaIceThermodynamics(grid),
+                     ice_dynamics        = nothing)
 
     if isnothing(velocities)
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
     end
 
-    # Only one time-stepper is supported currently
-    timestepper = ForwardEulerTimestepper()
-
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field
+    # Wrap ice_salinity in a field 
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+
+    # Adding thickness and concentration if not there
+    tracer_names = if ice_salinity isa ConstantField 
+        tuple(unique((tracernames(tracers)..., :h, :ℵ))...) 
+    else 
+        tuple(unique((tracernames(tracers)..., :S, :h, :ℵ))...)
+    end
+    
+    # TODO: should we have ice thickness and concentration as part of the tracers or
+    # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
+
+    # Only one time-stepper is supported currently
+    timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracer_names;
+                              Gⁿ = TracerFields(tracer_names, grid),
+                              G⁻ = TracerFields(tracer_names, grid))
 
     top_heat_flux = external_top_heat_flux(ice_thermodynamics, top_heat_flux)
 
@@ -64,6 +80,7 @@ function SeaIceModel(grid;
                        ice_thickness,
                        ice_concentration,
                        ice_thermodynamics,
+                       ice_dynamics,
                        external_heat_fluxes,
                        top_momentum_stress,
                        advection)

@@ -6,6 +6,8 @@ using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 
+using KernelAbstractions: @kernel, @index
+
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
@@ -27,9 +29,11 @@ export SeaIceModel,
 struct ForwardEulerTimestepper end
 
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
+include("SeaIceDynamics/SeaIceDynamics.jl")
 include("sea_ice_model.jl")
+include("sea_ice_advection.jl")
 include("tracer_tendency_kernel_functions.jl")
-include("time_stepping.jl")
+include("sea_ice_time_stepping.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
