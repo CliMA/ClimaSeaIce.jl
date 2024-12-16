@@ -2,7 +2,6 @@ using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.Architectures: convert_args
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map
-using Printf
 
 """
     step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
