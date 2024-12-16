@@ -34,6 +34,7 @@ function time_step!(model::SIM, Δt; callbacks=nothing, euler=false)
     χ = ifelse(euler, minus_point_five, ab2_timestepper.χ)
 
     # Set time-stepper χ (this is used in ab2_step!, but may also be used elsewhere)
+    χ₀ = ab2_timestepper.χ # Save initial value
     ab2_timestepper.χ = χ
 
     # Ensure zeroing out all previous tendency fields to avoid errors in
@@ -111,7 +112,7 @@ function store_tendencies!(model::SIM)
     Nt = length(Gⁿ)
 
     params = KernelParameters((Nx, Ny, Nt), (0, 0, 0))
-    launch!(arch, model.grid, params, _store_all_tendencies!, G⁻, Gⁿ)
+    launch!(arch, model.grid, params, _store_tendencies!, G⁻, Gⁿ)
 
     return nothing
 end
@@ -151,7 +152,7 @@ end
     end 
 end
 
-@kernel function _store_all_tendencies!(G⁻, Gⁿ) 
+@kernel function _store_tendencies!(G⁻, Gⁿ) 
     i, j, n = @index(Global, NTuple)
     @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end

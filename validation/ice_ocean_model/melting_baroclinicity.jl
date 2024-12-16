@@ -5,7 +5,7 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using Oceananigans.Units
 using Oceananigans.Utils: prettysummary
 
-using SeawaterPolynomials: TEOS10EquationOfState, haline_contraction
+using SeawaterPolynomials: TEOS10EquationOfState, heat_expansion, haline_contraction
 
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
@@ -17,7 +17,7 @@ using Statistics
 
 include("ice_ocean_model.jl")
 
-arch = CPU()
+arch = GPU()
 Nx = Ny = 256
 Nz = 10
 Lz = 400
@@ -50,11 +50,13 @@ boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Q�
 
 equation_of_state = TEOS10EquationOfState()
 buoyancy = SeawaterBuoyancy(; equation_of_state)
+horizontal_biharmonic_diffusivity = HorizontalScalarBiharmonicDiffusivity(κ=5e6)
 
 ocean_model = HydrostaticFreeSurfaceModel(; buoyancy, boundary_conditions,
                                           grid = ocean_grid,
                                           momentum_advection = WENO(),
                                           tracer_advection = WENO(),
+                                          #closure = (horizontal_biharmonic_diffusivity, CATKEVerticalDiffusivity()),
                                           closure = CATKEVerticalDiffusivity(),
                                           coriolis = FPlane(f=1.4e-4),
                                           tracers = (:T, :S, :e))
@@ -62,27 +64,27 @@ ocean_model = HydrostaticFreeSurfaceModel(; buoyancy, boundary_conditions,
 Nz = size(ocean_grid, 3)
 So = ocean_model.tracers.S
 ocean_surface_salinity = view(So, :, :, Nz)
-bottom_bc = IceWaterThermalEquilibrium(ConstantField(30))
+bottom_bc = IceWaterThermalEquilibrium(ConstantField(30)) #ocean_surface_salinity)
 
 u, v, w = ocean_model.velocities
 ocean_surface_velocities = (u = view(u, :, :, Nz), #interior(u, :, :, Nz),
-                            v = view(v, :, :, Nz)) #interior(v, :, :, Nz)
+                            v = view(v, :, :, Nz), #interior(v, :, :, Nz),    
+                            w = ZeroField())
 
 ice_model = SlabSeaIceModel(ice_grid;
-                            ocean_velocities = ocean_surface_velocities,
-                            advection = WENO(),
-                            consolidation_thickness = 0.05,
-                            salinity = 4,
-                            rheology = nothing,
+                            velocities = ocean_surface_velocities,
+                            advection = nothing, #WENO(),
+                            ice_consolidation_thickness = 0.05,
+                            ice_salinity = 4,
                             internal_heat_flux = ConductiveFlux(conductivity=2),
+                            #top_heat_flux = ConstantField(-100), # W m⁻²
                             top_heat_flux = ConstantField(0), # W m⁻²
                             top_heat_boundary_condition = PrescribedTemperature(0),
                             bottom_heat_boundary_condition = bottom_bc,
-                            bottom_heat_flux = ice_ocean_heat_flux,
-                            coriolis = ocean_model.coriolis)
+                            bottom_heat_flux = ice_ocean_heat_flux)
 
 ocean_simulation = Simulation(ocean_model; Δt=20minutes, verbose=false)
-ice_simulation   = Simulation(ice_model,   Δt=20minutes, verbose=false)
+ice_simulation = Simulation(ice_model, Δt=20minutes, verbose=false)
 
 # Initial condition
 S₀ = 30
@@ -99,66 +101,50 @@ Sᵢ(x, y, z) = S₀ + dSdz * z #+ 0.1 * randn()
 
 function hᵢ(x, y)
     if sqrt(x^2 + y^2) < 20kilometers
+        #return 1 + 0.1 * rand()
         return 2
     else 
         return 0
     end
 end
 
-function ℵᵢ(x, y)
-    if sqrt(x^2 + y^2) < 20kilometers
-        return 1
-    else 
-        return 0
-    end
-end
-
 set!(ocean_model, u=uᵢ, S=Sᵢ, T=T₀)
-set!(ice_model, h=hᵢ, ℵ=ℵᵢ)
+set!(ice_model, h=hᵢ)
 
 coupled_model = IceOceanModel(ice_simulation, ocean_simulation)
 coupled_simulation = Simulation(coupled_model, Δt=1minutes, stop_time=20days)
 
 S = ocean_model.tracers.S
-h = ice_model.thickness
-ℵ = ice_model.concentration
 by = - g * β * ∂y(S)
 
 function progress(sim)
-    h = sim.model.ice.model.thickness
-    ℵ = sim.model.ice.model.concentration
+    h = sim.model.ice.model.ice_thickness
     S = sim.model.ocean.model.tracers.S
     T = sim.model.ocean.model.tracers.T
-    u = sim.model.ice.model.velocities.u
-    v = sim.model.ice.model.velocities.v
+    u = sim.model.ocean.model.velocities.u
     msg1 = @sprintf("Iter: % 6d, time: % 12s", iteration(sim), prettytime(sim))
     msg2 = @sprintf(", max(h): %.2f", maximum(h))
-    msg3 = @sprintf(", max(ℵ): %.2f", maximum(ℵ))
-    msg4 = @sprintf(", extrema(S): (%.2f, %.2f)", minimum(S), maximum(S))
-    msg5 = @sprintf(", extrema(T): (%.2f, %.2f)", minimum(T), maximum(T))
-    msg6 = @sprintf(", maximum(vel): (%.2f, %.2f)", maximum(abs, u), maximum(abs, v))
-    @info msg1 * msg2 * msg3 * msg4 * msg5 * msg6 
+    msg3 = @sprintf(", min(S): %.2f", minimum(S))
+    msg4 = @sprintf(", extrema(T): (%.2f, %.2f)", minimum(T), maximum(T))
+    msg5 = @sprintf(", max|∂y b|: %.2e", maximum(abs, by))
+    msg6 = @sprintf(", max|u|: %.2e", maximum(abs, u))
+    @info msg1 * msg2 * msg3 * msg4 * msg5 * msg6
     return nothing
 end
 
-coupled_simulation.callbacks[:progress] = Callback(progress, IterationInterval(1))
+coupled_simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
 
-h = ice_model.thickness
-ℵ = ice_model.concentration
+h = ice_model.ice_thickness
 T = ocean_model.tracers.T
 S = ocean_model.tracers.S
-uo, vo, _ = ocean_model.velocities
-ui, vi = ice_model.velocities
+u, v, w = ocean_model.velocities
 η = ocean_model.free_surface.η
 
 ht = []
-ℵt = []
 Tt = []
 Ft = []
 Qt = []
 St = []
-Ut = []
-Vt = []
 ut = []
 vt = []
 ηt = []
@@ -170,27 +156,21 @@ tt = []
 function saveoutput(sim)
     compute!(ζ)
     hn = Array(interior(h, :, :, 1))
-    ℵn = Array(interior(ℵ, :, :, 1))
     Fn = Array(interior(Qˢ, :, :, 1))
     Qn = Array(interior(Qᵀ, :, :, 1))
     Tn = Array(interior(T, :, :, Nz))
     Sn = Array(interior(S, :, :, Nz))
+    un = Array(interior(u, :, :, Nz))
+    vn = Array(interior(v, :, :, Nz))
     ηn = Array(interior(η, :, :, 1))
     ζn = Array(interior(ζ, :, :, Nz))
-    unₒ = Array(interior(uo, :, :, Nz))
-    vnₒ = Array(interior(vo, :, :, Nz))
-    unᵢ = Array(interior(ui, :, :, 1))
-    vnᵢ = Array(interior(vi, :, :, 1))
     push!(ht, hn)
-    push!(ℵt, ℵn)
     push!(Ft, Fn)
     push!(Qt, Qn)
     push!(Tt, Tn)
     push!(St, Sn)
-    push!(Ut, unₒ)
-    push!(Vt, vnₒ)
-    push!(ut, unᵢ)
-    push!(vt, vnᵢ)
+    push!(ut, un)
+    push!(vt, vn)
     push!(ηt, ηn)
     push!(ζt, ζn)
     push!(tt, time(sim))
@@ -212,10 +192,9 @@ y = ynodes(ocean_grid, Center())
 fig = Figure(size=(2400, 700))
 
 axh = Axis(fig[1, 1], xlabel="x (km)", ylabel="y (km)", title="Ice thickness")
-axℵ = Axis(fig[1, 2], xlabel="x (km)", ylabel="y (km)", title="Ice Concentration")
-axT = Axis(fig[1, 3], xlabel="x (km)", ylabel="y (km)", title="Ocean surface temperature")
-axS = Axis(fig[1, 4], xlabel="x (km)", ylabel="y (km)", title="Ocean surface salinity")
-# axZ = Axis(fig[1, 4], xlabel="x (km)", ylabel="y (km)", title="Ocean vorticity")
+axT = Axis(fig[1, 2], xlabel="x (km)", ylabel="y (km)", title="Ocean surface temperature")
+axS = Axis(fig[1, 3], xlabel="x (km)", ylabel="y (km)", title="Ocean surface salinity")
+axZ = Axis(fig[1, 4], xlabel="x (km)", ylabel="y (km)", title="Ocean vorticity")
 
 Nt = length(tt)
 slider = Slider(fig[2, 1:4], range=1:Nt, startvalue=Nt)
@@ -225,7 +204,6 @@ title = @lift string("Melt-driven baroclinic instability after ", prettytime(tt[
 Label(fig[0, 1:3], title)
 
 hn = @lift ht[$n]
-ℵn = @lift ℵt[$n]
 Fn = @lift Ft[$n]
 Tn = @lift Tt[$n]
 Sn = @lift St[$n]
@@ -242,16 +220,15 @@ Stop = view(S, :, :, Nz)
 Smax = maximum(Stop)
 Smin = minimum(Stop)
 
-# compute!(ζ)
-# ζtop = view(ζ, :, :, Nz)
-# ζmax = maximum(abs, ζtop)
-# ζlim = 2e-4 #ζmax / 2
+compute!(ζ)
+ζtop = view(ζ, :, :, Nz)
+ζmax = maximum(abs, ζtop)
+ζlim = 2e-4 #ζmax / 2
 
 heatmap!(axh, x, y, hn, colorrange=(0, 1), colormap=:grays)
-heatmap!(axℵ, x, y, ℵn, colorrange=(0, 1), colormap=:grays)
 heatmap!(axT, x, y, Tn, colormap=:heat)
 heatmap!(axS, x, y, Sn, colorrange = (29, 30), colormap=:haline)
-# heatmap!(axZ, x, y, ζn, colorrange=(-ζlim, ζlim), colormap=:redblue)
+heatmap!(axZ, x, y, ζn, colorrange=(-ζlim, ζlim), colormap=:redblue)
 
 #heatmap!(axZ, x, y, Tn, colormap=:heat)
 #heatmap!(axF, x, y, Fn)

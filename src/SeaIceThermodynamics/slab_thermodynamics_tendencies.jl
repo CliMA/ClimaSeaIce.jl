@@ -1,3 +1,4 @@
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
 @inline function thickness_thermodynamic_tendency(i, j, k, grid,
@@ -53,7 +54,7 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
     # If ice is consolidated, compute tendency for an ice slab; otherwise
     # just add ocean fluxes from frazil ice formation or melting
-    slushy_Gh = - Qbᵢ / ℰb 
+    slushy_Gh = - Qbᵢ / ℰb
 
     # Upper (top) and bottom interface velocities
     wu = (Quᵢ - Qiᵢ) / ℰu # < 0 => melting

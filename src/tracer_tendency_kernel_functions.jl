@@ -34,18 +34,18 @@ function ice_thickness_tendency(i, j, k, grid, clock,
                                 velocities,
                                 advection,
                                 ice_thickness,
-                                concentration,
+                                ice_concentration,
                                 thermodynamics,
                                 top_external_heat_flux,
                                 bottom_external_heat_flux,
                                 h_forcing,
                                 model_fields)
 
-    Gh_advection = - div_Uℵh(i, j, k, grid, advection, velocities, concentration, ice_thickness)
+    Gh_advection = - div_Uℵh(i, j, k, grid, advection, velocities, ice_concentration, ice_thickness)
 
     Gh_thermodynamics = thickness_thermodynamic_tendency(i, j, k, grid, 
                                                          ice_thickness, 
-                                                         concentration,
+                                                         ice_concentration,
                                                          thermodynamics,
                                                          top_external_heat_flux,
                                                          bottom_external_heat_flux,

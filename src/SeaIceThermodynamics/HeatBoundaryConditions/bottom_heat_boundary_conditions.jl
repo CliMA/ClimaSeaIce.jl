@@ -33,28 +33,24 @@ IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
 @inline bottom_temperature(i, j, grid, bc::PrescribedTemperature, args...) = @inbounds bc.temperature[i, j]
 @inline bottom_temperature(i, j, grid, bc::PrescribedTemperature{<:Number}, args...) = bc.temperature
 
-@inline getsalinity(i, j, k, S::Number) = S
-@inline getsalinity(i, j, k, S::AbstractArray) = @inbounds S[i, j, k]
-
 @inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, liquidus)
-    Sₒ = getsalinity(i, j, 1, bc.salinity)
+    Sₒ = @inbounds bc.salinity[i, j, 1]
     return melting_temperature(liquidus, Sₒ)
 end
 
 @inline function bottom_flux_imbalance(i, j, grid, bottom_heat_bc, top_temperature,
                                        internal_fluxes, external_fluxes, clock, model_fields)
 
-    #          
+    #
     #   ice        ↑   Qi ≡ internal_fluxes. Example: Qi = - k ∂z T
     #            |⎴⎴⎴|
     # ----------------------- ↕ hᵇ → ℒ ∂t hᵇ = δQ _given_ T = Tₘ
     #            |⎵⎵⎵|
     #   water      ↑   Qx ≡ external_fluxes
-    #        
+    #
 
     Qi = getflux(internal_fluxes, i, j, grid, top_temperature, clock, model_fields)
     Qx = getflux(external_fluxes, i, j, grid, top_temperature, clock, model_fields)
 
     return Qi - Qx
 end
-

@@ -23,13 +23,11 @@ struct IceOceanModel{FT, C, G, I, O, S, PI, PC} <: AbstractModel{Nothing}
     grid :: G # TODO: make it so simulation does not require this
     ice :: I
     previous_ice_thickness :: PI
-    previous_concentration :: PC
+    previous_ice_concentration :: PC
     ocean :: O
     solar_insolation :: S
     ocean_density :: FT
-    ice_density :: FT
     ocean_heat_capacity :: FT
-    ocean_surface_drag_coefficient :: FT
     ocean_emissivity :: FT
     stefan_boltzmann_constant :: FT
     reference_temperature :: FT
@@ -51,17 +49,15 @@ fields(::IOM) = NamedTuple()
 function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
     
     previous_ice_thickness = deepcopy(ice.model.ice_thickness)
-    previous_concentration = deepcopy(ice.model.concentration)
+    previous_ice_concentration = deepcopy(ice.model.ice_concentration)
 
     grid = ocean.model.grid
     ice_ocean_heat_flux = Field{Center, Center, Nothing}(grid)
     ice_ocean_salt_flux = Field{Center, Center, Nothing}(grid)
     solar_insolation = Field{Center, Center, Nothing}(grid)
 
-    ice_density = 917
     ocean_density = 1024
     ocean_heat_capacity = 3991
-    ocean_surface_drag_coefficient = 1e-3
     ocean_emissivity = 1
     reference_temperature = 273.15
     stefan_boltzmann_constant = 5.67e-8
@@ -85,13 +81,11 @@ function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
                          ocean.model.grid,
                          ice,
                          previous_ice_thickness,
-                         previous_concentration,
+                         previous_ice_concentration,
                          ocean,
                          solar_insolation,
                          convert(FT, ocean_density),
-                         convert(FT, ice_density),
                          convert(FT, ocean_heat_capacity),
-                         convert(FT, ocean_surface_drag_coefficient),
                          convert(FT, ocean_emissivity),
                          convert(FT, stefan_boltzmann_constant),
                          convert(FT, reference_temperature))
@@ -116,7 +110,7 @@ function compute_air_sea_flux!(coupled_model)
     Qᵀ = T.boundary_conditions.top.condition
     Tₒ = ocean.model.tracers.T
     hᵢ = ice.model.ice_thickness
-    ℵᵢ = ice.model.concentration
+    ℵᵢ = ice.model.ice_concentration
     I₀ = coupled_model.solar_insolation
 
     launch!(arch, grid, :xy, _compute_air_sea_flux!,
@@ -128,7 +122,7 @@ end
                                         grid,
                                         ocean_temperature,
                                         ice_thickness,
-                                        concentration,
+                                        ice_concentration,
                                         solar_insolation,
                                         σ, ρₒ, cₒ, Tᵣ)
 
@@ -139,7 +133,7 @@ end
     @inbounds begin
         T₀ = ocean_temperature[i, j, Nz] # at the surface
         h = ice_thickness[i, j, 1]
-        ℵ = concentration[i, j, 1]
+        ℵ = ice_concentration[i, j, 1]
         I₀ = solar_insolation[i, j, 1]
     end
 
@@ -199,7 +193,7 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
 end
 
 function compute_ice_ocean_salinity_flux!(coupled_model)
-    # Compute salinity increment due to changes in ice ice_thickness
+    # Compute salinity increment due to changes in ice thickness
 
     ice = coupled_model.ice
     ocean = coupled_model.ocean
@@ -207,7 +201,7 @@ function compute_ice_ocean_salinity_flux!(coupled_model)
     arch = architecture(grid)
     Qˢ = ocean.model.tracers.S.boundary_conditions.top.condition
     Sₒ = ocean.model.tracers.S
-    Sᵢ = ice.model.salinity
+    Sᵢ = ice.model.ice_salinity
     Δt = ocean.Δt
     hⁿ = ice.model.ice_thickness
     h⁻ = coupled_model.previous_ice_thickness
@@ -223,7 +217,7 @@ end
                                                    grid,
                                                    ice_thickness,
                                                    previous_ice_thickness,
-                                                   salinity,
+                                                   ice_salinity,
                                                    ocean_salinity,
                                                    Δt)
     i, j = @index(Global, NTuple)
@@ -233,11 +227,11 @@ end
     hⁿ = ice_thickness
     h⁻ = previous_ice_thickness
     Qˢ = ice_ocean_salinity_flux
-    Sᵢ = salinity
+    Sᵢ = ice_salinity
     Sₒ = ocean_salinity
 
     @inbounds begin
-        # ice_thickness of surface grid cell
+        # Thickness of surface grid cell
         Δh = hⁿ[i, j, 1] - h⁻[i, j, 1]
 
         # Update surface salinity flux.
@@ -245,7 +239,7 @@ end
         # ΔS = ⋯ - ∮ Qˢ dt ≈ ⋯ - Δtₒ * Qˢ 
         Qˢ[i, j, 1] = Δh / Δt * (Sᵢ[i, j, 1] - Sₒ[i, j, Nz])
 
-        # Update previous ice ice_thickness
+        # Update previous ice thickness
         h⁻[i, j, 1] = hⁿ[i, j, 1]
     end
 end

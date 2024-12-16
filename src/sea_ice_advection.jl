@@ -1,6 +1,6 @@
 using Oceananigans.Operators
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, conditional_flux_fcc, conditional_flux_cfc
-using Oceananigans.Advection: TracerAdvection, _advective_tracer_flux_x, _advective_tracer_flux_y
+using Oceananigans.Advection: FluxFormAdvection, _advective_tracer_flux_x, _advective_tracer_flux_y
 
 # To obtain better numerical properties, the ice thickness is advected together 
 # with the concentration, i.e.:
@@ -49,7 +49,7 @@ end
 end
 
 # For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
-@inline function div_Uℵh(i, j, k, grid, advection::TracerAdvection, U, ℵ, h)
+@inline function div_Uℵh(i, j, k, grid, advection::FluxFormAdvection, U, ℵ, h)
     ∇Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
                                       δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))
 
@@ -63,7 +63,7 @@ end
     1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_x, advection, U.u, c) +
                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_y, advection, U.v, c))
                                
-@inline horizontal_div_Uc(i, j, k, grid, advection::TracerAdvection, U, c) = 
+@inline horizontal_div_Uc(i, j, k, grid, advection::FluxFormAdvection, U, c) = 
     1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_x, advection.x, U.u, c) +
                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_y, advection.y, U.v, c))
                                

@@ -51,7 +51,12 @@ end
 const reference_density = 999.8 # kg m⁻³
 
 """
-    EnthalpyMethodSeaIceModel(; grid, kw...)
+    EnthalpyMethodSeaIceModel(; grid,
+                                closure = default_closure(grid),
+                                ice_heat_capacity = 2090.0 / reference_density,
+                                water_heat_capacity = 3991.0 / reference_density,
+                                fusion_enthalpy = 3.3e5 / reference_density,
+                                boundary_conditions = NamedTuple())
 
 Return a thermodynamic model for ice sandwiched between an atmosphere and ocean on an Eulerian grid.
 """
@@ -72,7 +77,7 @@ function EnthalpyMethodSeaIceModel(; grid,
     state = TracerFields(field_names, grid, user_boundary_conditions)
 
     tendencies = (; H=CenterField(grid))
-    clock = Clock{eltype(grid)}(0, 0, 1)
+    clock = Clock{eltype(grid)}(time = 0)
 
     return EnthalpyMethodSeaIceModel(grid,
                                     nothing,
@@ -249,4 +254,3 @@ end
 @inbounds temperature_flux(i, j, k, grid, κ, T) = - κᶜᶜᶜ_∂zᶜᶜᶠT(i, j, k, grid, κ, T)
 
 end # module
-

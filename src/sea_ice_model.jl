@@ -1,7 +1,9 @@
 using Oceananigans.Fields: TracerFields
-using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
-using Oceananigans: tupleit, tracernames
 using Oceananigans.TimeSteppers: TimeStepper
+using Oceananigans: tupleit, tracernames
+using Oceananigans.Fields: ConstantField
+using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
@@ -15,7 +17,6 @@ struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A}
     ice_density :: ID
     # Thermodynamics
     ice_thermodynamics :: TD
-    # Dynamics
     ice_dynamics :: D
     ocean_velocities :: UO
     ocean_density :: DO
@@ -57,13 +58,18 @@ function SeaIceModel(grid;
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field
+    # Wrap ice_salinity in a field 
+    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
     # Adding thickness and concentration if not there
-    tracer_names = tuple(unique((tracernames(tracers)..., :h, :ℵ))...)
-    tracer_names = ice_salinity isa Number ? tracer_names : tuple(tracer_names..., :S)
-
-    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    tracer_names = if ice_salinity isa ConstantField 
+        tuple(unique((tracernames(tracers)..., :h, :ℵ))...) 
+    else 
+        tuple(unique((tracernames(tracers)..., :S, :h, :ℵ))...)
+    end
+    
+    # TODO: should we have ice thickness and concentration as part of the tracers or
+    # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
 
     # Only one time-stepper is supported currently
@@ -119,7 +125,6 @@ function Base.show(io::IO, model::SIM)
     print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
     print(io, "├── ice thermodynamics: ", summary(model.ice_thermodynamics), '\n')
-    print(io, "├── ice dynamics: ", summary(model.ice_dynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')

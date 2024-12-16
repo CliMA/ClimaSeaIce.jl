@@ -1,7 +1,7 @@
 import Oceananigans: fields
 using Adapt
 
-struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodynamics
+struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT}
     top_surface_temperature :: ST
     heat_boundary_conditions :: HBC
     # Internal flux
@@ -10,6 +10,13 @@ struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT} <: AbstractSeaIceThermodyna
     phase_transitions :: P
     ice_consolidation_thickness :: MIT
 end
+
+Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) = 
+    SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
+                             Adapt.adapt(to, t.heat_boundary_conditions),
+                             Adapt.adapt(to, t.internal_heat_flux),
+                             Adapt.adapt(to, t.phase_transitions),
+                             Adapt.adapt(to, t.ice_consolidation_thickness))
 
 const SSIT = SlabSeaIceThermodynamics
 
@@ -86,7 +93,7 @@ function external_top_heat_flux(thermodynamics::SlabSeaIceThermodynamics,
     if isnothing(top_heat_flux)
         if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature  
             # Default: external top flux is in equilibrium with internal fluxes
-            top_heat_flux = internal_heat_flux_function
+            top_heat_flux = thermodynamics.internal_heat_flux
         else
             # Default: no external top surface flux
             top_heat_flux = 0

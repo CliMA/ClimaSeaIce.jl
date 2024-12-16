@@ -14,8 +14,6 @@ using Adapt
 ##### A bit of thermodynamics to start the day
 #####
 
-abstract type AbstractSeaIceThermodynamics end
-
 struct LinearLiquidus{FT}
     freshwater_melting_temperature :: FT
     slope :: FT
