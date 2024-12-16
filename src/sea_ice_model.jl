@@ -5,7 +5,7 @@ using Oceananigans.Fields: ConstantField
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
-struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, GA, EO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     timestepper :: TS
@@ -17,8 +17,11 @@ struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A}
     ice_density :: ID
     # Thermodynamics
     ice_thermodynamics :: TD
+    # Dynamics
     ice_dynamics :: D
     ocean_velocities :: UO
+    gravitational_acceleration :: GA
+    ocean_free_surface :: EO
     ocean_density :: DO
     coriolis :: CO
     # External boundary conditions
@@ -29,24 +32,26 @@ struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, DO, CO, STF, SMS, A}
 end
 
 function SeaIceModel(grid;
-                     clock               = Clock{eltype(grid)}(time = 0),
-                     ice_thickness       = Field{Center, Center, Nothing}(grid),
-                     ice_concentration   = Field{Center, Center, Nothing}(grid),
-                     ice_salinity        = 0, # psu
-                     ice_density         = 900, # kg/m³
-                     top_heat_flux       = nothing,
-                     bottom_heat_flux    = 0,
-                     velocities          = nothing,
-                     advection           = nothing,
-                     top_u_stress        = Field{Face, Center, Nothing}(grid),
-                     top_v_stress        = Field{Center, Face, Nothing}(grid),
-                     ocean_velocities    = (u = ZeroField(eltype(grid)), v = ZeroField(eltype(grid))),
-                     ocean_density       = 1025, # kg/m³
-                     coriolis            = nothing,
-                     tracers             = (),
-                     boundary_conditions = NamedTuple(),
-                     ice_thermodynamics  = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics        = ExplicitMomentumSolver(grid))
+                     clock                      = Clock{eltype(grid)}(time = 0),
+                     ice_thickness              = Field{Center, Center, Nothing}(grid),
+                     ice_concentration          = Field{Center, Center, Nothing}(grid),
+                     ice_salinity               = 0, # psu
+                     ice_density                = 900, # kg/m³
+                     top_heat_flux              = nothing,
+                     bottom_heat_flux           = 0,
+                     velocities                 = nothing,
+                     advection                  = nothing,
+                     top_u_stress               = Field{Face, Center, Nothing}(grid),
+                     top_v_stress               = Field{Center, Face, Nothing}(grid),
+                     ocean_velocities           = (u = ZeroField(eltype(grid)), v = ZeroField(eltype(grid))),
+                     ocean_free_surface         = ZeroField(eltype(grid)),
+                     ocean_density              = 1025, # kg/m³
+                     coriolis                   = nothing,
+                     tracers                    = (),
+                     boundary_conditions        = NamedTuple(),
+                     gravitational_acceleration = Oceananigans.BuoyancyFormulations.g_Earth,
+                     ice_thermodynamics         = SlabSeaIceThermodynamics(grid),
+                     ice_dynamics               = ExplicitMomentumSolver(grid))
 
     if isnothing(velocities) 
         u = Field{Face, Center, Nothing}(grid)
@@ -97,6 +102,8 @@ function SeaIceModel(grid;
                        ice_thermodynamics,
                        ice_dynamics,
                        ocean_velocities,
+                       ocean_free_surface,
+                       convert(eltype(grid), gravitational_acceleration),
                        ocean_density,
                        coriolis,
                        external_heat_fluxes,

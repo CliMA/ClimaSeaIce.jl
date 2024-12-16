@@ -1,5 +1,6 @@
 using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.Architectures: convert_args
+using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map
 
@@ -36,6 +37,7 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             immersed_bc,
             model.clock,
             model.ocean_velocities,
+            model.ocean_free_surface,
             model.coriolis,
             rheology,
             solver.auxiliary_fields,
@@ -45,10 +47,11 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             model.ice_thickness,
             model.ice_concentration,
             model.ice_density,
-            solver.ocean_ice_drag_coefficient)
+            solver.ocean_ice_drag_coefficient,
+            model.gravitational_acceleration)
 
-    u_velocity_kernel! = configured_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
-    v_velocity_kernel! = configured_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
     GC.@preserve args begin
         # We need to perform ~100 time-steps which means

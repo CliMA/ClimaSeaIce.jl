@@ -1,5 +1,6 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
+
 # The ice-ocean stress is treated semi-implicitly 
 # i.e:
 #
@@ -39,6 +40,7 @@ end
                                   immersed_bc,
                                   clock,
                                   ocean_velocities,
+                                  ocean_free_surface,
                                   coriolis,
                                   rheology,
                                   auxiliary_fields,
@@ -49,6 +51,7 @@ end
                                   ice_concentration,
                                   ice_density,
                                   ocean_ice_drag_coefficient,
+                                  gravitational_acceleration,
                                   u_top_stress,
                                   u_forcing,
                                   model_fields)
@@ -57,10 +60,12 @@ end
     vᵢ = velocities.v
     uₒ = ocean_velocities.u
     vₒ = ocean_velocities.v
+    ηₒ = ocean_free_surface
     h  = ice_thickness
     ℵ  = ice_concentration
     ρᵢ = ice_density
     Cᴰ = ocean_ice_drag_coefficient
+    g  = gravitational_acceleration
 
     # Ice mass (per unit area) interpolated on u points
     mᵢ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, Slip(), ice_mass, h, ℵ, ρᵢ)
@@ -88,6 +93,7 @@ end
     @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                      + τuₐ
                      + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
+                     + g * ∂xᶠᶜᶜ(i, j, 1, grid, ηₒ)
                      + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
 
     # make sure we do not have NaNs!                 
@@ -110,6 +116,7 @@ end
                                   immersed_bc,
                                   clock,
                                   ocean_velocities, 
+                                  ocean_free_surface,
                                   coriolis,
                                   rheology,
                                   auxiliary_fields,
@@ -120,6 +127,7 @@ end
                                   ice_concentration,
                                   ice_density,
                                   ocean_ice_drag_coefficient,
+                                  gravitational_acceleration,
                                   v_top_stress,
                                   v_forcing,
                                   model_fields)
@@ -128,10 +136,12 @@ end
     vᵢ = velocities.v
     uₒ = ocean_velocities.u
     vₒ = ocean_velocities.v
+    ηₒ = ocean_free_surface
     h  = ice_thickness
     ℵ  = ice_concentration
     ρᵢ = ice_density
     Cᴰ = ocean_ice_drag_coefficient
+    g  = gravitational_acceleration
 
     # Ice mass (per unit area) interpolated on u points
     mᵢ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, Slip(), ice_mass, h, ℵ, ρᵢ)
@@ -159,6 +169,7 @@ end
 
     @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                      + τvₐ
+                     + g * ∂yᶜᶠᶜ(i, j, 1, grid, ηₒ)
                      + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
                      + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
 
