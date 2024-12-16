@@ -5,9 +5,9 @@ end
 ConductiveFlux(FT::DataType=Float64; conductivity) = ConductiveFlux(convert(FT, conductivity))
 
 @inline function slab_internal_heat_flux(conductive_flux::ConductiveFlux,
-                                            top_surface_temperature,
-                                            bottom_temperature,
-                                            ice_thickness)
+                                         top_surface_temperature,
+                                         bottom_temperature,
+                                         ice_thickness)
 
     k = conductive_flux.conductivity
     Tu = top_surface_temperature
@@ -18,8 +18,8 @@ ConductiveFlux(FT::DataType=Float64; conductivity) = ConductiveFlux(convert(FT, 
 end
 
 @inline function slab_internal_heat_flux(i, j, grid,
-                                            top_surface_temperature::Number,
-                                            clock, fields, parameters)
+                                         top_surface_temperature::Number,
+                                         clock, fields, parameters)
     flux = parameters.flux
     bottom_bc = parameters.bottom_heat_boundary_condition
     liquidus = parameters.liquidus
