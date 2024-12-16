@@ -167,11 +167,11 @@ end
     # where τₑₒ = (Cᴰ ρₒ Δ𝒰ⁿ) / mᵢ
     τₑₒ = Cᴰ * Δ𝒰 / mᵢ
 
-    @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
-                     + τvₐ
-                     + g * ∂yᶜᶠᶜ(i, j, 1, grid, ηₒ)
-                     + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                     + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ) 
+    @inbounds Gⱽ =  - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
+                    + τvₐ
+                    + g * ∂yᶜᶠᶜ(i, j, 1, grid, ηₒ)
+                    + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
+                    + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 
