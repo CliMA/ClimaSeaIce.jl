@@ -1,5 +1,6 @@
 using Oceananigans.Operators
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, conditional_flux_fcc, conditional_flux_cfc
+using Oceananigans.ImmersedBoundaries
+using Oceananigans.Advection: conditional_flux_fcc, conditional_flux_cfc
 using Oceananigans.Advection: FluxFormAdvection, _advective_tracer_flux_x, _advective_tracer_flux_y
 
 # To obtain better numerical properties, the ice thickness is advected together 

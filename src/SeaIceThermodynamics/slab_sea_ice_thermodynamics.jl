@@ -30,13 +30,6 @@ end
        
 fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
 
-Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) = 
-    SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
-                             Adapt.adapt(to, t.heat_boundary_conditions),
-                             Adapt.adapt(to, t.internal_heat_flux),
-                             Adapt.adapt(to, t.phase_transitions),
-                             Adapt.adapt(to, t.ice_consolidation_thickness))
-
 """
     SlabSeaIceThermodynamics(grid; kw...)
 
