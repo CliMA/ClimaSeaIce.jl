@@ -2,12 +2,12 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
 import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
 @inline function thickness_thermodynamic_tendency(i, j, k, grid,
-                                      ice_thickness,
-                                      ice_concentration,
-                                      thermodynamics::SlabSeaIceThermodynamics,
-                                      top_external_heat_flux,
-                                      bottom_external_heat_flux,
-                                      clock, model_fields)
+                                                  ice_thickness,
+                                                  ice_concentration,
+                                                  thermodynamics::SlabSeaIceThermodynamics,
+                                                  top_external_heat_flux,
+                                                  bottom_external_heat_flux,
+                                                  clock, model_fields)
 
     phase_transitions = thermodynamics.phase_transitions
 
