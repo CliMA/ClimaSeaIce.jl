@@ -126,8 +126,8 @@ end
 
     FT = eltype(χ)
     Δt = convert(FT, Δt)
-    one_point_five = convert(FT, 1.5)
-    oh_point_five  = convert(FT, 0.5)
+    α  = convert(FT, 1.5) + χ
+    β  = convert(FT, 0.5) + χ
 
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
@@ -137,12 +137,10 @@ end
 
     # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = h[i, j, k] + Δt * ((one_point_five + χ) * Ghⁿ[i, j, k] - (oh_point_five + χ) * Gh⁻[i, j, k])
+        h⁺ = h[i, j, k] + Δt * (α * Ghⁿ[i, j, k] - β * Gh⁻[i, j, k])
         h⁺ = max(0, h⁺)
 
-        # Belongs in update state?
-        # That's certainly a simple model for ice concentration
-        ℵ⁺ = ℵ[i, j, k] + Δt * ((one_point_five + χ) * Gℵⁿ[i, j, k] - (oh_point_five + χ) * Gℵ⁻[i, j, k])
+        ℵ⁺ = ℵ[i, j, k] + Δt * (α * Gℵⁿ[i, j, k] - β * Gℵ⁻[i, j, k])
         ℵ⁺ = max(0, ℵ⁺)
         
         # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
