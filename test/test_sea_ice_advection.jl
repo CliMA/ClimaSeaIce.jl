@@ -10,6 +10,18 @@ using ClimaSeaIce
     @test !(model.velocities.u isa Nothing)
     @test !(model.velocities.v isa Nothing)
 
+    # test that model runs with RK3
+    @test begin
+        time_step!(model, 1)
+        true
+    end
+
+    model = SeaIceModel(grid, advection=WENO(), timestepper=:QuasiAdamsBashforth2) 
+
+    @test !(model.velocities.u isa Nothing)
+    @test !(model.velocities.v isa Nothing)
+
+    # test that model runs with AB2
     @test begin
         time_step!(model, 1)
         true
