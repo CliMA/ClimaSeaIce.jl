@@ -64,7 +64,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks=nothing)
     #
 
     compute_tracer_tendencies!(model; callbacks)
-    step_tracers!(model, Δt, 1)
+    step_tracers!(model, Δt, 3)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     # do we need to pass Δt here or third_stage_Δt?
