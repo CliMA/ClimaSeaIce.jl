@@ -5,7 +5,7 @@ using Oceananigans: tupleit, tracernames
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using Oceananigans.Fields: ConstantField
 
-struct SeaIceModel{GR, TD, D, TS, CL, TS, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     # Prognostic State

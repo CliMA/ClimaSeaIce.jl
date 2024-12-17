@@ -30,6 +30,7 @@ struct ForwardEulerTimestepper end
 
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
+# TODO: move to Oceananigans
 mask_immersed_field!(::ConstantField) = nothing
 mask_immersed_field!(::ZeroField)     = nothing
 
