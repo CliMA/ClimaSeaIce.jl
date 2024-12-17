@@ -77,9 +77,6 @@ end
     # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
-    # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = ℑxᶠᵃᵃ(i, j, 1, grid, rheology_substeps, rheology, substeps, auxiliary_fields)
-
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
     @inbounds τuₐ = u_top_stress[i, j, 1] / mᵢ
@@ -95,13 +92,16 @@ end
                     + g * ∂xᶠᶜᶜ(i, j, 1, grid, ηₒ)
                     + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, fields) / mᵢ)
 
-    # make sure we do not have NaNs!                 
-    Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(grid)) 
+    # If there is no ice, there is no velocity!   
+    Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ) 
     Gᴿ = rheology_specific_forcing_x(i, j, 1, grid, rheology, fields)
     
     # Explicit step
     @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + Gᴿ) / β
     
+    # Coefficient for substepping momentum (depends on the particular substepping formulation)
+    β = ℑxᶠᵃᵃ(i, j, 1, grid, rheology_substeps, rheology, substeps, auxiliary_fields)
+
     # Implicit component of the ice-ocean stress
     τᵢ = ifelse(mᵢ > 0, Δt * τₑₒ / β, zero(grid))
 
@@ -152,9 +152,6 @@ end
 
     # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
-    
-    # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = ℑyᵃᶠᵃ(i, j, 1, grid, rheology_substeps, rheology, substeps, fields)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -171,9 +168,12 @@ end
                     + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
                     + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, fields) / mᵢ)
 
-    # make sure we do not have NaNs!
-    Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 
+    # If there is no ice, there is no velocity!   
+    Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ) 
     Gᴿ = rheology_specific_forcing_y(i, j, 1, grid, rheology, fields)
+
+    # Coefficient for substepping momentum (depends on the particular substepping formulation)
+    β = ℑyᵃᶠᵃ(i, j, 1, grid, rheology_substeps, rheology, substeps, fields)
 
     # Explicit step
     @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + Gᴿ) / β

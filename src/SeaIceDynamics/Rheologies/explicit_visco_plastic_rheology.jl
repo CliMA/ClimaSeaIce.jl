@@ -12,7 +12,7 @@ struct ExplicitViscoPlasticRheology{FT}
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
-    Δ_min :: FT # minimum plastic parameter (transitions to viscous behaviour)
+    minimum_plastic_stress :: FT # minimum plastic parameter (transitions to viscous behaviour)
     min_substeps :: FT # minimum number of substeps expressed as the dynamic coefficient
     max_substeps :: FT # maximum number of substeps expressed as the dynamic coefficient
 end
@@ -61,14 +61,14 @@ function ExplicitViscoPlasticRheology(FT::DataType = Float64;
                                       ice_compressive_strength = 27500, 
                                       ice_compaction_hardening = 20, 
                                       yield_curve_eccentricity = 2, 
-                                      Δ_min = 2e-9,
+                                      minimum_plastic_stress = 2e-9,
                                       min_substeps = 30,
                                       max_substeps = 500)
 
     return ExplicitViscoPlasticRheology(convert(FT, ice_compressive_strength), 
                                         convert(FT, ice_compaction_hardening), 
                                         convert(FT, yield_curve_eccentricity),
-                                        convert(FT, Δ_min),
+                                        convert(FT, minimum_plastic_stress),
                                         convert(FT, min_substeps),
                                         convert(FT, max_substeps))
 end
@@ -168,7 +168,7 @@ end
     i, j = @index(Global, NTuple)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
-    Δm  = rheology.Δ_min
+    Δm  = rheology.minimum_plastic_stress
 
     # Extract auxiliary fields 
     P   = fields.P
