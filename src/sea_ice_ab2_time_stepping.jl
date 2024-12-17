@@ -45,7 +45,7 @@ function time_step!(model::AB2SeaIceModel, Δt; callbacks=nothing, euler=false)
         end
     end
 
-    compute_tracer_tendencies!(model; callbacks)
+    compute_tracer_tendencies!(model)
     step_tracers!(model, Δt, 1)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
@@ -58,28 +58,6 @@ function time_step!(model::AB2SeaIceModel, Δt; callbacks=nothing, euler=false)
 
     tick!(model.clock, Δt)
     update_state!(model)
-
-    return nothing
-end
-
-function compute_tracer_tendencies!(model::SIM; callbacks = nothing)
-    grid = model.grid
-    arch = architecture(grid)
-   
-    launch!(arch, grid, :xyz,
-            _compute_tracer_tendencies!,
-            model.timestepper.Gⁿ,
-            model.ice_thickness,
-            grid,
-            model.clock,
-            model.velocities,
-            model.advection,
-            model.ice_concentration,
-            model.ice_thermodynamics,
-            model.external_heat_fluxes.top,
-            model.external_heat_fluxes.bottom,
-            nothing, #model.forcing.h,
-            fields(model))
 
     return nothing
 end

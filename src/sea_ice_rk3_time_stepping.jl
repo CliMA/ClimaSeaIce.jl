@@ -13,7 +13,7 @@ using ClimaSeaIce.SeaIceDynamics: step_momentum!
 
 const RK3SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:RungeKutta3TimeStepper}
 
-function time_step!(model::RK3SeaIceModel, Δt; callbacks=nothing)
+function time_step!(model::RK3SeaIceModel, Δt)
 
     # Be paranoid and update state at iteration 0, in case run! is not used:
     model.clock.iteration == 0 && update_state!(model, callbacks)
@@ -33,7 +33,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks=nothing)
     # First stage
     #
 
-    compute_tracer_tendencies!(model; callbacks)
+    compute_tracer_tendencies!(model)
     step_tracers!(model, Δt, 1)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
@@ -48,7 +48,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks=nothing)
     # Second stage
     #
 
-    compute_tracer_tendencies!(model; callbacks)
+    compute_tracer_tendencies!(model)
     step_tracers!(model, Δt, 2)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
@@ -63,7 +63,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks=nothing)
     # Third stage
     #
 
-    compute_tracer_tendencies!(model; callbacks)
+    compute_tracer_tendencies!(model)
     step_tracers!(model, Δt, 3)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
