@@ -5,9 +5,6 @@
 # This file shows all the functions that need to be extended 
 # when defining a new rheology compatible with the `ExplicitMomentumSolver`
 
-# The `Nothing` rheology is a fallback implementation that does nothing
-fill_rheology_halo_regions!(solver, rheology) = nothing 
-
 # Fields needed to compute stresses (and stresses themselves)
 required_auxiliary_fields(grid, rheology) = NamedTuple()
 

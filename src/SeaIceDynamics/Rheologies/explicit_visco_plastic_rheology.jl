@@ -101,15 +101,6 @@ Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) =
                                  Adapt.adapt(to, r.min_substeps),
                                  Adapt.adapt(to, r.max_substeps))
 
-@inline function fill_rheology_halo_regions!(solver, ::ExplicitViscoPlasticRheology) 
-    fill_halo_regions!(solver.auxiliary_fields.σ₁₁)
-    fill_halo_regions!(solver.auxiliary_fields.σ₁₂)
-    fill_halo_regions!(solver.auxiliary_fields.σ₂₂)
-    fill_halo_regions!(solver.auxiliary_fields.substeps)
-
-    return nothing
-end
-
 """
     initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
 
@@ -130,6 +121,8 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
     launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, model.grid, P★, C, h, ℵ, u, v)
     
+    fill_halo_regions!(fields.P)
+
     return nothing
 end
 
@@ -156,6 +149,12 @@ function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology
     fields = solver.auxiliary_fields
     u, v = model.velocities
     launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
+
+    # TODO: This needs to be removed in some way!
+    fill_halo_regions!(fields.σ₁₁)
+    fill_halo_regions!(fields.σ₁₂)
+    fill_halo_regions!(fields.σ₂₂)
+    fill_halo_regions!(fields.substeps)
 
     return nothing
 end
