@@ -9,4 +9,4 @@ Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 [compat]
 CairoMakie = "0.11.0, 0.12.0"
 Documenter = "1"
-Oceananigans = "0.95.3"
+Oceananigans = "0.95.3 - 0.99"
