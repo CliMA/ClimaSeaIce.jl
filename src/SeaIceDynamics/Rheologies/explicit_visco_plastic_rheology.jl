@@ -131,20 +131,20 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
 
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
-    launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, P★, C, h, ℵ, u, v)
+    launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, grid, P★, C, h, ℵ, u, v)
     
     return nothing
 end
 
-@kernel function _initialize_evp_rhology!(fields, P★, C, h, ℵ, u, v)
+@kernel function _initialize_evp_rhology!(fields, grid, P★, C, h, ℵ, u, v)
     i, j = @index(Global, NTuple)    
-    @inbounds fields.P[i, j, 1]  = ice_strength(i, j, P★, C, h, ℵ)
+    @inbounds fields.P[i, j, 1]  = ice_strength(i, j, 1, grid, P★, C, h, ℵ)
     @inbounds fields.uⁿ[i, j, 1] = u[i, j, 1]
     @inbounds fields.vⁿ[i, j, 1] = v[i, j, 1]
 end
 
 # The parameterization for an `ExplicitViscoPlasticRheology`
-@inline ice_strength(i, j, P★, C, h, ℵ) = P★ * h[i, j, 1] * exp(- C * (1 - ℵ[i, j, 1])) 
+@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology, Δt) 
@@ -276,6 +276,6 @@ end
 end
 
 # To help convergence to the right velocities
-@inline rheology_specific_forcing_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
-@inline rheology_specific_forcing_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
+@inline rheology_specific_forcing_x(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) = @inbounds fields.uⁿ[i, j, k] - fields.u[i, j, k]
+@inline rheology_specific_forcing_y(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) = @inbounds fields.vⁿ[i, j, k] - fields.v[i, j, k]
 

@@ -51,8 +51,7 @@ end
                                   ocean_ice_drag_coefficient,
                                   gravitational_acceleration,
                                   u_top_stress,
-                                  u_forcing,
-                                  model_fields)
+                                  u_forcing)
 
     uᵢ = velocities.u
     vᵢ = velocities.v
@@ -64,6 +63,8 @@ end
     ρᵢ = ice_density
     Cᴰ = ocean_ice_drag_coefficient
     g  = gravitational_acceleration
+
+    fields = merge(auxiliary_fields, velocities, (h, ℵ))
 
     # Ice mass (per unit area) interpolated on u points
     mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
@@ -92,11 +93,11 @@ end
                      + τuₐ
                      + τₑₒ * uₒ[i, j, 1] # Explicit component of the ice-ocean stress
                      + g * ∂xᶠᶜᶜ(i, j, 1, grid, ηₒ)
-                     + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ)
+                     + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, fields) / mᵢ)
 
     # make sure we do not have NaNs!                 
     Gᵁ = ifelse(mᵢ > 0, Gᵁ, zero(grid)) 
-    Gᴿ = rheology_specific_forcing_x(i, j, 1, grid, rheology, auxiliary_fields, uᵢ)
+    Gᴿ = rheology_specific_forcing_x(i, j, 1, grid, rheology, fields)
     
     # Explicit step
     @inbounds uᵢ[i, j, 1] += (Δt * Gᵁ + Gᴿ) / β
@@ -125,8 +126,7 @@ end
                                   ocean_ice_drag_coefficient,
                                   gravitational_acceleration,
                                   v_top_stress,
-                                  v_forcing,
-                                  model_fields)
+                                  v_forcing)
 
     uᵢ = velocities.u
     vᵢ = velocities.v
@@ -138,6 +138,8 @@ end
     ρᵢ = ice_density
     Cᴰ = ocean_ice_drag_coefficient
     g  = gravitational_acceleration
+
+    fields = merge(auxiliary_fields, velocities, (h, ℵ))
 
     # Ice mass (per unit area) interpolated on u points
     mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
@@ -152,7 +154,7 @@ end
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = ℑyᵃᶠᵃ(i, j, 1, grid, rheology_substeps, rheology, substeps, auxiliary_fields)
+    β = ℑyᵃᶠᵃ(i, j, 1, grid, rheology_substeps, rheology, substeps, fields)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -171,7 +173,7 @@ end
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 
-    Gᴿ = rheology_specific_forcing_y(i, j, 1, grid, rheology, auxiliary_fields, vᵢ)
+    Gᴿ = rheology_specific_forcing_y(i, j, 1, grid, rheology, fields)
 
     # Explicit step
     @inbounds vᵢ[i, j, 1] += (Δt * Gⱽ + Gᴿ) / β

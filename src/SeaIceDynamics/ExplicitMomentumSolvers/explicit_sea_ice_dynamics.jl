@@ -71,11 +71,11 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
             # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
             if iseven(substep) 
-                u_velocity_kernel!(converted_args..., τua, nothing, fields(model))
-                v_velocity_kernel!(converted_args..., τva, nothing, fields(model))
+                u_velocity_kernel!(converted_args..., τua, nothing)
+                v_velocity_kernel!(converted_args..., τva, nothing)
             else
-                v_velocity_kernel!(converted_args..., τva, nothing, fields(model))
-                u_velocity_kernel!(converted_args..., τua, nothing, fields(model))
+                v_velocity_kernel!(converted_args..., τva, nothing)
+                u_velocity_kernel!(converted_args..., τua, nothing)
             end
 
             # TODO: This needs to be removed in some way!
