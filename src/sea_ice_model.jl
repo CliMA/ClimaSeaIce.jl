@@ -72,7 +72,6 @@ function SeaIceModel(grid;
 
     return SeaIceModel(grid,
                        clock,
-                       timestepper,
                        velocities,
                        tracers,
                        ice_thickness,
@@ -81,6 +80,7 @@ function SeaIceModel(grid;
                        ice_dynamics,
                        external_heat_fluxes,
                        top_momentum_stress,
+                       timestepper,
                        advection)
 end
 
