@@ -1,5 +1,4 @@
 import Oceananigans: fields
-using Adapt
 
 struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT}
     top_surface_temperature :: ST

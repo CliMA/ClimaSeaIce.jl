@@ -109,15 +109,6 @@ and that temperature is degrees Celsius.
                             liquidus)
 end
 
-Adapt.adapt_structure(to, p::PhaseTransitions) = 
-    PhaseTransitions(Adapt.adapt(to, p.ice_density),
-                     Adapt.adapt(to, p.ice_heat_capacity),
-                     Adapt.adapt(to, p.liquid_density),
-                     Adapt.adapt(to, p.liquid_heat_capacity),
-                     Adapt.adapt(to, p.reference_latent_heat),
-                     Adapt.adapt(to, p.reference_temperature),
-                     Adapt.adapt(to, p.liquidus))
-
 @inline function latent_heat(thermo::PhaseTransitions, T)
     T₀ = thermo.reference_temperature    
     ℒ₀ = thermo.reference_latent_heat
@@ -142,8 +133,6 @@ using .HeatBoundaryConditions:
     RadiativeEmission,
     FluxFunction,
     PrescribedTemperature,
-    bottom_temperature, 
-    top_surface_temperature,
     getflux
 
 using Oceananigans.Utils: prettysummary
@@ -162,7 +151,6 @@ import Oceananigans.Utils: prettytime
 # TODO: Fix this after this PR
 # include("EnthalpyMethodThermodynamics.jl")
 
-include("nothing_thermodynamics.jl")
 include("slab_sea_ice_thermodynamics.jl")
 include("slab_heat_and_tracer_fluxes.jl")
 include("slab_thermodynamics_tendencies.jl")
