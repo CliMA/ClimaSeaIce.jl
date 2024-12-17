@@ -186,8 +186,8 @@ end
     ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᶜ(i, j, 1, grid, bc, ∂xᶠᶠᶜ, v) + 
-              ℑxyᶜᶜᶜ(i, j, 1, grid, bc, ∂yᶠᶠᶜ, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, bc, ∂xᶠᶠᶜ, v) + 
+              ℑxyᶜᶜᵃ(i, j, 1, grid, bc, ∂yᶠᶠᶜ, u)) / 2
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -201,8 +201,8 @@ end
     Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
 
     # Face - Face variables
-    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
-    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
 
     # Ice divergence
     δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
@@ -218,7 +218,7 @@ end
     # Ice strength calculation 
     # Note: can we interpolate P on faces or do we need to compute it on faces?
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
-    Pᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, P)
+    Pᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, P)
 
     # ζ: Bulk viscosity (viscosity which responds to compression) 
     # η: Shear viscosity (viscosity which responds to shear)
@@ -238,7 +238,7 @@ end
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
     mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
 
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
