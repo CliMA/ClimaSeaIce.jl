@@ -51,36 +51,29 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
-    GC.@preserve args begin
-        # We need to perform ~100 time-steps which means
-        # launching ~200 very small kernels: we are limited by
-        # latency of argument conversion to GPU-compatible values.
-        # To alleviate this penalty we convert first and then we substep!
-        converted_args = convert_args(arch, args)
 
-        for substep in 1:solver.substeps
-            Base.@_inline_meta
-            # Compute stresses! depending on the particular rheology implementation
-            compute_stresses!(model, solver, rheology, Δt)
+    for substep in 1:solver.substeps
+        Base.@_inline_meta
+        # Compute stresses! depending on the particular rheology implementation
+        compute_stresses!(model, solver, rheology, Δt)
 
-            # TODO: This needs to be removed in some way!
-            fill_rheology_halo_regions!(solver, rheology)
+        # TODO: This needs to be removed in some way!
+        fill_rheology_halo_regions!(solver, rheology)
 
-            # The momentum equations are solved using an alternating leap-frog algorithm
-            # for u and v (used for the ocean - ice stresses and the coriolis term)
-            # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
-            # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
-            if iseven(substep) 
-                u_velocity_kernel!(converted_args..., τua, nothing)
-                v_velocity_kernel!(converted_args..., τva, nothing)
-            else
-                v_velocity_kernel!(converted_args..., τva, nothing)
-                u_velocity_kernel!(converted_args..., τua, nothing)
-            end
-
-            # TODO: This needs to be removed in some way!
-            fill_halo_regions!(model.velocities)
+        # The momentum equations are solved using an alternating leap-frog algorithm
+        # for u and v (used for the ocean - ice stresses and the coriolis term)
+        # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
+        # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
+        if iseven(substep) 
+            u_velocity_kernel!(args..., τua, nothing)
+            v_velocity_kernel!(args..., τva, nothing)
+        else
+            v_velocity_kernel!(args..., τva, nothing)
+            u_velocity_kernel!(args..., τua, nothing)
         end
+
+        # TODO: This needs to be removed in some way!
+        fill_halo_regions!(model.velocities)
     end
 
     return nothing
