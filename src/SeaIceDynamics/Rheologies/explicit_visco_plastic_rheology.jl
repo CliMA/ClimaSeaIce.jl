@@ -219,7 +219,7 @@ end
 
     # ζ: Bulk viscosity (viscosity which responds to compression) 
     # η: Shear viscosity (viscosity which responds to shear)
-    ζᶜᶜᶜ = Pᶜᶜᶜ / (2Δᶜᶜᶜ)
+    ζᶜᶜᶜ = Pᶜᶜᶜ / 2Δᶜᶜᶜ
     ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
 
     ζᶠᶠᶜ = Pᶠᶠᶜ / (2Δᶠᶠᶜ)
