@@ -54,7 +54,7 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-solver    = ExplicitMomentumSolver(grid; substeps = 120)
+solver    = ExplicitDynamics(grid; substeps = 120)
 advection = WENO(; order = 7)
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,

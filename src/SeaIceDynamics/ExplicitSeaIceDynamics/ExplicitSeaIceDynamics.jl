@@ -1,6 +1,6 @@
-module ExplicitMomentumSolvers
+module ExplicitSeaIceDynamics
 
-export ExplicitMomentumSolver
+export ExplicitDynamics
 
 using Oceananigans
 using Oceananigans.Utils
@@ -43,7 +43,7 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     
 import ClimaSeaIce.SeaIceDynamics: step_momentum!
 
-struct ExplicitMomentumSolver{R, T, FT} 
+struct ExplicitDynamics{R, T, FT} 
     rheology :: R # Rheology to compute stresses
     auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses, ice strength or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 
@@ -51,11 +51,10 @@ struct ExplicitMomentumSolver{R, T, FT}
 end
 
 """
-    ExplicitMomentumSolver(grid; 
+    ExplicitDynamics(grid; 
                            rheology = ExplicitViscoPlasticRheology(grid),
-                           ocean_ice_drag_coefficient = 5.5e-3,
-                           substepping_coefficient = DynamicSteppingCoefficient(grid),
-                           substeps = 1000)
+                           ocean_ice_drag_coefficient = 5.5,
+                           substeps = 120)
 
 Constructs an explicit momentum solver for slab sea ice dynamics. The explicit solver solves the momentum
 equation for sea ice:
@@ -85,20 +84,20 @@ Keyword Arguments
               Note that these substeps might be not be the ones that divide the time step in the stepping kernel.
               That is the role of the output of the `rheology_substeps` function (which, defaults to `substeps` in trivial rheologies).
 """
-function ExplicitMomentumSolver(grid; 
+function ExplicitDynamics(grid; 
                                 rheology = ExplicitViscoPlasticRheology(eltype(grid)),
                                 ocean_ice_drag_coefficient = 5.5,
                                 substeps = 120)
 
     auxiliary_fields = required_auxiliary_fields(grid, rheology)
     
-    return ExplicitMomentumSolver(rheology,
+    return ExplicitDynamics(rheology,
                                   auxiliary_fields,
                                   ocean_ice_drag_coefficient,
                                   substeps)
 end
 
-initialize_substepping!(model, solver::ExplicitMomentumSolver) = 
+initialize_substepping!(model, solver::ExplicitDynamics) = 
     initialize_rheology!(model, solver.rheology)
 
 include("explicit_sea_ice_dynamics.jl")

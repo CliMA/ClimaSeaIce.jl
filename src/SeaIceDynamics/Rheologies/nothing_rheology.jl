@@ -3,7 +3,7 @@
 ####
 
 # This file shows all the functions that need to be extended 
-# when defining a new rheology compatible with the `ExplicitMomentumSolver`
+# when defining a new rheology compatible with the `ExplicitDynamics`
 
 # Fields needed to compute stresses (and stresses themselves)
 required_auxiliary_fields(grid, rheology) = NamedTuple()

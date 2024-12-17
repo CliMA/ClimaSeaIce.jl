@@ -12,7 +12,7 @@ The sea-ice momentum equations are characterized by smaller time-scale than
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
+function step_momentum!(model, solver::ExplicitDynamics, Δt, args...)
 
     grid = model.grid
     arch = architecture(grid)
