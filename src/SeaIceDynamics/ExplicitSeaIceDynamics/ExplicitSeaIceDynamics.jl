@@ -38,9 +38,8 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     ∂ⱼ_σ₁ⱼ,
     ∂ⱼ_σ₂ⱼ,
     rheology_specific_forcing_x,
-    rheology_specific_forcing_y,
-    fill_rheology_halo_regions!
-    
+    rheology_specific_forcing_y
+        
 import ClimaSeaIce.SeaIceDynamics: step_momentum!
 
 struct ExplicitDynamics{R, T, FT} 
