@@ -1,14 +1,3 @@
-using Oceananigans.Architectures: architecture
-using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.TimeSteppers: tick!
-using Oceananigans.Utils: launch!, KernelParameters
-import Oceananigans.ImmersedBoundaries: mask_immersed_field!
-
-using Oceananigans: prognostic_fields
-using KernelAbstractions: @index, @kernel
-using Oceananigans.TimeSteppers: ab2_step_field!
-import Oceananigans.TimeSteppers: time_step!
-
 using ClimaSeaIce.SeaIceDynamics: step_momentum!
 
 const AB2SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:QuasiAdamsBashforth2TimeStepper}

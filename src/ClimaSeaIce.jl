@@ -2,9 +2,11 @@
 module ClimaSeaIce
 
 using Oceananigans
+using Oceananigans.Utils
 using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
+using Oceananigans.TimeSteppers: tick!, QuasiAdamsBashforth2TimeStepper, RungeKutta3TimeStepper
 
 using KernelAbstractions: @kernel, @index
 
@@ -16,6 +18,7 @@ import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
+import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 
 export SeaIceModel, 
        MeltingConstrainedFluxBalance,
