@@ -169,7 +169,7 @@ end
                     + τvₐ
                     + g * ∂yᶜᶠᶜ(i, j, 1, grid, ηₒ)
                     + τₑₒ * vₒ[i, j, 1] # Explicit component of the ice-ocean stress
-                    + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, auxiliary_fields) / mᵢ
+                    + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, fields) / mᵢ
 
     # make sure we do not have NaNs!
     Gⱽ = ifelse(mᵢ > 0, Gⱽ, zero(grid)) 
