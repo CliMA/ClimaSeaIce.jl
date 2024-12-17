@@ -1,4 +1,4 @@
-using ClimaSeaIce: melting_temperature
+using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
 
 #####
 ##### Bottom heat boundary conditions
@@ -41,17 +41,16 @@ end
 @inline function bottom_flux_imbalance(i, j, grid, bottom_heat_bc, top_temperature,
                                        internal_fluxes, external_fluxes, clock, model_fields)
 
-    #          
+    #
     #   ice        ↑   Qi ≡ internal_fluxes. Example: Qi = - k ∂z T
     #            |⎴⎴⎴|
     # ----------------------- ↕ hᵇ → ℒ ∂t hᵇ = δQ _given_ T = Tₘ
     #            |⎵⎵⎵|
     #   water      ↑   Qx ≡ external_fluxes
-    #        
+    #
 
     Qi = getflux(internal_fluxes, i, j, grid, top_temperature, clock, model_fields)
     Qx = getflux(external_fluxes, i, j, grid, top_temperature, clock, model_fields)
 
     return Qi - Qx
 end
-
