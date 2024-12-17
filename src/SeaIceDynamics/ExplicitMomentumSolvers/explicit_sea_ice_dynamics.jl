@@ -64,7 +64,7 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             compute_stresses!(model, solver, rheology, Δt)
 
             # TODO: This needs to be removed in some way!
-            fill_halo_regions!(solver, rheology)
+            fill_rheology_halo_regions!(solver, rheology)
 
             # The momentum equations are solved using an alternating leap-frog algorithm
             # for u and v (used for the ocean - ice stresses and the coriolis term)

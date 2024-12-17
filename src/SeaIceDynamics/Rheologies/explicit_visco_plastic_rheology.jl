@@ -101,10 +101,7 @@ Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) =
                                  Adapt.adapt(to, r.min_substeps),
                                  Adapt.adapt(to, r.max_substeps))
 
-
-import Oceananigans.BoundaryConditions: fill_halo_regions!
-
-@inline function fill_halo_regions!(solver, ::ExplicitViscoPlasticRheology) 
+@inline function fill_rheology_halo_regions!(solver, ::ExplicitViscoPlasticRheology) 
     fill_halo_regions!(solver.auxiliary_fields.σ₁₁)
     fill_halo_regions!(solver.auxiliary_fields.σ₁₂)
     fill_halo_regions!(solver.auxiliary_fields.σ₂₂)

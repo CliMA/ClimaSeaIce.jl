@@ -16,8 +16,7 @@ using Adapt
 using ClimaSeaIce.SeaIceDynamics
 using ClimaSeaIce.SeaIceDynamics: ice_mass
 
-import Oceananigans.BoundaryConditions: fill_halo_regions!
-import Oceananigans.ImmersedBoundaries: mask_immersed_field!
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 
 include("nothing_rheology.jl")
 include("explicit_visco_plastic_rheology.jl")
