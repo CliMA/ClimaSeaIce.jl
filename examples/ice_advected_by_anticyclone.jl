@@ -8,7 +8,6 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-# using GLMakie
 using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
@@ -150,7 +149,7 @@ function progress(sim)
     umax = maximum(interior(u)), maximum(interior(v))
     step_time = 1e-9 * (time_ns() - wall_time[1])
 
-    @info @sprintf("Time: %s, Iteration %d, Δt %s, max(vel): (%.2e, %.2e), max(trac): %.2f, %.2f, wtime: %s \n",
+    @info @sprintf("Time: %s, Iteration %d, Δt %s, max(vel): (%.2e, %.2e), max(h): %.2f, min(ℵ): %.2f, wtime: %s \n",
                    prettytime(sim.model.clock.time),
                    sim.model.clock.iteration,
                    prettytime(sim.Δt),
