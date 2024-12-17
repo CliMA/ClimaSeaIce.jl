@@ -23,3 +23,5 @@ simulation = Simulation(model; Δt = 0.1 / κ, stop_iteration=3)
     end
 end
 
+include("test_sea_ice_advection.jl")
+

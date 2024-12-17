@@ -84,7 +84,7 @@ using RootSolvers: SecantMethod, find_zero, CompactSolution
                                          internal_fluxes, external_fluxes,
                                          clock, model_fields)
 
-    Tu = @inbounds current_top_surface_temperature[i, j, 1]
+    Tu = get_tracer(i, j, 1, grid, current_top_surface_temperature)
     T₁ = Tu + 1
     T₂ = Tu - 0
     FT = eltype(grid)
