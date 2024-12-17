@@ -186,8 +186,8 @@ end
     ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, bc, ∂xᶠᶠᶜ, v) + 
-              ℑxyᶜᶜᵃ(i, j, 1, grid, bc, ∂yᶠᶠᶜ, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + 
+              ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
