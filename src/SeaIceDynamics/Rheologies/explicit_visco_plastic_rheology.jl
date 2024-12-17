@@ -243,7 +243,7 @@ end
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
     γ_max = rheology.max_substeps
-    γ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, k, grid)
+    γ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
     γ = ifelse(mᵢᶜᶜᶜ == 0, γ_max^2, γ)
     α = clamp(sqrt(γ), rheology.min_substeps, rheology.max_substeps)
 

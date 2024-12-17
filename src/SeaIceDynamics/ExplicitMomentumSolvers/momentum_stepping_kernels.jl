@@ -77,7 +77,7 @@ end
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = ℑxᶠᵃᵃ(i, j, 1, grid, get_stepping_coefficients, rheology, substeps, auxiliary_fields)
+    β = ℑxᶠᵃᵃ(i, j, 1, grid, rheology_substeps, rheology, substeps, auxiliary_fields)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
