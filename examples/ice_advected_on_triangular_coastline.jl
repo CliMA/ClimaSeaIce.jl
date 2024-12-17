@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using GLMakie
+using CairoMakie
 using ClimaSeaIce.SeaIceDynamics
 
 # A solid block of ice moving against a triangular coastline in a periodic channel
@@ -61,16 +61,13 @@ u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
                                 north = ValueBoundaryCondition(0),
                                 south = ValueBoundaryCondition(0))
 
-v_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
-                                west = ValueBoundaryCondition(0),
-                                east = ValueBoundaryCondition(0))
 #Define the model!
 model = SeaIceModel(grid; 
                     top_u_stress = τᵤ,
                     top_v_stress = τᵥ,
                     advection,
                     ice_dynamics = solver,
-                    boundary_conditions = (u = u_bcs, v = v_bcs),
+                    boundary_conditions = (; u = u_bc),
                     ice_thermodynamics = nothing)
 
 # Initial height field with perturbations around 0.3 m
