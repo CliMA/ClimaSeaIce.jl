@@ -6,7 +6,7 @@
 # when defining a new rheology compatible with the `ExplicitMomentumSolver`
 
 # Fields needed to compute stresses (and stresses themselves)
-required_auxiliary_fields(::Nothing) = nothing
+required_auxiliary_fields(grid, ::Nothing) = nothing
 
 # All initializations required before the substepping begins
 initialize_rheology!(model, ::Nothing) = nothing
