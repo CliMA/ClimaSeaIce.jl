@@ -1,5 +1,6 @@
 ####
-#### For a `Nothing` rheology, the ice does not move!
+#### For `Nothing` ice dynamics, the ice velocities do not evolve 
+#### -> i.e. the velocities remain equal to then initial conditions
 ####
 
 # The only function we need! 

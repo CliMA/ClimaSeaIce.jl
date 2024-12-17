@@ -1,5 +1,5 @@
 ####
-#### Free drift!
+#### Nothing rheology a.k.a. "Free drift"
 ####
 
 # This file shows all the functions that need to be extended 
