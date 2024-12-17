@@ -79,7 +79,7 @@ end
 
 function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
     if substep == 1
-        return ts.γ¹, ts.ζ¹
+        return ts.γ¹, zero(ts.γ¹)
     elseif substep == 2
         return ts.γ², ts.ζ²
     elseif substep == 3
