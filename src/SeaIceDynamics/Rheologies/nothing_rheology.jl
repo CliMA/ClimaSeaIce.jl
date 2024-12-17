@@ -21,3 +21,6 @@ compute_stresses!(model, solver, ::Nothing, args...) = nothing
 # Additional tendency terms specific to a certain rheology
 @inline rheology_specific_forcing_x(i, j, k, grid, args...) = zero(grid) 
 @inline rheology_specific_forcing_y(i, j, k, grid, args...) = zero(grid)
+
+# Fallback for no specific scheme => α = β = substeps 
+@inline rheology_substeps(i, j, k, grid, ::Nothing, substeps, fields) = substeps 

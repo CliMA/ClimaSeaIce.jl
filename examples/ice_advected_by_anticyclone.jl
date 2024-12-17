@@ -8,14 +8,14 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using GLMakie
+# using GLMakie
 using ClimaSeaIce.SeaIceDynamics
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-arch = CPU()
+arch = GPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
@@ -66,11 +66,9 @@ compute!(τᵥ)
 ##### Numerical details
 #####
 
-using ClimaSeaIce.SeaIceDynamics: NoSlip
-
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-momentum_solver = ExplicitMomentumSolver(grid; boundary_conditions = NoSlip())
+momentum_solver = ExplicitMomentumSolver(grid)
 advection = WENO(; order = 7)
 
 # Define the model!
@@ -156,6 +154,8 @@ simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
 simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(5))
 
 run!(simulation)
+
+using CairoMakie
 
 # Visualize!
 Nt = length(htimeseries)

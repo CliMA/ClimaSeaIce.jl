@@ -1,6 +1,7 @@
 using Oceananigans.Fields: TracerFields
 using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans: tupleit, tracernames
+using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: ConstantField
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
@@ -53,13 +54,24 @@ function SeaIceModel(grid;
                      ice_thermodynamics         = SlabSeaIceThermodynamics(grid),
                      ice_dynamics               = ExplicitMomentumSolver(grid))
 
+    tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
+
+    # Next, we form a list of default boundary conditions:
+    prognostic_field_names = (:u, :v, tracernames(tracers)...)
+    default_boundary_conditions = NamedTuple{prognostic_field_names}(Tuple(FieldBoundaryConditions()
+                                                                     for name in prognostic_field_names))
+
+    # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
+    # have precedence, followed by embedded, followed by default.
+    boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
+    boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, prognostic_field_names)
+
     if isnothing(velocities) 
-        u = Field{Face, Center, Nothing}(grid)
-        v = Field{Center, Face, Nothing}(grid)
+        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 
-    tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?

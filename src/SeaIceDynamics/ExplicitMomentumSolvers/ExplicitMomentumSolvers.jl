@@ -27,7 +27,7 @@ using Adapt
 ## - ocean dynamic surface
 
 using ClimaSeaIce.SeaIceDynamics
-using ClimaSeaIce.SeaIceDynamics: ice_mass, Slip, NoSlip
+using ClimaSeaIce.SeaIceDynamics: ice_mass
 
 using ClimaSeaIce.SeaIceDynamics.Rheologies: 
     ExplicitViscoPlasticRheology,
@@ -41,12 +41,10 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     
 import ClimaSeaIce.SeaIceDynamics: 
         step_momentum!,
-        update_stepping_coefficients!,
-        get_stepping_coefficients
+        rhoelogy_substeps
 
 struct ExplicitMomentumSolver{R, B, T, FT, A} 
     rheology :: R # Rheology to compute stresses
-    boundary_conditions :: B # Boundary conditions for the velocity field
     auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses, ice strength or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 
     substepping_coefficient :: A
@@ -56,7 +54,6 @@ end
 """
     ExplicitMomentumSolver(grid; 
                            rheology = ExplicitViscoPlasticRheology(grid),
-                           boundary_conditions = Slip()
                            ocean_ice_drag_coefficient = 5.5e-3,
                            substepping_coefficient = DynamicSteppingCoefficient(grid),
                            substeps = 1000)
@@ -97,7 +94,6 @@ An instance of `ExplicitMomentumSolver` with the specified parameters.
 """
 function ExplicitMomentumSolver(grid; 
                                 rheology = ExplicitViscoPlasticRheology(eltype(grid)),
-                                boundary_conditions = Slip(),
                                 ocean_ice_drag_coefficient = 5.5,
                                 substepping_coefficient = DynamicSteppingCoefficient(grid),
                                 substeps = 120)
@@ -105,7 +101,6 @@ function ExplicitMomentumSolver(grid;
     auxiliary_fields = required_auxiliary_fields(grid, rheology)
     
     return ExplicitMomentumSolver(rheology,
-                                  boundary_conditions,
                                   auxiliary_fields,
                                   ocean_ice_drag_coefficient,
                                   substepping_coefficient,
@@ -117,7 +112,6 @@ initialize_substepping!(model, solver::ExplicitMomentumSolver) =
 
 include("explicit_sea_ice_dynamics.jl")
 include("simple_stepping_coefficients.jl")
-include("dynamic_stepping_coefficients.jl")
 include("momentum_stepping_kernels.jl")
 
 end

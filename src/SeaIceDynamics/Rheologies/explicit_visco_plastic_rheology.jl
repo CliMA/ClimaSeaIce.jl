@@ -1,7 +1,6 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
 using Oceananigans.Grids: AbstractGrid
-using ClimaSeaIce.SeaIceDynamics: NoSlip, Slip
 
 ## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
@@ -14,6 +13,8 @@ struct ExplicitViscoPlasticRheology{FT}
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
     Δ_min :: FT # minimum plastic parameter (transitions to viscous behaviour)
+    min_substeps :: FT # minimum number of substeps expressed as the dynamic coefficient
+    max_substeps :: FT # maximum number of substeps expressed as the dynamic coefficient
 end
 
 """
@@ -21,11 +22,24 @@ end
                                  ice_compressive_strength = 27500, 
                                  ice_compaction_hardening = 20, 
                                  yield_curve_eccentricity = 2, 
-                                 Δ_min = 2e-9)
+                                 Δ_min = 2e-9,
+                                 min_substeps = 30,
+                                 max_substeps = 500)
 
 Constructs an `ExplicitViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
-rheology for slab sea ice dynamics that follows the implementation of kimmritz et al (2016).
-The `ice_strength` is parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))`` 
+rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al (2016).
+The `ice_strength` is parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))``. The number of substeps is
+spatially varying and computed dynamically as in Kimmritz et al (2016):
+
+In particular: α (stress substeps) == β (momentum substeps) = sqrt(γ) 
+where γ = ζ * π² * (Δt / mᵢ) / Az is a stability parameter with ``Az`` the area of the grid cell, 
+``ζ`` the bulk viscosity, ``mᵢ`` the ice mass, and ``Δt`` the time step.
+
+This formulation allows fast convergence in regions where sqrt(γ) is small. Regions where
+the coefficients are large correspond to regions where the ice is more solid and moves as a block
+and the convergence is slower.
+
+The number of substeps is then bounded by `min_substeps` and `max_substeps`.
 
 Arguments
 =========
@@ -35,35 +49,45 @@ Arguments
 Keyword Arguments
 =================
     
-- `ice_compressive_strength`: parameter expressing compressive strength (in Nm²), default `27500`.
-- `ice_compaction_hardening`: exponent coefficient for compaction hardening, default `20`.
-- `yield_curve_eccentricity`: eccentricity of the elliptic yield curve, default `2`.
+- `ice_compressive_strength`: parameter expressing compressive strength (in Nm²). Default `27500`.
+- `ice_compaction_hardening`: exponent coefficient for compaction hardening. Default `20`.
+- `yield_curve_eccentricity`: eccentricity of the elliptic yield curve. Default `2`.
 - `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice, 
            transitioning the ice from a plastic to a viscous behaviour. Default value is `1e-10`.
+- `min_substeps`: Minimum number of substeps expressed as the dynamic coefficient. Default value is `30`.
+- `max_substeps`: Maximum number of substeps expressed as the dynamic coefficient. Default value is `500`.
 """
 function ExplicitViscoPlasticRheology(FT::DataType = Float64; 
                                       ice_compressive_strength = 27500, 
                                       ice_compaction_hardening = 20, 
                                       yield_curve_eccentricity = 2, 
-                                      Δ_min = 2e-9)
+                                      Δ_min = 2e-9,
+                                      min_substeps = 30,
+                                      max_substeps = 500)
 
     return ExplicitViscoPlasticRheology(convert(FT, ice_compressive_strength), 
                                         convert(FT, ice_compaction_hardening), 
                                         convert(FT, yield_curve_eccentricity),
-                                        convert(FT, Δ_min))
+                                        convert(FT, Δ_min),
+                                        convert(FT, min_substeps),
+                                        convert(FT, max_substeps))
 end
 
 function required_auxiliary_fields(grid, ::ExplicitViscoPlasticRheology)
-
-    σ₁₁ = Field{Center, Center, Nothing}(grid)
+    σ₁₁ = Field{Center, Center, Nothing}(grid; bounda)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Face, Face, Nothing}(grid)
-
+    
     uⁿ = Field{Face, Center, Nothing}(grid)
     vⁿ = Field{Center, Face, Nothing}(grid)
     P  = Field{Center, Center, Nothing}(grid)
 
-    return (; σ₁₁, σ₂₂, σ₁₂, uⁿ, vⁿ, P)
+    substeps = Field{Face, Face, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+
+    # An initial (safe) educated guess
+    fill!(substeps, 100)
+
+    return (; σ₁₁, σ₂₂, σ₁₂, substeps, uⁿ, vⁿ, P)
 end
 
 # Extend the `adapt_structure` function for the ExplicitViscoPlasticRheology
@@ -71,7 +95,21 @@ Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) =
     ExplicitViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
                                  Adapt.adapt(to, r.ice_compaction_hardening),
                                  Adapt.adapt(to, r.yield_curve_eccentricity),
-                                 Adapt.adapt(to, r.Δ_min))
+                                 Adapt.adapt(to, r.Δ_min),
+                                 Adapt.adapt(to, r.min_substeps),
+                                 Adapt.adapt(to, r.max_substeps))
+
+
+import Oceananigans.BoundaryConditions: fill_halo_regions!
+
+@inline function fill_halo_regions!(solver, ::ExplicitViscoPlasticRheology) 
+    fill_halo_regions!(solver.auxiliary_fields.σ₁₁)
+    fill_halo_regions!(solver.auxiliary_fields.σ₁₂)
+    fill_halo_regions!(solver.auxiliary_fields.σ₂₂)
+    fill_halo_regions!(solver.auxiliary_fields.substeps)
+
+    return nothing
+end
 
 """
     initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
@@ -116,13 +154,9 @@ function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology
     ℵ  = model.ice_concentration
     ρᵢ = model.ice_density
 
-    fields   = solver.auxiliary_fields
-    substeps = solver.substeps
-    stepping_coefficient = solver.substepping_coefficient
-    boundary_conditions  = solver.boundary_conditions
-
+    fields = solver.auxiliary_fields
     u, v = model.velocities
-    launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt, boundary_conditions, substeps, stepping_coefficient)
+    launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end
@@ -131,7 +165,7 @@ end
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
 # This is the `meat` of the formulation.
-@kernel function _compute_evp_stresses!(fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt, bc, substeps, stepping_coefficient)
+@kernel function _compute_evp_stresses!(fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
@@ -142,15 +176,16 @@ end
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
+    rs  = fields.substeps
 
     # Strain rates
-    ϵ̇₁₁ =  ∂xᶜᶜᶜ_U(i, j, 1, grid, bc, u)
-    ϵ̇₁₂ = (∂xᶠᶠᶜ_c(i, j, 1, grid, bc, v) + ∂yᶠᶠᶜ_c(i, j, 1, grid, bc, u)) / 2
-    ϵ̇₂₂ =  ∂yᶜᶜᶜ_V(i, j, 1, grid, bc, v)
+    ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
+    ϵ̇₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂yᶠᶠᶜ(i, j, 1, grid, u)) / 2
+    ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᴮᶜᶜᶜ(i, j, 1, grid, bc, ∂xᶠᶠᶜ_c, bc, v) + 
-              ℑxyᴮᶜᶜᶜ(i, j, 1, grid, bc, ∂yᶠᶠᶜ_c, bc, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᶜ(i, j, 1, grid, bc, ∂xᶠᶠᶜ, v) + 
+              ℑxyᶜᶜᶜ(i, j, 1, grid, bc, ∂yᶠᶠᶜ, u)) / 2
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -164,8 +199,8 @@ end
     Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
 
     # Face - Face variables
-    ϵ̇₁₁ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, bc, ∂xᶜᶜᶜ_U, bc, u)
-    ϵ̇₂₂ᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, bc, ∂yᶜᶜᶜ_V, bc, v)
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
 
     # Ice divergence
     δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
@@ -181,7 +216,7 @@ end
     # Ice strength calculation 
     # Note: can we interpolate P on faces or do we need to compute it on faces?
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
-    Pᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, Slip(), P)
+    Pᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, P)
 
     # ζ: Bulk viscosity (viscosity which responds to compression) 
     # η: Shear viscosity (viscosity which responds to shear)
@@ -201,37 +236,39 @@ end
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
     mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, Slip(), ice_mass, h, ℵ, ρᵢ) 
-
-    c = stepping_coefficient
+    mᵢᶠᶠᶜ = ℑxyᶠᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
 
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
-    update_stepping_coefficients!(i, j, 1, grid, c, ζᶜᶜᶜ, mᵢᶜᶜᶜ, Δt)
+    γ_max = rheology.max_substeps
+    γ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, k, grid)
+    γ = ifelse(mᵢᶜᶜᶜ == 0, γ_max^2, γ)
+    α = clamp(sqrt(γ), rheology.min_substeps, rheology.max_substeps)
 
-    # Coefficient for substepping internal stress
-    αᶜᶜᶜ = get_stepping_coefficients(i, j, 1, grid, substeps, c)
-    αᶠᶠᶜ = ℑxyᴮᶠᶠᶜ(i, j, 1, grid, Slip(), get_stepping_coefficients, substeps, c)
-
-    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / αᶜᶜᶜ, zero(grid))
-    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / αᶜᶜᶜ, zero(grid))
-    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / αᶠᶠᶜ, zero(grid))
+    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / α, zero(grid))
+    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / α, zero(grid))
+    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / α, zero(grid))
+    @inbounds rs[i, j, k]   = α
 end
 
 #####
 ##### Internal stress divergence for the EVP model
 #####
 
+# Here we extend all the functions that a rheology model needs to support:
+
+@inline rheology_substeps(i, j, k, grid, r::ExplicitViscoPlasticRheology, substeps, fields) = @inbounds fields.substeps[i, j, k]
+
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₁ = ∂xᶠᶜᶜ_c(i, j, k, grid, Slip(), fields.σ₁₁)
-    ∂yσ₁₂ = ∂yᶠᶜᶜ_V(i, j, k, grid, Slip(), fields.σ₁₂)
+    ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
+    ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
 
     return ∂xσ₁₁ + ∂yσ₁₂ 
 end
 
 @inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
-    ∂xσ₁₂ = ∂xᶜᶠᶜ_U(i, j, k, grid, Slip(), fields.σ₁₂)
-    ∂yσ₂₂ = ∂yᶜᶠᶜ_c(i, j, k, grid, Slip(), fields.σ₂₂)
+    ∂xσ₁₂ = ∂xᶜᶠᶜ(i, j, k, grid, fields.σ₁₂)
+    ∂yσ₂₂ = ∂yᶜᶠᶜ(i, j, k, grid, fields.σ₂₂)
 
     return ∂xσ₁₂ + ∂yσ₂₂
 end
@@ -239,3 +276,4 @@ end
 # To help convergence to the right velocities
 @inline rheology_specific_forcing_x(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, uᵢ) = fields.uⁿ[i, j, k] - uᵢ[i, j, k]
 @inline rheology_specific_forcing_y(i, j, k, grid, r::ExplicitViscoPlasticRheology, fields, vᵢ) = fields.vⁿ[i, j, k] - vᵢ[i, j, k]
+

@@ -42,7 +42,6 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             rheology,
             solver.auxiliary_fields,
             solver.substeps,
-            solver.substepping_coefficient,
             solver.boundary_conditions,
             model.ice_thickness,
             model.ice_concentration,
@@ -65,6 +64,9 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
             # Compute stresses! depending on the particular rheology implementation
             compute_stresses!(model, solver, rheology, Δt)
 
+            # TODO: This needs to be removed in some way!
+            fill_halo_regions!(solver, rheology)
+
             # The momentum equations are solved using an alternating leap-frog algorithm
             # for u and v (used for the ocean - ice stresses and the coriolis term)
             # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
@@ -76,6 +78,9 @@ function step_momentum!(model, solver::ExplicitMomentumSolver, Δt, args...)
                 v_velocity_kernel!(converted_args..., τva, nothing, fields(model))
                 u_velocity_kernel!(converted_args..., τua, nothing, fields(model))
             end
+
+            # TODO: This needs to be removed in some way!
+            fill_halo_regions!(model.velocities)
         end
     end
 

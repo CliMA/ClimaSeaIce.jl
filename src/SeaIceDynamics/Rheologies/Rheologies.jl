@@ -17,7 +17,7 @@ using ClimaSeaIce.SeaIceDynamics
 
 using ClimaSeaIce.SeaIceDynamics:
     update_stepping_coefficients!,
-    get_stepping_coefficients,
+    rheology_substeps,
     ice_mass
 
 import Oceananigans.BoundaryConditions: fill_halo_regions!

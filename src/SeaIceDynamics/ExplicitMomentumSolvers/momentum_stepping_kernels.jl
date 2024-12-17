@@ -45,8 +45,6 @@ end
                                   rheology,
                                   auxiliary_fields,
                                   substeps,
-                                  substepping_coefficient,
-                                  boundary_conditions,
                                   ice_thickness,
                                   ice_concentration,
                                   ice_density,
@@ -68,18 +66,18 @@ end
     g  = gravitational_acceleration
 
     # Ice mass (per unit area) interpolated on u points
-    mᵢ = ℑxᴮᶠᶜᶜ(i, j, 1, grid, Slip(), ice_mass, h, ℵ, ρᵢ)
+    mᵢ = ℑxᶠᶜᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
     Δu = @inbounds uₒ[i, j, 1] - uᵢ[i, j, 1]
-    Δv = ℑxyᴮᶠᶜᶜ(i, j, 1, grid, boundary_conditions, vₒ) 
-       - ℑxyᴮᶠᶜᶜ(i, j, 1, grid, boundary_conditions, vᵢ)
+    Δv = ℑxyᶠᶜᶜ(i, j, 1, grid, vₒ) 
+       - ℑxyᶠᶜᶜ(i, j, 1, grid, vᵢ)
 
     # relative ocean - ice speed
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = ℑxᴮᶠᶜᶜ(i, j, 1, grid, Slip(), get_stepping_coefficients, substeps, substepping_coefficient)
+    β = ℑxᶠᶜᶜ(i, j, 1, grid, get_stepping_coefficients, rheology, substeps, auxiliary_fields)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
@@ -121,8 +119,6 @@ end
                                   rheology,
                                   auxiliary_fields,
                                   substeps,
-                                  substepping_coefficient,
-                                  boundary_conditions,
                                   ice_thickness,
                                   ice_concentration,
                                   ice_density,
@@ -144,11 +140,11 @@ end
     g  = gravitational_acceleration
 
     # Ice mass (per unit area) interpolated on u points
-    mᵢ = ℑyᴮᶜᶠᶜ(i, j, 1, grid, Slip(), ice_mass, h, ℵ, ρᵢ)
+    mᵢ = ℑyᶜᶠᶜ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
     # relative ocean - ice velocities
-    Δu = ℑxyᴮᶜᶠᶜ(i, j, 1, grid, boundary_conditions, uₒ) 
-       - ℑxyᴮᶜᶠᶜ(i, j, 1, grid, boundary_conditions, uᵢ)
+    Δu = ℑxyᶜᶠᶜ(i, j, 1, grid, uₒ) 
+       - ℑxyᶜᶠᶜ(i, j, 1, grid, uᵢ)
 
     Δv = @inbounds vₒ[i, j, 1] - vᵢ[i, j, 1]
 
@@ -156,7 +152,7 @@ end
     Δ𝒰 = sqrt(Δu^2 + Δv^2)
     
     # Coefficient for substepping momentum (depends on the particular substepping formulation)
-    β = ℑyᴮᶜᶠᶜ(i, j, 1, grid, Slip(), get_stepping_coefficients, substeps, substepping_coefficient)
+    β = ℑyᶜᶠᶜ(i, j, 1, grid, rheology_substeps, rheology, substeps, auxiliary_fields)
 
     # The atmosphere - ice stress is prescribed at each time step
     # (i.e. it only depends on wind speed)
