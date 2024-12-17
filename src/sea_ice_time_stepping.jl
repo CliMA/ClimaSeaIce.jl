@@ -23,9 +23,6 @@ end
 @kernel function _step_tracers!(h, ℵ, tracers, Gⁿ, G⁻, Δt, α, β)
     i, j, k = @index(Global, NTuple)
 
-    FT = eltype(χ)
-    Δt = convert(FT, Δt)
-
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
     

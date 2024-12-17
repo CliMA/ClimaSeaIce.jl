@@ -1,4 +1,5 @@
 using ClimaSeaIce
+using Oceananigans
 
 @testset "Sea ice advection" begin
     @info "Running sea ice advection test"

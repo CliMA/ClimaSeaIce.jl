@@ -8,6 +8,7 @@ using Oceananigans.TimeSteppers: Clock
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 using Oceananigans.TimeSteppers: tick!, QuasiAdamsBashforth2TimeStepper, RungeKutta3TimeStepper
 using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.Grids: architecture
 
 using KernelAbstractions: @kernel, @index
 
