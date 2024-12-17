@@ -128,7 +128,7 @@ function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
 
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
-    launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, grid, P★, C, h, ℵ, u, v)
+    launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, model.grid, P★, C, h, ℵ, u, v)
     
     return nothing
 end
