@@ -74,7 +74,9 @@ function ExplicitViscoPlasticRheology(FT::DataType = Float64;
 end
 
 function required_auxiliary_fields(grid, ::ExplicitViscoPlasticRheology)
-    σ₁₁ = Field{Center, Center, Nothing}(grid; bounda)
+    
+    # TODO: What about boundary conditions?
+    σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Face, Face, Nothing}(grid)
     

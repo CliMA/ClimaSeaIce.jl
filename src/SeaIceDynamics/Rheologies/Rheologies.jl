@@ -14,11 +14,7 @@ using KernelAbstractions: @kernel, @index
 using Adapt
 
 using ClimaSeaIce.SeaIceDynamics
-
-using ClimaSeaIce.SeaIceDynamics:
-    update_stepping_coefficients!,
-    rheology_substeps,
-    ice_mass
+using ClimaSeaIce.SeaIceDynamics: ice_mass
 
 import Oceananigans.BoundaryConditions: fill_halo_regions!
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
