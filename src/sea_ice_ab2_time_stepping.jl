@@ -2,7 +2,7 @@ using ClimaSeaIce.SeaIceDynamics: step_momentum!
 
 const AB2SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:QuasiAdamsBashforth2TimeStepper}
 
-function time_step!(model::AB2SeaIceModel, Δt; euler=false)
+function time_step!(model::AB2SeaIceModel, Δt; euler=false, callbacks = [])
     
     # Be paranoid and update state at iteration 0
     model.clock.iteration == 0 && update_state!(model)
