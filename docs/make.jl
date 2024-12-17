@@ -24,6 +24,7 @@ end
 
 example_pages = [
     "Freezing bucket" => "literated/freezing_bucket.md",
+    "Ice advected by an anticyclone" => "literated/ice_advected_by_anticyclone.md",
 ]
 
 #####
