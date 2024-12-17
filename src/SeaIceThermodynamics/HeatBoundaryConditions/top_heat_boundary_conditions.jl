@@ -79,15 +79,12 @@ end
 
 using RootSolvers: SecantMethod, find_zero, CompactSolution
 
-@inline gettemperature(i, j, k, grid, T::AbstractArray) = T[i, j, k]
-@inline gettemperature(i, j, k, grid, T::Number) = T
-
 @inline function top_surface_temperature(i, j, grid, top_heat_bc,
                                          current_top_surface_temperature,
                                          internal_fluxes, external_fluxes,
                                          clock, model_fields)
 
-    Tu = gettemperature(i, j, 1, grid, current_top_surface_temperature)
+    Tu = get_tracer(i, j, 1, grid, current_top_surface_temperature)
     T₁ = Tu + 1
     T₂ = Tu - 0
     FT = eltype(grid)
