@@ -64,7 +64,7 @@ end
     Cᴰ = ocean_ice_drag_coefficient
     g  = gravitational_acceleration
 
-    fields = merge(auxiliary_fields, velocities, (h, ℵ))
+    fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
     # Ice mass (per unit area) interpolated on u points
     mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
@@ -139,7 +139,7 @@ end
     Cᴰ = ocean_ice_drag_coefficient
     g  = gravitational_acceleration
 
-    fields = merge(auxiliary_fields, velocities, (h, ℵ))
+    fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
     # Ice mass (per unit area) interpolated on u points
     mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
