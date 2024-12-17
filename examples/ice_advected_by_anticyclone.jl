@@ -15,7 +15,7 @@ using ClimaSeaIce.SeaIceDynamics
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-arch = GPU()
+arch = CPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
@@ -71,6 +71,14 @@ compute!(τᵥ)
 momentum_solver = ExplicitMomentumSolver(grid)
 advection = WENO(; order = 7)
 
+u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
+                                north = ValueBoundaryCondition(0),
+                                south = ValueBoundaryCondition(0))
+
+v_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
+                                west = ValueBoundaryCondition(0),
+                                east = ValueBoundaryCondition(0))
+
 # Define the model!
 model = SeaIceModel(grid; 
                     top_u_stress = τᵤ,
@@ -78,6 +86,7 @@ model = SeaIceModel(grid;
                     ocean_velocities = (u = Uₒ, v = Vₒ),
                     ice_dynamics = momentum_solver,
                     advection,
+                    boundary_conditions = (u = u_bcs, v = v_bcs),
                     coriolis = FPlane(f = 1e-4))
 
 # Initial height field with perturbations around 0.3 m

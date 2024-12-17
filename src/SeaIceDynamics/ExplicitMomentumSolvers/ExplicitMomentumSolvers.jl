@@ -42,7 +42,7 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
     
 import ClimaSeaIce.SeaIceDynamics: step_momentum!
 
-struct ExplicitMomentumSolver{R, B, T, FT} 
+struct ExplicitMomentumSolver{R, T, FT} 
     rheology :: R # Rheology to compute stresses
     auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses, ice strength or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 

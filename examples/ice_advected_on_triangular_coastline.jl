@@ -5,9 +5,7 @@ using Printf
 using GLMakie
 using ClimaSeaIce.SeaIceDynamics
 
-# The experiment found in the paper: 
-# Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
-# on Quadrilateral and Triangular Grids With Different Variable Staggering
+# A solid block of ice moving against a triangular coastline in a periodic channel
 
 Lx = 512kilometers
 Ly = 256kilometers
@@ -66,8 +64,7 @@ u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
 v_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
                                 west = ValueBoundaryCondition(0),
                                 east = ValueBoundaryCondition(0))
-
-i#Define the model!
+#Define the model!
 model = SeaIceModel(grid; 
                     top_u_stress = τᵤ,
                     top_v_stress = τᵥ,

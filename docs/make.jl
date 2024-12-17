@@ -14,6 +14,7 @@ const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
 example_scripts = [
     "freezing_bucket.jl",
+    "ice_advected_by_anticyclone.jl",
 ]
 
 for filename in example_scripts

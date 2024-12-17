@@ -250,7 +250,7 @@ end
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / α, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / α, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / α, zero(grid))
-    @inbounds rs[i, j, k]   = α
+    @inbounds  rs[i, j, 1]  = α
 end
 
 #####
@@ -259,7 +259,7 @@ end
 
 # Here we extend all the functions that a rheology model needs to support:
 
-@inline rheology_substeps(i, j, k, grid, r::ExplicitViscoPlasticRheology, substeps, fields) = @inbounds fields.substeps[i, j, k]
+@inline rheology_substeps(i, j, k, grid, ::ExplicitViscoPlasticRheology, substeps, fields) = @inbounds fields.substeps[i, j, k]
 
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
