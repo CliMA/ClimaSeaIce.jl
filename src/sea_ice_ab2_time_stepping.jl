@@ -5,7 +5,7 @@ const AB2SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:QuasiAdamsBashforth2Ti
 function time_step!(model::AB2SeaIceModel, Δt; euler=false)
     
     # Be paranoid and update state at iteration 0
-    model.clock.iteration == 0 && update_state!(model, callbacks)
+    model.clock.iteration == 0 && update_state!(model)
 
     ab2_timestepper = model.timestepper
 

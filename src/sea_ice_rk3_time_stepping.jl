@@ -3,7 +3,7 @@ const RK3SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:RungeKutta3TimeStepper
 function time_step!(model::RK3SeaIceModel, Δt)
 
     # Be paranoid and update state at iteration 0, in case run! is not used:
-    model.clock.iteration == 0 && update_state!(model, callbacks)
+    model.clock.iteration == 0 && update_state!(model)
 
     γ¹ = model.timestepper.γ¹
     γ² = model.timestepper.γ²

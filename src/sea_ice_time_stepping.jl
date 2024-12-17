@@ -68,7 +68,7 @@ end
     @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end
 
-function update_state!(model::SIM, callbacks = nothing)
+function update_state!(model::SIM)
     
     foreach(prognostic_fields(model)) do field
         mask_immersed_field!(field)
