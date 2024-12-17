@@ -67,7 +67,7 @@ model = SeaIceModel(grid;
                     top_v_stress = τᵥ,
                     advection,
                     ice_dynamics = solver,
-                    boundary_conditions = (; u = u_bc),
+                    boundary_conditions = (; u = u_bcs),
                     ice_thermodynamics = nothing)
 
 # Initial height field with perturbations around 0.3 m
