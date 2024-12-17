@@ -1,7 +1,10 @@
 using Oceananigans.Operators
 using Oceananigans.ImmersedBoundaries
-using Oceananigans.Advection: conditional_flux_fcc, conditional_flux_cfc
-using Oceananigans.Advection: FluxFormAdvection, _advective_tracer_flux_x, _advective_tracer_flux_y
+using Oceananigans.Advection: FluxFormAdvection, 
+                              _advective_tracer_flux_x, 
+                              _advective_tracer_flux_y,
+                              conditional_flux_fcc, 
+                              conditional_flux_cfc
 
 # To obtain better numerical properties, the ice thickness is advected together 
 # with the concentration, i.e.:
@@ -23,17 +26,17 @@ _advective_thickness_flux_y(i, j, k, ibg::ImmersedBoundaryGrid, args...) =
     conditional_flux_cfc(i, j, k, ibg, zero(ibg), advective_thickness_flux_y(i, j, k, ibg, args...))
 
 @inline function advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h)
-    ϕℵ = advective_tracer_flux_x(i, j, k, grid, advection, U, ℵ) / Axᶠᶜᶜ(i, j, k, grid)
-    ϕh = ϕℵ * advective_tracer_flux_x(i, j, k, grid, advection, U, h)
-    @inbounds ϕh = ifelse(U[i, j, k] == 0, zero(grid), ϕh / U[i, j, k])
-    return ϕh
+    ϕℵ  = advective_tracer_flux_x(i, j, k, grid, advection, U, ℵ) / Axᶠᶜᶜ(i, j, k, grid)
+    Uϕℵh = ϕℵ * advective_tracer_flux_x(i, j, k, grid, advection, U, h)
+    @inbounds ϕℵh = ifelse(U[i, j, k] == 0, zero(grid), Uϕℵh / U[i, j, k])
+    return ϕℵh
 end
 
 @inline function advective_thickness_flux_y(i, j, k, grid, advection, V, ℵ, h)
-    ϕℵ = advective_tracer_flux_y(i, j, k, grid, advection, V, ℵ) / Ayᶜᶠᶜ(i, j, k, grid)
-    ϕh = ϕℵ * advective_tracer_flux_y(i, j, k, grid, advection, V, h) 
-    @inbounds ϕh = ifelse(V[i, j, k] == 0, zero(grid), ϕh / V[i, j, k])
-    return ϕh
+    ϕℵ   = advective_tracer_flux_y(i, j, k, grid, advection, V, ℵ) / Ayᶜᶠᶜ(i, j, k, grid)
+    Vϕℵh = ϕℵ * advective_tracer_flux_y(i, j, k, grid, advection, V, h) 
+    @inbounds ϕℵh = ifelse(V[i, j, k] == 0, zero(grid), Vϕℵh / V[i, j, k])
+    return ϕℵh
 end
 
 # Fallback!

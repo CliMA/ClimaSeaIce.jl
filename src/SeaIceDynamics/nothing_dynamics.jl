@@ -4,4 +4,4 @@
 ####
 
 # The only function we need! 
-step_momentum!(model, ::Nothing, Δt, χ) = nothing
+step_momentum!(model, ::Nothing, Δt) = nothing

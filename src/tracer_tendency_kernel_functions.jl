@@ -1,6 +1,28 @@
 using Oceananigans.Advection
 using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
+function compute_tracer_tendencies!(model::SIM)
+    grid = model.grid
+    arch = architecture(grid)
+   
+    launch!(arch, grid, :xyz,
+            _compute_tracer_tendencies!,
+            model.timestepper.Gⁿ,
+            model.ice_thickness,
+            grid,
+            model.clock,
+            model.velocities,
+            model.advection,
+            model.ice_concentration,
+            model.ice_thermodynamics,
+            model.external_heat_fluxes.top,
+            model.external_heat_fluxes.bottom,
+            nothing, #model.forcing.h,
+            fields(model))
+
+    return nothing
+end
+
 @kernel function _compute_tracer_tendencies!(Gⁿ, ice_thickness,
                                              grid,
                                              clock,

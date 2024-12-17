@@ -6,10 +6,9 @@ using Oceananigans.Fields: ConstantField
 using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
-struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, GA, EO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, UO, GA, EO, DO, CO, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
-    timestepper :: TS
     # Prognostic State
     velocities :: U
     tracers :: T
@@ -29,6 +28,7 @@ struct SeaIceModel{GR, TD, D, CL, TS, U, T, IT, IC, ID, UO, GA, EO, DO, CO, STF,
     external_heat_fluxes :: STF
     external_momentum_stresses :: SMS
     # Numerics
+    timestepper :: TS
     advection :: A
 end
 
@@ -40,6 +40,7 @@ function SeaIceModel(grid;
                      ice_density                = 900, # kg/m³
                      top_heat_flux              = nothing,
                      bottom_heat_flux           = 0,
+                     timestepper                = :RungeKutta3,
                      velocities                 = nothing,
                      advection                  = nothing,
                      top_u_stress               = Field{Face, Center, Nothing}(grid),
@@ -79,20 +80,17 @@ function SeaIceModel(grid;
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
     # Adding thickness and concentration if not there
-    tracer_names = if ice_salinity isa ConstantField 
-        tuple(unique((tracernames(tracers)..., :h, :ℵ))...) 
-    else 
-        tuple(unique((tracernames(tracers)..., :S, :h, :ℵ))...)
+    prognostic_tracers = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
+    prognostic_tracers = if ice_salinity isa ConstantField 
+        prognostic_tracers 
+    else
+        merge(prognostic_tracers, (; S = ice_salinity))
     end
     
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
-
-    # Only one time-stepper is supported currently
-    timestepper = TimeStepper(:QuasiAdamsBashforth2, grid, tracer_names;
-                              Gⁿ = TracerFields(tracer_names, grid),
-                              G⁻ = TracerFields(tracer_names, grid))
+    timestepper = TimeStepper(timestepper, grid, prognostic_tracers)
 
     top_heat_flux = external_top_heat_flux(ice_thermodynamics, top_heat_flux)
 
@@ -105,7 +103,6 @@ function SeaIceModel(grid;
 
     return SeaIceModel(grid,
                        clock,
-                       timestepper,
                        velocities,
                        tracers,
                        ice_thickness,
@@ -120,6 +117,7 @@ function SeaIceModel(grid;
                        coriolis,
                        external_heat_fluxes,
                        external_momentum_stress,
+                       timestepper,
                        advection)
 end
 
