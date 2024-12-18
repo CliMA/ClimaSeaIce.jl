@@ -15,7 +15,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, STF, SMS, A} <: AbstractMode
     ice_concentration :: IC
     # Thermodynamics
     ice_thermodynamics :: TD
-    ice_dynamics :: D
+    rheology :: D
     # External boundary conditions
     external_heat_fluxes :: STF
     external_momentum_stresses :: SMS
@@ -32,13 +32,11 @@ function SeaIceModel(grid;
                      top_heat_flux       = nothing,
                      bottom_heat_flux    = 0,
                      velocities          = nothing,
-                     timestepper         = :RungeKutta3,
                      advection           = nothing,
-                     top_momentum_stress = nothing, # Fix when introducing dynamics
                      tracers             = (),
                      boundary_conditions = NamedTuple(),
                      ice_thermodynamics  = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics        = nothing)
+                     rheology            = nothing)
 
     if isnothing(velocities)
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
@@ -62,7 +60,7 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
-    timestepper = TimeStepper(timestepper, grid, prognostic_tracers)
+    timestepper = TimeStepper(:RungeKutta3, grid, prognostic_tracers)
 
     top_heat_flux = external_top_heat_flux(ice_thermodynamics, top_heat_flux)
 
@@ -77,9 +75,9 @@ function SeaIceModel(grid;
                        ice_thickness,
                        ice_concentration,
                        ice_thermodynamics,
-                       ice_dynamics,
+                       rheology,
                        external_heat_fluxes,
-                       top_momentum_stress,
+                       nothing,
                        timestepper,
                        advection)
 end
@@ -88,7 +86,7 @@ const SIM = SeaIceModel
 
 function set!(model::SIM; h=nothing, ℵ=nothing)
     !isnothing(h) && set!(model.ice_thickness, h)
-    !isnothing(ℵ) && set!(model.ice_conentration, ℵ)
+    !isnothing(ℵ) && set!(model.ice_concentration, ℵ)
     return nothing
 end
 

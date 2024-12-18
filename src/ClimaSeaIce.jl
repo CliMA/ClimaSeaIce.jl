@@ -1,4 +1,4 @@
-""" Ocean 🌊 Sea ice component of CliMa's Earth system model. """
+""" Ocean 🌊 Sea ice component of CliMA's Earth system model. """
 module ClimaSeaIce
 
 using Oceananigans
@@ -40,15 +40,13 @@ mask_immersed_field!(::ConstantField) = nothing
 mask_immersed_field!(::ZeroField)     = nothing
 
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
-include("SeaIceDynamics/SeaIceDynamics.jl")
-include("sea_ice_model.jl")
-include("sea_ice_advection.jl")
-include("tracer_tendency_kernel_functions.jl")
-include("sea_ice_time_stepping.jl")
-include("sea_ice_ab2_time_stepping.jl")
-include("sea_ice_rk3_time_stepping.jl")
+include("Rheologies.jl")
+include("Advection.jl")
+include("SeaIceModels/SeaIceModels.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
+using .SeaIceModels
 
 end # module
+

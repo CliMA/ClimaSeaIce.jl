@@ -1,4 +1,4 @@
-function step_tracers!(model::SIM, Δt, substep)
+function rk3_step!(model::SIM, Δt, γ, ζ)
     grid = model.grid
     arch = architecture(grid)
 
@@ -9,9 +9,8 @@ function step_tracers!(model::SIM, Δt, substep)
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
 
-    α, β = timestepping_coefficients(model.timestepper, substep)
-    
-    launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, tracers, Gⁿ, G⁻, Δt, α, β)
+    launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, tracers, Gⁿ, G⁻, Δt, γ, ζ)
+    #launch!(arch, grid, :xyz, _rk3_step_fields!, h, ℵ, tracers, Gⁿ, G⁻, Δt, γ, ζ)
 
     return nothing
 end
@@ -25,7 +24,6 @@ end
 
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
-    
     Gh⁻ = G⁻.h
     Gℵ⁻ = G⁻.ℵ
 
@@ -45,16 +43,15 @@ end
 end
 
 function store_tendencies!(model::SIM) 
-
     grid = model.grid
     arch = architecture(grid)
     Nx, Ny, _ = size(grid)
 
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
-    Nt = length(Gⁿ)
+    NG = length(Gⁿ)
 
-    params = KernelParameters((Nx, Ny, Nt), (0, 0, 0))
+    params = KernelParameters((Nx, Ny, NG), (0, 0, 0))
     launch!(arch, model.grid, params, _store_tendencies!, G⁻, Gⁿ)
 
     return nothing
@@ -65,8 +62,58 @@ end
     @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end
 
+const RK3SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:RungeKutta3TimeStepper}
+
+function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
+
+    # Be paranoid and update state at iteration 0, in case run! is not used:
+    model.clock.iteration == 0 && update_state!(model)
+
+    γ¹ = model.timestepper.γ¹
+    γ² = model.timestepper.γ²
+    γ³ = model.timestepper.γ³
+
+    ζ² = model.timestepper.ζ²
+    ζ³ = model.timestepper.ζ³
+
+    first_stage_Δt  = γ¹ * Δt
+    second_stage_Δt = (γ² + ζ²) * Δt
+    third_stage_Δt  = (γ³ + ζ³) * Δt
+
+    #
+    # First stage
+    #
+
+    compute_tendencies!(model)
+    rk3_step!(model, Δt, γ¹, zero(γ¹))
+    store_tendencies!(model)
+    tick!(model.clock, first_stage_Δt)
+    update_state!(model)
+
+    #
+    # Second stage
+    #
+
+    compute_tendencies!(model)
+    rk3_step!(model, Δt, γ², ζ²)
+    store_tendencies!(model)
+    tick!(model.clock, second_stage_Δt)
+    update_state!(model)
+
+    #
+    # Third stage
+    #
+
+    compute_tendencies!(model)
+    rk3_step!(model, Δt, γ³, ζ³)
+    store_tendencies!(model)
+    tick!(model.clock, third_stage_Δt)
+    update_state!(model)
+
+    return nothing
+end
+
 function update_state!(model::SIM)
-    
     foreach(prognostic_fields(model)) do field
         mask_immersed_field!(field)
     end
@@ -75,3 +122,5 @@ function update_state!(model::SIM)
 
     return nothing
 end
+
+
