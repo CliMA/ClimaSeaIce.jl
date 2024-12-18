@@ -1,6 +1,12 @@
 using Oceananigans.Advection
 using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
+function compute_tendencies!(model::SIM)
+    compute_tracer_tendencies!(model)
+    compute_momentum_tendencies!(model)
+    return nothing
+end
+
 function compute_tracer_tendencies!(model::SIM)
     grid = model.grid
     arch = architecture(grid)
@@ -79,3 +85,4 @@ function ice_thickness_tendency(i, j, k, grid, clock,
 
     return Gh_advection + Gh_thermodynamics + Fh
 end
+

@@ -23,6 +23,6 @@ using Oceananigans.Grids: architecture
 ## - ice-atmosphere boundary stress (provided as an external flux)
 ## - ocean dynamic surface
 
-include("nothing_dynamics.jl")
+compute_momentum_tendencies!(model) = nothing
 
 end

@@ -16,7 +16,6 @@ using Oceananigans.Advection: FluxFormAdvection,
 # A = ∇ ⋅ (uh)
 
 _advective_thickness_flux_x(args...) = advective_thickness_flux_x(args...)
-
 _advective_thickness_flux_y(args...) = advective_thickness_flux_y(args...)
 
 _advective_thickness_flux_x(i, j, k, ibg::ImmersedBoundaryGrid, args...) = 
@@ -44,7 +43,9 @@ end
     ∇Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection, U.u, ℵ, h) +
                                       δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection, U.v, ℵ, h))
 
-    @inbounds ℵ⁻¹ = ifelse(ℵ[i, j, k] != 0, 1 / ℵ[i, j, k], zero(grid))
+    ℵᵢ = @inbounds ℵ[i, j, k]
+    non_zero_area = @inbounds ℵᵢ != 0
+    ℵ⁻¹ = ifelse(non_zero_area, 1 / ℵᵢ, zero(grid))
 
     return ℵ⁻¹ * ∇Uℵh
 end
@@ -54,7 +55,9 @@ end
     ∇Uℵh = 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
                                       δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))
 
-    @inbounds ℵ⁻¹ = ifelse(ℵ[i, j, k] != 0, 1 / ℵ[i, j, k], zero(grid))
+    ℵᵢ = @inbounds ℵ[i, j, k]
+    non_zero_area = @inbounds ℵᵢ != 0
+    ℵ⁻¹ = ifelse(non_zero_area, 1 / ℵᵢ, zero(grid))
 
     return ℵ⁻¹ * ∇Uℵh
 end

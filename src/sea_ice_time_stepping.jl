@@ -10,7 +10,6 @@ function step_tracers!(model::SIM, Δt, substep)
     G⁻ = model.timestepper.G⁻
 
     α, β = timestepping_coefficients(model.timestepper, substep)
-    
     launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, tracers, Gⁿ, G⁻, Δt, α, β)
 
     return nothing
@@ -25,7 +24,6 @@ end
 
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
-    
     Gh⁻ = G⁻.h
     Gℵ⁻ = G⁻.ℵ
 
@@ -65,8 +63,74 @@ end
     @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end
 
+const RK3SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:RungeKutta3TimeStepper}
+
+function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
+
+    # Be paranoid and update state at iteration 0, in case run! is not used:
+    model.clock.iteration == 0 && update_state!(model)
+
+    γ¹ = model.timestepper.γ¹
+    γ² = model.timestepper.γ²
+    γ³ = model.timestepper.γ³
+
+    ζ² = model.timestepper.ζ²
+    ζ³ = model.timestepper.ζ³
+
+    first_stage_Δt  = γ¹ * Δt
+    second_stage_Δt = (γ² + ζ²) * Δt
+    third_stage_Δt  = (γ³ + ζ³) * Δt
+
+    #
+    # First stage
+    #
+
+    compute_tendencies!(model)
+    step_tracers!(model, Δt, 1)
+    step_momentum!(model, model.ice_dynamics, Δt)
+    store_tendencies!(model)
+
+    tick!(model.clock, first_stage_Δt)
+    update_state!(model)
+
+    #
+    # Second stage
+    #
+
+    compute_tracer_tendencies!(model)
+    step_tracers!(model, Δt, 2)
+    step_momentum!(model, model.ice_dynamics, Δt)
+    store_tendencies!(model)
+
+    tick!(model.clock, second_stage_Δt)
+    update_state!(model)
+
+    #
+    # Third stage
+    #
+
+    compute_tracer_tendencies!(model)
+    step_tracers!(model, Δt, 3)
+    step_momentum!(model, model.ice_dynamics, Δt)
+    store_tendencies!(model)
+
+    tick!(model.clock, third_stage_Δt)
+    update_state!(model)
+
+    return nothing
+end
+
+function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
+    if substep == 1
+        return ts.γ¹, zero(ts.γ¹)
+    elseif substep == 2
+        return ts.γ², ts.ζ²
+    elseif substep == 3
+        return ts.γ³, ts.ζ³
+    end
+end
+
 function update_state!(model::SIM)
-    
     foreach(prognostic_fields(model)) do field
         mask_immersed_field!(field)
     end
@@ -75,3 +139,5 @@ function update_state!(model::SIM)
 
     return nothing
 end
+
+
