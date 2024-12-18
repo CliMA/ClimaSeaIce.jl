@@ -1,4 +1,4 @@
-module SeaIceDynamics
+module Rheologies
 
 using ClimaSeaIce
 
@@ -26,3 +26,4 @@ using Oceananigans.Grids: architecture
 compute_momentum_tendencies!(model) = nothing
 
 end
+

@@ -1,3 +1,7 @@
+module Advection
+
+export div_Uℵh, horizontal_div_Uc
+
 using Oceananigans.Operators
 using Oceananigans.ImmersedBoundaries
 using Oceananigans.Advection: FluxFormAdvection, 
@@ -71,3 +75,4 @@ end
     1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_x, advection.x, U.u, c) +
                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_y, advection.y, U.v, c))
                                
+end # Advection
