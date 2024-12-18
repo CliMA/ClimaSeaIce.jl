@@ -53,7 +53,7 @@ function SeaIceModel(grid;
                      boundary_conditions        = NamedTuple(),
                      gravitational_acceleration = Oceananigans.BuoyancyFormulations.g_Earth,
                      ice_thermodynamics         = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics               = ExplicitDynamics(grid))
+                     ice_dynamics               = SplitExplicitDynamics(grid))
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
 

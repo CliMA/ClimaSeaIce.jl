@@ -1,6 +1,6 @@
-module ExplicitSeaIceDynamics
+module SplitExplicitSeaIceDynamics
 
-export ExplicitDynamics
+export SplitExplicitDynamics
 
 using Oceananigans
 using Oceananigans.Utils
@@ -42,7 +42,7 @@ using ClimaSeaIce.SeaIceDynamics.Rheologies:
         
 import ClimaSeaIce.SeaIceDynamics: step_momentum!
 
-struct ExplicitDynamics{R, T, FT} 
+struct SplitExplicitDynamics{R, T, FT} 
     rheology :: R # Rheology to compute stresses
     auxiliary_fields :: T # auxiliary fields required for updating the velocity (like stresses, ice strength or additional velocities if on the E-grid)
     ocean_ice_drag_coefficient :: FT 
@@ -50,10 +50,10 @@ struct ExplicitDynamics{R, T, FT}
 end
 
 """
-    ExplicitDynamics(grid; 
-                           rheology = ExplicitViscoPlasticRheology(grid),
-                           ocean_ice_drag_coefficient = 5.5,
-                           substeps = 120)
+    SplitExplicitDynamics(grid; 
+                          rheology = ExplicitViscoPlasticRheology(grid),
+                          ocean_ice_drag_coefficient = 5.5,
+                          substeps = 120)
 
 Constructs an explicit momentum ice_dynamics for slab sea ice dynamics. The explicit ice_dynamics solves the momentum
 equation for sea ice:
@@ -83,20 +83,19 @@ Keyword Arguments
               Note that these substeps might be not be the ones that divide the time step in the stepping kernel.
               That is the role of the output of the `rheology_substeps` function (which, defaults to `substeps` in trivial rheologies).
 """
-function ExplicitDynamics(grid; 
-                                rheology = ExplicitViscoPlasticRheology(eltype(grid)),
-                                ocean_ice_drag_coefficient = 5.5,
-                                substeps = 120)
+function SplitExplicitDynamics(grid; 
+                               rheology = ExplicitViscoPlasticRheology(eltype(grid)),
+                               ocean_ice_drag_coefficient = 5.5)
 
     auxiliary_fields = required_auxiliary_fields(grid, rheology)
     
-    return ExplicitDynamics(rheology,
-                                  auxiliary_fields,
-                                  ocean_ice_drag_coefficient,
-                                  substeps)
+    return SplitExplicitDynamics(rheology,
+                                 auxiliary_fields,
+                                 ocean_ice_drag_coefficient,
+                                 substeps)
 end
 
-initialize_substepping!(model, ice_dynamics::ExplicitDynamics) = 
+initialize_substepping!(model, ice_dynamics::SplitExplicitDynamics) = 
     initialize_rheology!(model, ice_dynamics.rheology)
 
 include("explicit_sea_ice_dynamics.jl")

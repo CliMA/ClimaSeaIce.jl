@@ -1,6 +1,6 @@
 module SeaIceDynamics
 
-export ExplicitDynamics, ExplicitViscoPlasticRheology
+export SplitExplicitDynamics, ExplicitViscoPlasticRheology
 
 using ClimaSeaIce
 
@@ -27,7 +27,7 @@ using Adapt
 
 include("nothing_dynamics.jl") # nothing dynamics, sea-ice velocity is zero!
 include("Rheologies/Rheologies.jl")
-include("ExplicitSeaIceDynamics/ExplicitSeaIceDynamics.jl") # explicit momentum solvers
+include("SplitExplicitSeaIceDynamics/SplitExplicitSeaIceDynamics.jl") # explicit momentum solvers
 
 using .Rheologies
 using .ExplicitDynamicss
