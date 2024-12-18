@@ -1,4 +1,4 @@
-""" Ocean 🌊 Sea ice component of CliMa's Earth system model. """
+""" Ocean 🌊 Sea ice component of CliMA's Earth system model. """
 module ClimaSeaIce
 
 using Oceananigans
@@ -46,5 +46,7 @@ include("SeaIceModels/SeaIceModels.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
+using .SeaIceModels
 
 end # module
+
