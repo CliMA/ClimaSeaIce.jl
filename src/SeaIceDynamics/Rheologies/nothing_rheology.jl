@@ -12,7 +12,7 @@ required_auxiliary_fields(grid, rheology) = NamedTuple()
 initialize_rheology!(model, rheology) = nothing
 
 # Computation of the stresses within the substepping (before the momentum substep)
-compute_stresses!(model, solver, rheology, args...) = nothing
+compute_stresses!(model, ice_dynamics, rheology, args...) = nothing
 
 # Internal stress divergence terms in the velocity tendencies
 @inline ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, fields) = zero(grid)

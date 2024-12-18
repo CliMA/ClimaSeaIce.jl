@@ -55,7 +55,7 @@ end
                            ocean_ice_drag_coefficient = 5.5,
                            substeps = 120)
 
-Constructs an explicit momentum solver for slab sea ice dynamics. The explicit solver solves the momentum
+Constructs an explicit momentum ice_dynamics for slab sea ice dynamics. The explicit ice_dynamics solves the momentum
 equation for sea ice:
 
 ```math
@@ -73,13 +73,13 @@ designed to obtain convergence.
 
 Arguments
 ==========
-- `grid`: The grid on which the solver operates.
+- `grid`: The grid on which the ice_dynamics operates.
 
 Keyword Arguments
 ==================
 - `rheology`: The rheology model used to calculate the divergence of the internal stresses ∇ ⋅ σ. Defaults to `ExplicitViscoPlasticRheology(grid)`.
 - `ocean_ice_drag_coefficient`: coefficient for the ocean - ice drag, it includes ocean density!!, default `5.5e-3 x 1000`.
-- `substeps`: Number of substeps for the momentum solver. Default value is `120`.
+- `substeps`: Number of substeps for the momentum ice_dynamics. Default value is `120`.
               Note that these substeps might be not be the ones that divide the time step in the stepping kernel.
               That is the role of the output of the `rheology_substeps` function (which, defaults to `substeps` in trivial rheologies).
 """
@@ -96,8 +96,8 @@ function ExplicitDynamics(grid;
                                   substeps)
 end
 
-initialize_substepping!(model, solver::ExplicitDynamics) = 
-    initialize_rheology!(model, solver.rheology)
+initialize_substepping!(model, ice_dynamics::ExplicitDynamics) = 
+    initialize_rheology!(model, ice_dynamics.rheology)
 
 include("explicit_sea_ice_dynamics.jl")
 include("momentum_stepping_kernels.jl")

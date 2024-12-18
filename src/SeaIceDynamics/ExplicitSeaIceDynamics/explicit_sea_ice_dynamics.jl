@@ -12,12 +12,12 @@ The sea-ice momentum equations are characterized by smaller time-scale than
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, solver::ExplicitDynamics, Δt, args...)
+function step_momentum!(model, ice_dynamics::ExplicitDynamics, Δt, args...)
 
     grid = model.grid
     arch = architecture(grid)
-    rheology = solver.rheology
-    initialize_substepping!(model, solver)
+    rheology = ice_dynamics.rheology
+    initialize_substepping!(model, ice_dynamics)
 
     # The atmospheric stress component is fixed during time-stepping
     τua = model.external_momentum_stresses.u
@@ -40,22 +40,21 @@ function step_momentum!(model, solver::ExplicitDynamics, Δt, args...)
             model.ocean_free_surface,
             model.coriolis,
             rheology,
-            solver.auxiliary_fields,
-            solver.substeps,
+            ice_dynamics.auxiliary_fields,
+            ice_dynamics.substeps,
             model.ice_thickness,
             model.ice_concentration,
             model.ice_density,
-            solver.ocean_ice_drag_coefficient,
+            ice_dynamics.ocean_ice_drag_coefficient,
             model.gravitational_acceleration)
 
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
-
-    for substep in 1:solver.substeps
+    for substep in 1:ice_dynamics.substeps
         Base.@_inline_meta
         # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, solver, rheology, Δt)
+        compute_stresses!(model, ice_dynamics, rheology, Δt)
 
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)

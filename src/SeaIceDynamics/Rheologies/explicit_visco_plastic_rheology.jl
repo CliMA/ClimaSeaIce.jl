@@ -137,7 +137,7 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology, Δt) 
+function compute_stresses!(model, ice_dynamics, rheology::ExplicitViscoPlasticRheology, Δt) 
 
     grid = model.grid
     arch = architecture(grid)
@@ -146,7 +146,7 @@ function compute_stresses!(model, solver, rheology::ExplicitViscoPlasticRheology
     ℵ  = model.ice_concentration
     ρᵢ = model.ice_density
 
-    fields = solver.auxiliary_fields
+    fields = ice_dynamics.auxiliary_fields
     u, v = model.velocities
     launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
 
