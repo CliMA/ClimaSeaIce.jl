@@ -98,7 +98,7 @@ end
 initialize_substepping!(model, ice_dynamics::SplitExplicitDynamics) = 
     initialize_rheology!(model, ice_dynamics.rheology)
 
-include("explicit_sea_ice_dynamics.jl")
+include("split_explicit_sea_ice_dynamics.jl")
 include("momentum_stepping_kernels.jl")
 
 end
