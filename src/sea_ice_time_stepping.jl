@@ -1,4 +1,4 @@
-function step_tracers!(model::SIM, Δt, substep)
+function rk3_step!(model::SIM, Δt, γ, ζ)
     grid = model.grid
     arch = architecture(grid)
 
@@ -9,8 +9,8 @@ function step_tracers!(model::SIM, Δt, substep)
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
 
-    α, β = timestepping_coefficients(model.timestepper, substep)
-    launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, tracers, Gⁿ, G⁻, Δt, α, β)
+    launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, tracers, Gⁿ, G⁻, Δt, γ, ζ)
+    #launch!(arch, grid, :xyz, _rk3_step_fields!, h, ℵ, tracers, Gⁿ, G⁻, Δt, γ, ζ)
 
     return nothing
 end
@@ -43,16 +43,15 @@ end
 end
 
 function store_tendencies!(model::SIM) 
-
     grid = model.grid
     arch = architecture(grid)
     Nx, Ny, _ = size(grid)
 
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
-    Nt = length(Gⁿ)
+    NG = length(Gⁿ)
 
-    params = KernelParameters((Nx, Ny, Nt), (0, 0, 0))
+    params = KernelParameters((Nx, Ny, NG), (0, 0, 0))
     launch!(arch, model.grid, params, _store_tendencies!, G⁻, Gⁿ)
 
     return nothing
@@ -86,10 +85,8 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     #
 
     compute_tendencies!(model)
-    step_tracers!(model, Δt, 1)
-    step_momentum!(model, model.ice_dynamics, Δt)
+    rk3_step!(model, Δt, γ¹, zero(γ¹))
     store_tendencies!(model)
-
     tick!(model.clock, first_stage_Δt)
     update_state!(model)
 
@@ -97,11 +94,9 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # Second stage
     #
 
-    compute_tracer_tendencies!(model)
-    step_tracers!(model, Δt, 2)
-    step_momentum!(model, model.ice_dynamics, Δt)
+    compute_tendencies!(model)
+    rk3_step!(model, Δt, γ², ζ²)
     store_tendencies!(model)
-
     tick!(model.clock, second_stage_Δt)
     update_state!(model)
 
@@ -109,25 +104,13 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # Third stage
     #
 
-    compute_tracer_tendencies!(model)
-    step_tracers!(model, Δt, 3)
-    step_momentum!(model, model.ice_dynamics, Δt)
+    compute_tendencies!(model)
+    rk3_step!(model, Δt, γ³, ζ³)
     store_tendencies!(model)
-
     tick!(model.clock, third_stage_Δt)
     update_state!(model)
 
     return nothing
-end
-
-function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
-    if substep == 1
-        return ts.γ¹, zero(ts.γ¹)
-    elseif substep == 2
-        return ts.γ², ts.ζ²
-    elseif substep == 3
-        return ts.γ³, ts.ζ³
-    end
 end
 
 function update_state!(model::SIM)
