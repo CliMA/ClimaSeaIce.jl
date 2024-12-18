@@ -50,5 +50,6 @@ include("sea_ice_rk3_time_stepping.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
+using .SeaIceDynamics
 
 end # module
