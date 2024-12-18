@@ -54,7 +54,7 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-solver    = ExplicitDynamics(grid; substeps = 120)
+ice_dynamics    = ExplicitDynamics(grid; substeps = 120)
 advection = WENO(; order = 7)
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
@@ -66,7 +66,7 @@ model = SeaIceModel(grid;
                     top_u_stress = τᵤ,
                     top_v_stress = τᵥ,
                     advection,
-                    ice_dynamics = solver,
+                    ice_dynamics = ice_dynamics,
                     boundary_conditions = (; u = u_bcs),
                     ice_thermodynamics = nothing)
 
