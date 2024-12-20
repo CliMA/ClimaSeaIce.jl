@@ -67,7 +67,7 @@ function SeaIceModel(grid;
     if isnothing(top_heat_flux)
         if ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
             # Default: external top flux is in equilibrium with internal fluxes
-            top_heat_flux = thermodynamics.internal_heat_flux
+            top_heat_flux = ice_thermodynamics.internal_heat_flux
         else
             # Default: no external top surface flux
             top_heat_flux = 0
@@ -112,7 +112,7 @@ function Base.show(io::IO, model::SIM)
 
     print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
-    print(io, "├── ice thermodynamics: ", summary(model.ice_thermodynamics), '\n')
+    print(io, "├── ice_thermodynamics: ", summary(model.ice_thermodynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
