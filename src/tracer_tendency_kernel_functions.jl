@@ -79,3 +79,4 @@ function ice_thickness_tendency(i, j, k, grid, clock,
 
     return Gh_advection + Gh_thermodynamics + Fh
 end
+

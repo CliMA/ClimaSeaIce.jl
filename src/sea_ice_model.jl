@@ -1,6 +1,6 @@
 using Oceananigans.Fields: TracerFields
 using Oceananigans.TimeSteppers: TimeStepper
-using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
+using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using Oceananigans: tupleit, tracernames
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using Oceananigans.Fields: ConstantField
@@ -64,7 +64,15 @@ function SeaIceModel(grid;
     tracers = merge(tracers, (; S = ice_salinity))
     timestepper = TimeStepper(timestepper, grid, prognostic_tracers)
 
-    top_heat_flux = external_top_heat_flux(ice_thermodynamics, top_heat_flux)
+    if isnothing(top_heat_flux)
+        if ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
+            # Default: external top flux is in equilibrium with internal fluxes
+            top_heat_flux = thermodynamics.internal_heat_flux
+        else
+            # Default: no external top surface flux
+            top_heat_flux = 0
+        end
+    end
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,    

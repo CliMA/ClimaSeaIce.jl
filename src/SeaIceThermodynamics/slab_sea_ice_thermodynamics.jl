@@ -57,18 +57,19 @@ function SlabSeaIceThermodynamics(grid;
                                                parameters,
                                                top_temperature_dependent=true)
 
-    # Construct default top temperature if one is not provided
-    if isnothing(top_surface_temperature)
-        # Check top boundary condition
-        if top_heat_boundary_condition isa PrescribedTemperature  
+    if top_heat_boundary_condition isa PrescribedTemperature  
+        if !isnothing(top_surface_temperature)
+            msg = "You cannot provide a redundant top_surface_temperature when using \
+                   PrescribedTemperature top_heat_boundary_condition."
+            throw(ArgumentError(msg))
+        else
+            # Convert to `field` (does nothing if it's already a Field)
             top_surface_temperature = top_heat_boundary_condition.temperature 
-        else # build the default
-            top_surface_temperature = Field{Center, Center, Nothing}(grid)
+            top_surface_temperature = field((Center, Center, Nothing), top_surface_temperature, grid)
         end
+    else
+        top_surface_temperature = Field{Center, Center, Nothing}(grid)
     end
-
-    # Convert to `field` (does nothing if it's already a Field)
-    top_surface_temperature = field((Center, Center, Nothing), top_surface_temperature, grid)
 
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                 bottom = bottom_heat_boundary_condition)
@@ -80,17 +81,3 @@ function SlabSeaIceThermodynamics(grid;
                                     ice_consolidation_thickness)
 end
 
-function external_top_heat_flux(thermodynamics::SlabSeaIceThermodynamics,
-                                top_heat_flux)   # Construct default top heat flux if one is not provided
-    if isnothing(top_heat_flux)
-        if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature  
-            # Default: external top flux is in equilibrium with internal fluxes
-            top_heat_flux = thermodynamics.internal_heat_flux
-        else
-            # Default: no external top surface flux
-            top_heat_flux = 0
-        end
-    end
-
-    return top_heat_flux
-end
