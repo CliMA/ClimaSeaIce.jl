@@ -65,3 +65,4 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
     return ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
 end
+
