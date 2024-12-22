@@ -120,8 +120,6 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-@inline external_top_heat_flux(ice_thermodynamics, top_heat_flux) = top_heat_flux
-
 # Fallback for no thermodynamics
 @inline thickness_thermodynamic_tendency(i, j, grid, args...) = zero(grid)
 
