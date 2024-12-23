@@ -3,7 +3,6 @@
 #
 #
 #
-
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
