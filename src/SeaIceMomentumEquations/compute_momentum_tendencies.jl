@@ -1,6 +1,6 @@
 using Oceananigans.Utils
 
-function compute_momentum_tendencies!(model, ::SeaIceMomentumEquations)
+function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
     
     ice_dynamics = model.ice_dynamics
     grid = model.grid

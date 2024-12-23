@@ -44,36 +44,6 @@ end
     end 
 end
 
-# Simple explicit stepping of the momentum equations
-function step_momentum!(model::SIM, Δt, substep)
-    grid = model.grid
-    arch = architecture(grid)
-
-    u, v = model.velocities
-    Gⁿ = model.timestepper.Gⁿ
-    G⁻ = model.timestepper.G⁻
-
-    α, β = timestepping_coefficients(model.timestepper, substep)
-    
-    launch!(arch, grid, :xyz, _step_velocities!, u, v, Gⁿ, G⁻, Δt, α, β)
-
-    return nothing
-end
-
-@kernel function _step_velocities!(u, v, Gⁿ, G⁻, Δt, α, β)
-    i, j, k = @index(Global, NTuple)
-
-    Guⁿ = Gⁿ.u
-    Gvⁿ = Gⁿ.v
-    
-    Gu⁻ = G⁻.u
-    Gv⁻ = G⁻.v
-
-    @inbounds begin
-        u[i, j, k] += Δt * (α * Guⁿ[i, j, k] + β * Gu⁻[i, j, k])
-        v[i, j, k] += Δt * (α * Gvⁿ[i, j, k] + β * Gv⁻[i, j, k])
-    end 
-end
 
 function store_tendencies!(model::SIM) 
 

@@ -31,7 +31,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
                     + τ_atmosphere_x(i, j, 1, grid, u_top_stress, velocities, mᵢ)
                     + τ_ocean_x(i, j, 1, grid, u_bottom_stress, velocities, mᵢ)
                     + g * ∂xᶠᶜᶜ(i, j, 1, grid, ηₒ)
-                    + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, fields) / mᵢ)
+                    + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields) / mᵢ)
 
    return ifelse(mᵢ ≤ 0, zero(grid), Gᵁ) 
 end
@@ -66,7 +66,7 @@ end
                     + τ_atmosphere_y(i, j, 1, grid, v_top_stress, velocities, mᵢ)
                     + τ_ocean_y(i, j, 1, grid, v_bottom_stress, velocities, mᵢ)
                     + g * ∂yᶜᶠᶜ(i, j, 1, grid, ηₒ)
-                    + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, fields) / mᵢ)
+                    + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields) / mᵢ)
 
    return ifelse(mᵢ ≤ 0, zero(grid), Gⱽ) 
 end
