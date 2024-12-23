@@ -7,7 +7,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using ClimaSeaIce.SeaIceDynamics
+using ClimaSeaIce.SeaIceMomentumEquations
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 

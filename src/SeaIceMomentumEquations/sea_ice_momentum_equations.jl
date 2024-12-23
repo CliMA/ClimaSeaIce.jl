@@ -1,5 +1,3 @@
-using ClimaSeaIce: timestepping_coefficients
-
 struct SeaIceMomentumEquation{S, C, R, A}
     coriolis :: C
     rheology :: R

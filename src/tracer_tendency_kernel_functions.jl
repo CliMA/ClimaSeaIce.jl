@@ -1,5 +1,6 @@
 using Oceananigans.Advection
 using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
+using ClimaSeaIce.SeaIceMomentumEquations: compute_momentum_tendencies!
 
 function compute_tendencies!(model::SIM)
     compute_tracer_tendencies!(model)

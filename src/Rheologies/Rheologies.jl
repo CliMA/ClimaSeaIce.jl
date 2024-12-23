@@ -1,11 +1,9 @@
 module Rheologies
 
 export ViscousRheology
+export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliary_fields
 
 using Oceananigans
-
-# The only functions we need to extend in this module
-import ClimaSeaIce.SeaIceMomentumEquations: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliary_fields
 
 # Nothing rheology
 required_auxiliary_fields(rheology, grid) = NamedTuple()

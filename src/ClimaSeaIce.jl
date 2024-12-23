@@ -39,9 +39,27 @@ import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 mask_immersed_field!(::ConstantField) = nothing
 mask_immersed_field!(::ZeroField)     = nothing
 
+function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
+   if substep == 1 
+      return ts.γ¹, zero(ts.γ¹)
+   elseif substep == 2
+      return ts.γ², ts.ζ²
+   elseif substep == 3
+      return ts.γ³, ts.ζ³
+   end
+end
+
+function timestepping_coefficients(ts::QuasiAdamsBashforth2TimeStepper, args...) 
+   χ  = ts.χ
+   FT = eltype(χ)
+   α  = + convert(FT, 1.5) + χ
+   β  = - convert(FT, 0.5) + χ
+   return α, β
+end
+   
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
-include("SeaIceMomentumEquations/SeaIceMomentumEquations.jl")
 include("Rheologies/Rheologies.jl")
+include("SeaIceMomentumEquations/SeaIceMomentumEquations.jl")
 include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
 include("tracer_tendency_kernel_functions.jl")
@@ -51,5 +69,7 @@ include("sea_ice_rk3_time_stepping.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
+using .SeaIceMomentumEquations
+using .Rheologies
 
 end # module
