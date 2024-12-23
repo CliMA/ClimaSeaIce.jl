@@ -5,7 +5,7 @@ using Oceananigans: tupleit, tracernames
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using Oceananigans.Fields: ConstantField
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     # Prognostic State
@@ -13,6 +13,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, STF, SMS, A} <: AbstractMode
     tracers :: T
     ice_thickness :: IT
     ice_concentration :: IC
+    ice_density :: ID
     # Thermodynamics
     ice_thermodynamics :: TD
     ice_dynamics :: D
@@ -29,6 +30,7 @@ function SeaIceModel(grid;
                      ice_thickness          = Field{Center, Center, Nothing}(grid),
                      ice_concentration      = Field{Center, Center, Nothing}(grid),
                      ice_salinity           = 0, # psu
+                     ice_density            = 900, # kg m⁻³
                      top_heat_flux          = nothing,
                      bottom_heat_flux       = 0,
                      velocities             = nothing,
@@ -51,6 +53,7 @@ function SeaIceModel(grid;
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field 
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    ice_density  = field((Center, Center, Nothing), ice_density, grid)
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
@@ -90,6 +93,7 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
+                       ice_density,
                        ice_thermodynamics,
                        ice_dynamics,
                        external_heat_fluxes,
