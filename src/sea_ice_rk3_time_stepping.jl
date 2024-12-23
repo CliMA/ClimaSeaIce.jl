@@ -20,12 +20,12 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # First stage
     #
 
-    compute_tracer_tendencies!(model)
+    compute_tendencies!(model)
     step_tracers!(model, Δt, 1)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     # do we need to pass Δt here or first_stage_Δt?
-    step_momentum!(model, model.ice_dynamics, Δt)
+    step_momentum!(model, model.ice_dynamics, Δt, 1)
     store_tendencies!(model)
 
     tick!(model.clock, first_stage_Δt)
@@ -35,12 +35,12 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # Second stage
     #
 
-    compute_tracer_tendencies!(model)
+    compute_tendencies!(model)
     step_tracers!(model, Δt, 2)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     # do we need to pass Δt here or second_stage_Δt?
-    step_momentum!(model, model.ice_dynamics, Δt)
+    step_momentum!(model, model.ice_dynamics, Δt, 2)
     store_tendencies!(model)
 
     tick!(model.clock, second_stage_Δt)
@@ -50,26 +50,16 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # Third stage
     #
 
-    compute_tracer_tendencies!(model)
+    compute_tendencies!(model)
     step_tracers!(model, Δt, 3)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     # do we need to pass Δt here or third_stage_Δt?
-    step_momentum!(model, model.ice_dynamics, Δt)
+    step_momentum!(model, model.ice_dynamics, Δt, 3)
     store_tendencies!(model)
 
     tick!(model.clock, third_stage_Δt)
     update_state!(model)
 
     return nothing
-end
-
-function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
-    if substep == 1
-        return ts.γ¹, zero(ts.γ¹)
-    elseif substep == 2
-        return ts.γ², ts.ζ²
-    elseif substep == 3
-        return ts.γ³, ts.ζ³
-    end
 end

@@ -3,12 +3,12 @@
 #
 #
 #
-
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using Printf
-using ClimaSeaIce.SeaIceDynamics
+using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.Rheologies
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -20,7 +20,8 @@ L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
 𝓋ₐ = 30.0 # m / s maximum atmospheric speed modifier
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
-ρₐ = 1.3 # kg/m³
+ρₐ = 1.3  # kg/m³
+ρₒ = 1025 # kg/m³
 
 # 2 km domain
 grid = RectilinearGrid(arch;
@@ -43,9 +44,15 @@ set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 Uₐ = XFaceField(grid)
 Vₐ = YFaceField(grid)
 
+τᵤₒ = Field(ρₒ * Cᴰ * sqrt(Uₒ^2 + Vₒ^2) * Uₒ)
+τᵥₒ = Field(ρₒ * Cᴰ * sqrt(Uₒ^2 + Vₒ^2) * Uₒ)
+
+compute!(τᵤₒ)
+compute!(τᵥₒ)
+
 # Atmosphere - sea ice stress
-τᵤ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Uₐ)
-τᵥ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Vₐ)
+τᵤₐ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Uₐ)
+τᵥₐ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Vₐ)
 
 # Atmospheric velocities corresponding to an anticyclonic eddy moving north-east
 @inline center(t) = 256kilometers + 51.2kilometers * t / 86400
@@ -58,8 +65,8 @@ Vₐ = YFaceField(grid)
 # Initialize the stress at time t = 0
 set!(Uₐ, (x, y) -> ua_time(x, y, 0))
 set!(Vₐ, (x, y) -> va_time(x, y, 0))
-compute!(τᵤ)
-compute!(τᵥ)
+compute!(τᵤₐ)
+compute!(τᵥₐ)
 
 #####
 ##### Numerical details
@@ -67,26 +74,25 @@ compute!(τᵥ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-momentum_solver = SplitExplicitDynamics(grid)
+momentum_equations = SeaIceMomentumEquation(grid; 
+                                            coriolis = FPlane(f = 1e-4),
+                                            rheology = ViscousRheology(ν = 1000.0))
 advection = WENO(; order = 7)
 
-u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
-                                north = ValueBoundaryCondition(0),
+u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
                                 south = ValueBoundaryCondition(0))
 
-v_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
-                                west = ValueBoundaryCondition(0),
+v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
                                 east = ValueBoundaryCondition(0))
 
 # Define the model!
 model = SeaIceModel(grid; 
-                    top_u_stress = τᵤ,
-                    top_v_stress = τᵥ,
-                    ocean_velocities = (u = Uₒ, v = Vₒ),
-                    ice_dynamics = momentum_solver,
+                    top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
+                    bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
+                    ice_dynamics = momentum_equations,
+                    ice_thermodynamics = nothing, # No thermodynamics here
                     advection,
-                    boundary_conditions = (u = u_bcs, v = v_bcs),
-                    coriolis = FPlane(f = 1e-4))
+                    boundary_conditions = (u = u_bcs, v = v_bcs))
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
@@ -110,8 +116,8 @@ function compute_wind_stress(sim)
     set!(Uₐ, ua)
     set!(Vₐ, va)
 
-    compute!(τᵤ)
-    compute!(τᵥ)
+    compute!(τᵤₐ)
+    compute!(τᵥₐ)
 
     return nothing
 end

@@ -31,16 +31,27 @@ export SeaIceModel,
        FluxFunction,
        SlabSeaIceThermodynamics
 
-struct ForwardEulerTimestepper end
+function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
+   if substep == 1 
+      return ts.γ¹, zero(ts.γ¹)
+   elseif substep == 2
+      return ts.γ², ts.ζ²
+   elseif substep == 3
+      return ts.γ³, ts.ζ³
+   end
+end
 
-import Oceananigans.ImmersedBoundaries: mask_immersed_field!
-
-# TODO: move to Oceananigans
-mask_immersed_field!(::ConstantField) = nothing
-mask_immersed_field!(::ZeroField)     = nothing
-
+function timestepping_coefficients(ts::QuasiAdamsBashforth2TimeStepper, args...) 
+   χ  = ts.χ
+   FT = eltype(χ)
+   α  = + convert(FT, 1.5) + χ
+   β  = - convert(FT, 0.5) + χ
+   return α, β
+end
+   
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
-include("SeaIceDynamics/SeaIceDynamics.jl")
+include("Rheologies/Rheologies.jl")
+include("SeaIceMomentumEquations/SeaIceMomentumEquations.jl")
 include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
 include("tracer_tendency_kernel_functions.jl")
@@ -50,6 +61,7 @@ include("sea_ice_rk3_time_stepping.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
-using .SeaIceDynamics
+using .SeaIceMomentumEquations
+using .Rheologies
 
 end # module
