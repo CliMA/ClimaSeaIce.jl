@@ -51,7 +51,7 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
     Gu = model.timestepper.Gⁿ.u
     Gv = model.timestepper.Gⁿ.v
 
-    launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, args,
+    launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, args,
             u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
 
     return nothing
@@ -59,6 +59,6 @@ end
 
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, args, u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
     i, j = @index(Global, NTuple)
-    @inbounds Gu[i, j, k] = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress)
-    @inbounds Gv[i, j, k] = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress)
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
 end
