@@ -27,8 +27,8 @@ import ClimaSeaIce: compute_momentum_tendencies!, step_momentum!
 ## - ocean dynamic surface
 
 include("nothing_dynamics.jl")
-include("explicit_momentum_equations.jl")
+include("sea_ice_momentum_equations.jl")
 include("momentum_tendencies_kernel_functions.jl")
-include("compute_momentum_tendencies.jl")
+include("explicit_momentum_equations.jl")
 
 end

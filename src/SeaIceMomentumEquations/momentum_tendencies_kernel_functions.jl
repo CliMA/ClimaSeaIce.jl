@@ -11,15 +11,12 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
                                      ice_thickness,
                                      ice_concentration,
                                      ice_density,
-                                     gravitational_acceleration,
                                      u_top_stress,
                                      u_bottom_stress)
 
-   ηₒ = ocean_free_surface
    h  = ice_thickness
    ℵ  = ice_concentration
    ρᵢ = ice_density
-   g  = gravitational_acceleration
 
    fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
@@ -44,15 +41,12 @@ end
                                       ice_thickness,
                                       ice_concentration,
                                       ice_density,
-                                      gravitational_acceleration,
                                       v_top_stress,
                                       v_bottom_stress)
 
-   ηₒ = ocean_free_surface
    h  = ice_thickness
    ℵ  = ice_concentration
    ρᵢ = ice_density
-   g  = gravitational_acceleration
 
    fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
