@@ -1,4 +1,4 @@
-using ClimaSeaIce.SeaIceDynamics: step_momentum!
+using ClimaSeaIce.SeaIceMomentumEquations: step_momentum!
 
 const AB2SeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:QuasiAdamsBashforth2TimeStepper}
 
@@ -34,11 +34,11 @@ function time_step!(model::AB2SeaIceModel, Δt; euler=false, callbacks = [])
         end
     end
 
-    compute_tracer_tendencies!(model)
+    compute_tendencies!(model)
     step_tracers!(model, Δt, 1)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
-    step_momentum!(model, model.ice_dynamics, Δt)
+    step_momentum!(model, model.ice_dynamics, Δt, 1)
 
     # Only the tracers are advanced through an AB2 scheme 
     # (velocities are stepped in the dynamics step)
@@ -49,12 +49,4 @@ function time_step!(model::AB2SeaIceModel, Δt; euler=false, callbacks = [])
     update_state!(model)
 
     return nothing
-end
-
-function timestepping_coefficients(ts::QuasiAdamsBashforth2TimeStepper, args...) 
-    χ  = ts.χ
-    FT = eltype(χ)
-    α  = + convert(FT, 1.5) + χ
-    β  = - convert(FT, 0.5) + χ
-    return α, β
 end
