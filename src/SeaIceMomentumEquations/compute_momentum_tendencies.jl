@@ -1,5 +1,6 @@
 using Oceananigans.Utils
 
+# Compute the tendencies for the explicit momentum equations
 function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
     
     ice_dynamics = model.ice_dynamics
@@ -16,10 +17,10 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
             model.ice_density, 
             ice_dynamics.gravitational_acceleration)
 
-    u_top_stress = model.external_momentum_stresses.top
-    v_top_stress = model.external_momentum_stresses.top
-    u_bottom_stress = model.external_momentum_stresses.bottom
-    v_bottom_stress = model.external_momentum_stresses.bottom
+    u_top_stress = model.external_momentum_stresses.top.u
+    v_top_stress = model.external_momentum_stresses.top.v
+    u_bottom_stress = model.external_momentum_stresses.bottom.u
+    v_bottom_stress = model.external_momentum_stresses.bottom.v
 
     Gu = model.timestepper.Gⁿ.u
     Gv = model.timestepper.Gⁿ.v
@@ -33,5 +34,5 @@ end
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, args, u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
     i, j = @index(Global, NTuple)
     @inbounds Gu[i, j, k] = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress)
-    @inbounds Gv[i, j, k] = u_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
+    @inbounds Gv[i, j, k] = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
 end

@@ -34,8 +34,8 @@ function SeaIceModel(grid;
                      velocities             = nothing,
                      timestepper            = :RungeKutta3,
                      advection              = nothing,
-                     top_momentum_stress    = nothing, # Fix when introducing dynamics
-                     bottom_momentum_stress = nothing,
+                     top_momentum_stress    = (u = nothing, v = nothing),
+                     bottom_momentum_stress = (u = nothing, v = nothing),
                      tracers                = (),
                      boundary_conditions    = NamedTuple(),
                      ice_thermodynamics     = SlabSeaIceThermodynamics(grid),
