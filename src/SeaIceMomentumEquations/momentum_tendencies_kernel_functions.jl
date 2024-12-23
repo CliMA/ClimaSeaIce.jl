@@ -32,17 +32,17 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 end
 
 """compute ice v-velocity tendencies"""
-@inline function v_velocity_tendency!(i, j, grid,
-                                      clock,
-                                      velocities,
-                                      coriolis,
-                                      rheology,
-                                      auxiliary_fields,
-                                      ice_thickness,
-                                      ice_concentration,
-                                      ice_density,
-                                      v_top_stress,
-                                      v_bottom_stress)
+@inline function v_velocity_tendency(i, j, grid,
+                                     clock,
+                                     velocities,
+                                     coriolis,
+                                     rheology,
+                                     auxiliary_fields,
+                                     ice_thickness,
+                                     ice_concentration,
+                                     ice_density,
+                                     v_top_stress,
+                                     v_bottom_stress)
 
    h  = ice_thickness
    ℵ  = ice_concentration
