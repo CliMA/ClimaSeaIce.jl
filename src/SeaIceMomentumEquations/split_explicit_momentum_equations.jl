@@ -12,41 +12,27 @@ The sea-ice momentum equations are characterized by smaller time-scale than
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, ice_dynamics::SplitExplicitDynamics, Δt, args...)
+function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquations, Δt, args...)
 
     grid = model.grid
     arch = architecture(grid)
     rheology = ice_dynamics.rheology
-    initialize_substepping!(model, ice_dynamics)
-
-    # The atmospheric stress component is fixed during time-stepping
-    τua = model.external_momentum_stresses.u
-    τva = model.external_momentum_stresses.v
 
     u, v = model.velocities
+  
+    args = (model.clock, 
+            model.velocities, 
+            ice_dynamics.coriolis, 
+            ice_dynamics.rheology, 
+            ice_dynamics.auxiliary_fields, 
+            model.ice_thickness, 
+            model.ice_concentration, 
+            model.ice_density)
 
-    immersed_bc = (; u = u.boundary_conditions.immersed, 
-                     v = v.boundary_conditions.immersed)
-
-    active_cells_map = retrieve_surface_active_cells_map(grid)
-
-    # We step the momentum equation using a leap-frog scheme
-    # where we alternate the order of solving u and v 
-    args = (model.velocities, grid, 
-            active_cells_map, Δt, 
-            immersed_bc,
-            model.clock,
-            model.ocean_velocities,
-            model.ocean_free_surface,
-            model.coriolis,
-            rheology,
-            ice_dynamics.auxiliary_fields,
-            ice_dynamics.substeps,
-            model.ice_thickness,
-            model.ice_concentration,
-            model.ice_density,
-            ice_dynamics.ocean_ice_drag_coefficient,
-            model.gravitational_acceleration)
+    u_top_stress = model.external_momentum_stresses.top.u
+    v_top_stress = model.external_momentum_stresses.top.v
+    u_bottom_stress = model.external_momentum_stresses.bottom.u
+    v_bottom_stress = model.external_momentum_stresses.bottom.v
 
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
@@ -61,11 +47,11 @@ function step_momentum!(model, ice_dynamics::SplitExplicitDynamics, Δt, args...
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
         # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
         if iseven(substep) 
-            u_velocity_kernel!(args..., τua, nothing)
-            v_velocity_kernel!(args..., τva, nothing)
+            u_velocity_kernel!(u, grid, args, u_top_stress, u_bottom_stress)
+            v_velocity_kernel!(v, grid, args, v_top_stress, v_bottom_stress)
         else
-            v_velocity_kernel!(args..., τva, nothing)
-            u_velocity_kernel!(args..., τua, nothing)
+            v_velocity_kernel!(v, grid, args, v_top_stress, v_bottom_stress)
+            u_velocity_kernel!(u, grid, args, u_top_stress, u_bottom_stress)
         end
 
         # TODO: This needs to be removed in some way!
@@ -73,4 +59,16 @@ function step_momentum!(model, ice_dynamics::SplitExplicitDynamics, Δt, args...
     end
 
     return nothing
+end
+
+@kernel function _u_velocity_step!(u, grid, args, u_top_stress, u_bottom_stress)
+    i, j = @index(Global, NTuple)
+    Gⁿu = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress)
+    @inbounds u[i, j, 1] += Δt * Gⁿu
+end
+
+@kernel function _v_velocity_step!(u, grid, args, v_top_stress, v_bottom_stress)
+    i, j = @index(Global, NTuple)
+    Gⁿv = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
+    @inbounds u[i, j, 1] += Δt * Gⁿv
 end
