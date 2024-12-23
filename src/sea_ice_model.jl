@@ -52,13 +52,15 @@ function SeaIceModel(grid;
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
 
     # Adding thickness and concentration if not there
-    prognostic_tracers = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
-    prognostic_tracers = if ice_salinity isa ConstantField 
-        prognostic_tracers 
+    prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
+    prognostic_fields = if ice_salinity isa ConstantField 
+        prognostic_fields 
     else
-        merge(prognostic_tracers, (; S = ice_salinity))
+        merge(prognostic_fields, (; S = ice_salinity))
     end
     
+    prognostic_fields = isnothing(ice_dynamics) ? prognostic_fields : merge(prognostic_fields, velocities)
+
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
