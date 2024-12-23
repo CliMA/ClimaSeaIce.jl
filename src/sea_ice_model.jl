@@ -25,20 +25,21 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, STF, SMS, A} <: AbstractMode
 end
 
 function SeaIceModel(grid;
-                     clock               = Clock{eltype(grid)}(time = 0),
-                     ice_thickness       = Field{Center, Center, Nothing}(grid),
-                     ice_concentration   = Field{Center, Center, Nothing}(grid),
-                     ice_salinity        = 0, # psu
-                     top_heat_flux       = nothing,
-                     bottom_heat_flux    = 0,
-                     velocities          = nothing,
-                     timestepper         = :RungeKutta3,
-                     advection           = nothing,
-                     top_momentum_stress = nothing, # Fix when introducing dynamics
-                     tracers             = (),
-                     boundary_conditions = NamedTuple(),
-                     ice_thermodynamics  = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics        = nothing)
+                     clock                  = Clock{eltype(grid)}(time = 0),
+                     ice_thickness          = Field{Center, Center, Nothing}(grid),
+                     ice_concentration      = Field{Center, Center, Nothing}(grid),
+                     ice_salinity           = 0, # psu
+                     top_heat_flux          = nothing,
+                     bottom_heat_flux       = 0,
+                     velocities             = nothing,
+                     timestepper            = :RungeKutta3,
+                     advection              = nothing,
+                     top_momentum_stress    = nothing, # Fix when introducing dynamics
+                     bottom_momentum_stress = nothing,
+                     tracers                = (),
+                     boundary_conditions    = NamedTuple(),
+                     ice_thermodynamics     = SlabSeaIceThermodynamics(grid),
+                     ice_dynamics           = nothing)
 
     if isnothing(velocities)
         velocities = (u = ZeroField(), v=ZeroField(), w=ZeroField())
@@ -72,6 +73,9 @@ function SeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 
 
+    external_momentum_stresses = (top = top_momentum_stress,
+                                  bottom = bottom_momentum_stress)
+
     return SeaIceModel(grid,
                        clock,
                        velocities,
@@ -81,7 +85,7 @@ function SeaIceModel(grid;
                        ice_thermodynamics,
                        ice_dynamics,
                        external_heat_fluxes,
-                       top_momentum_stress,
+                       external_momentum_stresses,
                        timestepper,
                        advection)
 end

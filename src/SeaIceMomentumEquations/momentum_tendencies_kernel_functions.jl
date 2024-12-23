@@ -5,8 +5,6 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 @inline function u_velocity_tendency(i, j, grid,
                                      clock,
                                      velocities,
-                                     immersed_bc,
-                                     ocean_velocities,
                                      ocean_free_surface,
                                      coriolis,
                                      rheology,
@@ -16,8 +14,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
                                      ice_density,
                                      gravitational_acceleration,
                                      u_top_stress,
-                                     u_bottom_stress,
-                                     u_forcing)
+                                     u_bottom_stress)
 
    ηₒ = ocean_free_surface
    h  = ice_thickness
@@ -32,7 +29,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 
    @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                     + τ_atmosphere_x(i, j, 1, grid, u_top_stress, velocities, mᵢ)
-                    + τ_ocean_x(i, j, 1, grid, u_bottom_stress, velocities, ocean_velocities, mᵢ)
+                    + τ_ocean_x(i, j, 1, grid, u_bottom_stress, velocities, mᵢ)
                     + g * ∂xᶠᶜᶜ(i, j, 1, grid, ηₒ)
                     + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, fields) / mᵢ)
 
@@ -43,8 +40,6 @@ end
 @inline function v_velocity_tendency!(i, j, grid,
                                       clock,
                                       velocities,
-                                      immersed_bc,
-                                      ocean_velocities,
                                       ocean_free_surface,
                                       coriolis,
                                       rheology,
@@ -54,8 +49,7 @@ end
                                       ice_density,
                                       gravitational_acceleration,
                                       v_top_stress,
-                                      v_bottom_stress,
-                                      v_forcing)
+                                      v_bottom_stress)
 
    ηₒ = ocean_free_surface
    h  = ice_thickness
@@ -70,7 +64,7 @@ end
 
    @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                     + τ_atmosphere_y(i, j, 1, grid, v_top_stress, velocities, mᵢ)
-                    + τ_ocean_y(i, j, 1, grid, v_bottom_stress, velocities, ocean_velocities, mᵢ)
+                    + τ_ocean_y(i, j, 1, grid, v_bottom_stress, velocities, mᵢ)
                     + g * ∂yᶜᶠᶜ(i, j, 1, grid, ηₒ)
                     + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, fields) / mᵢ)
 

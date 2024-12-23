@@ -4,6 +4,8 @@ using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 function compute_tendencies!(model::SIM)
     compute_tracer_tendencies!(model)
     compute_momentum_tendencies!(model, model.ice_dynamics)
+
+    return nothing
 end
 
 function compute_tracer_tendencies!(model::SIM)
