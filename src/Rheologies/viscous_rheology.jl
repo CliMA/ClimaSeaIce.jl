@@ -1,9 +1,11 @@
 using Oceananigans.Fields: AbstractField, location
-using Oceananigans.TurbulenceClosures: νᶜᶜᶜ, νᶠᶜᶠ, νᶜᶠᶠ, νᶠᶠᶜ
+using Oceananigans.TurbulenceClosures: νᶜᶜᶜ, νᶠᶜᶠ, νᶜᶠᶠ, νᶠᶠᶜ, convert_diffusivity
 
 struct ViscousRheology{N}
     ν :: N
 end
+
+ViscousRheology(FT::DataType=Float64; ν = 1000.0) = ViscousRheology(convert_diffusivity(FT, ν))
 
 @inline viscosity_location(ν) = (Center(), Center(), Center())
 @inline viscosity_location(ν::AbstractField) = location(ν)

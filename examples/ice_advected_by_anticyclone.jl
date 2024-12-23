@@ -8,6 +8,7 @@ using Oceananigans.Units
 using ClimaSeaIce
 using Printf
 using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.Rheologies
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -73,9 +74,9 @@ compute!(τᵥₐ)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-momentum_equations = ExplicitMomentumEquation(grid; 
-                                              coriolis = FPlane(f = 1e-4),
-                                              rheology = ViscousRheology(ν = 1000.0))
+momentum_equations = SeaIceMomentumEquation(grid; 
+                                            coriolis = FPlane(f = 1e-4),
+                                            rheology = ViscousRheology(ν = 1000.0))
 advection = WENO(; order = 7)
 
 u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
@@ -86,8 +87,8 @@ v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
 
 # Define the model!
 model = SeaIceModel(grid; 
-                    top_stress = (u = τᵤₐ, v = τᵥₐ),
-                    bottom_stress = (u = τᵤₒ, v = τᵥₒ),
+                    top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
+                    bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection,
@@ -115,8 +116,8 @@ function compute_wind_stress(sim)
     set!(Uₐ, ua)
     set!(Vₐ, va)
 
-    compute!(τᵤ)
-    compute!(τᵥ)
+    compute!(τᵤₐ)
+    compute!(τᵥₐ)
 
     return nothing
 end

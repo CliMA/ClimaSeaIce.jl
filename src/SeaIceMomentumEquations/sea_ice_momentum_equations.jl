@@ -17,3 +17,5 @@ function SeaIceMomentumEquation(grid;
 
     return SeaIceMomentumEquation(coriolis, rheology, auxiliary_fields, solver)
 end
+
+fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
