@@ -1,4 +1,6 @@
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.Rheologies
 using Oceananigans
 
 @testset "Sea ice advection" begin
