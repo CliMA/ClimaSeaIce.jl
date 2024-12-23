@@ -31,6 +31,8 @@ import Oceananigans: fields
 ## - ice-atmosphere boundary stress 
 ## - ocean dynamic surface
 
+@inline ice_mass(i, j, k, grid, h, ℵ, ρᵢ) = @inbounds h[i, j, k] * ℵ[i, j, k] * ρᵢ[i, j, k]
+
 # Fallbacks for `nothing` ice dynamics
 step_momentum!(model, ice_dynamics, Δt, stage) = nothing
 compute_momentum_tendencies!(model, ice_dynamics) = nothing
