@@ -89,6 +89,7 @@ model = SeaIceModel(grid;
                     top_stress = (u = τᵤₐ, v = τᵥₐ),
                     bottom_stress = (u = τᵤₒ, v = τᵥₒ),
                     ice_dynamics = momentum_equations,
+                    ice_thermodynamics = nothing, # No thermodynamics here
                     advection,
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
