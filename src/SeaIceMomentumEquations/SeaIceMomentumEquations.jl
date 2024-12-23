@@ -1,4 +1,4 @@
-module SeaIceDynamics
+module SeaIceMomentumEquations
 
 using ClimaSeaIce
 
