@@ -1,7 +1,7 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 
-""" stepping the ice u-velocity using a forward leap-frog scheme """
+"""compute ice u-velocity tendencies"""
 @inline function u_velocity_tendency(i, j, grid,
                                      clock,
                                      velocities,
@@ -31,7 +31,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
    return ifelse(mᵢ ≤ 0, zero(grid), Gᵁ) 
 end
 
-""" stepping the ice v-velocity using a forward leap-frog scheme """
+"""compute ice v-velocity tendencies"""
 @inline function v_velocity_tendency!(i, j, grid,
                                       clock,
                                       velocities,
