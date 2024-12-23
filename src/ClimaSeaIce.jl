@@ -31,14 +31,6 @@ export SeaIceModel,
        FluxFunction,
        SlabSeaIceThermodynamics
 
-struct ForwardEulerTimestepper end
-
-import Oceananigans.ImmersedBoundaries: mask_immersed_field!
-
-# TODO: move to Oceananigans
-mask_immersed_field!(::ConstantField) = nothing
-mask_immersed_field!(::ZeroField)     = nothing
-
 function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
    if substep == 1 
       return ts.γ¹, zero(ts.γ¹)
