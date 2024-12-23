@@ -24,8 +24,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
    mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
    @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
-                    + τx(i, j, 1, grid, u_top_stress, velocities, mᵢ)
-                    + τx(i, j, 1, grid, u_bottom_stress, velocities, mᵢ)
+                    + τx(i, j, 1, grid, u_top_stress, velocities) / mᵢ
+                    + τx(i, j, 1, grid, u_bottom_stress, velocities) / mᵢ
                     + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields) / mᵢ)
 
    return ifelse(mᵢ ≤ 0, zero(grid), Gᵁ) 
@@ -54,18 +54,18 @@ end
    mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
    @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
-                    + τy(i, j, 1, grid, v_top_stress, velocities, mᵢ)
-                    + τy(i, j, 1, grid, v_bottom_stress, velocities, mᵢ)
+                    + τy(i, j, 1, grid, v_top_stress, velocities) / mᵢ
+                    + τy(i, j, 1, grid, v_bottom_stress, velocities) / mᵢ
                     + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields) / mᵢ)
 
    return ifelse(mᵢ ≤ 0, zero(grid), Gⱽ) 
 end
 
-@inline τx(i, j, k, grid, stress::Nothing, velocities, mᵢ) = zero(grid)
-@inline τy(i, j, k, grid, stress::Nothing, velocities, mᵢ) = zero(grid)
+@inline τx(i, j, k, grid, stress::Nothing, velocities) = zero(grid)
+@inline τy(i, j, k, grid, stress::Nothing, velocities) = zero(grid)
 
-@inline τx(i, j, k, grid, stress::Number, velocities, mᵢ) = stress / mᵢ
-@inline τy(i, j, k, grid, stress::Number, velocities, mᵢ) = stress / mᵢ
+@inline τx(i, j, k, grid, stress::Number, velocities) = stress
+@inline τy(i, j, k, grid, stress::Number, velocities) = stress
 
-@inline τx(i, j, k, grid, stress::AbstractArray, velocities, mᵢ) =  @inbounds stress[i, j, k] / mᵢ
-@inline τy(i, j, k, grid, stress::AbstractArray, velocities, mᵢ) =  @inbounds stress[i, j, k] / mᵢ
+@inline τx(i, j, k, grid, stress::AbstractArray, velocities) =  @inbounds stress[i, j, k] 
+@inline τy(i, j, k, grid, stress::AbstractArray, velocities) =  @inbounds stress[i, j, k] 
