@@ -44,6 +44,7 @@ end
     end 
 end
 
+
 function store_tendencies!(model::SIM) 
 
     grid = model.grid
