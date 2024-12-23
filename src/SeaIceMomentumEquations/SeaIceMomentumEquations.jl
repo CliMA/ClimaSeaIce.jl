@@ -9,7 +9,7 @@ using Oceananigans.Operators
 using Oceananigans.Grids
 using Oceananigans.Grids: architecture
 
-# Only two functions we need to extend
+# Only two functions we need to extend in this module
 import ClimaSeaIce: compute_momentum_tendencies!, step_momentum!
 
 ## A Framework to solve for the ice momentum equation, in the form:
