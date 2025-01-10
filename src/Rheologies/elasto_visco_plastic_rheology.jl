@@ -126,7 +126,6 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     
     fill_halo_regions!(fields.P)
 
-    @show "Rheology initialized"
     return nothing
 end
 
