@@ -32,10 +32,11 @@ end
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁺ = h[i, j, k] + Δt * (α * Ghⁿ[i, j, k] + β * Gh⁻[i, j, k])
-        h⁺ = max(0, h⁺)
+        h⁺ = max(zero(h⁺), h⁺)
 
+        ice_covered = h⁺ > 0
         ℵ⁺ = ℵ[i, j, k] + Δt * (α * Gℵⁿ[i, j, k] + β * Gℵ⁻[i, j, k])
-        ℵ⁺ = max(0, ℵ⁺)
+        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) * ice_covered
         
         # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
         # to maintain a constant ice volume
@@ -76,3 +77,4 @@ function update_state!(model::SIM)
 
     return nothing
 end
+
