@@ -153,13 +153,10 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     u, v = model.velocities
     launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
 
-    @show "I am here!!!"
-
     # TODO: This needs to be removed in some way!
     fill_halo_regions!(fields.σ₁₁)
     fill_halo_regions!(fields.σ₁₂)
     fill_halo_regions!(fields.σ₂₂)
-    fill_halo_regions!(fields.substeps)
 
     return nothing
 end
