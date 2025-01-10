@@ -76,7 +76,8 @@ compute!(τᵥₐ)
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
                                             coriolis = FPlane(f = 1e-4),
-                                            rheology = ViscousRheology(ν = 1000.0))
+                                            rheology = ElastoViscoPlasticRheology(),
+                                            solver   = SplitExplicitSolver(substeps=120))
 advection = WENO(; order = 7)
 
 u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
@@ -92,6 +93,7 @@ model = SeaIceModel(grid;
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection,
+                    timestepper = :QuasiAdamdBashforth2,
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
 # Initial height field with perturbations around 0.3 m

@@ -43,8 +43,11 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
             model.ice_concentration, 
             model.ice_density)
 
+    initialize_rheology!(model, ice_dynamics.rheology)
+
     u_top_stress = model.external_momentum_stresses.top.u
     v_top_stress = model.external_momentum_stresses.top.v
+
     u_bottom_stress = model.external_momentum_stresses.bottom.u
     v_bottom_stress = model.external_momentum_stresses.bottom.v
 

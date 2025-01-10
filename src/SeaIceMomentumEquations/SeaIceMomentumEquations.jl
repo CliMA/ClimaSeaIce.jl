@@ -2,7 +2,7 @@ module SeaIceMomentumEquations
 
 # The only functions provided by the module
 export compute_momentum_tendencies!, step_momentum!
-export SeaIceMomentumEquation
+export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver
 
 using ClimaSeaIce
 

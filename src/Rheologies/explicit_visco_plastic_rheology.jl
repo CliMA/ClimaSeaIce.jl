@@ -8,7 +8,7 @@ using Oceananigans.Grids: AbstractGrid
 # Where:
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
 #
-struct ExplicitViscoPlasticRheology{FT}
+struct ElastoViscoPlasticRheology{FT}
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
@@ -18,15 +18,15 @@ struct ExplicitViscoPlasticRheology{FT}
 end
 
 """
-    ExplicitViscoPlasticRheology(grid::AbstractGrid; 
+    ElastoViscoPlasticRheology(grid::AbstractGrid; 
                                  ice_compressive_strength = 27500, 
                                  ice_compaction_hardening = 20, 
                                  yield_curve_eccentricity = 2, 
-                                 Δ_min = 2e-9,
+                                 Δ_min = 1e-10,
                                  min_substeps = 30,
                                  max_substeps = 500)
 
-Constructs an `ExplicitViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
+Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
 rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al (2016).
 The `ice_strength` is parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))``. The number of substeps is
 spatially varying and computed dynamically as in Kimmritz et al (2016):
@@ -57,15 +57,15 @@ Keyword Arguments
 - `min_substeps`: Minimum number of substeps expressed as the dynamic coefficient. Default value is `30`.
 - `max_substeps`: Maximum number of substeps expressed as the dynamic coefficient. Default value is `500`.
 """
-function ExplicitViscoPlasticRheology(FT::DataType = Float64; 
+function ElastoViscoPlasticRheology(FT::DataType = Float64; 
                                       ice_compressive_strength = 27500, 
                                       ice_compaction_hardening = 20, 
                                       yield_curve_eccentricity = 2, 
-                                      minimum_plastic_stress = 2e-9,
+                                      minimum_plastic_stress = 1e-10,
                                       min_substeps = 30,
                                       max_substeps = 500)
 
-    return ExplicitViscoPlasticRheology(convert(FT, ice_compressive_strength), 
+    return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
                                         convert(FT, ice_compaction_hardening), 
                                         convert(FT, yield_curve_eccentricity),
                                         convert(FT, minimum_plastic_stress),
@@ -73,7 +73,7 @@ function ExplicitViscoPlasticRheology(FT::DataType = Float64;
                                         convert(FT, max_substeps))
 end
 
-function required_auxiliary_fields(grid, ::ExplicitViscoPlasticRheology)
+function required_auxiliary_fields(grid, ::ElastoViscoPlasticRheology)
     
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
@@ -92,9 +92,9 @@ function required_auxiliary_fields(grid, ::ExplicitViscoPlasticRheology)
     return (; σ₁₁, σ₂₂, σ₁₂, substeps, uⁿ, vⁿ, P)
 end
 
-# Extend the `adapt_structure` function for the ExplicitViscoPlasticRheology
-Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) = 
-    ExplicitViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
+# Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
+Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
+    ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
                                  Adapt.adapt(to, r.ice_compaction_hardening),
                                  Adapt.adapt(to, r.yield_curve_eccentricity),
                                  Adapt.adapt(to, r.Δ_min),
@@ -102,12 +102,12 @@ Adapt.adapt_structure(to, r::ExplicitViscoPlasticRheology) =
                                  Adapt.adapt(to, r.max_substeps))
 
 """
-    initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
+    initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
 
 Initialize the elasto-visco-plastic rheology.
 In this step we calculate the ice strength given the ice mass (thickness and concentration).
 """
-function initialize_rheology!(model, rheology::ExplicitViscoPlasticRheology)
+function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     h = model.ice_thickness
     ℵ = model.ice_concentration
 
@@ -133,11 +133,11 @@ end
     @inbounds fields.vⁿ[i, j, 1] = v[i, j, 1]
 end
 
-# The parameterization for an `ExplicitViscoPlasticRheology`
+# The parameterization for an `ElastoViscoPlasticRheology`
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, ice_dynamics, rheology::ExplicitViscoPlasticRheology, Δt) 
+function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheology, Δt) 
 
     grid = model.grid
     arch = architecture(grid)
@@ -247,6 +247,10 @@ end
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / α, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / α, zero(grid))
     @inbounds  rs[i, j, 1]  = α
+
+    # We also need to restore velocities to the previous velocities with the same α step
+    @inbounds u[i, j, 1] += (uⁿ[i, j, k] - fields.u[i, j, k]) / α
+    @inbounds v[i, j, 1] += (vⁿ[i, j, k] - fields.v[i, j, k]) / α
 end
 
 #####
@@ -255,16 +259,16 @@ end
 
 # Here we extend all the functions that a rheology model needs to support:
 
-@inline rheology_substeps(i, j, k, grid, ::ExplicitViscoPlasticRheology, substeps, fields) = @inbounds fields.substeps[i, j, k]
+@inline rheology_substeps(i, j, k, grid, ::ElastoViscoPlasticRheology, substeps, fields) = @inbounds fields.substeps[i, j, k]
 
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, fields) 
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
     ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
 
     return ∂xσ₁₁ + ∂yσ₁₂ 
 end
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) 
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, fields) 
     ∂xσ₁₂ = ∂xᶜᶠᶜ(i, j, k, grid, fields.σ₁₂)
     ∂yσ₂₂ = ∂yᶜᶠᶜ(i, j, k, grid, fields.σ₂₂)
 
@@ -272,6 +276,6 @@ end
 end
 
 # To help convergence to the right velocities
-@inline rheology_specific_forcing_x(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) = @inbounds fields.uⁿ[i, j, k] - fields.u[i, j, k]
-@inline rheology_specific_forcing_y(i, j, k, grid, ::ExplicitViscoPlasticRheology, fields) = @inbounds fields.vⁿ[i, j, k] - fields.v[i, j, k]
+@inline rheology_specific_forcing_x(i, j, k, grid, ::ElastoViscoPlasticRheology, fields) = @inbounds fields.uⁿ[i, j, k] - fields.u[i, j, k]
+@inline rheology_specific_forcing_y(i, j, k, grid, ::ElastoViscoPlasticRheology, fields) = @inbounds fields.vⁿ[i, j, k] - fields.v[i, j, k]
 

@@ -5,7 +5,6 @@ using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using Oceananigans: tupleit, tracernames
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: ConstantField
-using ClimaSeaIce.SeaIceThermodynamics: external_top_heat_flux
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A} <: AbstractModel{TS}
