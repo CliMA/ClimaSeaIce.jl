@@ -1,6 +1,8 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
 using Oceananigans.Grids: AbstractGrid
+using Adapt
+using KernelAbstractions: @kernel, @index
 
 ## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
@@ -95,11 +97,11 @@ end
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
 Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
     ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
-                                 Adapt.adapt(to, r.ice_compaction_hardening),
-                                 Adapt.adapt(to, r.yield_curve_eccentricity),
-                                 Adapt.adapt(to, r.Δ_min),
-                                 Adapt.adapt(to, r.min_substeps),
-                                 Adapt.adapt(to, r.max_substeps))
+                               Adapt.adapt(to, r.ice_compaction_hardening),
+                               Adapt.adapt(to, r.yield_curve_eccentricity),
+                               Adapt.adapt(to, r.Δ_min),
+                               Adapt.adapt(to, r.min_substeps),
+                               Adapt.adapt(to, r.max_substeps))
 
 """
     initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)

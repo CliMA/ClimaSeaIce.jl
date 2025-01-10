@@ -40,5 +40,6 @@ compute_momentum_tendencies!(model, ice_dynamics) = nothing
 include("sea_ice_momentum_equations.jl")
 include("momentum_tendencies_kernel_functions.jl")
 include("explicit_momentum_equations.jl")
+include("split_explicit_momentum_equations.jl")
 
 end

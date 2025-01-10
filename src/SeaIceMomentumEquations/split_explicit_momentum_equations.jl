@@ -10,7 +10,7 @@ end
 
 SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
 
-const SplitExplicitMomentumEquations = SeaIceMomentumEquation{<:SplitExplicitSolver}
+const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
 """
     step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
@@ -20,7 +20,7 @@ The sea-ice momentum equations are characterized by smaller time-scale than
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquations, Δt, args...)
+function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt, args...)
 
     grid = model.grid
     arch = architecture(grid)
@@ -45,11 +45,10 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquations, Δt
     u_args = (args..., u_top_stress, u_bottom_stress)
     v_args = (args..., v_top_stress, v_bottom_stress)
 
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
 
     for substep in 1:ice_dynamics.solver.substeps
-        Base.@_inline_meta
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, ice_dynamics, rheology, Δt)
 

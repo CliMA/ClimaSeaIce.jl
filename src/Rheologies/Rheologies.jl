@@ -12,5 +12,6 @@ required_auxiliary_fields(rheology, grid) = NamedTuple()
 @inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, fields) = zero(grid)
 
 include("viscous_rheology.jl")
+include("elasto_visco_plastic_rheology.jl")
 
 end

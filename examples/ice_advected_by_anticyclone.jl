@@ -93,7 +93,7 @@ model = SeaIceModel(grid;
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection,
-                    timestepper = :QuasiAdamdBashforth2,
+                    timestepper = :QuasiAdamsBashforth2,
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
 # Initial height field with perturbations around 0.3 m
