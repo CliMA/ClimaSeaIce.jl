@@ -8,10 +8,10 @@ end
 struct ExplicitSolver end
 
 function SeaIceMomentumEquation(grid; 
-                                  coriolis = nothing,
-                                  rheology = nothing,
-                                  auxiliary_fields = NamedTuple(),
-                                  solver = ExplicitSolver())
+                                coriolis = nothing,
+                                rheology = nothing,
+                                auxiliary_fields = NamedTuple(),
+                                solver = ExplicitSolver())
 
     auxiliary_fields = merge(auxiliary_fields, required_auxiliary_fields(rheology, grid))
 
