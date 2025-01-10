@@ -32,8 +32,6 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     args = (model.clock, 
             model.velocities, 
             ice_dynamics.coriolis, 
-            ice_dynamics.rheology, 
-            ice_dynamics.auxiliary_fields, 
             model.ice_thickness, 
             model.ice_concentration, 
             model.ice_density)
@@ -46,10 +44,12 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     u_args = (args..., u_top_stress, u_bottom_stress)
     v_args = (args..., v_top_stress, v_bottom_stress)
 
+    auxiliary_fields = ice_dynamics.auxiliary_fields
+
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
 
-    for substep in 1:ice_dynamics.solver.substeps
+    for substep in 1 : ice_dynamics.solver.substeps
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, ice_dynamics, rheology, Δt)
 
@@ -58,11 +58,11 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
         # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
         if iseven(substep) 
-            u_velocity_kernel!(u, grid, Δt, u_args)
-            v_velocity_kernel!(v, grid, Δt, v_args)
+            u_velocity_kernel!(u, grid, Δt, substeps, rheology, auxiliary_fields, u_args)
+            v_velocity_kernel!(v, grid, Δt, substeps, rheology, auxiliary_fields, v_args)
         else
-            v_velocity_kernel!(v, grid, Δt, v_args)
-            u_velocity_kernel!(u, grid, Δt, u_args)
+            v_velocity_kernel!(v, grid, Δt, substeps, rheology, auxiliary_fields, v_args)
+            u_velocity_kernel!(u, grid, Δt, substeps, rheology, auxiliary_fields, u_args)
         end
 
         # TODO: This needs to be removed in some way!
@@ -72,14 +72,16 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     return nothing
 end
 
-@kernel function _u_velocity_step!(u, grid, Δt, args)
+@kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology, auxiliary_fields, args)
     i, j = @index(Global, NTuple)
-    Gⁿu = u_velocity_tendency(i, j, grid, args...)
-    @inbounds u[i, j, 1] += Δt * Gⁿu
+    Gⁿu = u_velocity_tendency(i, j, grid, rheology, auxiliary_fields, args...)
+    Δτ  = compute_time_step(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
+    @inbounds u[i, j, 1] += Δτ * Gⁿu
 end
 
-@kernel function _v_velocity_step!(v, grid, Δt, args)
+@kernel function _v_velocity_step!(v, grid, Δt, substeps, rheology, auxiliary_fields, args)
     i, j = @index(Global, NTuple)
-    Gⁿv = v_velocity_tendency(i, j, grid, args...)
-    @inbounds v[i, j, 1] += Δt * Gⁿv
+    Gⁿv = v_velocity_tendency(i, j, grid, rheology, args...)
+    Δτ  = compute_time_step(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
+    @inbounds v[i, j, 1] += Δτ * Gⁿv
 end

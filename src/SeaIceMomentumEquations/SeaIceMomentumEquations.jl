@@ -18,7 +18,8 @@ using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
                               ∂ⱼ_σ₂ⱼ, 
                               required_auxiliary_fields, 
                               compute_stresses!,
-                              initialize_rheology!
+                              initialize_rheology!,
+                              compute_time_step
 
 import Oceananigans: fields
 
