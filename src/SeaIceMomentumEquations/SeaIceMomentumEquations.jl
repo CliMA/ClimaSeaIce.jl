@@ -13,7 +13,11 @@ using Oceananigans.Operators
 using Oceananigans.Grids
 using Oceananigans.Grids: architecture
 
-using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliary_fields
+using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ, 
+                              ∂ⱼ_σ₂ⱼ, 
+                              required_auxiliary_fields, 
+                              compute_stresses!,
+                              initialize_rheology!
 
 import Oceananigans: fields
 

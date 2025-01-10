@@ -12,6 +12,9 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
 
+    initialize_rheology!(model, ice_dynamics.rheology)
+    compute_stresses!(model, ice_dynamics, ice_dynamics.rheology, Δt)
+
     α, β = timestepping_coefficients(model.timestepper, stage)
     
     launch!(arch, grid, :xyz, _step_velocities!, u, v, Gⁿ, G⁻, Δt, α, β)
@@ -42,8 +45,6 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
             model.ice_thickness, 
             model.ice_concentration, 
             model.ice_density)
-
-    initialize_rheology!(model, ice_dynamics.rheology)
 
     u_top_stress = model.external_momentum_stresses.top.u
     v_top_stress = model.external_momentum_stresses.top.v
