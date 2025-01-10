@@ -62,19 +62,19 @@ Keyword Arguments
 - `max_substeps`: Maximum number of substeps expressed as the dynamic coefficient. Default value is `500`.
 """
 function ElastoViscoPlasticRheology(FT::DataType = Float64; 
-                                      ice_compressive_strength = 27500, 
-                                      ice_compaction_hardening = 20, 
-                                      yield_curve_eccentricity = 2, 
-                                      minimum_plastic_stress = 1e-10,
-                                      min_substeps = 30,
-                                      max_substeps = 500)
+                                    ice_compressive_strength = 27500, 
+                                    ice_compaction_hardening = 20, 
+                                    yield_curve_eccentricity = 2, 
+                                    minimum_plastic_stress = 1e-10,
+                                    min_substeps = 30,
+                                    max_substeps = 500)
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
-                                        convert(FT, ice_compaction_hardening), 
-                                        convert(FT, yield_curve_eccentricity),
-                                        convert(FT, minimum_plastic_stress),
-                                        convert(FT, min_substeps),
-                                        convert(FT, max_substeps))
+                                      convert(FT, ice_compaction_hardening), 
+                                      convert(FT, yield_curve_eccentricity),
+                                      convert(FT, minimum_plastic_stress),
+                                      convert(FT, min_substeps),
+                                      convert(FT, max_substeps))
 end
 
 function required_auxiliary_fields(::ElastoViscoPlasticRheology, grid)
@@ -126,6 +126,7 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     
     fill_halo_regions!(fields.P)
 
+    @show "Rheology initialized"
     return nothing
 end
 
@@ -263,9 +264,6 @@ end
 #####
 
 # Here we extend all the functions that a rheology model needs to support:
-
-@inline rheology_substeps(i, j, k, grid, ::ElastoViscoPlasticRheology, substeps, fields) = @inbounds fields.substeps[i, j, k]
-
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
     ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
@@ -281,4 +279,4 @@ end
 end
 
 # To help convergence to the right velocities
-@inline compute_time_step(i, j, k, grid, Δt, substeps, ::ElastoViscoPlasticRheology, fields) = @inbounds Δt / fields.α[i, j, k]
+@inline compute_time_step(i, j, k, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = @inbounds Δt / fields.α[i, j, k]

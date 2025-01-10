@@ -38,6 +38,7 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
 
     u_top_stress = model.external_momentum_stresses.top.u
     v_top_stress = model.external_momentum_stresses.top.v
+
     u_bottom_stress = model.external_momentum_stresses.bottom.u
     v_bottom_stress = model.external_momentum_stresses.bottom.v
 
@@ -49,7 +50,11 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
 
-    for substep in 1 : ice_dynamics.solver.substeps
+    substeps = ice_dynamics.solver.substeps
+
+    initialize_rheology!(model, ice_dynamics.rheology)
+
+    for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, ice_dynamics, rheology, Δt)
 
@@ -81,7 +86,7 @@ end
 
 @kernel function _v_velocity_step!(v, grid, Δt, substeps, rheology, auxiliary_fields, args)
     i, j = @index(Global, NTuple)
-    Gⁿv = v_velocity_tendency(i, j, grid, rheology, args...)
+    Gⁿv = v_velocity_tendency(i, j, grid, rheology, auxiliary_fields, args...)
     Δτ  = compute_time_step(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
     @inbounds v[i, j, 1] += Δτ * Gⁿv
 end
