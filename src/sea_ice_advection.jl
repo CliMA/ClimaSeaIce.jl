@@ -38,7 +38,7 @@ end
     return ϕℵh
 end
 
-@inline div_Uℵh(i, j, k, grid, ::Nothing, U, ℵ, h) = zero(grid)>>>>>>> main
+@inline div_Uℵh(i, j, k, grid, ::Nothing, U, ℵ, h) = zero(grid)
 
 # For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
 @inline function div_Uℵh(i, j, k, grid, advection, U, ℵ, h)
