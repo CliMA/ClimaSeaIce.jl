@@ -67,8 +67,8 @@ end
     @inbounds u[i, j, 1] += Δt * Gⁿu
 end
 
-@kernel function _v_velocity_step!(u, grid, args, v_top_stress, v_bottom_stress)
+@kernel function _v_velocity_step!(v, grid, args, v_top_stress, v_bottom_stress)
     i, j = @index(Global, NTuple)
     Gⁿv = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
-    @inbounds u[i, j, 1] += Δt * Gⁿv
+    @inbounds v[i, j, 1] += Δt * Gⁿv
 end
