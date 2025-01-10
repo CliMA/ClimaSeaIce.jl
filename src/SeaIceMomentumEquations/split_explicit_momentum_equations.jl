@@ -1,4 +1,5 @@
 using Oceananigans.Grids: AbstractGrid, architecture
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Architectures: convert_args
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
@@ -57,11 +58,11 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
         # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
         if iseven(substep) 
-            u_velocity_kernel!(u, grid, u_args)
-            v_velocity_kernel!(v, grid, v_args)
+            u_velocity_kernel!(u, grid, Δt, u_args)
+            v_velocity_kernel!(v, grid, Δt, v_args)
         else
-            v_velocity_kernel!(v, grid, v_args)
-            u_velocity_kernel!(u, grid, u_args)
+            v_velocity_kernel!(v, grid, Δt, v_args)
+            u_velocity_kernel!(u, grid, Δt, u_args)
         end
 
         # TODO: This needs to be removed in some way!
@@ -71,13 +72,13 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     return nothing
 end
 
-@kernel function _u_velocity_step!(u, grid, args)
+@kernel function _u_velocity_step!(u, grid, Δt, args)
     i, j = @index(Global, NTuple)
     Gⁿu = u_velocity_tendency(i, j, grid, args...)
     @inbounds u[i, j, 1] += Δt * Gⁿu
 end
 
-@kernel function _v_velocity_step!(v, grid, args)
+@kernel function _v_velocity_step!(v, grid, Δt, args)
     i, j = @index(Global, NTuple)
     Gⁿv = v_velocity_tendency(i, j, grid, args...)
     @inbounds v[i, j, 1] += Δt * Gⁿv

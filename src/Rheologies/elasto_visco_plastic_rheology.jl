@@ -1,6 +1,8 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
-using Oceananigans.Grids: AbstractGrid
+using Oceananigans.Grids: AbstractGrid, architecture
+using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.Utils
 using Adapt
 using KernelAbstractions: @kernel, @index
 
@@ -75,7 +77,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                         convert(FT, max_substeps))
 end
 
-function required_auxiliary_fields(grid, ::ElastoViscoPlasticRheology)
+function required_auxiliary_fields(::ElastoViscoPlasticRheology, grid)
     
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
@@ -176,6 +178,8 @@ end
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
+    uⁿ  = fields.uⁿ
+    vⁿ  = fields.vⁿ
     rs  = fields.substeps
 
     # Strain rates
@@ -251,8 +255,9 @@ end
     @inbounds  rs[i, j, 1]  = α
 
     # We also need to restore velocities to the previous velocities with the same α step
-    @inbounds u[i, j, 1] += (uⁿ[i, j, k] - fields.u[i, j, k]) / α
-    @inbounds v[i, j, 1] += (vⁿ[i, j, k] - fields.v[i, j, k]) / α
+    # This is purely a numerical trick to help convergence
+    @inbounds u[i, j, 1] += (uⁿ[i, j, 1] - u[i, j, 1]) / α
+    @inbounds v[i, j, 1] += (vⁿ[i, j, 1] - v[i, j, 1]) / α
 end
 
 #####
@@ -263,14 +268,14 @@ end
 
 @inline rheology_substeps(i, j, k, grid, ::ElastoViscoPlasticRheology, substeps, fields) = @inbounds fields.substeps[i, j, k]
 
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, fields) 
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
     ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
 
     return ∂xσ₁₁ + ∂yσ₁₂ 
 end
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, fields) 
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
     ∂xσ₁₂ = ∂xᶜᶠᶜ(i, j, k, grid, fields.σ₁₂)
     ∂yσ₂₂ = ∂yᶜᶠᶜ(i, j, k, grid, fields.σ₂₂)
 

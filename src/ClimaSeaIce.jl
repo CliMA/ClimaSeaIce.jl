@@ -49,6 +49,8 @@ function timestepping_coefficients(ts::QuasiAdamsBashforth2TimeStepper, args...)
    return α, β
 end
    
+@inline ice_mass(i, j, k, grid, h, ℵ, ρᵢ) = @inbounds h[i, j, k] * ℵ[i, j, k] * ρᵢ[i, j, k]
+
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
 include("Rheologies/Rheologies.jl")
 include("SeaIceMomentumEquations/SeaIceMomentumEquations.jl")

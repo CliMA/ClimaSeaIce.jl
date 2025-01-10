@@ -13,6 +13,7 @@ using Oceananigans.Operators
 using Oceananigans.Grids
 using Oceananigans.Grids: architecture
 
+using ClimaSeaIce: ice_mass
 using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ, 
                               ∂ⱼ_σ₂ⱼ, 
                               required_auxiliary_fields, 
@@ -34,8 +35,6 @@ import Oceananigans: fields
 ## - ice-ocean boundary stress 
 ## - ice-atmosphere boundary stress 
 ## - ocean dynamic surface
-
-@inline ice_mass(i, j, k, grid, h, ℵ, ρᵢ) = @inbounds h[i, j, k] * ℵ[i, j, k] * ρᵢ[i, j, k]
 
 # Fallbacks for `nothing` ice dynamics
 step_momentum!(model, ice_dynamics, Δt, stage) = nothing

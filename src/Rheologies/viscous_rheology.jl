@@ -24,3 +24,4 @@ end
     return 1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, viscous_flux_vx, vr, clock, fields) +
                                        δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, viscous_flux_vy, vr, clock, fields))
 end
+

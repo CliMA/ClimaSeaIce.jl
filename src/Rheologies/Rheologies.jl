@@ -5,6 +5,7 @@ export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliary_fields
 
 using Oceananigans
 using Oceananigans.Operators
+using ClimaSeaIce: ice_mass
 
 # Nothing rheology
 required_auxiliary_fields(rheology, grid) = NamedTuple()
