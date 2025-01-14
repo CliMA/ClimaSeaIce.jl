@@ -5,10 +5,12 @@
 #
 using Oceananigans
 using Oceananigans.Units
+using Oceananigans.Operators
 using ClimaSeaIce
 using Printf
 using ClimaSeaIce.SeaIceMomentumEquations
 using ClimaSeaIce.Rheologies
+using Adapt
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -21,7 +23,6 @@ L  = 512kilometers
 𝓋ₐ = 30.0 # m / s maximum atmospheric speed modifier
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 ρₐ = 1.3  # kg/m³
-ρₒ = 1025 # kg/m³
 
 # 2 km domain
 grid = RectilinearGrid(arch;
@@ -30,8 +31,18 @@ grid = RectilinearGrid(arch;
                           y = (0, L), 
                    topology = (Bounded, Bounded, Flat))
 
+#####                   
+##### Value boundary conditions for velocities
 #####
-##### Setup atmospheric and oceanic forcing
+
+u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
+                                south = ValueBoundaryCondition(0))
+
+v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
+                                east = ValueBoundaryCondition(0))
+
+#####
+##### Ocean sea-ice stress
 #####
 
 # Constant ocean velocities corresponding to a cyclonic eddy
@@ -41,14 +52,43 @@ Vₒ = YFaceField(grid)
 set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 
+Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
+Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
+
+struct ExplicitOceanSeaIceStress{U, V, C}
+    u    :: U
+    v    :: V
+    ρₒCᴰ :: C
+end
+
+Adapt.adapt_structure(to, τ::ExplicitOceanSeaIceStress) = 
+    ExplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
+                              Adapt.adapt(to, τ.v), 
+                              τ.ρₒCᴰ)
+
+# We extend the τx and τy methods to compute the time-dependent stress
+import ClimaSeaIce.SeaIceMomentumEquations: τx, τy
+
+@inline function τx(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+    return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δu
+end
+
+@inline function τy(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
+    return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δv
+end
+
+τᵤₒ = τᵥₒ = ExplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
+
+####
+#### Atmosphere - sea ice stress 
+####
+
 Uₐ = XFaceField(grid)
 Vₐ = YFaceField(grid)
-
-τᵤₒ = Field(ρₒ * Cᴰ * sqrt(Uₒ^2 + Vₒ^2) * Uₒ)
-τᵥₒ = Field(ρₒ * Cᴰ * sqrt(Uₒ^2 + Vₒ^2) * Uₒ)
-
-compute!(τᵤₒ)
-compute!(τᵥₒ)
 
 # Atmosphere - sea ice stress
 τᵤₐ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Uₐ)
@@ -106,7 +146,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
+simulation = Simulation(model, Δt = 10seconds, stop_time = 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
