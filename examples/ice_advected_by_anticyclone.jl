@@ -10,7 +10,6 @@ using ClimaSeaIce
 using Printf
 using ClimaSeaIce.SeaIceMomentumEquations
 using ClimaSeaIce.Rheologies
-using Adapt
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -60,11 +59,6 @@ struct ExplicitOceanSeaIceStress{U, V, C}
     v    :: V
     ρₒCᴰ :: C
 end
-
-Adapt.adapt_structure(to, τ::ExplicitOceanSeaIceStress) = 
-    ExplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
-                              Adapt.adapt(to, τ.v), 
-                              τ.ρₒCᴰ)
 
 # We extend the τx and τy methods to compute the time-dependent stress
 import ClimaSeaIce.SeaIceMomentumEquations: τx, τy
