@@ -67,7 +67,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     yield_curve_eccentricity = 2, 
                                     minimum_plastic_stress = 2e-9,
                                     min_substeps = 50,
-                                    max_substeps = 150)
+                                    max_substeps = 500)
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
                                       convert(FT, ice_compaction_hardening), 
@@ -100,7 +100,7 @@ Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) =
     ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
                                Adapt.adapt(to, r.ice_compaction_hardening),
                                Adapt.adapt(to, r.yield_curve_eccentricity),
-                               Adapt.adapt(to, r.Δ_min),
+                               Adapt.adapt(to, r.minimum_plastic_stress),
                                Adapt.adapt(to, r.min_substeps),
                                Adapt.adapt(to, r.max_substeps))
 
@@ -221,6 +221,9 @@ end
     ζᶠᶠᶜ = Pᶠᶠᶜ / 2Δᶠᶠᶜ
     ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
+    # replacement pressure
+    Pᵣ = Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
+
     # σ(uᵖ): the tangential stress depends only shear viscosity 
     # while the compressive stresses depend on the bulk viscosity and the ice strength
     σ₁₁ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₁ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2) 
@@ -234,9 +237,11 @@ end
     # with spatially varying coefficients such as in Kimmritz et al (2016)
     γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
     γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), rheology.min_substeps, rheology.max_substeps)
-    
+    γᶜᶜᶜ  = ifelse(isnan(γᶜᶜᶜ), rheology.max_substeps, γᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
+
     γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
+    γᶠᶠᶜ  = ifelse(isnan(γᶠᶠᶜ), rheology.max_substeps, γᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
     
     # Compute the new stresses and store the value of the dynamic substepping coefficient α
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
