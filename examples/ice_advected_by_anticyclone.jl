@@ -166,10 +166,10 @@ function accumulate_timeseries(sim)
     ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
-    push!(htimeseries, deepcopy(interior(h)))
-    push!(ℵtimeseries, deepcopy(interior(ℵ)))
-    push!(utimeseries, deepcopy(interior(u)))
-    push!(vtimeseries, deepcopy(interior(v)))
+    push!(htimeseries, deepcopy(Array(interior(h))))
+    push!(ℵtimeseries, deepcopy(Array(interior(ℵ))))
+    push!(utimeseries, deepcopy(Array(interior(u))))
+    push!(vtimeseries, deepcopy(Array(interior(v))))
 end
 
 wall_time = [time_ns()]
