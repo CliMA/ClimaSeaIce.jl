@@ -156,24 +156,6 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     return nothing
 end
 
-@inline function Δ(i, j, k, grid, u, v, Δm)
-    ϵ̇₁₁ = ∂xᶜᵃᵃ(i, j, k, grid, u)
-
-    # Center - Center strain rate:
-    ϵ̇₁₂ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᶠᵃᵃ, v) + 
-           ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᵃᶠᵃ, u)) / 2
-
-    ϵ̇₂₂ = ∂yᵃᶜᵃ(i, j, k, grid, v)
-
-    δ = ϵ̇₁₁ + ϵ̇₂₂
-    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂^2)
-
-    return sqrt(δ^2 + s^2 * e⁻²) + Δm
-end
-
-@inline ζ(i, j, k, grid, P, u, v, Δm) = 
-     @inbounds P[i, j, k] / 2Δ(i, j, k, grid, u, v, Δm)
-
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
@@ -191,22 +173,53 @@ end
     σ₁₂ = fields.σ₁₂
     α   = fields.α
 
-    # ζ: Bulk viscosity (viscosity which responds to compression) 
-    # η: Shear viscosity (viscosity which responds to shear)
-    Δᶜᶜᶜ = Δ(i, j, 1, grid, u, v, Δm)
-    ζᶜᶜᶜ = ζ(i, j, 1, grid, P, u, v, Δm)
-    ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
+    # Strain rates
+    ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
+    ϵ̇₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂yᶠᶠᶜ(i, j, 1, grid, u)) / 2
+    ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
 
-    # We use the C1 formulation of Kimmritz et al (2016) for the bulk viscosity
-    # i.e. we interpolate ζ on nodes rather than interpolating its components and 
-    # then computing the bulk viscosity on nodes
-    ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ζ, P, u, v, Δm)
-    ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
+    # Center - Center variables:
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + 
+              ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
 
-    # Replacement pressure
+    # Ice divergence 
+    δ = ϵ̇₁₁ + ϵ̇₂₂
+
+    # Ice shear (at Centers)
+    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
+
+    # Visco - Plastic parameter 
+    # if Δ is very small we assume a linear viscous response
+    # adding a minimum Δ_min (at Centers)
+    Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
+
+    # Face - Face variables
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
+
+    # Ice divergence
+    δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
+
+    # Ice shear
+    sᶠᶠᶜ = sqrt((ϵ̇₁₁ᶠᶠᶜ - ϵ̇₂₂ᶠᶠᶜ)^2 + 4ϵ̇₁₂^2)
+
+    # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Faces)
-    Pᵣ = Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
+    Δᶠᶠᶜ = sqrt(δᶠᶠᶜ^2 + sᶠᶠᶜ^2 * e⁻²) + Δm
+
+    # Ice strength calculation 
+    # Note: can we interpolate P on faces or do we need to compute it on faces?
+    Pᶜᶜᶜ = @inbounds P[i, j, 1]
+    Pᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, P)
+
+    # ζ: Bulk viscosity (viscosity which responds to compression) 
+    # η: Shear viscosity (viscosity which responds to shear)
+    ζᶜᶜᶜ = Pᶜᶜᶜ / 2Δᶜᶜᶜ
+    ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
+
+    ζᶠᶠᶜ = Pᶠᶠᶜ / 2Δᶠᶠᶜ
+    ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
     # σ(uᵖ): the tangential stress depends only shear viscosity 
     # while the compressive stresses depend on the bulk viscosity and the ice strength
