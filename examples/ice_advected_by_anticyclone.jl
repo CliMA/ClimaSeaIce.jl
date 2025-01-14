@@ -28,7 +28,7 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (1024, 1024), 
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
                    topology = (Bounded, Bounded, Flat))
@@ -146,7 +146,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration = 1235)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)

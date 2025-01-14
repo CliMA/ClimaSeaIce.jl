@@ -47,8 +47,6 @@ end
 
 function store_tendencies!(model::SIM) 
 
-    grid = model.grid
-    arch = architecture(grid)
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
     Nt = length(Gⁿ)
