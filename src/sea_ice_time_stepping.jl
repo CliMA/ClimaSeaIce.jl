@@ -52,7 +52,7 @@ function store_tendencies!(model::SIM)
     Nt = length(Gⁿ)
 
     for n in 1:Nt
-        parent(G⁻[n]) .= parent(G⁻[n])
+        parent(G⁻[n]) .= parent(Gⁿ[n])
     end
 
     return nothing
