@@ -66,7 +66,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     ice_compaction_hardening = 20, 
                                     yield_curve_eccentricity = 2, 
                                     minimum_plastic_stress = 2e-9,
-                                    min_substeps = 30,
+                                    min_substeps = 50,
                                     max_substeps = 500)
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
@@ -77,7 +77,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       convert(FT, max_substeps))
 end
 
-function required_auxiliary_fields(::ElastoViscoPlasticRheology, grid)
+function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
@@ -90,7 +90,7 @@ function required_auxiliary_fields(::ElastoViscoPlasticRheology, grid)
     α  = Field{Face, Face, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
 
     # An initial (safe) educated guess
-    fill!(α, 50)
+    fill!(α, r.max_substeps)
 
     return (; σ₁₁, σ₂₂, σ₁₂, α, uⁿ, vⁿ, P)
 end
@@ -137,7 +137,7 @@ end
 end
 
 # The parameterization for an `ElastoViscoPlasticRheology`
-@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
+@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheology, Δt) 

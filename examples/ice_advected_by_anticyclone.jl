@@ -42,8 +42,8 @@ set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 
 struct ExplicitOceanSeaIceStress{U, V, C}
-    uₒ   :: U
-    vₒ   :: V
+    u    :: U
+    v    :: V
     ρₒCᴰ :: C
 end
 
@@ -51,18 +51,18 @@ end
 import ClimaSeaIce.SeaIceMomentumEquations: τx, τy
 
 @inline function τx(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
-    Δu = @inbounds fields.u[i, j, k] - τ.uₒ[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₒ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
     return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δu
 end
 
 @inline function τy(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₒ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
-    Δv = @inbounds fields.v[i, j, k] - τ.vₒ[i, j, k] 
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
     return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δv
 end
 
-τₒ = ExplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
+τᵤₒ = τᵥₒ = ExplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
 
 ####
 #### Atmosphere - sea ice stress 
@@ -110,7 +110,7 @@ v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
 # Define the model!
 model = SeaIceModel(grid; 
                     top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                    bottom_momentum_stress = (u = τₒ, v = τₒ),
+                    bottom_momentum_stress = (u = τᵤₒ, v = τᵤₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection,

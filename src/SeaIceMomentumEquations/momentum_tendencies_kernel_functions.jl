@@ -14,14 +14,14 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
                                      u_top_stress,
                                      u_bottom_stress)
 
-   h  = ice_thickness
-   ℵ  = ice_concentration
-   ρᵢ = ice_density
+   h = ice_thickness
+   ℵ = ice_concentration
+   ρ = ice_density
 
    fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
    # Ice mass (per unit area) interpolated on u points
-   mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
+   mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ)
 
    @inbounds Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
                     + τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ
@@ -44,15 +44,15 @@ end
                                      v_top_stress,
                                      v_bottom_stress)
 
-   h  = ice_thickness
-   ℵ  = ice_concentration
-   ρᵢ = ice_density
+   h = ice_thickness
+   ℵ = ice_concentration
+   ρ = ice_density
 
    fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
-   # Ice mass (per unit area) interpolated on u points
-   mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
-
+   # Ice mass (per unit area) interpolated on v points
+   mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ)
+   
    @inbounds Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
                     + τy(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ
                     + τy(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ
