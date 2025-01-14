@@ -15,6 +15,9 @@ using Oceananigans.Operators
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
+using CUDA
+CUDA.device!(2)
+
 arch = GPU()
 
 L  = 512kilometers
@@ -25,7 +28,7 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (256, 256), 
+                       size = (1024, 1024), 
                           x = (0, L), 
                           y = (0, L), 
                    topology = (Bounded, Bounded, Flat))
@@ -59,6 +62,13 @@ struct ExplicitOceanSeaIceStress{U, V, C}
     v    :: V
     ρₒCᴰ :: C
 end
+
+using Adapt
+
+Adapt.adapt_structure(to, τ::ExplicitOceanSeaIceStress) = 
+    ExplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
+                              Adapt.adapt(to, τ.v), 
+                              τ.ρₒCᴰ)
 
 # We extend the τx and τy methods to compute the time-dependent stress
 import ClimaSeaIce.SeaIceMomentumEquations: τx, τy
@@ -136,7 +146,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration = 1235)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
