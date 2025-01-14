@@ -41,14 +41,27 @@ Vₒ = YFaceField(grid)
 set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 
-Uₐ = XFaceField(grid)
-Vₐ = YFaceField(grid)
+struct ExplicitOceanSeaIceStress{U, V, C}
+    u    :: U
+    v    :: V
+    ρₒCᴰ :: C
+end
 
-τᵤₒ = Field(ρₒ * Cᴰ * sqrt(Uₒ^2 + Vₒ^2) * Uₒ)
-τᵥₒ = Field(ρₒ * Cᴰ * sqrt(Uₒ^2 + Vₒ^2) * Uₒ)
+import ClimaSeaIce.SeaIceMomentumEquations: τx, τy
 
-compute!(τᵤₒ)
-compute!(τᵥₒ)
+@inline function τx(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δu
+end
+
+@inline function τy(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δv
+end
+
+τₒ = ExplicitOceanSeaIceStress(U₀, V₀, 5.5)
 
 # Atmosphere - sea ice stress
 τᵤₐ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Uₐ)
@@ -75,7 +88,7 @@ compute!(τᵥₐ)
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
-                                            coriolis = FPlane(f = 1e-4),
+                                            coriolis = FPlane(f=1e-4),
                                             rheology = ElastoViscoPlasticRheology(),
                                             solver   = SplitExplicitSolver(substeps=120))
 advection = WENO(; order = 7)
@@ -89,7 +102,7 @@ v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
 # Define the model!
 model = SeaIceModel(grid; 
                     top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                    bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
+                    bottom_momentum_stress = (u = τₒ, v = τₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection,

@@ -65,7 +65,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     ice_compressive_strength = 27500, 
                                     ice_compaction_hardening = 20, 
                                     yield_curve_eccentricity = 2, 
-                                    minimum_plastic_stress = 1e-10,
+                                    minimum_plastic_stress = 2e-9,
                                     min_substeps = 30,
                                     max_substeps = 500)
 
@@ -90,7 +90,7 @@ function required_auxiliary_fields(::ElastoViscoPlasticRheology, grid)
     α  = Field{Face, Face, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
 
     # An initial (safe) educated guess
-    fill!(α, 100)
+    fill!(α, 50)
 
     return (; σ₁₁, σ₂₂, σ₁₂, α, uⁿ, vⁿ, P)
 end
@@ -157,6 +157,7 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     fill_halo_regions!(fields.σ₁₁)
     fill_halo_regions!(fields.σ₁₂)
     fill_halo_regions!(fields.σ₂₂)
+    fill_halo_regions!(fields.α)
 
     return nothing
 end
@@ -179,6 +180,17 @@ end
     uⁿ  = fields.uⁿ
     vⁿ  = fields.vⁿ
     α   = fields.α
+
+    # substepping
+    γᶜᶜᶜ =  α[i, j, 1]
+    γᶠᶜᶜ =  ℑxᶠᵃᵃ(i, j, 1, grid, α)
+    γᶜᶠᶜ =  ℑyᵃᶠᵃ(i, j, 1, grid, α)
+    γᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, α)
+
+    # We need to restore velocities to the previous velocities with the same α step
+    # This is purely a numerical trick to help convergence
+    @inbounds u[i, j, 1] += (uⁿ[i, j, 1] - u[i, j, 1]) / γᶠᶜᶜ
+    @inbounds v[i, j, 1] += (vⁿ[i, j, 1] - v[i, j, 1]) / γᶜᶠᶜ
 
     # Strain rates
     ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
@@ -240,22 +252,19 @@ end
     mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
     mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
 
+    # Compute the new stresses and store the value of the dynamic substepping coefficient α
+    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
+    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
+    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
+    
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
     γ²_max = rheology.max_substeps^2
     γ² = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
     γ² = ifelse(mᵢᶜᶜᶜ == 0, γ²_max, γ²)
-    γ = clamp(sqrt(γ²), rheology.min_substeps, rheology.max_substeps)
-
-    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γ, zero(grid))
-    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γ, zero(grid))
-    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γ, zero(grid))
-    @inbounds   α[i, j, 1]  = γ
-
-    # We also need to restore velocities to the previous velocities with the same α step
-    # This is purely a numerical trick to help convergence
-    @inbounds u[i, j, 1] += (uⁿ[i, j, 1] - u[i, j, 1]) / γ
-    @inbounds v[i, j, 1] += (vⁿ[i, j, 1] - v[i, j, 1]) / γ
+    γ  = clamp(sqrt(γ²), rheology.min_substeps, rheology.max_substeps)
+    
+    @inbounds α[i, j, 1] = γ
 end
 
 #####
@@ -278,4 +287,5 @@ end
 end
 
 # To help convergence to the right velocities
-@inline compute_time_step(i, j, k, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = @inbounds Δt / fields.α[i, j, k]
+@inline compute_time_stepᶠᶜᶜ(i, j, k, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑxᶠᵃᵃ(i, j, k, grid, fields.α)
+@inline compute_time_stepᶜᶠᶜ(i, j, k, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑyᵃᶠᵃ(i, j, k, grid, fields.α)

@@ -15,7 +15,8 @@ initialize_rheology!(model, rheology) = nothing
 @inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, fields) = zero(grid)
 
 # Nothing rheology or viscous rheology
-@inline compute_time_step(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
+@inline compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
+@inline compute_time_stepᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
 
 include("viscous_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")
