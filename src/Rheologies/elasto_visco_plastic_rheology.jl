@@ -67,7 +67,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     yield_curve_eccentricity = 2, 
                                     minimum_plastic_stress = 2e-9,
                                     min_substeps = 50,
-                                    max_substeps = 500)
+                                    max_substeps = 150)
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
                                       convert(FT, ice_compaction_hardening), 
@@ -156,6 +156,24 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     return nothing
 end
 
+@inline function Δ(i, j, k, grid, u, v, Δm)
+    ϵ̇₁₁ = ∂xᶜᵃᵃ(i, j, k, grid, u)
+
+    # Center - Center strain rate:
+    ϵ̇₁₂ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᶠᵃᵃ, v) + 
+           ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᵃᶠᵃ, u)) / 2
+
+    ϵ̇₂₂ = ∂yᵃᶜᵃ(i, j, k, grid, v)
+
+    δ = ϵ̇₁₁ + ϵ̇₂₂
+    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂^2)
+
+    return sqrt(δ^2 + s^2 * e⁻²) + Δm
+end
+
+@inline ζ(i, j, k, grid, P, u, v, Δm) = 
+     @inbounds P[i, j, k] / 2Δ(i, j, k, grid, u, v, Δm)
+
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
@@ -173,54 +191,16 @@ end
     σ₁₂ = fields.σ₁₂
     α   = fields.α
 
-    # substepping
-    γᶜᶜᶜ = @inbounds α[i, j, 1]
-    γᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, α)
-
-    # Strain rates
-    ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ̇₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂yᶠᶠᶜ(i, j, 1, grid, u)) / 2
-    ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
-
-    # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + 
-              ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
-
-    # Ice divergence 
-    δ = ϵ̇₁₁ + ϵ̇₂₂
-
-    # Ice shear (at Centers)
-    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
-
-    # Visco - Plastic parameter 
-    # if Δ is very small we assume a linear viscous response
-    # adding a minimum Δ_min (at Centers)
-    Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
-
-    # Face - Face variables
-    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
-    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
-
-    # Ice divergence
-    δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
-
-    # Ice shear
-    sᶠᶠᶜ = sqrt((ϵ̇₁₁ᶠᶠᶜ - ϵ̇₂₂ᶠᶠᶜ)^2 + 4ϵ̇₁₂^2)
-
-    # Visco - Plastic parameter 
-    Δᶠᶠᶜ = sqrt(δᶠᶠᶜ^2 + sᶠᶠᶜ^2 * e⁻²) + Δm
-
-    # Ice strength calculation 
-    # Note: can we interpolate P on faces or do we need to compute it on faces?
-    Pᶜᶜᶜ = @inbounds P[i, j, 1]
-    Pᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, P)
-
     # ζ: Bulk viscosity (viscosity which responds to compression) 
     # η: Shear viscosity (viscosity which responds to shear)
-    ζᶜᶜᶜ = Pᶜᶜᶜ / 2Δᶜᶜᶜ
+    Δᶜᶜᶜ = Δ(i, j, 1, grid, u, v, Δm)
+    ζᶜᶜᶜ = ζ(i, j, 1, grid, P, u, v, Δm)
     ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
 
-    ζᶠᶠᶜ = Pᶠᶠᶜ / 2Δᶠᶠᶜ
+    # We use the C1 formulation of Kimmritz et al (2016) for the bulk viscosity
+    # i.e. we interpolate ζ on nodes rather than interpolating its components and 
+    # then computing the bulk viscosity on nodes
+    ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ζ, P, u, v, Δm)
     ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
     # Replacement pressure
@@ -239,13 +219,10 @@ end
 
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
-    γ²_max = rheology.max_substeps^2
     γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
-    γ²ᶜᶜᶜ = ifelse(mᵢᶜᶜᶜ == 0, γ²_max, γ²ᶜᶜᶜ)
     γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), rheology.min_substeps, rheology.max_substeps)
     
     γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
-    γ²ᶠᶠᶜ = ifelse(mᵢᶠᶠᶜ == 0, γ²_max, γ²ᶠᶠᶜ)
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
     
     # Compute the new stresses and store the value of the dynamic substepping coefficient α
