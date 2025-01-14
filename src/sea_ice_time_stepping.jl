@@ -48,23 +48,15 @@ end
 
 function store_tendencies!(model::SIM) 
 
-    grid = model.grid
-    arch = architecture(grid)
-    Nx, Ny, _ = size(grid)
-
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
     Nt = length(Gⁿ)
 
-    params = KernelParameters((Nx, Ny, Nt), (0, 0, 0))
-    launch!(arch, model.grid, params, _store_tendencies!, G⁻, Gⁿ)
+    for n in 1:Nt
+        parent(G⁻[n]) .= parent(Gⁿ[n])
+    end
 
     return nothing
-end
-
-@kernel function _store_tendencies!(G⁻, Gⁿ) 
-    i, j, n = @index(Global, NTuple)
-    @inbounds G⁻[n][i, j, 1] = Gⁿ[n][i, j, 1]
 end
 
 function update_state!(model::SIM)
