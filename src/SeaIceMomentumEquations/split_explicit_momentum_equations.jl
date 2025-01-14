@@ -51,7 +51,8 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
 
     substeps = ice_dynamics.solver.substeps
-
+    
+    fill_halo_regions!(model.velocities)
     initialize_rheology!(model, ice_dynamics.rheology)
 
     for substep in 1 : substeps
@@ -79,14 +80,14 @@ end
 
 @kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology, auxiliary_fields, args)
     i, j = @index(Global, NTuple)
-    Gⁿu = u_velocity_tendency(i, j, grid, rheology, auxiliary_fields, args...)
     Δτ  = compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
-    @inbounds u[i, j, 1] += Δτ * Gⁿu
+    Gⁿu = u_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
+    @inbounds u[i, j, 1] += Δτ * Gⁿu 
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, substeps, rheology, auxiliary_fields, args)
     i, j = @index(Global, NTuple)
-    Gⁿv = v_velocity_tendency(i, j, grid, rheology, auxiliary_fields, args...)
     Δτ  = compute_time_stepᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
-    @inbounds v[i, j, 1] += Δτ * Gⁿv
+    Gⁿv = v_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
+    @inbounds v[i, j, 1] += Δτ * Gⁿv 
 end

@@ -30,6 +30,16 @@ grid = RectilinearGrid(arch;
                           y = (0, L), 
                    topology = (Bounded, Bounded, Flat))
 
+#####                   
+##### Value boundary conditions for velocities
+#####
+
+u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
+                                south = ValueBoundaryCondition(0))
+
+v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
+                                east = ValueBoundaryCondition(0))
+
 #####
 ##### Ocean sea-ice stress
 #####
@@ -40,6 +50,9 @@ Vₒ = YFaceField(grid)
 
 set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
+
+Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
+Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 
 struct ExplicitOceanSeaIceStress{U, V, C}
     u    :: U
@@ -100,12 +113,6 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             rheology = ElastoViscoPlasticRheology(),
                                             solver   = SplitExplicitSolver(substeps=120))
 advection = WENO(; order = 7)
-
-u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
-
-v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
-                                east = ValueBoundaryCondition(0))
 
 # Define the model!
 model = SeaIceModel(grid; 

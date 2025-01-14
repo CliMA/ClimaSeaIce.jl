@@ -87,7 +87,7 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     uⁿ = Field{Face, Center, Nothing}(grid)
     vⁿ = Field{Center, Face, Nothing}(grid)
     P  = Field{Center, Center, Nothing}(grid)
-    α  = Field{Face, Face, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
 
     # An initial (safe) educated guess
     fill!(α, r.max_substeps)
@@ -124,8 +124,6 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
     launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, model.grid, P★, C, h, ℵ, u, v)
     
-    fill_halo_regions!(fields.P)
-
     return nothing
 end
 
@@ -151,13 +149,9 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
 
     fields = ice_dynamics.auxiliary_fields
     u, v = model.velocities
-    launch!(arch, grid, :xyz, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
 
-    # TODO: This needs to be removed in some way!
-    fill_halo_regions!(fields.σ₁₁)
-    fill_halo_regions!(fields.σ₁₂)
-    fill_halo_regions!(fields.σ₂₂)
-    fill_halo_regions!(fields.α)
+    parameters = KernelParameters(size(u.data)[1:2], u.data.offsets[1:2])
+    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end
@@ -177,20 +171,11 @@ end
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
-    uⁿ  = fields.uⁿ
-    vⁿ  = fields.vⁿ
     α   = fields.α
 
     # substepping
-    γᶜᶜᶜ =  α[i, j, 1]
-    γᶠᶜᶜ =  ℑxᶠᵃᵃ(i, j, 1, grid, α)
-    γᶜᶠᶜ =  ℑyᵃᶠᵃ(i, j, 1, grid, α)
+    γᶜᶜᶜ = @inbounds α[i, j, 1]
     γᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, α)
-
-    # We need to restore velocities to the previous velocities with the same α step
-    # This is purely a numerical trick to help convergence
-    @inbounds u[i, j, 1] += (uⁿ[i, j, 1] - u[i, j, 1]) / γᶠᶜᶜ
-    @inbounds v[i, j, 1] += (vⁿ[i, j, 1] - v[i, j, 1]) / γᶜᶠᶜ
 
     # Strain rates
     ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
@@ -223,8 +208,6 @@ end
     sᶠᶠᶜ = sqrt((ϵ̇₁₁ᶠᶠᶜ - ϵ̇₂₂ᶠᶠᶜ)^2 + 4ϵ̇₁₂^2)
 
     # Visco - Plastic parameter 
-    # if Δ is very small we assume a linear viscous response
-    # adding a minimum Δ_min (at Faces)
     Δᶠᶠᶜ = sqrt(δᶠᶠᶜ^2 + sᶠᶠᶜ^2 * e⁻²) + Δm
 
     # Ice strength calculation 
@@ -241,6 +224,8 @@ end
     ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
     # Replacement pressure
+    # if Δ is very small we assume a linear viscous response
+    # adding a minimum Δ_min (at Faces)
     Pᵣ = Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
 
     # σ(uᵖ): the tangential stress depends only shear viscosity 
@@ -252,19 +237,23 @@ end
     mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
     mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
 
+    # Update coefficients for substepping if we are using dynamic substepping
+    # with spatially varying coefficients such as in Kimmritz et al (2016)
+    γ²_max = rheology.max_substeps^2
+    γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
+    γ²ᶜᶜᶜ = ifelse(mᵢᶜᶜᶜ == 0, γ²_max, γ²ᶜᶜᶜ)
+    γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), rheology.min_substeps, rheology.max_substeps)
+    
+    γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
+    γ²ᶠᶠᶜ = ifelse(mᵢᶠᶠᶜ == 0, γ²_max, γ²ᶠᶠᶜ)
+    γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
+    
     # Compute the new stresses and store the value of the dynamic substepping coefficient α
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
     
-    # Update coefficients for substepping if we are using dynamic substepping
-    # with spatially varying coefficients such as in Kimmritz et al (2016)
-    γ²_max = rheology.max_substeps^2
-    γ² = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
-    γ² = ifelse(mᵢᶜᶜᶜ == 0, γ²_max, γ²)
-    γ  = clamp(sqrt(γ²), rheology.min_substeps, rheology.max_substeps)
-    
-    @inbounds α[i, j, 1] = γ
+    @inbounds α[i, j, 1] = γᶜᶜᶜ
 end
 
 #####
@@ -272,18 +261,26 @@ end
 #####
 
 # Here we extend all the functions that a rheology model needs to support:
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields, Δt) 
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
     ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
 
-    return ∂xσ₁₁ + ∂yσ₁₂ 
+    # Restoring of u to uⁿ
+    # This is a numerical trick to improve convergence
+    restoring = (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / ℑxᶠᵃᵃ(i, j, k, grid, fields.α) / Δt
+
+    return ∂xσ₁₁ + ∂yσ₁₂ + restoring
 end
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields, Δt) 
     ∂xσ₁₂ = ∂xᶜᶠᶜ(i, j, k, grid, fields.σ₁₂)
     ∂yσ₂₂ = ∂yᶜᶠᶜ(i, j, k, grid, fields.σ₂₂)
 
-    return ∂xσ₁₂ + ∂yσ₂₂
+    # Restoring of v to vⁿ
+    # This is a numerical trick to improve convergence
+    restoring = (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / ℑyᵃᶠᵃ(i, j, k, grid, fields.α) / Δt
+
+    return ∂xσ₁₂ + ∂yσ₂₂ + restoring
 end
 
 # To help convergence to the right velocities
