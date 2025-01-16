@@ -150,7 +150,9 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     fields = ice_dynamics.auxiliary_fields
     u, v = model.velocities
 
-    parameters = KernelParameters(size(u.data)[1:2], u.data.offsets[1:2])
+    Nx, Ny, _ = size(grid)
+
+    parameters = KernelParameters(0:Nx+1, 0:Ny+1)
     launch!(arch, grid, parameters, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing

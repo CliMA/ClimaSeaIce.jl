@@ -1,3 +1,5 @@
+using Oceananigans.Models: update_model_field_time_series!
+
 function step_tracers!(model::SIM, Δt, substep)
     grid = model.grid
     arch = architecture(grid)
@@ -65,6 +67,8 @@ function update_state!(model::SIM)
     end
 
     fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
+
+    update_model_field_time_series!(model, model.clock)
 
     return nothing
 end

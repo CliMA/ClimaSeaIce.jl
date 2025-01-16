@@ -46,6 +46,8 @@ function SeaIceModel(grid;
                      ice_thermodynamics     = SlabSeaIceThermodynamics(grid),
                      ice_dynamics           = nothing)
 
+    tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
+
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
     default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions()
@@ -55,28 +57,10 @@ function SeaIceModel(grid;
     # have precedence, followed by embedded, followed by default.
     boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
-
+    
     if isnothing(velocities) 
-        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
-        velocities = (; u, v)
-    end
-
-    tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
-
-    # Next, we form a list of default boundary conditions:
-    prognostic_field_names = (:u, :v, tracernames(tracers)...)
-    default_boundary_conditions = NamedTuple{prognostic_field_names}(Tuple(FieldBoundaryConditions()
-                                                                     for name in prognostic_field_names))
-
-    # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
-    # have precedence, followed by embedded, followed by default.
-    boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
-    boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, prognostic_field_names)
-
-    if isnothing(velocities) 
-        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
+        u = Field{Face, Center, Center}(grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Center, Face, Center}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 
@@ -84,12 +68,12 @@ function SeaIceModel(grid;
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field 
-    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
-    ice_density  = field((Center, Center, Nothing), ice_density, grid)
+    ice_salinity = field((Center, Center, Center), ice_salinity, grid)
+    ice_density  = field((Center, Center, Center), ice_density, grid)
 
     # Construct prognostic fields if not provided
-    ice_thickness = isnothing(ice_thickness) ? Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
-    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
+    ice_thickness = isnothing(ice_thickness) ?  Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
+    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
