@@ -80,14 +80,18 @@ end
 
 @kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology, auxiliary_fields, args)
     i, j = @index(Global, NTuple)
-    Δτ  = compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
-    Gⁿu = u_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
-    @inbounds u[i, j, 1] += Δτ * Gⁿu 
+
+    Δτ      = compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
+    τuᵢ, Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
+
+    @inbounds u[i, j, 1] = (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ)
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, substeps, rheology, auxiliary_fields, args)
     i, j = @index(Global, NTuple)
-    Δτ  = compute_time_stepᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
-    Gⁿv = v_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
-    @inbounds v[i, j, 1] += Δτ * Gⁿv 
+    
+    Δτ      = compute_time_stepᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
+    τvᵢ, Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
+    
+    @inbounds v[i, j, 1] = (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)
 end

@@ -232,8 +232,8 @@ end
     σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
-    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
+    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ρᵢ) 
 
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
@@ -250,6 +250,10 @@ end
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
     
+    if isnan(σ₁₁[i, j, 1]) || isnan(σ₂₂[i, j, 1]) || isnan(σ₁₂[i, j, 1])
+        @info i, j, ζᶜᶜᶜ, ζᶠᶠᶜ, σ₁₁[i, j, 1], σ₂₂[i, j, 1], σ₁₂[i, j, 1]
+    end
+
     @inbounds α[i, j, 1] = γᶜᶜᶜ
 end
 
@@ -281,5 +285,5 @@ end
 end
 
 # To help convergence to the right velocities
-@inline compute_time_stepᶠᶜᶜ(i, j, k, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑxᶠᵃᵃ(i, j, k, grid, fields.α)
-@inline compute_time_stepᶜᶠᶜ(i, j, k, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑyᵃᶠᵃ(i, j, k, grid, fields.α)
+@inline compute_time_stepᶠᶜᶜ(i, j, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑxᶠᵃᵃ(i, j, 1, grid, fields.α)
+@inline compute_time_stepᶜᶠᶜ(i, j, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑyᵃᶠᵃ(i, j, 1, grid, fields.α)

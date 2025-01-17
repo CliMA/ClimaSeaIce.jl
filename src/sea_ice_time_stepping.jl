@@ -1,4 +1,8 @@
-using Oceananigans.Models: update_model_field_time_series!
+using Oceananigans.Utils: Time
+using Oceananigans.Fields: flattened_unique_values
+using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
+
+import Oceananigans.Models: update_model_field_time_series!
 
 function step_tracers!(model::SIM, Δt, substep)
     grid = model.grid
@@ -73,3 +77,16 @@ function update_state!(model::SIM)
     return nothing
 end
 
+function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
+    time = Time(clock.time)
+
+    possible_fts = (model.tracers, model.external_heat_fluxes, model.external_momentum_stresses)
+    time_series_tuple = extract_field_time_series(possible_fts)
+    time_series_tuple = flattened_unique_values(time_series_tuple)
+
+    for fts in time_series_tuple
+        update_field_time_series!(fts, time)
+    end
+
+    return nothing
+end
