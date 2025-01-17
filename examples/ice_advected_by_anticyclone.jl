@@ -29,9 +29,10 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
+                       halo = (7, 7),
                    topology = (Bounded, Bounded, Flat))
 
 #####                   
@@ -58,7 +59,7 @@ set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 
-struct ExplicitOceanSeaIceStress{U, V, C}
+struct SemiImplicitOceanSeaIceStress{U, V, C}
     u    :: U
     v    :: V
     ρₒCᴰ :: C
@@ -66,27 +67,41 @@ end
 
 using Adapt
 
-Adapt.adapt_structure(to, τ::ExplicitOceanSeaIceStress) = 
-    ExplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
-                              Adapt.adapt(to, τ.v), 
-                              τ.ρₒCᴰ)
+Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) = 
+    SemiImplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
+                                  Adapt.adapt(to, τ.v), 
+                                  τ.ρₒCᴰ)
 
 # We extend the τx and τy methods to compute the time-dependent stress
-import ClimaSeaIce.SeaIceMomentumEquations: τx, τy
+import ClimaSeaIce.SeaIceMomentumEquations: explicit_τx, explicit_τy, implicit_τx, implicit_τy
 
-@inline function τx(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+@inline function explicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    uₒ = @inbounds τ.u[i, j, k]
     Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
     Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
-    return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δu
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * uₒ
 end
 
-@inline function τy(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+@inline function explicit_τy(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    vₒ = @inbounds τ.v[i, j, k]
     Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
     Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
-    return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δv
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * vₒ
 end
 
-τᵤₒ = τᵥₒ = ExplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
+@inline function implicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
+end
+
+@inline function implicit_τy(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
+end
+
+τᵤₒ = τᵥₒ = SemiImplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
 
 ####
 #### Atmosphere - sea ice stress 
@@ -147,7 +162,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 10seconds, stop_time = 2hours)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)

@@ -261,8 +261,8 @@ end
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
     ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
 
-    # Restoring of u to uⁿ
-    # This is a numerical trick to improve convergence
+    # Restoring of u to uⁿ, this is a numerical trick to improve convergence,
+    # it is very specific to the Kimmritz EVP model
     restoring = (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / ℑxᶠᵃᵃ(i, j, k, grid, fields.α) / Δt
 
     return ∂xσ₁₁ + ∂yσ₁₂ + restoring
@@ -272,8 +272,8 @@ end
     ∂xσ₁₂ = ∂xᶜᶠᶜ(i, j, k, grid, fields.σ₁₂)
     ∂yσ₂₂ = ∂yᶜᶠᶜ(i, j, k, grid, fields.σ₂₂)
 
-    # Restoring of v to vⁿ
-    # This is a numerical trick to improve convergence
+    # Restoring of v to vⁿ, this is a numerical trick to improve convergence,
+    # it is very specific to the Kimmritz EVP model
     restoring = (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / ℑyᵃᶠᵃ(i, j, k, grid, fields.α) / Δt
 
     return ∂xσ₁₂ + ∂yσ₂₂ + restoring
