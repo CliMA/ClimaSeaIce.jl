@@ -249,11 +249,6 @@ end
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
-    
-    if isnan(σ₁₁[i, j, 1]) || isnan(σ₂₂[i, j, 1]) || isnan(σ₁₂[i, j, 1])
-        @info i, j, ζᶜᶜᶜ, ζᶠᶠᶜ, σ₁₁[i, j, 1], σ₂₂[i, j, 1], σ₁₂[i, j, 1]
-    end
-
     @inbounds α[i, j, 1] = γᶜᶜᶜ
 end
 
