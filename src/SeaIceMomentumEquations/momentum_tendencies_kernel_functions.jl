@@ -25,8 +25,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
    ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
 
    Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
-          + explicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ
-          + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ
+          + explicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
+          + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
           + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ )
 
    # Implicit part of the stress that depends linearly on the velocity
