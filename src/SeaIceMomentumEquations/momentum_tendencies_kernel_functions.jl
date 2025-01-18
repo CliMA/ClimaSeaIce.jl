@@ -36,7 +36,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
    Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
    τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
 
-   return τᵢ, ifelse(mᵢ ≤ 0, zero(grid), Gᵁ) 
+   return τᵢ, Gᵁ
 end
 
 """compute ice v-velocity tendencies"""
