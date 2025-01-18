@@ -3,7 +3,8 @@ using Oceananigans.Units
 using ClimaSeaIce
 using Printf
 using CairoMakie
-using ClimaSeaIce.SeaIceDynamics
+using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.Rheologies
 
 # A solid block of ice moving against a triangular coastline in a periodic channel
 
@@ -14,7 +15,7 @@ Ny = 256
 
 y_max = Ly / 2
 
-arch = CPU()
+arch = GPU()
 
 𝓋ₐ = 10.0   # m / s 
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
@@ -49,12 +50,41 @@ compute!(τᵤ)
 compute!(τᵥ)
 
 #####
+##### Ocean stress (a zero-velocity ocean with a drag)
+#####
+struct PrescribedOceanStress{FT}
+    ρₒ :: FT
+    Cᴰ :: FT
+end
+
+import ClimaSeaIce.SeaIceMomentumEquations: implicit_τx_coefficient, implicit_τy_coefficient
+
+@inline function implicit_τx_coefficient(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
+    uᵢ = @inbounds fields.u[i, j, k]
+    vᵢ = ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
+    
+    return τ.ρₒ * τ.Cᴰ * sqrt(uᵢ^2 + vᵢ^2)
+end
+
+@inline function implicit_τy_coefficient(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
+    uᵢ = ℑxyᶠᶜᵃ(i, j, k, grid, fields.u)
+    vᵢ = @inbounds fields.v[i, j, k]
+    
+    return τ.ρₒ * τ.Cᴰ * sqrt(uᵢ^2 + vᵢ^2)
+end
+
+τₒ = PrescribedOceanStress(1025.0, 5.5e-3)
+
+#####
 ##### Numerical details
 #####
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
-ice_dynamics    = SplitExplicitDynamics(grid; substeps = 120)
+ice_dynamics = SeaIceMomentumEquation(grid; 
+                                      coriolis = BetaPlane(latitude=60),
+                                      solver = SplitExplicitSolver(substeps=120))
+                                      
 advection = WENO(; order = 7)
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
@@ -63,8 +93,8 @@ u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
 
 #Define the model!
 model = SeaIceModel(grid; 
-                    top_u_stress = τᵤ,
-                    top_v_stress = τᵥ,
+                    top_external_stress = (u=τᵤ, v=τᵥ),
+                    bottom_external_stress = (u=τₒ, v=τₒ), 
                     advection,
                     ice_dynamics = ice_dynamics,
                     boundary_conditions = (; u = u_bcs),
@@ -82,7 +112,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration = 1250) # 
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) 
 
 # Container to hold the data
 htimeseries = []

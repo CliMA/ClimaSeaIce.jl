@@ -1,3 +1,5 @@
+using ClimaSeaIce.Rheologies
+
 struct SeaIceMomentumEquation{S, C, R, A}
     coriolis :: C
     rheology :: R
@@ -9,7 +11,7 @@ struct ExplicitSolver end
 
 function SeaIceMomentumEquation(grid; 
                                 coriolis = nothing,
-                                rheology = nothing,
+                                rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 auxiliary_fields = NamedTuple(),
                                 solver = ExplicitSolver())
 

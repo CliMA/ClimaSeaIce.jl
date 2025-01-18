@@ -30,8 +30,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
           + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ )
 
    # Implicit part of the stress that depends linearly on the velocity
-   τᵢ = ( implicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-        + implicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ )
+   τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+        + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ )
 
    Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
    τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
@@ -68,8 +68,8 @@ end
            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ )
 
    # Implicit part of the stress that depends linearly on the velocity
-   τᵢ = ( implicit_τy(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
-        + implicit_τy(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ )
+   τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
+        + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ )
 
    Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
    τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
@@ -77,8 +77,8 @@ end
    return τᵢ, Gⱽ
 end
 
-@inline implicit_τx(i, j, k, grid, stress, clock, fields) = zero(grid)
-@inline implicit_τy(i, j, k, grid, stress, clock, fields) = zero(grid)
+@inline implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
+@inline implicit_τy_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
 
 @inline explicit_τx(i, j, k, grid, ::Nothing, clock, fields) = zero(grid)
 @inline explicit_τy(i, j, k, grid, ::Nothing, clock, fields) = zero(grid)
