@@ -14,8 +14,8 @@ using Oceananigans.OutputReaders: update_field_time_series!, extract_field_time_
 # We extend the τx and τy methods to compute the time-dependent stress
 import ClimaSeaIce.SeaIceMomentumEquations: explicit_τx, 
                                             explicit_τy,
-                                            implicit_τx,
-                                            implicit_τy
+                                            implicit_τx_coefficient,
+                                            implicit_τy_coefficient
 
 import Oceananigans.Fields: fractional_indices
 
@@ -37,14 +37,14 @@ Adapt.adapt_structure(to, τ::PrescribedOceanStress) =
 @inline explicit_τx(i, j, k, grid, ::PrescribedOceanStress, clock, fields) = zero(grid)
 @inline explicit_τy(i, j, k, grid, ::PrescribedOceanStress, clock, fields) = zero(grid)
 
-@inline function implicit_τx(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
+@inline function implicit_τx_coefficient(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
     uᵢ = @inbounds fields.u[i, j, k]
     vᵢ = ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
     
     return τ.ρₒ * τ.Cᴰ * sqrt(uᵢ^2 + vᵢ^2)
 end
 
-@inline function implicit_τy(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
+@inline function implicit_τy_coefficient(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
     uᵢ = ℑxyᶠᶜᵃ(i, j, k, grid, fields.u)
     vᵢ = @inbounds fields.v[i, j, k]
     

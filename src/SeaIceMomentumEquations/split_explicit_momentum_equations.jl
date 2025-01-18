@@ -58,7 +58,7 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, ice_dynamics, rheology, Δt)
-
+        @show substep
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).

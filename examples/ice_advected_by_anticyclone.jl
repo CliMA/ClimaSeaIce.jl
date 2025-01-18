@@ -16,10 +16,7 @@ using Oceananigans.Operators
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-using CUDA
-CUDA.device!(2)
-
-arch = GPU()
+arch = CPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed

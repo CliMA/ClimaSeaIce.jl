@@ -9,6 +9,9 @@ using ClimaSeaIce.SeaIceMomentumEquations
 using Oceananigans.Units
 using Printf
 
+using CUDA
+CUDA.device!(2)
+
 include("prescribed_external_stress.jl")
 
 arch = GPU()
@@ -59,7 +62,6 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             coriolis = HydrostaticSphericalCoriolis(),
                                             rheology = ElastoViscoPlasticRheology(),
                                             solver   = SplitExplicitSolver(substeps=120))
-advection = WENO(; order = 7)
 
 # Define the model!
 model = SeaIceModel(grid; 
@@ -67,8 +69,7 @@ model = SeaIceModel(grid;
                     bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    advection,
-                    timestepper = :QuasiAdamsBashforth2,
+                    advection = WENO(; order = 7),
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
 # We start with thickenss and concentration from climatology
@@ -77,7 +78,7 @@ set!(model.ice_concentration, ECCOMetadata(:sea_ice_area_fraction), inpainting=C
 
 simulation = Simulation(model, Δt=120, stop_iteration=1) #stop_time=2days)
 
-# Container to hold the data
+# # Container to hold the data
 htimeseries = []
 ℵtimeseries = []
 utimeseries = []

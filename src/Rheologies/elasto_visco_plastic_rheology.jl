@@ -2,6 +2,7 @@ using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
 using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.ImmersedBoundaries: inactive_node
 using Oceananigans.Utils
 using Adapt
 using KernelAbstractions: @kernel, @index
@@ -244,12 +245,17 @@ end
     γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
     γᶠᶠᶜ  = ifelse(isnan(γᶠᶠᶜ), rheology.max_substeps, γᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
-    
+
     # Compute the new stresses and store the value of the dynamic substepping coefficient α
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
-    @inbounds α[i, j, 1] = γᶜᶜᶜ
+    @inbounds α[i, j, 1]   = γᶜᶜᶜ
+    
+    # Mask inactive nodes
+    @inbounds σ₁₁[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Center(), Center(), Center()), zero(grid), σ₁₁[i, j, 1])
+    @inbounds σ₂₂[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Center(), Center(), Center()), zero(grid), σ₂₂[i, j, 1])
+    @inbounds σ₁₂[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Face(),   Face(),   Center()), zero(grid), σ₁₂[i, j, 1]) 
 end
 
 #####
@@ -261,22 +267,14 @@ end
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
     ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
 
-    # Restoring of u to uⁿ, this is a numerical trick to improve convergence,
-    # it is very specific to the Kimmritz EVP model
-    restoring = (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / ℑxᶠᵃᵃ(i, j, k, grid, fields.α) / Δt
-
-    return ∂xσ₁₁ + ∂yσ₁₂ + restoring
+    return ∂xσ₁₁ + ∂yσ₁₂
 end
 
 @inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields, Δt) 
     ∂xσ₁₂ = ∂xᶜᶠᶜ(i, j, k, grid, fields.σ₁₂)
     ∂yσ₂₂ = ∂yᶜᶠᶜ(i, j, k, grid, fields.σ₂₂)
 
-    # Restoring of v to vⁿ, this is a numerical trick to improve convergence,
-    # it is very specific to the Kimmritz EVP model
-    restoring = (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / ℑyᵃᶠᵃ(i, j, k, grid, fields.α) / Δt
-
-    return ∂xσ₁₂ + ∂yσ₂₂ + restoring
+    return ∂xσ₁₂ + ∂yσ₂₂
 end
 
 # To help convergence to the right velocities

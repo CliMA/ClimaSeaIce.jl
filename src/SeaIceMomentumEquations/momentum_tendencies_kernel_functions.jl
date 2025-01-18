@@ -27,7 +27,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
    Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
           + explicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
           + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-          + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ )
+          + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ
+          + (fields.uⁿ[i, j, 1] - fields.u[i, j, 1]) / ℑxᶠᵃᵃ(i, j, 1, grid, fields.α) / Δt)
 
    # Implicit part of the stress that depends linearly on the velocity
    τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
@@ -65,7 +66,8 @@ end
     Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
            + explicit_τy(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ
            + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-           + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ )
+           + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ 
+           + (fields.vⁿ[i, j, 1] - fields.v[i, j, 1]) / ℑyᵃᶠᵃ(i, j, 1, grid, fields.α) / Δt)
 
    # Implicit part of the stress that depends linearly on the velocity
    τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
