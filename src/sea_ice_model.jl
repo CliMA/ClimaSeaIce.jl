@@ -37,7 +37,7 @@ function SeaIceModel(grid;
                      top_heat_flux          = nothing,
                      bottom_heat_flux       = 0,
                      velocities             = nothing,
-                     timestepper            = :RungeKutta3,
+                     timestepper            = :QuasiAdamsBashforth2,
                      advection              = nothing,
                      top_momentum_stress    = (u = nothing, v = nothing),
                      bottom_momentum_stress = (u = nothing, v = nothing),
