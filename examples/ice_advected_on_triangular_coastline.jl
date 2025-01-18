@@ -1,5 +1,6 @@
 using Oceananigans
 using Oceananigans.Units
+using Oceananigans.Operators
 using ClimaSeaIce
 using Printf
 using CairoMakie
@@ -84,7 +85,7 @@ end
 ice_dynamics = SeaIceMomentumEquation(grid; 
                                       coriolis = BetaPlane(latitude=60),
                                       solver = SplitExplicitSolver(substeps=120))
-                                      
+
 advection = WENO(; order = 7)
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
@@ -93,8 +94,8 @@ u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
 
 #Define the model!
 model = SeaIceModel(grid; 
-                    top_external_stress = (u=τᵤ, v=τᵥ),
-                    bottom_external_stress = (u=τₒ, v=τₒ), 
+                    top_momentum_stress = (u=τᵤ, v=τᵥ),
+                    bottom_momentum_stress = (u=τₒ, v=τₒ), 
                     advection,
                     ice_dynamics = ice_dynamics,
                     boundary_conditions = (; u = u_bcs),

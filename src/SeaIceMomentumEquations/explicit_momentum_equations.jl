@@ -48,6 +48,7 @@ end
     @inbounds u[i, j, k] = (u[i, j, k] + Δt * (α * Guⁿ + β * Gu[i, j, k])) / (1 + Δt * τuᵢ)
     @inbounds v[i, j, k] = (v[i, j, k] + Δt * (α * Gvⁿ + β * Gv[i, j, k])) / (1 + Δt * τvᵢ)
 
+    # Store directly the tendencies
     @inbounds Gu[i, j, k] = Guⁿ
     @inbounds Gv[i, j, k] = Gvⁿ
 end
