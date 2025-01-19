@@ -12,7 +12,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
                                      ice_concentration,
                                      ice_density,
                                      u_top_stress,
-                                     u_bottom_stress)
+                                     u_bottom_stress,
+                                     u_forcing)
 
    h = ice_thickness
    ℵ = ice_concentration
