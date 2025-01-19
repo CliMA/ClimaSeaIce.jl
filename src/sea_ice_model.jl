@@ -4,13 +4,13 @@ using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using Oceananigans: tupleit, tracernames
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
-using Oceananigans.Fields: ConstantField
-using Oceananigans.Forcing: model_forcing
+using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A, F} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
+    forcing :: F
     # Prognostic State
     velocities :: U
     tracers :: T
@@ -115,6 +115,7 @@ function SeaIceModel(grid;
 
     return SeaIceModel(grid,
                        clock,
+                       forcing, 
                        velocities,
                        tracers,
                        ice_thickness,
