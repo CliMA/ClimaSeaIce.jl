@@ -3,7 +3,7 @@ using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Architectures: convert_args
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
-using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map
+using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map, mask_immersed_field_xy!
 
 struct SplitExplicitSolver 
     substeps :: Int
@@ -58,7 +58,7 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, ice_dynamics, rheology, Δt)
-        @show substep
+
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)
         # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
@@ -73,6 +73,9 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
 
         # TODO: This needs to be removed in some way!
         fill_halo_regions!(model.velocities)
+
+        mask_immersed_field_xy!(model.velocities.u, k=1)
+        mask_immersed_field_xy!(model.velocities.v, k=1)
     end
 
     return nothing
