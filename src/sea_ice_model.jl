@@ -3,12 +3,14 @@ using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using Oceananigans: tupleit, tracernames
+using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
+using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
-using Oceananigans.Fields: ConstantField
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A, F} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
+    forcing :: F
     # Prognostic State
     velocities :: U
     tracers :: T
@@ -17,6 +19,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A} <: Abstract
     ice_density :: ID
     # Thermodynamics
     ice_thermodynamics :: TD
+    # Dynamics
     ice_dynamics :: D
     # External boundary conditions
     external_heat_fluxes :: STF
@@ -35,14 +38,17 @@ function SeaIceModel(grid;
                      top_heat_flux          = nothing,
                      bottom_heat_flux       = 0,
                      velocities             = nothing,
-                     timestepper            = :RungeKutta3,
+                     timestepper            = :QuasiAdamsBashforth2,
                      advection              = nothing,
                      top_momentum_stress    = (u = nothing, v = nothing),
                      bottom_momentum_stress = (u = nothing, v = nothing),
                      tracers                = (),
                      boundary_conditions    = NamedTuple(),
                      ice_thermodynamics     = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics           = nothing)
+                     ice_dynamics           = nothing,
+                     forcing                = NamedTuple())
+
+    tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
 
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
@@ -53,24 +59,23 @@ function SeaIceModel(grid;
     # have precedence, followed by embedded, followed by default.
     boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
-
+    
     if isnothing(velocities) 
-        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
+        u = Field{Face, Center, Center}(grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Center, Face, Center}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 
-    tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field 
-    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
-    ice_density  = field((Center, Center, Nothing), ice_density, grid)
+    ice_salinity = field((Center, Center, Center), ice_salinity, grid)
+    ice_density  = field((Center, Center, Center), ice_density, grid)
 
     # Construct prognostic fields if not provided
-    ice_thickness = isnothing(ice_thickness) ? Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
-    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
+    ice_thickness = isnothing(ice_thickness) ?  Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
+    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
@@ -99,6 +104,8 @@ function SeaIceModel(grid;
         end
     end
 
+    forcing = model_forcing(prognostic_fields; forcing...)
+    
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 
@@ -108,6 +115,7 @@ function SeaIceModel(grid;
 
     return SeaIceModel(grid,
                        clock,
+                       forcing, 
                        velocities,
                        tracers,
                        ice_thickness,

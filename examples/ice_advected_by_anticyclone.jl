@@ -10,6 +10,7 @@ using ClimaSeaIce
 using Printf
 using ClimaSeaIce.SeaIceMomentumEquations
 using ClimaSeaIce.Rheologies
+using Oceananigans.Operators
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -25,9 +26,10 @@ Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
+                       halo = (7, 7),
                    topology = (Bounded, Bounded, Flat))
 
 #####                   
@@ -54,28 +56,49 @@ set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 
-struct ExplicitOceanSeaIceStress{U, V, C}
+struct SemiImplicitOceanSeaIceStress{U, V, C}
     u    :: U
     v    :: V
     ρₒCᴰ :: C
 end
 
-# We extend the τx and τy methods to compute the time-dependent stress
-import ClimaSeaIce.SeaIceMomentumEquations: τx, τy
+using Adapt
 
-@inline function τx(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) = 
+    SemiImplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
+                                  Adapt.adapt(to, τ.v), 
+                                  τ.ρₒCᴰ)
+
+# We extend the τx and τy methods to compute the time-dependent stress
+import ClimaSeaIce.SeaIceMomentumEquations: explicit_τx, explicit_τy, implicit_τx, implicit_τy
+
+@inline function explicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    uₒ = @inbounds τ.u[i, j, k]
     Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
     Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
-    return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δu
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * uₒ
 end
 
-@inline function τy(i, j, k, grid, τ::ExplicitOceanSeaIceStress, clock, fields) 
+@inline function explicit_τy(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    vₒ = @inbounds τ.v[i, j, k]
     Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
     Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
-    return - τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * Δv
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * vₒ
 end
 
-τᵤₒ = τᵥₒ = ExplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
+@inline function implicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
+end
+
+@inline function implicit_τy(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
+    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
+end
+
+τᵤₒ = τᵥₒ = SemiImplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
 
 ####
 #### Atmosphere - sea ice stress 
@@ -109,23 +132,19 @@ compute!(τᵥₐ)
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
-                                            coriolis = FPlane(f = 1e-4),
-                                            rheology = ViscousRheology(ν = 1000.0))
+                                            coriolis = FPlane(f=1e-4),
+                                            rheology = ElastoViscoPlasticRheology(),
+                                            solver   = SplitExplicitSolver(substeps=120))
 advection = WENO(; order = 7)
-
-u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
-
-v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
-                                east = ValueBoundaryCondition(0))
 
 # Define the model!
 model = SeaIceModel(grid; 
                     top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                    bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
+                    bottom_momentum_stress = (u = τᵤₒ, v = τᵤₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection,
+                    timestepper = :QuasiAdamsBashforth2,
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
 # Initial height field with perturbations around 0.3 m
@@ -140,7 +159,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 10seconds, stop_time = 2hours)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -170,10 +189,10 @@ function accumulate_timeseries(sim)
     ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
-    push!(htimeseries, deepcopy(interior(h)))
-    push!(ℵtimeseries, deepcopy(interior(ℵ)))
-    push!(utimeseries, deepcopy(interior(u)))
-    push!(vtimeseries, deepcopy(interior(v)))
+    push!(htimeseries, deepcopy(Array(interior(h))))
+    push!(ℵtimeseries, deepcopy(Array(interior(ℵ))))
+    push!(utimeseries, deepcopy(Array(interior(u))))
+    push!(vtimeseries, deepcopy(Array(interior(v))))
 end
 
 wall_time = [time_ns()]

@@ -15,14 +15,14 @@ using Oceananigans.Advection: FluxFormAdvection,
 # 
 # A = ∇ ⋅ (uh)
 
-_advective_thickness_flux_x(args...) = advective_thickness_flux_x(args...)
-_advective_thickness_flux_y(args...) = advective_thickness_flux_y(args...)
+_advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h)
+_advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h)
 
-_advective_thickness_flux_x(i, j, k, ibg::ImmersedBoundaryGrid, args...) = 
-    conditional_flux_fcc(i, j, k, ibg, zero(ibg), advective_thickness_flux_x(i, j, k, ibg, args...))
+_advective_thickness_flux_x(i, j, k, ibg::ImmersedBoundaryGrid, scheme, U, ℵ, h) = 
+    conditional_flux_fcc(i, j, k, ibg, zero(ibg), advective_thickness_flux_x(i, j, k, ibg, scheme, U, ℵ, h))
 
-_advective_thickness_flux_y(i, j, k, ibg::ImmersedBoundaryGrid, args...) = 
-    conditional_flux_cfc(i, j, k, ibg, zero(ibg), advective_thickness_flux_y(i, j, k, ibg, args...))
+_advective_thickness_flux_y(i, j, k, ibg::ImmersedBoundaryGrid, scheme, U, ℵ, h) = 
+    conditional_flux_cfc(i, j, k, ibg, zero(ibg), advective_thickness_flux_y(i, j, k, ibg, scheme, U, ℵ, h))
 
 @inline function advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h)
     ϕℵ = advective_tracer_flux_x(i, j, k, grid, advection, U, ℵ) / Axᶠᶜᶜ(i, j, k, grid)
