@@ -42,8 +42,11 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     u_bottom_stress = model.external_momentum_stresses.bottom.u
     v_bottom_stress = model.external_momentum_stresses.bottom.v
 
-    u_args = (args..., u_top_stress, u_bottom_stress)
-    v_args = (args..., v_top_stress, v_bottom_stress)
+    u_forcing = model.forcing.u
+    v_forcing = model.forcing.v
+
+    u_args = (args..., u_top_stress, u_bottom_stress, u_forcing)
+    v_args = (args..., v_top_stress, v_bottom_stress, v_forcing)
 
     auxiliary_fields = ice_dynamics.auxiliary_fields
 

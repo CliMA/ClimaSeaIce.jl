@@ -28,7 +28,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
           + explicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
           + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
           + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ
-          + (fields.uⁿ[i, j, 1] - fields.u[i, j, 1]) / ℑxᶠᵃᵃ(i, j, 1, grid, fields.α) / Δt)
+          # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
+          + sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, fields, Δt)) 
 
    # Implicit part of the stress that depends linearly on the velocity
    τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
@@ -51,7 +52,8 @@ end
                                      ice_concentration,
                                      ice_density,
                                      v_top_stress,
-                                     v_bottom_stress)
+                                     v_bottom_stress,
+                                     v_forcing)
 
    h = ice_thickness
    ℵ = ice_concentration
@@ -67,7 +69,8 @@ end
            + explicit_τy(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ
            + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ
            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ 
-           + (fields.vⁿ[i, j, 1] - fields.v[i, j, 1]) / ℑyᵃᶠᵃ(i, j, 1, grid, fields.α) / Δt)
+           # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
+          + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, fields, Δt))
 
    # Implicit part of the stress that depends linearly on the velocity
    τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
@@ -78,6 +81,9 @@ end
 
    return τᵢ, Gⱽ
 end
+
+@inline sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, fields, Δt) = u_forcing(i, j, 1, grid, fields)
+@inline sum_of_forcing_y(i, j, 1, grid, rheology, u_forcing, fields, Δt) = v_forcing(i, j, 1, grid, fields)
 
 # Fallback
 @inline implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)

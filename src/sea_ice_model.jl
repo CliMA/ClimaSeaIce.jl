@@ -5,6 +5,7 @@ using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using Oceananigans: tupleit, tracernames
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: ConstantField
+using Oceananigans.Forcing: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A} <: AbstractModel{TS}
@@ -44,7 +45,8 @@ function SeaIceModel(grid;
                      tracers                = (),
                      boundary_conditions    = NamedTuple(),
                      ice_thermodynamics     = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics           = nothing)
+                     ice_dynamics           = nothing,
+                     forcing                = NamedTuple())
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
 
@@ -102,6 +104,8 @@ function SeaIceModel(grid;
         end
     end
 
+    forcing = model_forcing(prognostic_fields; forcing...)
+    
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 

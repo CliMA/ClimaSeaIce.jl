@@ -29,21 +29,26 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
 
     u, v = model.velocities
 
+    u_forcing = model.forcing.u
+    v_forcing = model.forcing.v
+
     initialize_rheology!(model, ice_dynamics.rheology)
     compute_stresses!(model, ice_dynamics, ice_dynamics.rheology, Δt)
 
     α, β = timestepping_coefficients(model.timestepper, stage)
     
     launch!(architecture(grid), grid, :xy, _step_velocities!, u, v, Gu, Gv, grid, Δt, α, β, args,
-            u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
+            u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress, u_forcing, v_forcing)
 
     return nothing
 end
 
-@kernel function _compute_velocity_tendencies!(u, v, Gu, Gv, grid, Δt, α, β, args, u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
+@kernel function _compute_velocity_tendencies!(u, v, Gu, Gv, grid, Δt, α, β, args, 
+                                               u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress,
+                                               u_forcing, v_forcing)
     i, j = @index(Global, NTuple)
-    τuᵢ, Guⁿ = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress)
-    τvᵢ, Gvⁿ = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
+    τuᵢ, Guⁿ = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress, u_forcing)
+    τvᵢ, Gvⁿ = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress, v_forcing)
 
     @inbounds u[i, j, k] = (u[i, j, k] + Δt * (α * Guⁿ + β * Gu[i, j, k])) / (1 + Δt * τuᵢ)
     @inbounds v[i, j, k] = (v[i, j, k] + Δt * (α * Gvⁿ + β * Gv[i, j, k])) / (1 + Δt * τvᵢ)
