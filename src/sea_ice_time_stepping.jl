@@ -46,15 +46,19 @@ end
         ℵ⁺ = ℵ[i, j, k] + Δt * (α * Gℵⁿ[i, j, k] + β * Gℵ⁻[i, j, k])
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) * ice_covered
 
-        # If ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
-        # to maintain a constant ice volume
-        ht = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
-        ℵt = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
-
         # If h < hmin we reset the thickness to zero and adjust the concentration accordingly
         # to maintain a constant ice volume
-        h[i, j, k] = ifelse(ht < h⁻, h⁻, ht)
-        ℵ[i, j, k] = ifelse(ht < h⁻, ℵt * (ht - h⁻) / ht, ℵt)
+        ht = ifelse(h⁺ < h⁻, h⁻, h⁺)
+        ℵt = ifelse(ht < h⁻, ℵt * (h⁻ - h⁺) / h⁺, ℵt)
+        ℵt = ifelse(ht == 0, zero(ℵt), ℵt)
+
+        # If ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
+        # to maintain a constant ice volume
+        ht = ifelse(ℵt > 1, ht * ℵt, ht)
+        ℵt = ifelse(ℵt > 1, one(ℵt), ℵt)
+
+        ℵ[i, j, k] = ℵt
+        h[i, j, k] = ht
     end 
 end
 
