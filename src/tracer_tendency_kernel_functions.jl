@@ -22,10 +22,11 @@ function compute_tracer_tendencies!(model::SIM)
             model.velocities,
             model.advection,
             model.ice_concentration,
+            model.ice_consolidation_thickness,
             model.ice_thermodynamics,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
-            nothing, #model.forcing.h,
+            model.forcing.h,
             fields(model))
 
     return nothing
@@ -36,7 +37,8 @@ end
                                              clock,
                                              velocities,
                                              advection,
-                                             concentration,
+                                             ice_concentration,
+                                             ice_consolidation_thickness,
                                              thermodynamics,
                                              top_external_heat_flux,
                                              bottom_external_heat_flux,
@@ -49,7 +51,8 @@ end
                                                      velocities,
                                                      advection,
                                                      ice_thickness,
-                                                     concentration,
+                                                     ice_concentration,
+                                                     ice_consolidation_thickness,
                                                      thermodynamics,
                                                      top_external_heat_flux,
                                                      bottom_external_heat_flux,
@@ -65,6 +68,7 @@ function ice_thickness_tendency(i, j, k, grid, clock,
                                 advection,
                                 ice_thickness,
                                 ice_concentration,
+                                ice_consolidation_thickness,
                                 thermodynamics,
                                 top_external_heat_flux,
                                 bottom_external_heat_flux,
@@ -76,6 +80,7 @@ function ice_thickness_tendency(i, j, k, grid, clock,
     Gh_thermodynamics = thickness_thermodynamic_tendency(i, j, k, grid, 
                                                          ice_thickness, 
                                                          ice_concentration,
+                                                         ice_consolidation_thickness,
                                                          thermodynamics,
                                                          top_external_heat_flux,
                                                          bottom_external_heat_flux,
@@ -85,6 +90,6 @@ function ice_thickness_tendency(i, j, k, grid, clock,
     # Compute forcing
     Fh = zero(grid) #h_forcing(i, j, grid, clock, model_fields)
 
-    return Gh_advection + Gh_thermodynamics + Fh
+    return Gh_advection + Gh_thermodynamics + Fh 
 end
 

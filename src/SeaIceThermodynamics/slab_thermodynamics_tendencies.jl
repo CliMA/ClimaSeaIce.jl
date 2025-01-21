@@ -4,6 +4,7 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 @inline function thickness_thermodynamic_tendency(i, j, k, grid,
                                                   ice_thickness,
                                                   ice_concentration,
+                                                  ice_consolidation_thickness,
                                                   thermodynamics::SlabSeaIceThermodynamics,
                                                   top_external_heat_flux,
                                                   bottom_external_heat_flux,
@@ -21,7 +22,7 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     Tu = thermodynamics.top_surface_temperature
 
     @inbounds begin
-        hᶜ = thermodynamics.ice_consolidation_thickness[i, j, k]
+        hᶜ = ice_consolidation_thickness[i, j, k]
         hᵢ = ice_thickness[i, j, k]
     end
 

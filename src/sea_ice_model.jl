@@ -30,23 +30,28 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A, F} <: Abstr
 end
 
 function SeaIceModel(grid;
-                     clock                  = Clock{eltype(grid)}(time = 0),
-                     ice_thickness          = nothing,
-                     ice_concentration      = nothing,
-                     ice_salinity           = 0, # psu
-                     ice_density            = 900, # kg m⁻³
-                     top_heat_flux          = nothing,
-                     bottom_heat_flux       = 0,
-                     velocities             = nothing,
-                     timestepper            = :QuasiAdamsBashforth2,
-                     advection              = nothing,
-                     top_momentum_stress    = (u = nothing, v = nothing),
-                     bottom_momentum_stress = (u = nothing, v = nothing),
-                     tracers                = (),
-                     boundary_conditions    = NamedTuple(),
-                     ice_thermodynamics     = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics           = nothing,
-                     forcing                = NamedTuple())
+                     clock                       = Clock{eltype(grid)}(time = 0),
+                     ice_thickness               = nothing,
+                     ice_consolidation_thickness = 0.05, # m
+                     ice_concentration           = nothing,
+                     ice_salinity                = 0, # psu
+                     ice_density                 = 900, # kg m⁻³
+                     top_heat_flux               = nothing,
+                     bottom_heat_flux            = 0,
+                     velocities                  = nothing,
+                     timestepper                 = :QuasiAdamsBashforth2,
+                     advection                   = nothing,
+                     top_momentum_stress         = (u = nothing, v = nothing),
+                     bottom_momentum_stress      = (u = nothing, v = nothing),
+                     tracers                     = (),
+                     boundary_conditions         = NamedTuple(),
+                     ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
+                     ice_dynamics                = nothing,
+                     forcing                     = NamedTuple())
+
+    # TODO: pass `clock` into `field`, so functions can be time-dependent?
+    # Wrap ice_consolidation_thickness in a field
+    ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
 

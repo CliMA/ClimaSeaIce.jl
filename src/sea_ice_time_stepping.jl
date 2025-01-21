@@ -8,8 +8,9 @@ function step_tracers!(model::SIM, Δt, substep)
     grid = model.grid
     arch = architecture(grid)
 
-    h  = model.ice_thickness
-    ℵ  = model.ice_concentration
+    h    = model.ice_thickness
+    ℵ    = model.ice_concentration
+    hmin = model.ice_consolidation_thickness
     tracers = model.tracers
 
     Gⁿ = model.timestepper.Gⁿ
@@ -17,7 +18,7 @@ function step_tracers!(model::SIM, Δt, substep)
 
     α, β = timestepping_coefficients(model.timestepper, substep)
     
-    launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, tracers, Gⁿ, G⁻, Δt, α, β)
+    launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, hmin, tracers, Gⁿ, G⁻, Δt, α, β)
 
     return nothing
 end
@@ -26,7 +27,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _step_tracers!(h, ℵ, tracers, Gⁿ, G⁻, Δt, α, β)
+@kernel function _step_tracers!(h, ℵ, hmin, tracers, Gⁿ, G⁻, Δt, α, β)
     i, j, k = @index(Global, NTuple)
 
     Ghⁿ = Gⁿ.h
@@ -37,17 +38,23 @@ end
 
     # Update ice thickness, clipping negative values
     @inbounds begin
+        h⁻ = hmin[i, j, k]
         h⁺ = h[i, j, k] + Δt * (α * Ghⁿ[i, j, k] + β * Gh⁻[i, j, k])
         h⁺ = max(zero(h⁺), h⁺)
-
+        
         ice_covered = h⁺ > 0
         ℵ⁺ = ℵ[i, j, k] + Δt * (α * Gℵⁿ[i, j, k] + β * Gℵ⁻[i, j, k])
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) * ice_covered
-        
-        # Ridging! if ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
+
+        # If ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
         # to maintain a constant ice volume
-        h[i, j, k] = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
-        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
+        ht = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
+        ℵt = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
+
+        # If h < hmin we reset the thickness to zero and adjust the concentration accordingly
+        # to maintain a constant ice volume
+        h[i, j, k] = ifelse(ht < h⁻, h⁻, ht)
+        ℵ[i, j, k] = ifelse(ht < h⁻, ℵt * (ht - h⁻) / ht, ℵt)
     end 
 end
 

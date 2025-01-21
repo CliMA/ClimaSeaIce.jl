@@ -7,15 +7,13 @@ struct SlabSeaIceThermodynamics{ST, HBC, CF, P, MIT}
     internal_heat_flux :: CF
     # Melting and freezing stuff
     phase_transitions :: P
-    ice_consolidation_thickness :: MIT
 end
 
 Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) = 
     SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
                              Adapt.adapt(to, t.heat_boundary_conditions),
                              Adapt.adapt(to, t.internal_heat_flux),
-                             Adapt.adapt(to, t.phase_transitions),
-                             Adapt.adapt(to, t.ice_consolidation_thickness))
+                             Adapt.adapt(to, t.phase_transitions))
 
 const SSIT = SlabSeaIceThermodynamics
 
@@ -23,8 +21,7 @@ Base.summary(therm::SSIT) = "SlabThermodynamics"
 
 function Base.show(io::IO, therm::SSIT)
     print(io, "SlabSeaIceThermodynamics", '\n')
-    print(io, "├── top_surface_temperature: ", summary(therm.top_surface_temperature), '\n')
-    print(io, "└── minimium_ice_thickness: ", prettysummary(therm.ice_consolidation_thickness), '\n')
+    print(io, "└── top_surface_temperature: ", summary(therm.top_surface_temperature))
 end
        
 fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
@@ -35,17 +32,12 @@ fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
 Pretty simple model for sea ice.
 """
 function SlabSeaIceThermodynamics(grid;
-                                  ice_consolidation_thickness    = 0.0, # m
                                   top_surface_temperature        = nothing,
                                   top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
                                   bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
                                   # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
                                   internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
                                   phase_transitions              = PhaseTransitions(eltype(grid)))
-
-    # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_consolidation_thickness in a field
-    ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
     # Construct an internal heat flux function that captures the liquidus and
     # bottom boundary condition.
@@ -77,7 +69,6 @@ function SlabSeaIceThermodynamics(grid;
     return SlabSeaIceThermodynamics(top_surface_temperature,
                                     heat_boundary_conditions,
                                     internal_heat_flux_function,
-                                    phase_transitions,
-                                    ice_consolidation_thickness)
+                                    phase_transitions)
 end
 
