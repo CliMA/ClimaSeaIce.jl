@@ -7,7 +7,7 @@ using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A, F} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, SMS, A, F} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     forcing :: F
@@ -17,6 +17,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, STF, SMS, A, F} <: Abstr
     ice_thickness :: IT
     ice_concentration :: IC
     ice_density :: ID
+    ice_consolidation_thickness :: CT
     # Thermodynamics
     ice_thermodynamics :: TD
     # Dynamics
@@ -126,6 +127,7 @@ function SeaIceModel(grid;
                        ice_thickness,
                        ice_concentration,
                        ice_density,
+                       ice_consolidation_thickness,
                        ice_thermodynamics,
                        ice_dynamics,
                        external_heat_fluxes,
