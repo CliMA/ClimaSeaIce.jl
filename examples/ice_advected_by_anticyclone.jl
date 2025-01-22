@@ -16,7 +16,10 @@ using Oceananigans.Operators
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-arch = CPU()
+using CUDA
+CUDA.device!(2)
+
+arch = GPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
@@ -70,7 +73,7 @@ Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) =
                                   τ.ρₒCᴰ)
 
 # We extend the τx and τy methods to compute the time-dependent stress
-import ClimaSeaIce.SeaIceMomentumEquations: explicit_τx, explicit_τy, implicit_τx, implicit_τy
+import ClimaSeaIce.SeaIceMomentumEquations: explicit_τx, explicit_τy, implicit_τx_coefficient, implicit_τy_coefficient
 
 @inline function explicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
     uₒ = @inbounds τ.u[i, j, k]
@@ -86,13 +89,13 @@ end
     return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * vₒ
 end
 
-@inline function implicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
     Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
     Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
     return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
 end
 
-@inline function implicit_τy(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
+@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
     Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
     Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
     return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
@@ -133,8 +136,9 @@ compute!(τᵥₐ)
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
                                             coriolis = FPlane(f=1e-4),
-                                            rheology = ElastoViscoPlasticRheology(),
-                                            solver   = SplitExplicitSolver(substeps=120))
+                                            rheology = ElastoViscoPlasticRheology(min_substeps=50, 
+                                                                                  max_substeps=500),
+                                            solver   = SplitExplicitSolver(substeps=1000))
 advection = WENO(; order = 7)
 
 # Define the model!

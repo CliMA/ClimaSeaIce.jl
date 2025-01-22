@@ -2,7 +2,7 @@
 
 julia_version = "1.10.6"
 manifest_format = "2.0"
-project_hash = "9e19e33901ddbcf59f8a69f2fda1bef8f4f811cd"
+project_hash = "434a965a9071abb21f6e2b4e1284dc42501ea5d8"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -891,9 +891,9 @@ version = "1.2.0"
 
 [[deps.Oceananigans]]
 deps = ["Adapt", "CUDA", "Crayons", "CubedSphere", "Dates", "Distances", "DocStringExtensions", "FFTW", "GPUArrays", "Glob", "IncompleteLU", "InteractiveUtils", "IterativeSolvers", "JLD2", "KernelAbstractions", "LinearAlgebra", "Logging", "MPI", "NCDatasets", "OffsetArrays", "OrderedCollections", "Pkg", "Printf", "Random", "Rotations", "SeawaterPolynomials", "SparseArrays", "Statistics", "StructArrays"]
-git-tree-sha1 = "27fc1e0597dd3865335e48479826532c4fbf4402"
+git-tree-sha1 = "068aa2ff8b77dfb176e7df2f6c290c2b62e97341"
 uuid = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
-version = "0.95.6"
+version = "0.95.7"
 
     [deps.Oceananigans.extensions]
     OceananigansEnzymeExt = "Enzyme"
@@ -954,9 +954,17 @@ version = "1.7.0"
 
 [[deps.OrthogonalSphericalShellGrids]]
 deps = ["Adapt", "Distances", "KernelAbstractions", "MPI", "Oceananigans", "OffsetArrays", "Statistics"]
-git-tree-sha1 = "d11fd9caa8246493ca6da68bf00fef6a86bfa835"
+git-tree-sha1 = "1f095c9a06656949307e7015f3cb309649884d23"
+repo-rev = "ss/visualize"
+repo-url = "https://github.com/CliMA/OrthogonalSphericalShellGrids.jl.git"
 uuid = "c2be9673-fb75-4747-82dc-aa2bb9f4aed0"
 version = "0.2.1"
+
+    [deps.OrthogonalSphericalShellGrids.extensions]
+    OrthogonalSphericalShellGridsGeoMakieExt = ["GeoMakie"]
+
+    [deps.OrthogonalSphericalShellGrids.weakdeps]
+    GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
 
 [[deps.PaddedViews]]
 deps = ["OffsetArrays"]

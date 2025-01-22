@@ -16,8 +16,8 @@ include("prescribed_external_stress.jl")
 
 arch = GPU()
 
-sea_ice_grid  = TripolarGrid(arch; size=(680, 220, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
-bottom_height = regrid_bathymetry(sea_ice_grid, interpolation_passes=1, minimum_depth=0, major_basins=Inf)
+sea_ice_grid  = TripolarGrid(arch; size=(1020, 420, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
+bottom_height = regrid_bathymetry(sea_ice_grid, interpolation_passes=1, minimum_depth=0, major_basins=10)
 grid = ImmersedBoundaryGrid(sea_ice_grid, GridFittedBottom(bottom_height))
 
 #####
@@ -60,8 +60,9 @@ v_bcs = FieldBoundaryConditions(top=nothing, bottom=nothing)
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
                                             coriolis = HydrostaticSphericalCoriolis(),
-                                            rheology = ElastoViscoPlasticRheology(),
-                                            solver   = SplitExplicitSolver(substeps=120))
+                                            rheology = ElastoViscoPlasticRheology(max_substeps=150, 
+                                                                                  min_substeps=50),
+                                            solver   = SplitExplicitSolver(substeps=300))
 
 # Define the model!
 model = SeaIceModel(grid; 
@@ -69,6 +70,7 @@ model = SeaIceModel(grid;
                     bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
+                    ice_consolidation_thickness = 0.1, # 10 cm
                     advection = WENO(; order = 7),
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
@@ -76,24 +78,47 @@ model = SeaIceModel(grid;
 set!(model.ice_thickness,     ECCOMetadata(:sea_ice_thickness),     inpainting=ClimaOcean.DataWrangling.NearestNeighborInpainting(1))
 set!(model.ice_concentration, ECCOMetadata(:sea_ice_area_fraction), inpainting=ClimaOcean.DataWrangling.NearestNeighborInpainting(1))
 
-simulation = Simulation(model, Δt=120, stop_iteration=1) #stop_time=2days)
+using Oceananigans.Utils
+
+launch!(arch, grid, :xy, ClimaSeaIce._set_minium_ice_thickness!, 
+        model.ice_thickness,
+        model.ice_concentration,
+        model.ice_consolidation_thickness)
+
+@show minimum(Array(interior(model.ice_thickness, :, :, 1)))
+@show maximum(Array(interior(model.ice_thickness, :, :, 1)))
+
+simulation = Simulation(model, Δt=120, stop_time=20days)
 
 # # Container to hold the data
-htimeseries = []
-ℵtimeseries = []
-utimeseries = []
-vtimeseries = []
-
+htimeseries   = []
+ℵtimeseries   = []
+utimeseries   = []
+vtimeseries   = []
+σ₁₁timeseries = []
+σ₁₂timeseries = []
+σ₂₂timeseries = []
+αtimeseries   = []
+ 
 ## Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
     h = sim.model.ice_thickness
     ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
-    push!(htimeseries, deepcopy(Array(interior(h))))
-    push!(ℵtimeseries, deepcopy(Array(interior(ℵ))))
-    push!(utimeseries, deepcopy(Array(interior(u))))
-    push!(vtimeseries, deepcopy(Array(interior(v))))
+    σ₁₁ = sim.model.ice_dynamics.auxiliary_fields.σ₁₁
+    σ₁₂ = sim.model.ice_dynamics.auxiliary_fields.σ₁₂
+    σ₂₂ = sim.model.ice_dynamics.auxiliary_fields.σ₂₂
+    α   = sim.model.ice_dynamics.auxiliary_fields.α
+    
+    push!(htimeseries,   deepcopy(Array(interior(h, :, :, 1))))
+    push!(ℵtimeseries,   deepcopy(Array(interior(ℵ, :, :, 1))))
+    push!(utimeseries,   deepcopy(Array(interior(u, :, :, 1))))
+    push!(vtimeseries,   deepcopy(Array(interior(v, :, :, 1))))
+    push!(σ₁₁timeseries, deepcopy(Array(interior(σ₁₁, :, :, 1))))
+    push!(σ₁₂timeseries, deepcopy(Array(interior(σ₁₂, :, :, 1))))
+    push!(σ₂₂timeseries, deepcopy(Array(interior(σ₂₂, :, :, 1))))
+    push!(αtimeseries,   deepcopy(Array(interior(α, :, :, 1))))
 end
 
 wall_time = [time_ns()]
@@ -119,6 +144,9 @@ function progress(sim)
 end
 
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
-simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(5))
+simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(50))
 
-run!(simulation)
+# run!(simulation)
+
+# using JLD2
+# jldsave("ice_variables.jld2"; h=htimeseries, ℵ=ℵtimeseries, u=utimeseries, v=vtimeseries, σ₁₁=σ₁₁timeseries, σ₁₂=σ₁₂timeseries, σ₂₂=σ₂₂timeseries, α=αtimeseries)

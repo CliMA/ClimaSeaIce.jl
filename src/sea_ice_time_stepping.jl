@@ -39,27 +39,38 @@ end
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁻ = hmin[i, j, k]
-        h⁺ = h[i, j, k] + Δt * (α * Ghⁿ[i, j, k] + β * Gh⁻[i, j, k])
-        h⁺ = max(zero(h⁺), h⁺)
-        
-        ice_covered = h⁺ > 0
+        h⁺ = h[i, j, k] + Δt * (α * Ghⁿ[i, j, k] + β * Gh⁻[i, j, k])        
         ℵ⁺ = ℵ[i, j, k] + Δt * (α * Gℵⁿ[i, j, k] + β * Gℵ⁻[i, j, k])
-        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) * ice_covered
+        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
+        h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
 
-        # If h < hmin we reset the thickness to zero and adjust the concentration accordingly
-        # to maintain a constant ice volume
-        ht = ifelse(h⁺ < h⁻, h⁻, h⁺)
-        ℵt = ifelse(ht < h⁻, ℵt * (h⁻ - h⁺) / h⁺, ℵt)
-        ℵt = ifelse(ht == 0, zero(ℵt), ℵt)
-
-        # If ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
-        # to maintain a constant ice volume
-        ht = ifelse(ℵt > 1, ht * ℵt, ht)
-        ℵt = ifelse(ℵt > 1, one(ℵt), ℵt)
+        ht, ℵt = cap_ice_thickness(h⁺, h⁻, ℵ⁺)
 
         ℵ[i, j, k] = ℵt
         h[i, j, k] = ht
     end 
+end
+
+# If h < hmin we reset the thickness to h⁻ and adjust the concentration accordingly
+# to maintain a constant ice volume. 
+# A no ice condition is represented by h = hmin and ℵ = 0 since ice_volume = (h * ℵ)
+# The thickness should _NEVER_ be zero! 
+@inline function cap_ice_thickness(h⁺, h⁻, ℵ⁺)
+
+    # Remove ice if h⁺ == 0
+    thin_ice = (0 < h⁺ < h⁻) # Thin ice condition
+
+    ht = ifelse(thin_ice, h⁻, h⁺)
+    ℵt = ifelse(thin_ice, ℵ⁺ * h⁻ / h⁺, ℵ⁺)
+    ℵt = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺)
+    ht = ifelse(h⁺ == 0, h⁻, ht)
+
+    # If ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
+    # to maintain a constant ice volume
+    ht = ifelse(ℵt > 1, ht * ℵt, ht)
+    ℵt = ifelse(ℵt > 1, one(ℵt), ℵt)
+
+    return ht, ℵt
 end
 
 function store_tendencies!(model::SIM) 

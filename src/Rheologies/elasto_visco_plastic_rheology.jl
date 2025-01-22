@@ -159,6 +159,56 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     return nothing
 end
 
+const c = Center()
+const f = Face()
+
+# Hardcode No-slip boundary conditions on immersed boundaries?
+# TODO: find a way not to hard-code. We need to pass the immersed_boundary_conditions of
+# the velocities to the kernels
+@inline function ∂xᴮᶜᶜᶜ(i, j, k, grid, u)
+    i1 = inactive_node(i,   j, k, grid, f, c, c)
+    i2 = inactive_node(i+1, j, k, grid, f, c, c) 
+    Δx = Δxᶜᶜᶜ(i, j, k, grid)
+
+    u1 = @inbounds u[i,   j, k]
+    u2 = @inbounds u[i+1, j, k]
+
+    return ifelse(i1, 2u2 / Δx, ifelse(i2, - 2u1 / Δx, (u2 - u1) / Δx))
+end
+
+@inline function ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
+    j1 = inactive_node(i, j,   k, grid, c, f, c)
+    j2 = inactive_node(i, j+1, k, grid, c, f, c) 
+    Δy = Δyᶜᶜᶜ(i, j, k, grid)
+
+    v1 = @inbounds v[i, j,   k]
+    v2 = @inbounds v[i, j+1, k]
+
+    return ifelse(j1, 2v2 / Δy, ifelse(j2, 2v1 / Δy, (v2 - v1) / Δy))
+end
+
+@inline function ∂xᴮᶠᶠᶜ(i, j, k, grid, v)
+    i1 = inactive_node(i-1, j, k, grid, c, f, c)
+    i2 = inactive_node(i,   j, k, grid, c, f, c) 
+    Δx = Δxᶠᶠᶜ(i, j, k, grid)
+
+    v1 = @inbounds v[i-1, j, k]
+    v2 = @inbounds v[i,   j, k]
+
+    return ifelse(i1, 2v2 / Δx, ifelse(i2, - 2v1 / Δx, (v2 - v1) / Δx))
+end
+
+@inline function ∂yᴮᶠᶠᶜ(i, j, k, grid, u)
+    j1 = inactive_node(i, j-1, k, grid, f, c, c)
+    j2 = inactive_node(i, j,   k, grid, f, c, c) 
+    Δy = Δyᶜᶜᶜ(i, j, k, grid)
+
+    u1 = @inbounds u[i, j-1, k]
+    u2 = @inbounds u[i, j,   k]
+
+    return ifelse(j1, 2u2 / Δy, ifelse(j2, 2u1 / Δy, (u2 - u1) / Δy))
+end
+
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
@@ -177,13 +227,13 @@ end
     α   = fields.α
 
     # Strain rates
-    ϵ̇₁₁ =  ∂xᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ̇₁₂ = (∂xᶠᶠᶜ(i, j, 1, grid, v) + ∂yᶠᶠᶜ(i, j, 1, grid, u)) / 2
-    ϵ̇₂₂ =  ∂yᶜᶜᶜ(i, j, 1, grid, v)
+    ϵ̇₁₁ =  ∂xᴮᶜᶜᶜ(i, j, 1, grid, u)
+    ϵ̇₁₂ = (∂xᴮᶠᶠᶜ(i, j, 1, grid, v) + ∂yᴮᶠᶠᶜ(i, j, 1, grid, u)) / 2
+    ϵ̇₂₂ =  ∂yᴮᶜᶜᶜ(i, j, 1, grid, v)
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᶠᶠᶜ, v) + 
-              ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᶠᶠᶜ, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᴮᶠᶠᶜ, v) + 
+              ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᴮᶠᶠᶜ, u)) / 2
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -197,8 +247,8 @@ end
     Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
 
     # Face - Face variables
-    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂xᶜᶜᶜ, u)
-    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂yᶜᶜᶜ, v)
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂xᴮᶜᶜᶜ, u)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂yᴮᶜᶜᶜ, v)
 
     # Ice divergence
     δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
@@ -293,6 +343,6 @@ end
 
 @inline function sum_of_forcing_y(i, j, k, grid, ::ElastoViscoPlasticRheology, v_forcing, fields, Δt) 
     user_forcing = v_forcing(i, j, k, grid, fields)
-    rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑyᶠᵃᵃ(i, j, k, grid, fields.α)
+    rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑyᵃᶠᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
 end

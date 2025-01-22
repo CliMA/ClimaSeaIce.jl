@@ -138,9 +138,34 @@ end
 
 const SIM = SeaIceModel
 
+@kernel function _set_minium_ice_thickness!(h, ℵ, hmin)
+    i, j = @index(Global, NTuple)
+
+    @inbounds begin
+        h⁺ = h[i, j, 1]
+        ℵ⁺ = ℵ[i, j, 1]
+        h⁻ = hmin[i, j, 1]
+
+        ht, ℵt = cap_ice_thickness(h⁺, h⁻, ℵ⁺)
+
+        ℵ[i, j, 1] = ℵt
+        h[i, j, 1] = ht
+    end
+end
+
 function set!(model::SIM; h=nothing, ℵ=nothing)
+    grid = model.grid
+    arch = architecture(model)
+
     !isnothing(h) && set!(model.ice_thickness, h)
     !isnothing(ℵ) && set!(model.ice_concentration, ℵ)
+
+        #We cap the ice to the consolidation thickness
+    launch!(arch, grid, :xy, _set_minium_ice_thickness!, 
+            model.ice_thickness,
+            model.ice_concentration,
+            model.ice_consolidation_thickness)
+
     return nothing
 end
 
