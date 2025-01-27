@@ -22,7 +22,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
      fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
      # Ice mass (per unit area) interpolated on u points
-     ℵᵢ = ℑxᵃᶠᵃ(i, j, 1, grid, ℵ)
+     ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ρ) 
 
      Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
