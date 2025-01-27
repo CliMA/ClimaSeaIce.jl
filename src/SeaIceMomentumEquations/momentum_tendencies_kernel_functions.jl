@@ -15,31 +15,31 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
                                      u_bottom_stress,
                                      u_forcing)
 
-   h = ice_thickness
-   ℵ = ice_concentration
-   ρ = ice_density
+     h = ice_thickness
+     ℵ = ice_concentration
+     ρ = ice_density
 
-   fields = merge(auxiliary_fields, velocities, (; h, ℵ))
+     fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
-   # Ice mass (per unit area) interpolated on u points
-   mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ρ)
-   ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
+     # Ice mass (per unit area) interpolated on u points
+     ℵᵢ = ℑxᵃᶠᵃ(i, j, 1, grid, ℵ)
+     mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ρ) 
 
-   Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
-          + explicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
-          + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-          + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ
-          # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-          + sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, fields, Δt)) 
+     Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
+            + explicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
+            + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+            + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ
+            # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
+            + sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, fields, Δt)) 
 
-   # Implicit part of the stress that depends linearly on the velocity
-   τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-        + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ )
+     # Implicit part of the stress that depends linearly on the velocity
+     τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+          + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ )
 
-   Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
-   τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
+     Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
+     τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
 
-   return τᵢ, Gᵁ
+     return τᵢ, Gᵁ
 end
 
 """compute ice v-velocity tendencies"""
@@ -56,22 +56,22 @@ end
                                      v_bottom_stress,
                                      v_forcing)
 
-   h = ice_thickness
-   ℵ = ice_concentration
-   ρ = ice_density
+     h = ice_thickness
+     ℵ = ice_concentration
+     ρ = ice_density
 
-   fields = merge(auxiliary_fields, velocities, (; h, ℵ))
+     fields = merge(auxiliary_fields, velocities, (; h, ℵ))
 
-   # Ice mass (per unit area) interpolated on v points
-   mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ρ)
-   ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
+     # Ice mass (per unit area) interpolated on v points
+     ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
+     mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ρ) 
 
-    Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
-           + explicit_τy(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ
-           + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-           + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ 
-           # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-           + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, fields, Δt))
+     Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
+            + explicit_τy(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ
+            + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ 
+            # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
+            + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, fields, Δt))
 
    # Implicit part of the stress that depends linearly on the velocity
    τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
