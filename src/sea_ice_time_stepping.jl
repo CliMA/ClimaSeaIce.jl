@@ -70,6 +70,9 @@ end
     ht = ifelse(ℵt > 1, ht * ℵt, ht)
     ℵt = ifelse(ℵt > 1, one(ℵt), ℵt)
 
+    # Reset the thickness to minimum if ℵt == 0
+    ht = ifelse(ℵt == 0, h⁻, ht)
+    
     return ht, ℵt
 end
 
