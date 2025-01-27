@@ -16,7 +16,7 @@ include("prescribed_external_stress.jl")
 
 arch = GPU()
 
-sea_ice_grid  = TripolarGrid(arch; size=(1020, 420, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
+sea_ice_grid  = TripolarGrid(arch; size=(600, 200, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
 bottom_height = regrid_bathymetry(sea_ice_grid, interpolation_passes=1, minimum_depth=0, major_basins=10)
 grid = ImmersedBoundaryGrid(sea_ice_grid, GridFittedBottom(bottom_height))
 
@@ -71,7 +71,7 @@ model = SeaIceModel(grid;
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     ice_consolidation_thickness = 0.1, # 10 cm
-                    advection = WENO(; order = 7),
+                    advection = WENO(),
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
 # We start with thickenss and concentration from climatology
@@ -145,8 +145,7 @@ end
 
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
 simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(50))
+run!(simulation)
 
-# run!(simulation)
-
-# using JLD2
-# jldsave("ice_variables.jld2"; h=htimeseries, ℵ=ℵtimeseries, u=utimeseries, v=vtimeseries, σ₁₁=σ₁₁timeseries, σ₁₂=σ₁₂timeseries, σ₂₂=σ₂₂timeseries, α=αtimeseries)
+using JLD2
+jldsave("ice_variables.jld2"; h=htimeseries, ℵ=ℵtimeseries, u=utimeseries, v=vtimeseries, σ₁₁=σ₁₁timeseries, σ₁₂=σ₁₂timeseries, σ₂₂=σ₂₂timeseries, α=αtimeseries)
