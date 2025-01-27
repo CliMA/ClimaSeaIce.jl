@@ -1,3 +1,4 @@
+using Printf
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
@@ -23,6 +24,7 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     @inbounds begin
         hᶜ = thermodynamics.ice_consolidation_thickness[i, j, k]
         hᵢ = ice_thickness[i, j, k]
+        ℵᵢ = ice_concentration[i, j, k]
     end
 
     # Consolidation criteria
@@ -49,9 +51,12 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     ℰu = latent_heat(phase_transitions, Tuᵢ)
 
     # Retrieve fluxes
-    Quᵢ = getflux(Qu, i, j, grid, Tuᵢ, clock, model_fields)
+    @inbounds begin
+        Quᵢ = Qu[i, j, 1] #getflux(Qu, i, j, grid, Tuᵢ, clock, model_fields)
+        Qbᵢ = Qb[i, j, 1] #getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
+    end
+
     Qiᵢ = getflux(Qi, i, j, grid, Tuᵢ, clock, model_fields)
-    Qbᵢ = getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
 
     # If ice is consolidated, compute tendency for an ice slab; otherwise
     # just add ocean fluxes from frazil ice formation or melting
@@ -62,6 +67,8 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     wb = (Qiᵢ - Qbᵢ) / ℰb # < 0 => freezing
 
     slabby_Gh = wu + wb
+
+    @printf("Qu: %.1e, Qi: %.1e, Qb: %.1e, wu: %.1e, wb: %.1e \n", Quᵢ, Qiᵢ, Qbᵢ, wu, wb)
 
     return ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
 end

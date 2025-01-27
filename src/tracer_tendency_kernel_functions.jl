@@ -1,4 +1,5 @@
 using Oceananigans.Advection
+using Printf
 using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 using ClimaSeaIce.SeaIceMomentumEquations: compute_momentum_tendencies!
 
@@ -44,7 +45,22 @@ end
                                              model_fields)
 
     i, j, k = @index(Global, NTuple)
+
+    Gh_thermodynamics = thickness_thermodynamic_tendency(i, j, k, grid, 
+                                                         ice_thickness, 
+                                                         concentration,
+                                                         thermodynamics,
+                                                         top_external_heat_flux,
+                                                         bottom_external_heat_flux,
+                                                         clock, model_fields)
+
+    Qu = @inbounds top_external_heat_flux[i, j, 1]
+    Qb = @inbounds bottom_external_heat_flux[i, j, 1]
+    @sprintf("Qu: %.1e, Qb: %.1e \n", Qu, Qb)
+
+    @inbounds Gⁿ.h[i, j, k] = Gh_thermodynamics
     
+    #=
     @inbounds Gⁿ.h[i, j, k] = ice_thickness_tendency(i, j, k, grid, clock,
                                                      velocities,
                                                      advection,
@@ -57,6 +73,7 @@ end
                                                      model_fields)
      
     @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, concentration)
+    =#
 end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value

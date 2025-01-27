@@ -35,7 +35,7 @@ fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
 Pretty simple model for sea ice.
 """
 function SlabSeaIceThermodynamics(grid;
-                                  ice_consolidation_thickness    = 0.0, # m
+                                  ice_consolidation_thickness    = 0.05, # m
                                   top_surface_temperature        = nothing,
                                   top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
                                   bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
@@ -45,7 +45,7 @@ function SlabSeaIceThermodynamics(grid;
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_consolidation_thickness in a field
-    ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
+    ice_consolidation_thickness = convert(eltype(grid), ice_consolidation_thickness)
 
     # Construct an internal heat flux function that captures the liquidus and
     # bottom boundary condition.

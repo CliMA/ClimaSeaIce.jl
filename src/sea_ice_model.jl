@@ -46,20 +46,24 @@ function SeaIceModel(grid;
 
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
-    default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions()
-                                                          for name in field_names))
+    default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions() for name in field_names))
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
     # have precedence, followed by embedded, followed by default.
     boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
 
-    if isnothing(velocities) 
-        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
-        velocities = (; u, v)
+    if !isnothing(ice_dynamics)
+        if isnothing(velocities) 
+            u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
+            v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
+        end
+    else
+        u = ZeroField()
+        v = ZeroField()
     end
 
+    velocities = (; u, v)
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
@@ -69,8 +73,8 @@ function SeaIceModel(grid;
     ice_density  = field((Center, Center, Nothing), ice_density, grid)
 
     # Construct prognostic fields if not provided
-    ice_thickness = isnothing(ice_thickness) ? Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
-    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
+    ice_thickness = isnothing(ice_thickness) ? Field{Center, Center, Nothing}(grid) : ice_thickness
+    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Nothing}(grid) : ice_concentration
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
