@@ -16,7 +16,7 @@ include("prescribed_external_stress.jl")
 
 arch = GPU()
 
-sea_ice_grid  = TripolarGrid(arch; size=(600, 200, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
+sea_ice_grid  = TripolarGrid(arch; size=(1440, 400, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
 bottom_height = regrid_bathymetry(sea_ice_grid, interpolation_passes=1, minimum_depth=0, major_basins=10)
 grid = ImmersedBoundaryGrid(sea_ice_grid, GridFittedBottom(bottom_height))
 
@@ -70,7 +70,7 @@ model = SeaIceModel(grid;
                     bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    ice_consolidation_thickness = 0.1, # 10 cm
+                    ice_consolidation_thickness = 0.05, # 10 cm
                     advection = WENO(),
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
@@ -88,7 +88,7 @@ launch!(arch, grid, :xy, ClimaSeaIce._set_minium_ice_thickness!,
 @show minimum(Array(interior(model.ice_thickness, :, :, 1)))
 @show maximum(Array(interior(model.ice_thickness, :, :, 1)))
 
-simulation = Simulation(model, Δt=120, stop_time=20days)
+simulation = Simulation(model, Δt=120, stop_time=50days)
 
 # # Container to hold the data
 htimeseries   = []

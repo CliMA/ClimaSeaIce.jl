@@ -96,3 +96,41 @@ end
 
 @inline explicit_τx(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
 @inline explicit_τy(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
+
+@inline function mask_u_velocity!(u, i, j, grid, 
+                                  clock,
+                                  velocities,
+                                  coriolis,
+                                  ice_thickness,
+                                  ice_concentration,
+                                  ice_density,
+                                  u_top_stress,
+                                  u_bottom_stress,
+                                  u_forcing)
+
+     ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_concentration)
+     uf = free_drift_u(i, j, 1, grid, u_bottom_stress, clock, fields)
+
+     @inline u[i, j, 1] = ifelse(ℵᵢ ≤ 1e-3, uf, u[i, j, 1])  
+end
+
+@inline function mask_v_velocity!(v, i, j, grid, 
+                                  clock,
+                                  velocities,
+                                  coriolis,
+                                  ice_thickness,
+                                  ice_concentration,
+                                  ice_density,
+                                  v_top_stress,
+                                  v_bottom_stress,
+                                  v_forcing)
+
+     ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_concentration)
+     vf = free_drift_v(i, j, 1, grid, v_bottom_stress, clock, fields)
+
+     @inline v[i, j, 1] = ifelse(ℵᵢ ≤ 1e-3, vf, v[i, j, 1])  
+end
+
+# Extend for the particular stress we have
+@inline free_drift_u(i, j, k, grid, args...) = zero(grid)
+@inline free_drift_v(i, j, k, grid, args...) = zero(grid)

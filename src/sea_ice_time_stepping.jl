@@ -41,6 +41,7 @@ end
         h⁻ = hmin[i, j, k]
         h⁺ = h[i, j, k] + Δt * (α * Ghⁿ[i, j, k] + β * Gh⁻[i, j, k])        
         ℵ⁺ = ℵ[i, j, k] + Δt * (α * Gℵⁿ[i, j, k] + β * Gℵ⁻[i, j, k])
+
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
         h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
 
@@ -61,18 +62,12 @@ end
     thin_ice = (0 < h⁺ < h⁻) # Thin ice condition
 
     ht = ifelse(thin_ice, h⁻, h⁺)
-    ℵt = ifelse(thin_ice, ℵ⁺ * h⁻ / h⁺, ℵ⁺)
-    ℵt = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺)
-    ht = ifelse(h⁺ == 0, h⁻, ht)
+    ht = ifelse(ℵ⁺ > 1, ht * ℵ⁺, ht)
 
-    # If ℵ > 1, we reset the concentration to 1 and increase the thickness accordingly
-    # to maintain a constant ice volume
-    ht = ifelse(ℵt > 1, ht * ℵt, ht)
+    ℵt = ifelse(ht == 0, zero(ℵ⁺), ℵ⁺)
+    ht = ifelse(ht == 0, h⁻, ht)
     ℵt = ifelse(ℵt > 1, one(ℵt), ℵt)
 
-    # Reset the thickness to minimum if ℵt == 0
-    ht = ifelse(ℵt == 0, h⁻, ht)
-    
     return ht, ℵt
 end
 

@@ -247,7 +247,6 @@ end
     @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
 end
 
-
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).

@@ -91,6 +91,7 @@ end
     τuᵢ, Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
 
     @inbounds u[i, j, 1] = (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ)
+    mask_u_velocity!(u, i, j, grid, args...)
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, substeps, rheology, auxiliary_fields, args)
@@ -98,6 +99,7 @@ end
     
     Δτ      = compute_time_stepᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, auxiliary_fields) 
     τvᵢ, Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, auxiliary_fields, args...)
-    
+
     @inbounds v[i, j, 1] = (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)
+    mask_v_velocity!(v, i, j, grid, args...)
 end
