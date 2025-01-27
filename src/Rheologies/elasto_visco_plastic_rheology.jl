@@ -85,15 +85,17 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Face, Face, Nothing}(grid)
 
-    uⁿ = Field{Face, Center, Nothing}(grid)
-    vⁿ = Field{Center, Face, Nothing}(grid)
+    uⁿ = Field{Face,   Center, Nothing}(grid)
+    vⁿ = Field{Center, Face,   Nothing}(grid)
     P  = Field{Center, Center, Nothing}(grid)
     α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+    ζ  = Field{Center, Center, Nothing}(grid)
+    Δ  = Field{Center, Center, Nothing}(grid)
 
     # An initial (safe) educated guess
     fill!(α, r.max_substeps)
 
-    return (; σ₁₁, σ₂₂, σ₁₂, α, uⁿ, vⁿ, P)
+    return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
@@ -145,7 +147,6 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     arch = architecture(grid)
 
     h  = model.ice_thickness
-    ℵ  = model.ice_concentration
     ρᵢ = model.ice_density
 
     fields = ice_dynamics.auxiliary_fields
@@ -153,8 +154,10 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
 
     Nx, Ny, _ = size(grid)
 
-    parameters = KernelParameters(0:Nx+1, 0:Ny+1)
-    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
+    parameters = KernelParameters(-1:Nx+2, -1:Ny+2)
+
+    launch!(arch, grid, parameters, _compute_evp_viscosities!, fields, grid, rheology, u, v)
+    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, grid, rheology, u, v, h, ρᵢ, Δt)
 
     return nothing
 end
@@ -209,26 +212,19 @@ end
     return ifelse(j1, 2u2 / Δy, ifelse(j2, 2u1 / Δy, (u2 - u1) / Δy))
 end
 
-# Compute the visco-plastic stresses for a slab sea ice model.
-# The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
-# following the mEVP formulation of Kimmritz et al (2016).
-# This is the `meat` of the formulation.
-@kernel function _compute_evp_stresses!(fields, rheology, grid, u, v, h, ℵ, ρᵢ, Δt)
+@kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v)
     i, j = @index(Global, NTuple)
+
+    P = fields.P
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
 
     # Extract auxiliary fields 
-    P   = fields.P
-    σ₁₁ = fields.σ₁₁
-    σ₂₂ = fields.σ₂₂
-    σ₁₂ = fields.σ₁₂
-    α   = fields.α
+    P = fields.P
 
     # Strain rates
     ϵ̇₁₁ =  ∂xᴮᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ̇₁₂ = (∂xᴮᶠᶠᶜ(i, j, 1, grid, v) + ∂yᴮᶠᶠᶜ(i, j, 1, grid, u)) / 2
     ϵ̇₂₂ =  ∂yᴮᶜᶜᶜ(i, j, 1, grid, v)
 
     # Center - Center variables:
@@ -244,38 +240,43 @@ end
     # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
-    Δᶜᶜᶜ = sqrt(δ^2 + s^2 * e⁻²) + Δm
-
-    # Face - Face variables
-    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂xᴮᶜᶜᶜ, u)
-    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ∂yᴮᶜᶜᶜ, v)
-
-    # Ice divergence
-    δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
-
-    # Ice shear
-    sᶠᶠᶜ = sqrt((ϵ̇₁₁ᶠᶠᶜ - ϵ̇₂₂ᶠᶠᶜ)^2 + 4ϵ̇₁₂^2)
-
-    # Visco - Plastic parameter 
-    # if Δ is very small we assume a linear viscous response
-    # adding a minimum Δ_min (at Faces)
-    Δᶠᶠᶜ = sqrt(δᶠᶠᶜ^2 + sᶠᶠᶜ^2 * e⁻²) + Δm
-
-    # Ice strength calculation 
-    # Note: can we interpolate P on faces or do we need to compute it on faces?
+    Δᶜᶜᶜ = max(sqrt(δ^2 + s^2 * e⁻²), Δm)
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
-    Pᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, P)
 
-    # ζ: Bulk viscosity (viscosity which responds to compression) 
-    # η: Shear viscosity (viscosity which responds to shear)
-    ζᶜᶜᶜ = Pᶜᶜᶜ / 2Δᶜᶜᶜ
-    ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
+    @inbounds fields.ζ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
+    @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
+end
 
-    ζᶠᶠᶜ = Pᶠᶠᶜ / 2Δᶠᶠᶜ
-    ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
-    # replacement pressure
+# Compute the visco-plastic stresses for a slab sea ice model.
+# The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
+# following the mEVP formulation of Kimmritz et al (2016).
+# This is the `meat` of the formulation.
+@kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ρᵢ, Δt)
+    i, j = @index(Global, NTuple)
+
+    e⁻² = rheology.yield_curve_eccentricity^(-2)
+    Δm  = rheology.minimum_plastic_stress
+    σ₁₁ = fields.σ₁₁
+    σ₂₂ = fields.σ₂₂
+    σ₁₂ = fields.σ₁₂
+    α   = fields.α
+
+    # Strain rates
+    ϵ̇₁₁ =  ∂xᴮᶜᶜᶜ(i, j, 1, grid, u)
+    ϵ̇₁₂ = (∂xᴮᶠᶠᶜ(i, j, 1, grid, v) + ∂yᴮᶠᶠᶜ(i, j, 1, grid, u)) / 2
+    ϵ̇₂₂ =  ∂yᴮᶜᶜᶜ(i, j, 1, grid, v)
+
+    Pᶜᶜᶜ = @inbounds fields.P[i, j, 1]
+    ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
+    Δᶜᶜᶜ = @inbounds fields.Δ[i, j, 1]
+    ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, fields.ζ)
+
+    # replacement pressure?
     Pᵣ = Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
+
+    ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
+    ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
     # σ(uᵖ): the tangential stress depends only shear viscosity 
     # while the compressive stresses depend on the bulk viscosity and the ice strength
@@ -300,7 +301,7 @@ end
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
-    @inbounds α[i, j, 1]   = γᶜᶜᶜ
+    @inbounds   α[i, j, 1]  = γᶜᶜᶜ
     
     # Mask inactive nodes
     @inbounds σ₁₁[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Center(), Center(), Center()), zero(grid), σ₁₁[i, j, 1])

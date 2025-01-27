@@ -73,12 +73,12 @@ end
             # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
             + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, fields, Δt))
 
-   # Implicit part of the stress that depends linearly on the velocity
-   τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
-        + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ )
+     # Implicit part of the stress that depends linearly on the velocity
+     τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
+          + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ )
 
-   Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
-   τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
+     Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
+     τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
 
    return τᵢ, Gⱽ
 end
