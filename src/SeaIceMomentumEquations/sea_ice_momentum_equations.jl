@@ -14,6 +14,34 @@ end
 """ a simple explicit solver """
 struct ExplicitSolver end
 
+"""
+    SeaIceMomentumEquation(grid; 
+                           coriolis=nothing,
+                           rheology=ElastoViscoPlasticRheology(eltype(grid)),
+                           auxiliary_fields=NamedTuple(),
+                           ocean_velocities=OceanSurfaceVelocity(grid),
+                           solver=ExplicitSolver(),
+                           minimum_concentration=1e-3,
+                           minimum_mass=1.0)
+
+Constructs a `SeaIceMomentumEquation` object that controls the dynamical evolution of sea-ice momentum.
+
+Arguments
+=========
+- `grid`: The computational grid.
+
+Keyword Arguments
+=================
+
+- `coriolis`: Parameters for the background rotation rate of the model.
+- `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
+- `auxiliary_fields`: A named tuple of auxiliary fields, default is an empty `NamedTuple()`.
+- `ocean_velocities`: The ocean surface velocities used to limit the sea ice momentum when the mass or the concentration are
+                      below a certain threshold. default is `OceanSurfaceVelocity(grid)`.
+- `solver`: The momentum solver to be used.
+- `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
+- `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
+"""
 function SeaIceMomentumEquation(grid; 
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
@@ -46,6 +74,7 @@ end
     OceanSurfaceVelocity(grid; velocities=nothing, mitigation=0.01)
 
 Build a type that controls the free drift velocity of the sea ice where concentration and mass are lower than a threshold.
+The free drift velocity is calculated as `velocities` mitigated by a factor `mitigation`.
 """
 function OceanSurfaceVelocity(grid; velocities=nothing, mitigation=0.01)
     if isanothing(velocities)

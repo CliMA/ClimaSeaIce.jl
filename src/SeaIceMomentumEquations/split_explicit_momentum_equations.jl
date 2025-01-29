@@ -9,6 +9,14 @@ struct SplitExplicitSolver
     substeps :: Int
 end
 
+"""
+    SplitExplicitSolver(; substeps=120)
+
+Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
+by subcycling `substeps` times in between each thermodynamics / tracer advection time step.
+
+The default number of substeps is 120.
+"""
 SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
