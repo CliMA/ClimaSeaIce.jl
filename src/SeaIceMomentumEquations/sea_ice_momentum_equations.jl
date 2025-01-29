@@ -99,5 +99,5 @@ end
 @inline free_drift_v(i, j, k, grid, f) = @inbounds f.v[i, j, k] 
 
 # Passing no velocities
-@inline free_drift_u(i, j, k, grid, f) = zero(grid)
-@inline free_drift_v(i, j, k, grid, f) = zero(grid)
+@inline free_drift_u(i, j, k, ::Nothing, f) = zero(grid)
+@inline free_drift_v(i, j, k, ::Nothing, f) = zero(grid)
