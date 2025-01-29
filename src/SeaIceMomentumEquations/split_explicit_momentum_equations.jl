@@ -126,9 +126,11 @@ end
     mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, model_fields.ℵ)
 
+    # If the ice mass or the ice concentration are below a certain threshold, 
+    # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
 
-    return ifelse(sea_ice, uᴰ, uᶠ)
+    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, 
@@ -149,7 +151,9 @@ end
     mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, model_fields.ℵ)
     
+    # If the ice mass or the ice concentration are below a certain threshold, 
+    # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
 
-    return ifelse(sea_ice, vᴰ, vᶠ)
+    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
 end
