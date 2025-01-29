@@ -2,6 +2,10 @@ using Oceananigans.Utils
 using ClimaSeaIce: timestepping_coefficients
 
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
+ 
+#=
+
+This needs to be extended for the new solver
 
 # Compute the tendencies for the explicit momentum equations
 function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
@@ -57,3 +61,6 @@ end
     @inbounds Gu[i, j, k] = Guⁿ
     @inbounds Gv[i, j, k] = Gvⁿ
 end
+=#
+
+s

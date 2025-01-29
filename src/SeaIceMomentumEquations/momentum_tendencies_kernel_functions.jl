@@ -4,37 +4,31 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 """compute ice u-velocity tendencies"""
 @inline function u_velocity_tendency(i, j, grid, Δt,
                                      rheology,
-                                     auxiliary_fields,
+                                     model_fields,
                                      clock,
-                                     velocities,
                                      coriolis,
-                                     ice_thickness,
-                                     ice_concentration,
-                                     ice_density,
                                      u_top_stress,
                                      u_bottom_stress,
                                      u_forcing)
 
-     h = ice_thickness
-     ℵ = ice_concentration
-     ρ = ice_density
-
-     fields = merge(auxiliary_fields, velocities, (; h, ℵ))
+     h = model_fields.h
+     ℵ = model_fields.ℵ
+     ρ = model_fields.ρ
 
      # Ice mass (per unit area) interpolated on u points
      ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ρ) 
 
-     Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, velocities) 
-            + explicit_τx(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
-            + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ
+     Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, model_fields) 
+            + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+            + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+            + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields, Δt) / mᵢ
             # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-            + sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, fields, Δt)) 
+            + sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, model_fields, Δt)) 
 
      # Implicit part of the stress that depends linearly on the velocity
-     τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-          + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ )
+     τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+          + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ )
 
      Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
      τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
@@ -45,37 +39,31 @@ end
 """compute ice v-velocity tendencies"""
 @inline function v_velocity_tendency(i, j, grid, Δt,
                                      rheology,
-                                     auxiliary_fields,
+                                     model_fields,
                                      clock,
-                                     velocities,
                                      coriolis,
-                                     ice_thickness,
-                                     ice_concentration,
-                                     ice_density,
                                      v_top_stress,
                                      v_bottom_stress,
                                      v_forcing)
 
-     h = ice_thickness
-     ℵ = ice_concentration
-     ρ = ice_density
-
-     fields = merge(auxiliary_fields, velocities, (; h, ℵ))
+     h = model_fields.h
+     ℵ = model_fields.ℵ
+     ρ = model_fields.ρ
 
      # Ice mass (per unit area) interpolated on v points
      ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ρ) 
 
-     Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, velocities)
-            + explicit_τy(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ
-            + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, fields, Δt) / mᵢ 
+     Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, model_fields)
+            + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+            + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields, Δt) / mᵢ 
             # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-            + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, fields, Δt))
+            + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, model_fields, Δt))
 
      # Implicit part of the stress that depends linearly on the velocity
-     τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ 
-          + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ )
+     τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ 
+          + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ )
 
      Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
      τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
@@ -96,41 +84,3 @@ end
 
 @inline explicit_τx(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
 @inline explicit_τy(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
-
-@inline function mask_u_velocity!(u, i, j, grid, 
-                                  clock,
-                                  velocities,
-                                  coriolis,
-                                  ice_thickness,
-                                  ice_concentration,
-                                  ice_density,
-                                  u_top_stress,
-                                  u_bottom_stress,
-                                  u_forcing)
-
-     ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_concentration)
-     uf = free_drift_u(i, j, 1, grid, u_bottom_stress, clock, fields)
-
-     @inline u[i, j, 1] = ifelse(ℵᵢ ≤ 1e-3, uf, u[i, j, 1])  
-end
-
-@inline function mask_v_velocity!(v, i, j, grid, 
-                                  clock,
-                                  velocities,
-                                  coriolis,
-                                  ice_thickness,
-                                  ice_concentration,
-                                  ice_density,
-                                  v_top_stress,
-                                  v_bottom_stress,
-                                  v_forcing)
-
-     ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_concentration)
-     vf = free_drift_v(i, j, 1, grid, v_bottom_stress, clock, fields)
-
-     @inline v[i, j, 1] = ifelse(ℵᵢ ≤ 1e-3, vf, v[i, j, 1])  
-end
-
-# Extend for the particular stress we have
-@inline free_drift_u(i, j, k, grid, args...) = zero(grid)
-@inline free_drift_v(i, j, k, grid, args...) = zero(grid)
