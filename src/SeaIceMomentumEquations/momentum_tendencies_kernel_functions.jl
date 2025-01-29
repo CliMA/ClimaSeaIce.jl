@@ -24,7 +24,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
             + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields, Δt) / mᵢ
             # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-            + sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, model_fields, Δt)) 
+            + sum_of_forcing_u(i, j, 1, grid, rheology, u_forcing, model_fields, Δt)) 
 
      Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
 
@@ -54,7 +54,7 @@ end
             + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields, Δt) / mᵢ 
             # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-            + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, model_fields, Δt))
+            + sum_of_forcing_v(i, j, 1, grid, rheology, v_forcing, model_fields, Δt))
 
      Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
 

@@ -336,13 +336,13 @@ end
 ##### Numerical forcing to help convergence
 #####
 
-@inline function sum_of_forcing_x(i, j, k, grid, ::ElastoViscoPlasticRheology, u_forcing, fields, Δt) 
+@inline function sum_of_forcing_u(i, j, k, grid, ::ElastoViscoPlasticRheology, u_forcing, fields, Δt) 
     user_forcing = u_forcing(i, j, k, grid, fields)
     rheology_forcing = @inbounds (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / Δt / ℑxᶠᵃᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
 end
 
-@inline function sum_of_forcing_y(i, j, k, grid, ::ElastoViscoPlasticRheology, v_forcing, fields, Δt) 
+@inline function sum_of_forcing_v(i, j, k, grid, ::ElastoViscoPlasticRheology, v_forcing, fields, Δt) 
     user_forcing = v_forcing(i, j, k, grid, fields)
     rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑyᵃᶠᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
