@@ -62,5 +62,3 @@ end
     @inbounds Gv[i, j, k] = Gvⁿ
 end
 =#
-
-s
