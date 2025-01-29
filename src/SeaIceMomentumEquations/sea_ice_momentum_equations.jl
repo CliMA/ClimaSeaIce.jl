@@ -19,7 +19,7 @@ struct ExplicitSolver end
                            coriolis=nothing,
                            rheology=ElastoViscoPlasticRheology(eltype(grid)),
                            auxiliary_fields=NamedTuple(),
-                           ocean_velocities=OceanSurfaceVelocity(grid),
+                           ocean_velocities=nothing,
                            solver=ExplicitSolver(),
                            minimum_concentration=1e-3,
                            minimum_mass=1.0)
@@ -66,8 +66,8 @@ function SeaIceMomentumEquation(grid;
                                   auxiliary_fields, 
                                   solver,
                                   ocean_velocities,
-                                  minimum_concentration,
-                                  minimum_mass)
+                                  eltype(grid)(minimum_concentration),
+                                  eltype(grid)(minimum_mass))
 end
 
 fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
