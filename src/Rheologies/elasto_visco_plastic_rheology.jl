@@ -167,7 +167,8 @@ const c = Center()
 const f = Face()
 
 # Hardcode No-slip boundary conditions on immersed boundaries?
-# TODO: find a way not to hard-code. We need to pass the immersed_boundary_conditions of
+# TODO: Fix this mess!! 
+# Find a way not to hard-code. We need to pass the immersed_boundary_conditions of
 # the velocities to the kernels
 @inline function ∂xᴮᶜᶜᶜ(i, j, k, grid, u)
     i1 = inactive_node(i,   j, k, grid, f, c, c)
@@ -250,8 +251,7 @@ end
 
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
-# following the mEVP formulation of Kimmritz et al (2016).
-# This is the `meat` of the formulation.
+# following the αEVP formulation of Kimmritz et al (2016).
 @kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
 
