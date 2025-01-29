@@ -26,14 +26,9 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
             # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
             + sum_of_forcing_x(i, j, 1, grid, rheology, u_forcing, model_fields, Δt)) 
 
-     # Implicit part of the stress that depends linearly on the velocity
-     τᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-          + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ )
-
      Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
-     τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
 
-     return τᵢ, Gᵁ
+     return Gᵁ
 end
 
 """compute ice v-velocity tendencies"""
@@ -61,14 +56,9 @@ end
             # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
             + sum_of_forcing_y(i, j, 1, grid, rheology, v_forcing, model_fields, Δt))
 
-     # Implicit part of the stress that depends linearly on the velocity
-     τᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ 
-          + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ )
-
      Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
-     τᵢ = ifelse(mᵢ ≤ 0, zero(grid), τᵢ)
 
-   return τᵢ, Gⱽ
+   return Gⱽ
 end
 
 # Fallback
