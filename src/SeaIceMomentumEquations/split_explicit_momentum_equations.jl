@@ -29,7 +29,7 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
 
     u, v = model.velocities
   
-    free_drift_velocity = ice_dynamics.free_drift_velocity
+    ocean_velocities = ice_dynamics.ocean_velocities
     clock = model.clock
     coriolis = ice_dynamics.coriolis
 
@@ -58,7 +58,7 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     fill_halo_regions!(model.velocities)
     initialize_rheology!(model, ice_dynamics.rheology)
 
-    for substep in 1 : substeps
+    for _ in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, ice_dynamics, rheology, Δt)
 
@@ -68,24 +68,24 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
         # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
         if iseven(substep) 
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift_velocity, clock, coriolis,
+                               ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
                                u_top_stress, u_bottom_stress, u_forcing)
 
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift_velocity, clock, coriolis, 
+                               ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
                                v_top_stress, v_bottom_stress, v_forcing)
 
         else
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift_velocity, clock, coriolis, 
+                               ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
                                v_top_stress, v_bottom_stress, v_forcing)
             
 
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift_velocity, clock, coriolis,
+                               ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
                                u_top_stress, u_bottom_stress, u_forcing)
         end
@@ -102,7 +102,7 @@ end
 
 @kernel function _u_velocity_step!(u, grid, Δt, 
                                    substeps, rheology, 
-                                   model_fields, free_drift_velocity, 
+                                   model_fields, ocean_velocities, 
                                    clock, coriolis, 
                                    minimum_mass, minimum_concentration,
                                    u_top_stress, u_bottom_stress, u_forcing)
@@ -113,9 +113,9 @@ end
     τuᵢ, Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_top_stress, u_bottom_stress, u_forcing)
 
     uᴰ = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
-    uᶠ = free_drift_u(i, j, 1, grid, free_drift_velocity) # free drift velocity
+    uᶠ = free_drift_u(i, j, 1, grid, ocean_velocities) # free drift velocity
 
-    mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ρ)
+    mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, model_fields.ℵ)
 
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
@@ -136,12 +136,12 @@ end
     τvᵢ, Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_top_stress, v_bottom_stress, v_forcing)
 
     vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
-    uᶠ = free_drift_u(i, j, 1, grid, free_drift_velocity) # free drift velocity
+    vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities) # free drift velocity
     
-    mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ρ)
+    mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, model_fields.ℵ)
     
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
 
-    return ifelse(sea_ice, vᴰ, uᶠ)
+    return ifelse(sea_ice, vᴰ, vᶠ)
 end

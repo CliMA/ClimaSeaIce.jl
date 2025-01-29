@@ -148,6 +148,7 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
 
     h  = model.ice_thickness
     ρᵢ = model.ice_density
+    ℵ  = model.ice_concentration
 
     fields = ice_dynamics.auxiliary_fields
     u, v = model.velocities
@@ -157,7 +158,7 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     parameters = KernelParameters(-1:Nx+2, -1:Ny+2)
 
     launch!(arch, grid, parameters, _compute_evp_viscosities!, fields, grid, rheology, u, v)
-    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, grid, rheology, u, v, h, ρᵢ, Δt)
+    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end
@@ -251,7 +252,7 @@ end
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the mEVP formulation of Kimmritz et al (2016).
 # This is the `meat` of the formulation.
-@kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ρᵢ, Δt)
+@kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
@@ -283,8 +284,8 @@ end
     σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
-    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ρᵢ) 
+    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
 
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)

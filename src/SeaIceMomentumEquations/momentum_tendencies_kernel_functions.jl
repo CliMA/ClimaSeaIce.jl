@@ -17,7 +17,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 
      # Ice mass (per unit area) interpolated on u points
      ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ)
-     mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ρ) 
+     mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
      Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, model_fields) 
             + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
@@ -52,7 +52,7 @@ end
 
      # Ice mass (per unit area) interpolated on v points
      ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
-     mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ρ) 
+     mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
      Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, model_fields)
             + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ

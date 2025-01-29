@@ -6,7 +6,7 @@ struct SeaIceMomentumEquation{S, C, R, V, A, FT}
     rheology :: R
     auxiliary_fields :: A
     solver :: S
-    free_drift_velocity :: V
+    ocean_velocities :: V
     minimum_concentration :: FT
     minimum_mass :: FT
 end
@@ -18,10 +18,10 @@ function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 auxiliary_fields = NamedTuple(),
-                                free_drift_velocity = OceanSurfaceVelocity(grid),
+                                ocean_velocities = OceanSurfaceVelocity(grid),
                                 solver = ExplicitSolver(),
                                 minimum_concentration = 1e-3,
-                                minimum_mass = 0.1)
+                                minimum_mass = 1.0)
 
     auxiliary_fields = merge(auxiliary_fields, required_auxiliary_fields(rheology, grid))
 
@@ -29,7 +29,7 @@ function SeaIceMomentumEquation(grid;
                                   rheology, 
                                   auxiliary_fields, 
                                   solver,
-                                  free_drift_velocity,
+                                  ocean_velocities,
                                   minimum_concentration,
                                   minimum_mass)
 end
@@ -61,3 +61,7 @@ end
 
 @inline free_drift_u(i, j, k, grid, f::OceanSurfaceVelocity) = @inbounds f.u[i, j, k] * f.C
 @inline free_drift_v(i, j, k, grid, f::OceanSurfaceVelocity) = @inbounds f.v[i, j, k] * f.C
+
+# Just passing velocities
+@inline free_drift_u(i, j, k, grid, f) = @inbounds f.u[i, j, k] 
+@inline free_drift_v(i, j, k, grid, f) = @inbounds f.v[i, j, k] 
