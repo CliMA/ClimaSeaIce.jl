@@ -152,7 +152,7 @@ advection = WENO(; order = 7)
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    advection = nothing,
+                    advection = WENO(order=9),
                     timestepper = :QuasiAdamsBashforth2,
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
