@@ -59,6 +59,8 @@ v_bcs = FieldBoundaryConditions(top=nothing, bottom=nothing)
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
+                                            top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
+                                            bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                                             coriolis = HydrostaticSphericalCoriolis(),
                                             rheology = ElastoViscoPlasticRheology(max_substeps=150, 
                                                                                   min_substeps=50),
@@ -66,8 +68,6 @@ momentum_equations = SeaIceMomentumEquation(grid;
 
 # Define the model!
 model = SeaIceModel(grid; 
-                    top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                    bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     ice_consolidation_thickness = 0.05, # 10 cm

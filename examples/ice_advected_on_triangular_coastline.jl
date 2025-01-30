@@ -83,8 +83,10 @@ end
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 dynamics = SeaIceMomentumEquation(grid; 
-                                      coriolis = nothing,
-                                      solver = SplitExplicitSolver(substeps=120))
+                                  coriolis = nothing,
+                                  top_momentum_stress = (u=τᵤ, v=τᵥ),
+                                  bottom_momentum_stress = (u=τₒ, v=τₒ), 
+                                  solver = SplitExplicitSolver(substeps=120))
 
 advection = WENO(; order = 7)
 
@@ -94,8 +96,6 @@ u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
 
 #Define the model!
 model = SeaIceModel(grid; 
-                    top_momentum_stress = (u=τᵤ, v=τᵥ),
-                    bottom_momentum_stress = (u=τₒ, v=τₒ), 
                     advection,
                     dynamics = dynamics,
                     boundary_conditions = (; u = u_bcs),

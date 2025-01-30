@@ -100,7 +100,8 @@ end
 function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
     time = Time(clock.time)
 
-    possible_fts = (model.tracers, model.external_heat_fluxes, model.external_momentum_stresses)
+    #TODO : change this 
+    possible_fts = (model.tracers, model.external_heat_fluxes, model.dynamics.external_momentum_stresses)
     time_series_tuple = extract_field_time_series(possible_fts)
     time_series_tuple = flattened_unique_values(time_series_tuple)
 

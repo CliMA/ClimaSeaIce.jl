@@ -16,10 +16,11 @@ using Oceananigans.Operators
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-using CUDA
-CUDA.device!(2)
+# using CUDA
+# CUDA.device!(2)
 
-arch = GPU()
+# arch = GPU()
+arch = CPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
@@ -138,6 +139,8 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
+                                            top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
+                                            bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology = ElastoViscoPlasticRheology(min_substeps=50, 
@@ -147,9 +150,7 @@ advection = WENO(; order = 7)
 
 # Define the model!
 model = SeaIceModel(grid; 
-                    top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                    bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
-                    ice_dynamics = momentum_equations,
+                    dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection = nothing,
                     timestepper = :QuasiAdamsBashforth2,
