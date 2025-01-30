@@ -49,6 +49,8 @@ v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
 ##### Ocean sea-ice stress
 #####
 
+using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
+
 # Constant ocean velocities corresponding to a cyclonic eddy
 Uₒ = XFaceField(grid)
 Vₒ = YFaceField(grid)
@@ -59,49 +61,7 @@ set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 
-struct SemiImplicitOceanSeaIceStress{U, V, C}
-    u    :: U
-    v    :: V
-    ρₒCᴰ :: C
-end
-
-using Adapt
-
-Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) = 
-    SemiImplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
-                                  Adapt.adapt(to, τ.v), 
-                                  τ.ρₒCᴰ)
-
-# We extend the τx and τy methods to compute the time-dependent stress
-import ClimaSeaIce.SeaIceMomentumEquations: explicit_τx, explicit_τy, implicit_τx_coefficient, implicit_τy_coefficient
-
-@inline function explicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    uₒ = @inbounds τ.u[i, j, k]
-    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
-    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * uₒ
-end
-
-@inline function explicit_τy(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    vₒ = @inbounds τ.v[i, j, k]
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
-    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
-    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2) * vₒ
-end
-
-@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
-    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
-end
-
-@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
-    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
-    return τ.ρₒCᴰ * sqrt(Δu^2 + Δv^2)
-end
-
-τᵤₒ = τᵥₒ = SemiImplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5)
+τᵤₒ = τᵥₒ = SemiImplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5e-3, 1025.0)
 
 ####
 #### Atmosphere - sea ice stress 
