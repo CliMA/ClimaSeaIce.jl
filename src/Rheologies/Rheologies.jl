@@ -10,7 +10,7 @@ using ClimaSeaIce: ice_mass
 # Nothing rheology
 required_auxiliary_fields(rheology, grid) = NamedTuple()
 initialize_rheology!(model, rheology) = nothing
-compute_stresses!(model, ice_dynamics, rheology, Δt) = nothing
+compute_stresses!(model, dynamics, rheology, Δt) = nothing
 
 @inline ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields) = zero(grid)
 @inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields) = zero(grid)

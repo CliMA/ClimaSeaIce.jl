@@ -10,14 +10,14 @@ This needs to be extended for the new solver
 # Compute the tendencies for the explicit momentum equations
 function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     
-    ice_dynamics = model.ice_dynamics
+    dynamics = model.dynamics
     grid = model.grid
 
     args = (model.clock, 
             model.velocities, 
-            ice_dynamics.coriolis, 
-            ice_dynamics.rheology, 
-            ice_dynamics.auxiliary_fields, 
+            dynamics.coriolis, 
+            dynamics.rheology, 
+            dynamics.auxiliary_fields, 
             model.ice_thickness, 
             model.ice_concentration, 
             model.ice_density)
@@ -36,8 +36,8 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     u_forcing = model.forcing.u
     v_forcing = model.forcing.v
 
-    initialize_rheology!(model, ice_dynamics.rheology)
-    compute_stresses!(model, ice_dynamics, ice_dynamics.rheology, Δt)
+    initialize_rheology!(model, dynamics.rheology)
+    compute_stresses!(model, dynamics, dynamics.rheology, Δt)
 
     α, β = timestepping_coefficients(model.timestepper, stage)
     

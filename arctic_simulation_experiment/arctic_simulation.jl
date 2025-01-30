@@ -68,7 +68,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
 model = SeaIceModel(grid; 
                     top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
                     bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
-                    ice_dynamics = momentum_equations,
+                    dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     ice_consolidation_thickness = 0.05, # 10 cm
                     advection = WENO(),
@@ -106,10 +106,10 @@ function accumulate_timeseries(sim)
     ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
-    σ₁₁ = sim.model.ice_dynamics.auxiliary_fields.σ₁₁
-    σ₁₂ = sim.model.ice_dynamics.auxiliary_fields.σ₁₂
-    σ₂₂ = sim.model.ice_dynamics.auxiliary_fields.σ₂₂
-    α   = sim.model.ice_dynamics.auxiliary_fields.α
+    σ₁₁ = sim.model.dynamics.auxiliary_fields.σ₁₁
+    σ₁₂ = sim.model.dynamics.auxiliary_fields.σ₁₂
+    σ₂₂ = sim.model.dynamics.auxiliary_fields.σ₂₂
+    α   = sim.model.dynamics.auxiliary_fields.α
     
     push!(htimeseries,   deepcopy(Array(interior(h, :, :, 1))))
     push!(ℵtimeseries,   deepcopy(Array(interior(ℵ, :, :, 1))))

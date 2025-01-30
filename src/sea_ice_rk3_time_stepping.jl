@@ -25,7 +25,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     # do we need to pass Δt here or first_stage_Δt?
-    step_momentum!(model, model.ice_dynamics, Δt, 1)
+    step_momentum!(model, model.dynamics, Δt, 1)
     store_tendencies!(model)
 
     tick!(model.clock, first_stage_Δt)
@@ -40,7 +40,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     # do we need to pass Δt here or second_stage_Δt?
-    step_momentum!(model, model.ice_dynamics, Δt, 2)
+    step_momentum!(model, model.dynamics, Δt, 2)
     store_tendencies!(model)
 
     tick!(model.clock, second_stage_Δt)
@@ -55,7 +55,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
     # do we need to pass Δt here or third_stage_Δt?
-    step_momentum!(model, model.ice_dynamics, Δt, 3)
+    step_momentum!(model, model.dynamics, Δt, 3)
     store_tendencies!(model)
 
     tick!(model.clock, third_stage_Δt)

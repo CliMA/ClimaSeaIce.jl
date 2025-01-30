@@ -7,7 +7,7 @@ using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, SMS, A, F} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     forcing :: F
@@ -21,10 +21,9 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, SMS, A, F} <: A
     # Thermodynamics
     ice_thermodynamics :: TD
     # Dynamics
-    ice_dynamics :: D
+    dynamics :: D
     # External boundary conditions
     external_heat_fluxes :: STF
-    external_momentum_stresses :: SMS
     # Numerics
     timestepper :: TS
     advection :: A
@@ -42,12 +41,10 @@ function SeaIceModel(grid;
                      velocities                  = nothing,
                      timestepper                 = :QuasiAdamsBashforth2,
                      advection                   = nothing,
-                     top_momentum_stress         = (u = nothing, v = nothing),
-                     bottom_momentum_stress      = (u = nothing, v = nothing),
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
                      ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
-                     ice_dynamics                = nothing,
+                     dynamics                = nothing,
                      forcing                     = NamedTuple())
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
@@ -91,7 +88,7 @@ function SeaIceModel(grid;
         merge(prognostic_fields, (; S = ice_salinity))
     end
     
-    prognostic_fields = isnothing(ice_dynamics) ? prognostic_fields : merge(prognostic_fields, velocities)
+    prognostic_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, velocities)
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
@@ -116,9 +113,6 @@ function SeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 
 
-    external_momentum_stresses = (top = top_momentum_stress,
-                                  bottom = bottom_momentum_stress)
-
     return SeaIceModel(grid,
                        clock,
                        forcing, 
@@ -129,9 +123,8 @@ function SeaIceModel(grid;
                        ice_density,
                        ice_consolidation_thickness,
                        ice_thermodynamics,
-                       ice_dynamics,
+                       dynamics,
                        external_heat_fluxes,
-                       external_momentum_stresses,
                        timestepper,
                        advection)
 end
@@ -200,7 +193,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            model.tracers,
                            model.velocities,
                            fields(model.ice_thermodynamics),
-                           fields(model.ice_dynamics))
+                           fields(model.dynamics))
 
 # TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,

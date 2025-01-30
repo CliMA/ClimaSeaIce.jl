@@ -29,31 +29,31 @@ The sea-ice momentum equations are characterized by smaller time-scale than
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt, args...)
+function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, args...)
 
     grid = model.grid
     arch = architecture(grid)
-    rheology = ice_dynamics.rheology
+    rheology = dynamics.rheology
 
     u, v = model.velocities
   
-    ocean_velocities = ice_dynamics.ocean_velocities
+    ocean_velocities = dynamics.ocean_velocities
     clock = model.clock
-    coriolis = ice_dynamics.coriolis
+    coriolis = dynamics.coriolis
 
-    minimum_mass = ice_dynamics.minimum_mass
-    minimum_concentration = ice_dynamics.minimum_concentration
+    minimum_mass = dynamics.minimum_mass
+    minimum_concentration = dynamics.minimum_concentration
 
-    u_top_stress = model.external_momentum_stresses.top.u
-    v_top_stress = model.external_momentum_stresses.top.v
+    u_top_stress = dynamics.external_momentum_stresses.top.u
+    v_top_stress = dynamics.external_momentum_stresses.top.v
 
-    u_bottom_stress = model.external_momentum_stresses.bottom.u
-    v_bottom_stress = model.external_momentum_stresses.bottom.v
+    u_bottom_stress = dynamics.external_momentum_stresses.bottom.u
+    v_bottom_stress = dynamics.external_momentum_stresses.bottom.v
 
     u_forcing = model.forcing.u
     v_forcing = model.forcing.v
 
-    model_fields = merge(ice_dynamics.auxiliary_fields, model.velocities, 
+    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
@@ -61,14 +61,14 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
 
-    substeps = ice_dynamics.solver.substeps
+    substeps = dynamics.solver.substeps
     
     fill_halo_regions!(model.velocities)
-    initialize_rheology!(model, ice_dynamics.rheology)
+    initialize_rheology!(model, dynamics.rheology)
 
     for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, ice_dynamics, rheology, Δt)
+        compute_stresses!(model, dynamics, rheology, Δt)
 
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)

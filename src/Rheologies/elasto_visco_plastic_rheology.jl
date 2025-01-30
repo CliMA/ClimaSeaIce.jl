@@ -121,7 +121,7 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     C  = rheology.ice_compaction_hardening
     
     u, v   = model.velocities
-    fields = model.ice_dynamics.auxiliary_fields
+    fields = model.dynamics.auxiliary_fields
 
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
@@ -141,7 +141,7 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheology, Δt) 
+function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology, Δt) 
 
     grid = model.grid
     arch = architecture(grid)
@@ -150,7 +150,7 @@ function compute_stresses!(model, ice_dynamics, rheology::ElastoViscoPlasticRheo
     ρᵢ = model.ice_density
     ℵ  = model.ice_concentration
 
-    fields = ice_dynamics.auxiliary_fields
+    fields = dynamics.auxiliary_fields
     u, v = model.velocities
 
     Nx, Ny, _ = size(grid)

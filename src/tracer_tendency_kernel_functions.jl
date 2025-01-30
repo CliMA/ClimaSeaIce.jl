@@ -4,7 +4,7 @@ using ClimaSeaIce.SeaIceMomentumEquations: compute_momentum_tendencies!
 
 function compute_tendencies!(model::SIM)
     compute_tracer_tendencies!(model)
-    compute_momentum_tendencies!(model, model.ice_dynamics)
+    compute_momentum_tendencies!(model, model.dynamics)
 
     return nothing
 end

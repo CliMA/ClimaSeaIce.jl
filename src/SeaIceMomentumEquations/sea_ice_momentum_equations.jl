@@ -1,12 +1,13 @@
 using ClimaSeaIce.Rheologies
 using Adapt
 
-struct SeaIceMomentumEquation{S, C, R, V, A, FT}
+struct SeaIceMomentumEquation{S, C, R, V, A, ES, FT}
     coriolis :: C
     rheology :: R
     auxiliary_fields :: A
     solver :: S
     ocean_velocities :: V
+    external_momentum_stresses :: ES
     minimum_concentration :: FT
     minimum_mass :: FT
 end
@@ -55,17 +56,22 @@ function SeaIceMomentumEquation(grid;
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 auxiliary_fields = NamedTuple(),
                                 ocean_velocities = nothing,
+                                top_momentum_stress    = (u = nothing, v = nothing),
+                                bottom_momentum_stress = (u = nothing, v = nothing),
                                 solver = ExplicitSolver(),
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
 
     auxiliary_fields = merge(auxiliary_fields, required_auxiliary_fields(rheology, grid))
+    external_momentum_stresses = (top = top_momentum_stress,
+                                  bottom = bottom_momentum_stress)
 
     return SeaIceMomentumEquation(coriolis, 
                                   rheology, 
                                   auxiliary_fields, 
                                   solver,
                                   ocean_velocities,
+                                  external_momentum_stresses,
                                   eltype(grid)(minimum_concentration),
                                   eltype(grid)(minimum_mass))
 end

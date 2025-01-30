@@ -35,9 +35,9 @@ end
     @info "Running sea ice momentum equations test"
 
     grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
-    ice_dynamics = SeaIceMomentumEquation(grid, rheology=ViscousRheology(ν=1000))
+    dynamics = SeaIceMomentumEquation(grid, rheology=ViscousRheology(ν=1000))
 
-    model = SeaIceModel(grid; ice_dynamics, ice_thermodynamics=nothing, advection=WENO()) 
+    model = SeaIceModel(grid; dynamics, ice_thermodynamics=nothing, advection=WENO()) 
 
     @test !(model.velocities.u isa Nothing)
     @test !(model.velocities.v isa Nothing)
