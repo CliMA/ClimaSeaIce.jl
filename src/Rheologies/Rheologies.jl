@@ -24,6 +24,7 @@ compute_stresses!(model, ice_dynamics, rheology, Δt) = nothing
 @inline sum_of_forcing_v(i, j, k, grid, rheology, v_forcing, fields, Δt) = v_forcing(i, j, k, grid, fields)
 
 include("viscous_rheology.jl")
+include("strain_rates.jl")
 include("elasto_visco_plastic_rheology.jl")
 
 end
