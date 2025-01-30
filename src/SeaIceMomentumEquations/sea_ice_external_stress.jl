@@ -1,3 +1,5 @@
+using Adapt
+
 # Fallback
 @inline implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
 @inline implicit_τy_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
@@ -12,15 +14,29 @@
 @inline explicit_τx(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
 @inline explicit_τy(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
 
+"""
+    struct SemiImplicitOceanSeaIceStress{U, V, FT}
 
+A structure representing the semi-implicit stress between the ocean and sea ice, 
+calculated as
+```math
+τᵤ = ρₒ Cᴰ [(uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²] (uₒ - uᵢⁿ⁺¹)
+τᵥ = ρₒ Cᴰ [(uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²] (vₒ - vᵢⁿ⁺¹)
+```
+
+Fields
+======
+- `u`: The zonal (x-direction) component of the ocean velocity.
+- `v`: The meridional (y-direction) component of the ocean velocity.
+- `ρₒ`: The density of the ocean.
+- `Cᴰ`: The drag coefficient between the ocean and sea ice.
+"""
 struct SemiImplicitOceanSeaIceStress{U, V, FT}
     u  :: U
     v  :: V
     ρₒ :: FT
     Cᴰ :: FT
 end
-
-using Adapt
 
 Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) = 
     SemiImplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
