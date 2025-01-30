@@ -22,9 +22,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
      Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, model_fields) 
             + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields, Δt) / mᵢ
-            # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-            + sum_of_forcing_u(i, j, 1, grid, rheology, u_forcing, model_fields, Δt)) 
+            + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ
+            + sum_of_forcing_u(i, j, 1, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
 
      Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
 
@@ -52,9 +51,8 @@ end
      Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, model_fields)
             + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields, Δt) / mᵢ 
-            # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
-            + sum_of_forcing_v(i, j, 1, grid, rheology, v_forcing, model_fields, Δt))
+            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ 
+            + sum_of_forcing_v(i, j, 1, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
 
      Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
 

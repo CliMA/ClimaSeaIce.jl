@@ -66,7 +66,7 @@ function step_momentum!(model, ice_dynamics::SplitExplicitMomentumEquation, Δt,
     fill_halo_regions!(model.velocities)
     initialize_rheology!(model, ice_dynamics.rheology)
 
-    for _ in 1 : substeps
+    for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, ice_dynamics, rheology, Δt)
 
@@ -161,7 +161,7 @@ end
 
     vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
     vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities) # free drift velocity
-    
+
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
 
     @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)

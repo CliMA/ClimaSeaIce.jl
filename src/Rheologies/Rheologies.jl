@@ -12,8 +12,8 @@ required_auxiliary_fields(rheology, grid) = NamedTuple()
 initialize_rheology!(model, rheology) = nothing
 compute_stresses!(model, ice_dynamics, rheology, Δt) = nothing
 
-@inline ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, fields) = zero(grid)
-@inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, fields) = zero(grid)
+@inline ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields) = zero(grid)
+@inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields) = zero(grid)
 
 # Nothing rheology or viscous rheology
 @inline compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps

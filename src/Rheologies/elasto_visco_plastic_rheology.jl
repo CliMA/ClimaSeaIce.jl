@@ -170,49 +170,53 @@ const f = Face()
 # TODO: Fix this mess!! 
 # Find a way not to hard-code. We need to pass the immersed_boundary_conditions of
 # the velocities to the kernels
-@inline function ∂xᴮᶜᶜᶜ(i, j, k, grid, u)
-    i1 = inactive_node(i,   j, k, grid, f, c, c)
-    i2 = inactive_node(i+1, j, k, grid, f, c, c) 
-    Δx = Δxᶜᶜᶜ(i, j, k, grid)
+# @inline function ∂xᴮᶜᶜᶜ(i, j, k, grid, u)
+#     i1 = inactive_node(i,   j, k, grid, f, c, c)
+#     i2 = inactive_node(i+1, j, k, grid, f, c, c) 
+#     Δx = Δxᶜᶜᶜ(i, j, k, grid)
 
-    u1 = @inbounds u[i,   j, k]
-    u2 = @inbounds u[i+1, j, k]
+#     u1 = @inbounds u[i,   j, k]
+#     u2 = @inbounds u[i+1, j, k]
 
-    return ifelse(i1, 2u2 / Δx, ifelse(i2, - 2u1 / Δx, (u2 - u1) / Δx))
-end
+#     return ifelse(i1, 2u2 / Δx, ifelse(i2, - 2u1 / Δx, (u2 - u1) / Δx))
+# end
 
-@inline function ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
-    j1 = inactive_node(i, j,   k, grid, c, f, c)
-    j2 = inactive_node(i, j+1, k, grid, c, f, c) 
-    Δy = Δyᶜᶜᶜ(i, j, k, grid)
+# @inline function ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
+#     j1 = inactive_node(i, j,   k, grid, c, f, c)
+#     j2 = inactive_node(i, j+1, k, grid, c, f, c) 
+#     Δy = Δyᶜᶜᶜ(i, j, k, grid)
 
-    v1 = @inbounds v[i, j,   k]
-    v2 = @inbounds v[i, j+1, k]
+#     v1 = @inbounds v[i, j,   k]
+#     v2 = @inbounds v[i, j+1, k]
 
-    return ifelse(j1, 2v2 / Δy, ifelse(j2, 2v1 / Δy, (v2 - v1) / Δy))
-end
+#     return ifelse(j1, 2v2 / Δy, ifelse(j2, 2v1 / Δy, (v2 - v1) / Δy))
+# end
 
-@inline function ∂xᴮᶠᶠᶜ(i, j, k, grid, v)
-    i1 = inactive_node(i-1, j, k, grid, c, f, c)
-    i2 = inactive_node(i,   j, k, grid, c, f, c) 
-    Δx = Δxᶠᶠᶜ(i, j, k, grid)
+# @inline function ∂xᴮᶠᶠᶜ(i, j, k, grid, v)
+#     i1 = inactive_node(i-1, j, k, grid, c, f, c)
+#     i2 = inactive_node(i,   j, k, grid, c, f, c) 
+#     Δx = Δxᶠᶠᶜ(i, j, k, grid)
 
-    v1 = @inbounds v[i-1, j, k]
-    v2 = @inbounds v[i,   j, k]
+#     v1 = @inbounds v[i-1, j, k]
+#     v2 = @inbounds v[i,   j, k]
 
-    return ifelse(i1, 2v2 / Δx, ifelse(i2, - 2v1 / Δx, (v2 - v1) / Δx))
-end
+#     return ifelse(i1, 2v2 / Δx, ifelse(i2, - 2v1 / Δx, (v2 - v1) / Δx))
+# end
 
-@inline function ∂yᴮᶠᶠᶜ(i, j, k, grid, u)
-    j1 = inactive_node(i, j-1, k, grid, f, c, c)
-    j2 = inactive_node(i, j,   k, grid, f, c, c) 
-    Δy = Δyᶜᶜᶜ(i, j, k, grid)
+# @inline function ∂yᴮᶠᶠᶜ(i, j, k, grid, u)
+#     j1 = inactive_node(i, j-1, k, grid, f, c, c)
+#     j2 = inactive_node(i, j,   k, grid, f, c, c) 
+#     Δy = Δyᶠᶠᶜ(i, j, k, grid)
 
-    u1 = @inbounds u[i, j-1, k]
-    u2 = @inbounds u[i, j,   k]
+#     u1 = @inbounds u[i, j-1, k]
+#     u2 = @inbounds u[i, j,   k]
 
-    return ifelse(j1, 2u2 / Δy, ifelse(j2, 2u1 / Δy, (u2 - u1) / Δy))
-end
+#     return ifelse(j1, 2u2 / Δy, ifelse(j2, 2u1 / Δy, (u2 - u1) / Δy))
+# end
+
+@inline strain_rate_xx(i, j, k, grid, u, v) = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, u, v) = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
 
 @kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v)
     i, j = @index(Global, NTuple)
@@ -226,12 +230,11 @@ end
     P = fields.P
 
     # Strain rates
-    ϵ̇₁₁ =  ∂xᴮᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ̇₂₂ =  ∂yᴮᶜᶜᶜ(i, j, 1, grid, v)
+    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = (ℑxyᶜᶜᵃ(i, j, 1, grid, ∂xᴮᶠᶠᶜ, v) + 
-              ℑxyᶜᶜᵃ(i, j, 1, grid, ∂yᴮᶠᶠᶜ, u)) / 2
+    ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, 1, grid, strain_rate_xy, u, v)
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -263,9 +266,9 @@ end
     α   = fields.α
 
     # Strain rates
-    ϵ̇₁₁ =  ∂xᴮᶜᶜᶜ(i, j, 1, grid, u)
-    ϵ̇₁₂ = (∂xᴮᶠᶠᶜ(i, j, 1, grid, v) + ∂yᴮᶠᶠᶜ(i, j, 1, grid, u)) / 2
-    ϵ̇₂₂ =  ∂yᴮᶜᶜᶜ(i, j, 1, grid, v)
+    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
+    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
 
     Pᶜᶜᶜ = @inbounds fields.P[i, j, 1]
     ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
@@ -290,12 +293,12 @@ end
     # Update coefficients for substepping if we are using dynamic substepping
     # with spatially varying coefficients such as in Kimmritz et al (2016)
     γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
+    γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), rheology.max_substeps^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
     γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), rheology.min_substeps, rheology.max_substeps)
-    γᶜᶜᶜ  = ifelse(isnan(γᶜᶜᶜ), rheology.max_substeps, γᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
 
     γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
+    γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), rheology.max_substeps^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
-    γᶠᶠᶜ  = ifelse(isnan(γᶠᶠᶜ), rheology.max_substeps, γᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
 
     # Compute the new stresses and store the value of the dynamic substepping coefficient α
     @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
@@ -314,14 +317,14 @@ end
 #####
 
 # Here we extend all the functions that a rheology model needs to support:
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields, Δt) 
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
     ∂xσ₁₁ = ∂xᶠᶜᶜ(i, j, k, grid, fields.σ₁₁)
     ∂yσ₁₂ = ∂yᶠᶜᶜ(i, j, k, grid, fields.σ₁₂)
 
     return ∂xσ₁₁ + ∂yσ₁₂
 end
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields, Δt) 
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
     ∂xσ₁₂ = ∂xᶜᶠᶜ(i, j, k, grid, fields.σ₁₂)
     ∂yσ₂₂ = ∂yᶜᶠᶜ(i, j, k, grid, fields.σ₂₂)
 

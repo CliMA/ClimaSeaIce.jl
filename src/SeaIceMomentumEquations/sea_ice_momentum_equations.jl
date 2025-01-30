@@ -87,7 +87,6 @@ The free drift velocity is calculated as `velocities` mitigated by a factor `mit
 function MitigatedOceanSurfaceVelocity(; velocities=nothing, mitigation=0.01)
     u = velocities.u
     v = velocities.v
-
     return OceanSurfaceVelocity(u, v, mitigation)
 end
 
@@ -99,5 +98,5 @@ end
 @inline free_drift_v(i, j, k, grid, f) = @inbounds f.v[i, j, k] 
 
 # Passing no velocities
-@inline free_drift_u(i, j, k, ::Nothing, f) = zero(grid)
-@inline free_drift_v(i, j, k, ::Nothing, f) = zero(grid)
+@inline free_drift_u(i, j, k, grid, ::Nothing) = zero(grid)
+@inline free_drift_v(i, j, k, grid, ::Nothing) = zero(grid)
