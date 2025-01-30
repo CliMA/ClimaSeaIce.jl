@@ -128,6 +128,9 @@ set!(Vₐ, (x, y) -> va_time(x, y, 0))
 compute!(τᵤₐ)
 compute!(τᵥₐ)
 
+Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤₐ)
+Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
+
 #####
 ##### Numerical details
 #####
@@ -136,6 +139,7 @@ compute!(τᵥₐ)
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
                                             coriolis = FPlane(f=1e-4),
+                                            ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology = ElastoViscoPlasticRheology(min_substeps=50, 
                                                                                   max_substeps=500),
                                             solver   = SplitExplicitSolver(substeps=1000))
@@ -144,10 +148,10 @@ advection = WENO(; order = 7)
 # Define the model!
 model = SeaIceModel(grid; 
                     top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                    bottom_momentum_stress = (u = τᵤₒ, v = τᵤₒ),
+                    bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
                     ice_dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    advection,
+                    advection = nothing,
                     timestepper = :QuasiAdamsBashforth2,
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
@@ -176,6 +180,9 @@ function compute_wind_stress(sim)
     compute!(τᵤₐ)
     compute!(τᵥₐ)
 
+    Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤₐ)
+    Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
+    
     return nothing
 end
 
@@ -187,7 +194,7 @@ htimeseries = []
 utimeseries = []
 vtimeseries = []
 
-## Callback function to collect the data from the `sim`ulation
+# Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
     h = sim.model.ice_thickness
     ℵ = sim.model.ice_concentration

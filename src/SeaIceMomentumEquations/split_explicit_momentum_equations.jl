@@ -122,7 +122,7 @@ end
 
     Δτ = compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_top_stress, u_bottom_stress, u_forcing)
-
+   
     # Implicit part of the stress that depends linearly on the velocity
     τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ 
           + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ )

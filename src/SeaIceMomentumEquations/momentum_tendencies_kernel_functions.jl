@@ -14,12 +14,13 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
      h = model_fields.h
      ℵ = model_fields.ℵ
      ρ = model_fields.ρ
+     U = (u = model_fields.u, v = model_fields.v)
 
      # Ice mass (per unit area) interpolated on u points
      ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
-     Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, model_fields) 
+     Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, U) 
             + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ
@@ -43,12 +44,13 @@ end
      h = model_fields.h
      ℵ = model_fields.ℵ
      ρ = model_fields.ρ
+     U = (u = model_fields.u, v = model_fields.v)
 
      # Ice mass (per unit area) interpolated on v points
      ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
-     Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, model_fields)
+     Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, U)
             + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ 
