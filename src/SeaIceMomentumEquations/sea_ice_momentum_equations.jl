@@ -37,6 +37,7 @@ where the terms (left to right) represent (1) the time derivative of the ice vel
 
 Arguments
 =========
+
 - `grid`: The computational grid.
 
 Keyword Arguments
@@ -66,14 +67,16 @@ function SeaIceMomentumEquation(grid;
     external_momentum_stresses = (top = top_momentum_stress,
                                   bottom = bottom_momentum_stress)
 
+    FT = eltype(grid)
+
     return SeaIceMomentumEquation(coriolis, 
                                   rheology, 
                                   auxiliary_fields, 
                                   solver,
                                   ocean_velocities,
                                   external_momentum_stresses,
-                                  eltype(grid)(minimum_concentration),
-                                  eltype(grid)(minimum_mass))
+                                  convert(FT, minimum_concentration),
+                                  convert(FT, minimum_mass))
 end
 
 fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
