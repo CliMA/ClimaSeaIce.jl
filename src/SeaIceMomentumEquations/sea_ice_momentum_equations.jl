@@ -88,10 +88,11 @@ struct MitigatedOceanSurfaceVelocity{U, V, FT}
 end
 
 """ 
-    OceanSurfaceVelocity(grid; velocities=nothing, mitigation=0.01)
+    MitigatedOceanSurfaceVelocity(grid; velocities=nothing, mitigation=0.01)
 
-Build a type that controls the free drift velocity of the sea ice where concentration and mass are lower than a threshold.
-The free drift velocity is calculated as `velocities` mitigated by a factor `mitigation`.
+Build a `MitigatedOceanSurfaceVelocity` type that controls the free drift velocity of the sea ice where 
+concentration and mass are lower than a threshold. The free drift velocity is calculated as `velocities` 
+mitigated by a factor `mitigation`.
 """
 function MitigatedOceanSurfaceVelocity(; velocities=nothing, mitigation=0.01)
     u = velocities.u
