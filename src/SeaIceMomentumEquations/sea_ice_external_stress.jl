@@ -20,8 +20,8 @@ using Adapt
 A structure representing the semi-implicit stress between the ocean and sea ice, 
 calculated as
 ```math
-τᵤ = ρₒ Cᴰ [(uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²] (uₒ - uᵢⁿ⁺¹)
-τᵥ = ρₒ Cᴰ [(uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²] (vₒ - vᵢⁿ⁺¹)
+τᵤ = ρₒ Cᴰ sqrt((uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²) (uₒ - uᵢⁿ⁺¹)
+τᵥ = ρₒ Cᴰ sqrt((uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²) (vₒ - vᵢⁿ⁺¹)
 ```
 
 Fields
