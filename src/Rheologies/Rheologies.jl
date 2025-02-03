@@ -1,6 +1,6 @@
 module Rheologies
 
-export ViscousRheology, ElastoViscoPlasticRheology
+export ViscousRheology, ElastoViscoPlasticRheology, BrittleBinghamMaxellRheology
 export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliary_fields
 
 using Oceananigans
