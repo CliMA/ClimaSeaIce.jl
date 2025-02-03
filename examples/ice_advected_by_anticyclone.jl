@@ -22,10 +22,10 @@ CUDA.device!(2)
 arch = GPU()
 
 L  = 512kilometers
-𝓋ₒ = 0.01   # m / s maximum ocean speed
-𝓋ₐ = 30.0   # m / s maximum atmospheric speed modifier
+𝓋ₒ = 0.01 # m / s maximum ocean speed
+𝓋ₐ = 30.0 # m / s maximum atmospheric speed modifier
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
-ρₐ = 1.3    # kg/m³
+ρₐ = 1.3  # kg/m³
 
 # 2 km domain
 grid = RectilinearGrid(arch;
@@ -95,11 +95,11 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 ##### Numerical details
 #####
 
-# rheology = BrittleBinghamMaxellRheology()
+rheology = BrittleBinghamMaxellRheology()
 
-rheology = ElastoViscoPlasticRheology(min_substeps=50, 
-                                      max_substeps=100,
-                                      minimum_plastic_stress=1e-10)
+# rheology =  ElastoViscoPlasticRheology(min_substeps=50, 
+#                                        max_substeps=100,
+#                                        minimum_plastic_stress=1e-10)
 
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ

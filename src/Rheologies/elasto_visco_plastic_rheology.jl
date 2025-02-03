@@ -285,8 +285,8 @@ end
 end
 
 @inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) 
-    ∂xσ₁₂ = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, fields.σ₁₁) / Azᶜᶠᶜ(i, j, k, grid)
-    ∂yσ₂₂ = δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, fields.σ₁₂) / Azᶜᶠᶜ(i, j, k, grid)
+    ∂xσ₁₂ = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, fields.σ₁₂) / Azᶜᶠᶜ(i, j, k, grid)
+    ∂yσ₂₂ = δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, fields.σ₂₂) / Azᶜᶠᶜ(i, j, k, grid)
 
     return ∂xσ₁₂ + ∂yσ₂₂
 end
