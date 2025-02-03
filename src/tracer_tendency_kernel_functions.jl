@@ -63,8 +63,11 @@ end
      
     @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ice_concentration)
 
-    for (name, ϕ) in tracers # all the other tracers just advect
-        @inbounds Gⁿ[name][i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ϕ)
+    for n in eachindex(tracers) # all the other tracers just advect
+        ϕ = @inbounds tracers[n]
+        if !(ϕ isa ConstantField)
+            @inbounds Gⁿ[n][i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ϕ)
+        end
     end
 end
 
@@ -92,9 +95,8 @@ function ice_thickness_tendency(i, j, k, grid, clock,
                                                          bottom_external_heat_flux,
                                                          clock, model_fields)
 
-    
     # Compute forcing
-    Fh = zero(grid) #h_forcing(i, j, grid, clock, model_fields)
+    Fh = h_forcing(i, j, grid, clock, model_fields)
 
     return Gh_advection + Gh_thermodynamics + Fh 
 end

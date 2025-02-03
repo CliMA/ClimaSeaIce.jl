@@ -6,7 +6,7 @@ struct BrittleBinghamMaxellRheology{FT, A}
     undamaged_viscous_relaxation_time :: FT # minimum number of substeps expressed as the dynamic coefficient
     poisson_ratio :: FT
     friction_coefficient :: FT
-    maximum_compressive_stress :: FT
+    maximum_compressive_strength :: FT
     healing_constant :: FT
     damage_parameter :: FT 
     ridging_ice_thickness :: FT # maximum number of substeps expressed as the dynamic coefficient
@@ -99,8 +99,8 @@ end
 
 @kernel function _initialize_bbm_rheology!(fields, P★, E★, λ★, h★, α, C, h, ℵ)
     i, j = @index(Global, NTuple)    
-    @inbounds exponent = exp(- C * (1 - ℵ[i, j, k])) 
-    @inbounds fields.P[i, j, 1] = P★ * (h[i, j, k] / h★)^(3/2) * exponent
+    @inbounds exponent = exp(- C * (1 - ℵ[i, j, 1])) 
+    @inbounds fields.P[i, j, 1] = P★ * (h[i, j, 1] / h★)^(3/2) * exponent
     @inbounds fields.E[i, j, 1] = E★ * exponent
     @inbounds fields.λ[i, j, 1] = λ★ * exponent^(α - 1)
 end
@@ -126,7 +126,7 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxellRheolo
     Δτ = Δt / Ns
 
     launch!(arch, grid, parameters, _advance_bbm_stresses!, fields, grid, rheology, d, u, v, Δτ)
-    launch!(arch, grid, parameters, _mohr_colomb_correction!, fields, grid, rheology, d, u, v, h, ℵ, ρᵢ, Δt)
+    launch!(arch, grid, parameters, _mohr_colomb_correction!, fields, grid, rheology, d, ρᵢ, Δτ)
 
     return nothing
 end
@@ -207,7 +207,7 @@ end
     @inline σ₁₂[i, j, 1] = Ωᶠᶠᶜ * (σ₁₂[i, j, 1] + Δτ * Eᶠᶠᶜ * Kϵ₁₂)
 end
 
-@kernel function _mohr_colomb_correction!(fields, grid, rheology, d, ρᵢ, Δt)
+@kernel function _mohr_colomb_correction!(fields, grid, rheology, d, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
     
     E = fields.E
@@ -242,19 +242,19 @@ end
     dcᶠᶠᶜ = ifelse(σIᶠᶠᶜ > - N, c / (σIIᶠᶠᶜ + μ * σIᶠᶠᶜ), - N / σIᶠᶠᶜ)
 
     # Relaxation time
-    tdᶜᶜᶜ = sqrt(2 * (1 + ν) * ρᵢ / Eᶜᶜᶜ) * Azᶜᶜᶜ(i, j, 1, grid)
-    tdᶠᶠᶜ = sqrt(2 * (1 + ν) * ρᵢ / Eᶠᶠᶜ) * Azᶠᶠᶜ(i, j, 1, grid)
+    tdᶜᶜᶜ = @inbounds sqrt(2 * (1 + ν) * ρᵢ[i, j, 1] / Eᶜᶜᶜ) * Azᶜᶜᶜ(i, j, 1, grid)
+    tdᶠᶠᶜ = @inbounds sqrt(2 * (1 + ν) * ρᵢ[i, j, 1] / Eᶠᶠᶜ) * Azᶠᶠᶜ(i, j, 1, grid)
 
-    Gd   = @inbounds (1 - dcᶜᶜᶜ) * (1 - d[i, j, 1]) * Δt / tdᶜᶜᶜ
-    Gσ₁₁ = @inbounds (1 - dcᶜᶜᶜ) *    σ₁₁[i, j, 1]  * Δt / tdᶜᶜᶜ
-    Gσ₂₂ = @inbounds (1 - dcᶜᶜᶜ) *    σ₂₂[i, j, 1]  * Δt / tdᶜᶜᶜ
-    Gσ₁₂ = @inbounds (1 - dcᶠᶠᶜ) *    σ₁₂[i, j, 1]  * Δt / tdᶠᶠᶜ
+    Gd   = @inbounds (1 - dcᶜᶜᶜ) * (1 - d[i, j, 1]) * Δτ / tdᶜᶜᶜ
+    Gσ₁₁ = @inbounds (1 - dcᶜᶜᶜ) *    σ₁₁[i, j, 1]  * Δτ / tdᶜᶜᶜ
+    Gσ₂₂ = @inbounds (1 - dcᶜᶜᶜ) *    σ₂₂[i, j, 1]  * Δτ / tdᶜᶜᶜ
+    Gσ₁₂ = @inbounds (1 - dcᶠᶠᶜ) *    σ₁₂[i, j, 1]  * Δτ / tdᶠᶠᶜ
 
     # Damage and stress updates
     @inbounds   d[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gd,   zero(grid))
     @inbounds σ₁₁[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gσ₁₁, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gσ₂₂, zero(grid))
-    @inbounds σ₁₂[i, j, 1] += ifelse(0 ≤ dcᶠᶠᶜ ≤ 1, Gσ₁₁, zero(grid))
+    @inbounds σ₁₂[i, j, 1] += ifelse(0 ≤ dcᶠᶠᶜ ≤ 1, Gσ₁₂, zero(grid))
 end
 
 #####

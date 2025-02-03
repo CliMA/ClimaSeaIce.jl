@@ -51,11 +51,14 @@ end
         h[i, j, k] = ht
     end 
 
-    for (name, ϕ) in tracers
-        @inbounds begin
-            Gϕⁿ = Gⁿ[name]
-            Gϕ⁻ = G⁻[name]
-            ϕ[i, j, k] += Δt * (α * Gϕⁿ[i, j, k] + β * Gϕ⁻[i, j, k])
+    for n in eachindex(tracers) 
+        ϕ = @inbounds tracers[n]
+        if !(ϕ isa ConstantField) # TODO: create an interface for prognostic fields
+            @inbounds begin
+                Gϕⁿ = Gⁿ[n]
+                Gϕ⁻ = G⁻[n]
+                ϕ[i, j, k] += Δt * (α * Gϕⁿ[i, j, k] + β * Gϕ⁻[i, j, k])
+            end
         end
     end
 end

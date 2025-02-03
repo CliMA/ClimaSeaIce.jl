@@ -75,7 +75,7 @@ function SeaIceModel(grid;
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field 
     ice_salinity = field((Center, Center, Center), ice_salinity, grid)
-    ice_density  = field((Center, Center, Center), ice_density, grid)
+    ice_density  = field((Center, Center, Center), ice_density,  grid)
 
     # Construct prognostic fields if not provided
     ice_thickness = isnothing(ice_thickness) ?  Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
@@ -95,7 +95,7 @@ function SeaIceModel(grid;
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
-    tracers = merge(tracers, (; S = ice_salinity))
+    tracers = merge(tracers, rheology_tracers, (; S = ice_salinity))
     timestepper = TimeStepper(timestepper, grid, prognostic_fields)
 
     if !isnothing(ice_thermodynamics)
