@@ -50,6 +50,14 @@ end
         ℵ[i, j, k] = ℵt
         h[i, j, k] = ht
     end 
+
+    for (name, ϕ) in tracers
+        @inbounds begin
+            Gϕⁿ = Gⁿ[name]
+            Gϕ⁻ = G⁻[name]
+            ϕ[i, j, k] += Δt * (α * Gϕⁿ[i, j, k] + β * Gϕ⁻[i, j, k])
+        end
+    end
 end
 
 # If h < hmin we reset the thickness to h⁻ and adjust the concentration accordingly

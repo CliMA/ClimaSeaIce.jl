@@ -9,6 +9,10 @@ using ClimaSeaIce: ice_mass
 
 # Nothing rheology
 required_auxiliary_fields(rheology, grid) = NamedTuple()
+
+# Fallback
+required_prognostic_tracers(rheology, grid) = NamedTuple()
+
 initialize_rheology!(model, rheology) = nothing
 compute_stresses!(model, dynamics, rheology, Δt) = nothing
 
@@ -26,5 +30,6 @@ compute_stresses!(model, dynamics, rheology, Δt) = nothing
 include("viscous_rheology.jl")
 include("strain_rates.jl")
 include("elasto_visco_plastic_rheology.jl")
+include("brittle_bingham_maxwell_rheology.jl")
 
 end

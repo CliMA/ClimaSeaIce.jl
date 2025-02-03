@@ -24,6 +24,7 @@ function compute_tracer_tendencies!(model::SIM)
             model.ice_concentration,
             model.ice_consolidation_thickness,
             model.ice_thermodynamics,
+            model.tracers,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
             model.forcing.h,
@@ -40,6 +41,7 @@ end
                                              ice_concentration,
                                              ice_consolidation_thickness,
                                              thermodynamics,
+                                             tracers,
                                              top_external_heat_flux,
                                              bottom_external_heat_flux,
                                              h_forcing,
@@ -60,6 +62,10 @@ end
                                                      model_fields)
      
     @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ice_concentration)
+
+    for (name, ϕ) in tracers # all the other tracers just advect
+        @inbounds Gⁿ[name][i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ϕ)
+    end
 end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value

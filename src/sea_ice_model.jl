@@ -6,6 +6,7 @@ using Oceananigans: tupleit, tracernames
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+using ClimaSeaIce.Rheologies: required_prognostic_tracers
 
 struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: AbstractModel{TS}
     grid :: GR
@@ -44,7 +45,7 @@ function SeaIceModel(grid;
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
                      ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
-                     dynamics                = nothing,
+                     dynamics                    = nothing,
                      forcing                     = NamedTuple())
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
@@ -80,8 +81,10 @@ function SeaIceModel(grid;
     ice_thickness = isnothing(ice_thickness) ?  Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
     ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
 
+    rheology_tracers = required_prognostic_tracers(dynamics.rheology, grid)
+
     # Adding thickness and concentration if not there
-    prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
+    prognostic_fields = merge(tracers, rheology_tracers, (; h = ice_thickness, ℵ = ice_concentration))
     prognostic_fields = if ice_salinity isa ConstantField 
         prognostic_fields 
     else
@@ -146,7 +149,7 @@ const SIM = SeaIceModel
     end
 end
 
-function set!(model::SIM; h=nothing, ℵ=nothing)
+function set!(model::SIM; h=nothing, ℵ=nothing, kwargs...)
     grid = model.grid
     arch = architecture(model)
 
@@ -158,6 +161,19 @@ function set!(model::SIM; h=nothing, ℵ=nothing)
             model.ice_thickness,
             model.ice_concentration,
             model.ice_consolidation_thickness)
+
+    # All the other tracers
+    for (fldname, value) in kwargs
+        if fldname ∈ propertynames(model.velocities)
+            ϕ = getproperty(model.velocities, fldname)
+        elseif fldname ∈ propertynames(model.tracers)
+            ϕ = getproperty(model.tracers, fldname)
+        else
+            throw(ArgumentError("name $fldname not found in model.velocities, model.tracers, or model.free_surface"))
+        end
+
+        set!(ϕ, value)
+    end
 
     return nothing
 end
