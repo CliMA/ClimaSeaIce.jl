@@ -63,8 +63,7 @@ function required_auxiliary_fields(::BrittleBinghamMaxellRheology, grid)
     σ̂₂₂ = Field{Face,   Face,   Nothing}(grid)
     σ̂₁₂ = Field{Center, Center, Nothing}(grid)
 
-    d̂   = Field{Face, Face, Nothing}(grid)
-
+    d̂ = Field{Face, Face, Nothing}(grid)
     return (; σ₁₁, σ₂₂, σ₁₂, σ̂₁₁, σ̂₂₂, σ̂₁₂, d̂, P, E, λ, P̂, Ê, λ̂)
 end
 
