@@ -124,8 +124,8 @@ end
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_top_stress, u_bottom_stress, u_forcing)
    
     # Implicit part of the stress that depends linearly on the velocity
-    τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ 
-          + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ )
+    τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, model_fields) 
+          + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, model_fields)) / mᵢ * ℵᵢ 
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
     uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
@@ -154,8 +154,8 @@ end
     Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity
-    τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-          + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ )
+    τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, model_fields)
+          + implicit_τy_coefficient(i, j, 1, grid, v_top_stress, clock, model_fields)) / mᵢ * ℵᵢ 
 
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 

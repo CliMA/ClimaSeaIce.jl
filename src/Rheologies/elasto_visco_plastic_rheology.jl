@@ -33,15 +33,27 @@ end
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
 rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al (2016).
-The `ice_strength` is parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))``. The number of substeps is
-spatially varying and computed dynamically as in Kimmritz et al (2016):
+The stress tensor is computed then following the constitutive relation:
+```math
+σᵢⱼ = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
+```
+where ``ϵ̇ᵢⱼ`` are the strain rates, ``η`` is the shear viscosity, ``ζ`` is the bulk viscosity,
+and ``P`` is the ice strength (acting as the isotropic part of the stress tensor)
+parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))``. 
 
-In particular: α (stress substeps) == β (momentum substeps) = sqrt(γ) 
-where γ = ζ * π² * (Δt / mᵢ) / Az is a stability parameter with ``Az`` the area of the grid cell, 
-``ζ`` the bulk viscosity, ``mᵢ`` the ice mass, and ``Δt`` the time step.
+The stresses are substepped using a dynamic substepping coefficient ``α`` that is
+spatially varying and computed dynamically as in Kimmritz et al (2016)
+In particular: α = sqrt(γ²) 
+where γ² = ζ * π² * (Δt / mᵢ) / Az is a stability parameter with ``Az`` is the area of the grid cell, 
+``mᵢ`` the ice mass, and ``Δt`` the time step.
 
-This formulation allows fast convergence in regions where sqrt(γ) is small. Regions where
-the coefficients are large correspond to regions where the ice is more solid and moves as a block
+The stresses are substepped with:
+```math
+σᵢⱼᵖ⁺¹ = σᵢⱼᵖ + (σᵢⱼᵖ⁺¹ - σᵢⱼᵖ) / α
+```
+
+This formulation allows fast convergence in regions where ``γ`` is small. Regions where
+the coefficients are large correspond to regions where the ice is more solid 
 and the convergence is slower.
 
 The number of substeps is then bounded by `min_substeps` and `max_substeps`.
