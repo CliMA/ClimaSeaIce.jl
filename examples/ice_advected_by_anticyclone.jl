@@ -143,9 +143,9 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology = ElastoViscoPlasticRheology(min_substeps=50, 
-                                                                                  max_substeps=500,
+                                                                                  max_substeps=100,
                                                                                   minimum_plastic_stress=1e-10),
-                                            solver   = SplitExplicitSolver(substeps=1000))
+                                            solver   = SplitExplicitSolver(substeps=100))
 advection = WENO(; order = 7)
 
 # Define the model!

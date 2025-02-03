@@ -954,7 +954,7 @@ version = "1.7.0"
 
 [[deps.OrthogonalSphericalShellGrids]]
 deps = ["Adapt", "Distances", "KernelAbstractions", "MPI", "Oceananigans", "OffsetArrays", "Statistics"]
-git-tree-sha1 = "1f095c9a06656949307e7015f3cb309649884d23"
+git-tree-sha1 = "0999de32429f40cc004f3af549d9efa406985377"
 repo-rev = "ss/visualize"
 repo-url = "https://github.com/CliMA/OrthogonalSphericalShellGrids.jl.git"
 uuid = "c2be9673-fb75-4747-82dc-aa2bb9f4aed0"
