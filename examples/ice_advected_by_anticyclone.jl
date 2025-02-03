@@ -95,7 +95,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 ##### Numerical details
 #####
 
-rheology = BrittleBinghamMaxellRheology()
+rheology = BrittleBinghamMaxellRheology(damage_interpolation_scheme = WENO(order=3))
 
 # rheology =  ElastoViscoPlasticRheology(min_substeps=50, 
 #                                        max_substeps=100,
@@ -109,7 +109,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology,
-                                            solver = SplitExplicitSolver(substeps=100))
+                                            solver = SplitExplicitSolver(substeps=120))
 
 # Define the model!
 model = SeaIceModel(grid; 
@@ -131,7 +131,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
+simulation = Simulation(model, Δt = 2minutes, stop_iteration = 6) #stop_time = 17hours) # 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -150,13 +150,17 @@ function compute_wind_stress(sim)
     return nothing
 end
 
-simulation.callbacks[:top_stress] = Callback(compute_wind_stress, IterationInterval(1))
+simulation.callbacks[:compute_stress] = Callback(compute_wind_stress, IterationInterval(1))
 
 # Container to hold the data
 htimeseries = []
 ℵtimeseries = []
 utimeseries = []
 vtimeseries = []
+σ₁₁timeseries = []
+σ₁₂timeseries = []
+σ₂₂timeseries = []
+dtimeseries   = [] 
 
 # Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
@@ -164,10 +168,20 @@ function accumulate_timeseries(sim)
     ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
     v = sim.model.velocities.v
-    push!(htimeseries, deepcopy(Array(interior(h))))
-    push!(ℵtimeseries, deepcopy(Array(interior(ℵ))))
-    push!(utimeseries, deepcopy(Array(interior(u))))
-    push!(vtimeseries, deepcopy(Array(interior(v))))
+
+    σ₁₁ = sim.model.dynamics.auxiliary_fields.σ₁₁
+    σ₁₂ = sim.model.dynamics.auxiliary_fields.σ₁₂
+    σ₂₂ = sim.model.dynamics.auxiliary_fields.σ₂₂
+    d   = sim.model.tracers.d
+
+    push!(htimeseries,   deepcopy(Array(interior(h))))
+    push!(ℵtimeseries,   deepcopy(Array(interior(ℵ))))
+    push!(utimeseries,   deepcopy(Array(interior(u))))
+    push!(vtimeseries,   deepcopy(Array(interior(v))))
+    push!(σ₁₁timeseries, deepcopy(Array(interior(σ₁₁))))
+    push!(σ₁₂timeseries, deepcopy(Array(interior(σ₁₂))))
+    push!(σ₂₂timeseries, deepcopy(Array(interior(σ₂₂))))
+    push!(dtimeseries,   deepcopy(Array(interior(d  ))))
 end
 
 wall_time = [time_ns()]
@@ -203,10 +217,14 @@ using CairoMakie
 Nt = length(htimeseries)
 iter = Observable(1)
 
-hi = @lift(htimeseries[$iter][:, :, 1])
-ℵi = @lift(ℵtimeseries[$iter][:, :, 1])
-ui = @lift(utimeseries[$iter][:, :, 1])
-vi = @lift(vtimeseries[$iter][:, :, 1])
+hi   = @lift(htimeseries[$iter][:, :, 1])
+ℵi   = @lift(ℵtimeseries[$iter][:, :, 1])
+ui   = @lift(utimeseries[$iter][:, :, 1])
+vi   = @lift(vtimeseries[$iter][:, :, 1])
+σ₁₁i = @lift(σ₁₁timeseries[$iter][:, :, 1])
+σ₁₂i = @lift(σ₁₂timeseries[$iter][:, :, 1])
+σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
+di   = @lift(dtimeseries[$iter][:, :, 1])
 
 fig = Figure()
 ax = Axis(fig[1, 1], title = "sea ice thickness")
@@ -222,6 +240,24 @@ ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
 CairoMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
+    iter[] = i
+    @info "doing iter $i"
+end
+
+fig = Figure()
+ax = Axis(fig[1, 1], title = "sigma 11")
+heatmap!(ax, σ₁₁i)
+
+ax = Axis(fig[1, 2], title = "sigma 22")
+heatmap!(ax, σ₂₂i)
+
+ax = Axis(fig[2, 1], title = "sigma 12")
+heatmap!(ax, σ₁₂i)
+
+ax = Axis(fig[2, 2], title = "damage")
+heatmap!(ax, di)
+
+CairoMakie.record(fig, "sea_ice_stress.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "doing iter $i"
 end

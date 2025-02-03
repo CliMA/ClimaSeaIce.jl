@@ -59,9 +59,9 @@ function required_auxiliary_fields(::BrittleBinghamMaxellRheology, grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Face, Face, Nothing}(grid)
 
-    σ̂₁₁ = Field{Face,   Face,   Nothing}(grid)
-    σ̂₂₂ = Field{Face,   Face,   Nothing}(grid)
-    σ̂₁₂ = Field{Center, Center, Nothing}(grid)
+    σ̂₁₁ = Field{Center, Center, Nothing}(grid)
+    σ̂₂₂ = Field{Center, Center, Nothing}(grid)
+    σ̂₁₂ = Field{Face, Face, Nothing}(grid)
 
     d̂   = Field{Face, Face, Nothing}(grid)
 
@@ -150,19 +150,19 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxellRheolo
 end
 
 @inline σᴵᶜᶜᶜ(i, j, k, grid, fields) = @inbounds (fields.σ₁₁[i, j, k] + fields.σ₂₂[i, j, k]) / 2
-@inline σᴵᶠᶠᶜ(i, j, k, grid, fields) = @inbounds (fields.σ̂₁₁[i, j, k] + fields.σ̂₂₂[i, j, k]) / 2
+@inline σᴵᶠᶠᶜ(i, j, k, grid, fields) = ℑxyᶠᶠᵃ(i, j, k, grid, σᴵᶜᶜᶜ, fields) 
 
 @inline function σᴵᴵᶜᶜᶜ(i, j, k, grid, fields) 
     σ₁₁ = @inbounds fields.σ₁₁[i, j, k]
     σ₂₂ = @inbounds fields.σ₂₂[i, j, k]
-    σ₁₂ = @inbounds fields.σ̂₁₂[i, j, k]
+    σ₁₂ = ℑxyᶜᶜᵃ(i, j, k, grid, fields.σ₁₂)
     
     return sqrt((σ₁₁ - σ₂₂)^2 / 4 + σ₁₂^2)
 end
 
 @inline function σᴵᴵᶠᶠᶜ(i, j, k, grid, fields) 
-    σ₁₁ = @inbounds fields.σ̂₁₁[i, j, k]
-    σ₂₂ = @inbounds fields.σ̂₂₂[i, j, k]
+    σ₁₁ = ℑxyᶠᶠᵃ(i, j, k, grid, fields.σ₁₁)
+    σ₂₂ = ℑxyᶠᶠᵃ(i, j, k, grid, fields.σ₂₂)
     σ₁₂ = @inbounds fields.σ₁₂[i, j, k]
     
     return sqrt((σ₁₁ - σ₂₂)^2 / 4 + σ₁₂^2)
@@ -183,10 +183,6 @@ end
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
-
-    σ̂₁₁ = fields.σ̂₁₁
-    σ̂₂₂ = fields.σ̂₂₂
-    σ̂₁₂ = fields.σ̂₁₂
 
     α = rheology.damage_parameter
     ν = rheology.poisson_ratio
@@ -215,18 +211,9 @@ end
     ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
     ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
     
-    # Strain rates
-    ϵ̇̂₁₁ = ℑxyᶠᶠᵃ(i, j, 1, grid, strain_rate_xx, u, v) 
-    ϵ̇̂₂₂ = ℑxyᶠᶠᵃ(i, j, 1, grid, strain_rate_yy, u, v) 
-    ϵ̇̂₁₂ = ℑxyᶜᶜᵃ(i, j, 1, grid, strain_rate_xy, u, v)
-    
     Kϵ₁₁ = (ϵ̇₁₁ + ν * ϵ̇₂₂) / (1 - ν^2)
     Kϵ₂₂ = (ϵ̇₂₂ + ν * ϵ̇₁₁) / (1 - ν^2)
     Kϵ₁₂ =  (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
-
-    K̂ϵ₁₁ = (ϵ̇̂₁₁ + ν * ϵ̇̂₂₂) / (1 - ν^2)
-    K̂ϵ₂₂ = (ϵ̇̂₂₂ + ν * ϵ̇̂₁₁) / (1 - ν^2)
-    K̂ϵ₁₂ =  (1 - ν) * ϵ̇̂₁₂  / (1 - ν^2)
 
     # Implicit diagonal operator
     Ωᶜᶜᶜ = 1 / (1 + Δτ * (1 + Pᶜᶜᶜ) / λᶜᶜᶜ)
@@ -235,10 +222,6 @@ end
     @inline σ₁₁[i, j, 1] = Ωᶜᶜᶜ * (σ₁₁[i, j, 1] + Δτ * Eᶜᶜᶜ * Kϵ₁₁)
     @inline σ₂₂[i, j, 1] = Ωᶜᶜᶜ * (σ₂₂[i, j, 1] + Δτ * Eᶜᶜᶜ * Kϵ₂₂)
     @inline σ₁₂[i, j, 1] = Ωᶠᶠᶜ * (σ₁₂[i, j, 1] + Δτ * Eᶠᶠᶜ * Kϵ₁₂)
-
-    @inline σ̂₁₁[i, j, 1] = Ωᶠᶠᶜ * (σ̂₁₁[i, j, 1] + Δτ * Eᶠᶠᶜ * K̂ϵ₁₁)
-    @inline σ̂₂₂[i, j, 1] = Ωᶠᶠᶜ * (σ̂₂₂[i, j, 1] + Δτ * Eᶠᶠᶜ * K̂ϵ₂₂)
-    @inline σ̂₁₂[i, j, 1] = Ωᶜᶜᶜ * (σ̂₁₂[i, j, 1] + Δτ * Eᶜᶜᶜ * K̂ϵ₁₂)
 end
 
 @kernel function _mohr_colomb_correction!(fields, grid, rheology, d, ρᵢ, Δτ)
@@ -246,14 +229,11 @@ end
     
     E = fields.E
     Ê = fields.Ê
-    d̂ = fields.d̂
+
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
-
-    σ̂₁₁ = fields.σ̂₁₁
-    σ̂₂₂ = fields.σ̂₂₂
-    σ̂₁₂ = fields.σ̂₁₂
+    d̂   = fields.d̂
 
     ν = rheology.poisson_ratio
     N = rheology.maximum_compressive_strength
@@ -279,26 +259,16 @@ end
 
     Gdᶜᶜ = @inbounds   (1 - dcᶜᶜᶜ) * (1 - d[i, j, 1]) * Δτ / tdᶜᶜᶜ
     Gdᶠᶠ = @inbounds   (1 - dcᶠᶠᶜ) * (1 - d̂[i, j, 1]) * Δτ / tdᶠᶠᶜ
-    
-    Gσ₁₁ = @inbounds - (1 - dcᶜᶜᶜ) * σ₁₁[i, j, 1]  * Δτ / tdᶜᶜᶜ
-    Gσ₂₂ = @inbounds - (1 - dcᶜᶜᶜ) * σ₂₂[i, j, 1]  * Δτ / tdᶜᶜᶜ
-    Gσ₁₂ = @inbounds - (1 - dcᶠᶠᶜ) * σ₁₂[i, j, 1]  * Δτ / tdᶠᶠᶜ
-    
-    Gσ̂₁₁ = @inbounds - (1 - dcᶠᶠᶜ) * σ̂₁₁[i, j, 1]  * Δτ / tdᶠᶠᶜ
-    Gσ̂₂₂ = @inbounds - (1 - dcᶠᶠᶜ) * σ̂₂₂[i, j, 1]  * Δτ / tdᶠᶠᶜ
-    Gσ̂₁₂ = @inbounds - (1 - dcᶜᶜᶜ) * σ̂₁₂[i, j, 1]  * Δτ / tdᶜᶜᶜ
+    Gσ₁₁ = @inbounds - (1 - dcᶜᶜᶜ) *    σ₁₁[i, j, 1]  * Δτ / tdᶜᶜᶜ
+    Gσ₂₂ = @inbounds - (1 - dcᶜᶜᶜ) *    σ₂₂[i, j, 1]  * Δτ / tdᶜᶜᶜ
+    Gσ₁₂ = @inbounds - (1 - dcᶠᶠᶜ) *    σ₁₂[i, j, 1]  * Δτ / tdᶠᶠᶜ
 
     # Damage and stress updates
-    @inbounds d[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gdᶜᶜ, zero(grid))
-    @inbounds d̂[i, j, 1] += ifelse(0 ≤ dcᶠᶠᶜ ≤ 1, Gdᶠᶠ, zero(grid))
-
+    @inbounds   d[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gdᶜᶜ, zero(grid))
+    @inbounds   d̂[i, j, 1] += ifelse(0 ≤ dcᶠᶠᶜ ≤ 1, Gdᶠᶠ, zero(grid))
     @inbounds σ₁₁[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gσ₁₁, zero(grid))
     @inbounds σ₂₂[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gσ₂₂, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(0 ≤ dcᶠᶠᶜ ≤ 1, Gσ₁₂, zero(grid))
-
-    @inbounds σ̂₁₁[i, j, 1] += ifelse(0 ≤ dcᶠᶠᶜ ≤ 1, Gσ̂₁₁, zero(grid))
-    @inbounds σ̂₂₂[i, j, 1] += ifelse(0 ≤ dcᶠᶠᶜ ≤ 1, Gσ̂₂₂, zero(grid))
-    @inbounds σ̂₁₂[i, j, 1] += ifelse(0 ≤ dcᶜᶜᶜ ≤ 1, Gσ̂₁₂, zero(grid))
 
     # Clamp damage between 0 and 1
     @inbounds d[i, j, 1] = clamp(d[i, j, 1], zero(grid), 99999 * one(grid) / 100000)

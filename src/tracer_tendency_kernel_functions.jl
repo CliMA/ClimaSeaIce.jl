@@ -62,13 +62,6 @@ end
                                                      model_fields)
      
     @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ice_concentration)
-
-    for n in eachindex(tracers) # all the other tracers just advect
-        ϕ = @inbounds tracers[n]
-        if !(ϕ isa ConstantField)
-            @inbounds Gⁿ[n][i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ϕ)
-        end
-    end
 end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
