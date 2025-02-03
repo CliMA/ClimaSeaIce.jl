@@ -1,33 +1,38 @@
-## The equations are solved in an iterative form following the EVP rheology of
-## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
-#
-# Where:
-# σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
-#
 struct BrittleBinghamMaxellRheology{FT}
-    ice_compressive_strength :: FT # compressive strength
+    ice_ridging_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
+    ice_cohesion :: FT # cohesion
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
-    minimum_plastic_stress :: FT # minimum plastic parameter (transitions to viscous behaviour)
-    min_substeps :: FT # minimum number of substeps expressed as the dynamic coefficient
-    max_substeps :: FT # maximum number of substeps expressed as the dynamic coefficient
+    undamaged_elastic_modulus :: FT # minimum plastic parameter (transitions to viscous behaviour)
+    undamaged_viscous_relaxation_time :: FT # minimum number of substeps expressed as the dynamic coefficient
+    poisson_ratio :: FT
+    damage_parameter :: FT 
+    ridging_ice_thickness :: FT # maximum number of substeps expressed as the dynamic coefficient
+    damage_propagation_timescale :: FT
 end
 
-
 function BrittleBinghamMaxellRheology(FT::DataType = Float64; 
-                                    ice_compressive_strength = 27500, 
+                                    ice_ridging_strength = 1e4, 
                                     ice_compaction_hardening = 20, 
+                                    ice_cohesion = 5.8e3,
                                     yield_curve_eccentricity = 2, 
-                                    minimum_plastic_stress = 2e-9,
-                                    min_substeps = 30,
-                                    max_substeps = 1000)
+                                    undamaged_elastic_modulus = 5.96e8,
+                                    undamaged_viscous_relaxation_time = 1e7,
+                                    ridging_ice_thickness = 1,
+                                    poisson_ratio = 1/3,
+                                    damage_parameter = 5,
+                                    damage_propagation_timescale = 1e-3)
 
-    return BrittleBinghamMaxellRheology(convert(FT, ice_compressive_strength), 
-                                         convert(FT, ice_compaction_hardening), 
-                                         convert(FT, yield_curve_eccentricity),
-                                         convert(FT, minimum_plastic_stress),
-                                         convert(FT, min_substeps),
-                                         convert(FT, max_substeps))
+    return BrittleBinghamMaxellRheology(convert(FT, ice_ridging_strength), 
+                                        convert(FT, ice_compaction_hardening), 
+                                        convert(FT, ice_cohesion),
+                                        convert(FT, yield_curve_eccentricity),
+                                        convert(FT, undamaged_elastic_modulus),
+                                        convert(FT, undamaged_viscous_relaxation_time),
+                                        convert(FT, ridging_ice_thickness),
+                                        convert(FT, poisson_ratio),
+                                        convert(FT, damage_parameter),
+                                        convert(FT, damage_propagation_timescale))
 end
 
 required_prognostic_tracers(::BrittleBinghamMaxellRheology, grid) = 
@@ -49,12 +54,171 @@ end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
 Adapt.adapt_structure(to, r::BrittleBinghamMaxellRheology) = 
-    ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
-                               Adapt.adapt(to, r.ice_compaction_hardening),
-                               Adapt.adapt(to, r.yield_curve_eccentricity),
-                               Adapt.adapt(to, r.minimum_plastic_stress),
-                               Adapt.adapt(to, r.min_substeps),
-                               Adapt.adapt(to, r.max_substeps))
+    BrittleBinghamMaxellRheology(Adapt.adapt(to, r.ice_ridging_strength), 
+                                 Adapt.adapt(to, r.ice_compaction_hardening), 
+                                 Adapt.adapt(to, r.ice_cohesion),
+                                 Adapt.adapt(to, r.yield_curve_eccentricity),
+                                 Adapt.adapt(to, r.undamaged_elastic_modulus),
+                                 Adapt.adapt(to, r.undamaged_viscous_relaxation_time),
+                                 Adapt.adapt(to, r.ridging_ice_thickness),
+                                 Adapt.adapt(to, r.poisson_ratio),
+                                 Adapt.adapt(to, r.damage_parameter),
+                                 Adapt.adapt(to, r.damage_propagation_timescale))
+
+#####
+##### Computation of the stresses
+#####
+
+"""
+    initialize_rheology!(model, rheology::BrittleBinghamMaxellRheology)
+
+Initialize the brittle-bingham-maxwell rheology.
+In this step we calculate the ice strength given the ice mass (thickness and concentration).
+"""
+function initialize_rheology!(model, rheology::BrittleBinghamMaxellRheology)
+    h = model.ice_thickness
+    ℵ = model.ice_concentration
+
+    P★ = rheology.ice_ridging_strength
+    E★ = rheology.undamaged_elastic_modulus
+    λ★ = rheology.undamaged_viscous_relaxation_time
+    h★ = rheology.ridging_ice_thickness
+    α  = rheology.damage_parameter
+    C  = rheology.ice_compaction_hardening
+    
+    fields = model.dynamics.auxiliary_fields
+
+    # compute on the whole grid including halos
+    parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
+    launch!(architecture(model.grid), model.grid, parameters, _initialize_bbm_rhology!, fields, P★, E★, λ★, h★, α, C, h, ℵ)
+    
+    return nothing
+end
+
+@kernel function _initialize_bbm_rhology!(fields, P★, E★, λ★, h★, α, C, h, ℵ)
+    i, j = @index(Global, NTuple)    
+    @inbounds exponent = exp(- C * (1 - ℵ[i, j, k])) 
+    @inbounds fields.P[i, j, 1] = P★ * (h[i, j, k] / h★)^(3/2) * exponent
+    @inbounds fields.E[i, j, 1] = E★ * exponent
+    @inbounds fields.λ[i, j, 1] = λ★ * exponent^(α - 1)
+end
+
+# Specific compute stresses for the EVP rheology
+function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology, Δt) 
+
+    grid = model.grid
+    arch = architecture(grid)
+
+    h  = model.ice_thickness
+    ρᵢ = model.ice_density
+    ℵ  = model.ice_concentration
+    d  = model.tracers.d
+    u, v = model.velocities
+    fields = dynamics.auxiliary_fields
+
+    Nx, Ny, _ = size(grid)
+
+    parameters = KernelParameters(-1:Nx+2, -1:Ny+2)
+
+    launch!(arch, grid, parameters, _advance_bbm_stresses!, fields, grid, rheology, d, u, v, Δt)
+    launch!(arch, grid, parameters, _advance_damage_correct_stresses!, fields, grid, rheology, d, u, v, h, ℵ, ρᵢ, Δt)
+
+    return nothing
+end
+
+@kernel function _advance_bbm_stresses!(fields, grid, rheology, d, u, v, Δt)
+    i, j = @index(Global, NTuple)
+
+    P = fields.P
+
+    e⁻² = rheology.yield_curve_eccentricity^(-2)
+    Δm  = rheology.minimum_plastic_stress
+
+    # Extract auxiliary fields 
+    P = fields.P
+
+    # Strain rates
+    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
+
+    # Center - Center variables:
+    ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, 1, grid, strain_rate_xy, u, v)
+
+    # Ice divergence 
+    δ = ϵ̇₁₁ + ϵ̇₂₂
+
+    # Ice shear (at Centers)
+    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
+
+    # Visco - Plastic parameter 
+    # if Δ is very small we assume a linear viscous response
+    # adding a minimum Δ_min (at Centers)
+    Δᶜᶜᶜ = max(sqrt(δ^2 + s^2 * e⁻²), Δm)
+    Pᶜᶜᶜ = @inbounds P[i, j, 1]
+
+    @inbounds fields.ζ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
+    @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
+end
+
+# Compute the visco-plastic stresses for a slab sea ice model.
+# The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
+# following the αEVP formulation of Kimmritz et al (2016).
+@kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+    i, j = @index(Global, NTuple)
+
+    e⁻² = rheology.yield_curve_eccentricity^(-2)
+    Δm  = rheology.minimum_plastic_stress
+    σ₁₁ = fields.σ₁₁
+    σ₂₂ = fields.σ₂₂
+    σ₁₂ = fields.σ₁₂
+    α   = fields.α
+
+    # Strain rates
+    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
+    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
+
+    Pᶜᶜᶜ = @inbounds fields.P[i, j, 1]
+    ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
+    Δᶜᶜᶜ = @inbounds fields.Δ[i, j, 1]
+    ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, fields.ζ)
+
+    # replacement pressure?
+    Pᵣ = Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
+
+    ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
+    ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
+
+    # σ(uᵖ): the tangential stress depends only shear viscosity 
+    # while the compressive stresses depend on the bulk viscosity and the ice strength
+    σ₁₁ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₁ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2) 
+    σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
+    σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
+
+    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
+    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
+
+    # Update coefficients for substepping if we are using dynamic substepping
+    # with spatially varying coefficients such as in Kimmritz et al (2016)
+    γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
+    γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), rheology.max_substeps^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
+    γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), rheology.min_substeps, rheology.max_substeps)
+
+    γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
+    γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), rheology.max_substeps^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
+    γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
+
+    # Compute the new stresses and store the value of the dynamic substepping coefficient α
+    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
+    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
+    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
+    @inbounds   α[i, j, 1]  = γᶜᶜᶜ
+    
+    # Mask inactive nodes
+    @inbounds σ₁₁[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Center(), Center(), Center()), zero(grid), σ₁₁[i, j, 1])
+    @inbounds σ₂₂[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Center(), Center(), Center()), zero(grid), σ₂₂[i, j, 1])
+    @inbounds σ₁₂[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Face(),   Face(),   Center()), zero(grid), σ₁₂[i, j, 1]) 
+end
 
 #####
 ##### Methods for the BBM rheology
