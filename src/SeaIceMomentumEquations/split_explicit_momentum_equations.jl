@@ -68,7 +68,7 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
 
     for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, dynamics, rheology, Δt)
+        compute_stresses!(model, dynamics, rheology, Δt, substeps)
 
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)
