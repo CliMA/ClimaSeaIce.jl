@@ -30,11 +30,9 @@ function BrittleBinghamMaxellRheology(FT::DataType = Float64;
                                          convert(FT, max_substeps))
 end
 
-function required_prognostic_tracers(::BrittleBinghamMaxellRheology, grid)
-    d = Field{Center, Center, Nothing}(grid) # damage tracer
-    return (; d)
-end
-
+required_prognostic_tracers(::BrittleBinghamMaxellRheology, grid) = 
+    (; d = Field{Center, Center, Nothing}(grid)) # damage tracer
+    
 function required_auxiliary_fields(::BrittleBinghamMaxellRheology, grid)
     
     # TODO: What about boundary conditions?
