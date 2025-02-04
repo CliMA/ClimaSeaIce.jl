@@ -115,13 +115,13 @@ end
     @inbounds u[Nx+1, j, 1] = 0 # Impenetrability
 
     for i in 1:Hx-1
-        @inbounds u[Nx+1+i, j, 1] = u[Nx+1-i, j, 1]
+        @inbounds u[Nx+1+i, j, 1] = - u[Nx+1-i, j, 1]
     end
 
     for i in 1:Hx
-        @inbounds u[1-i, j, 1]    = u[1+i, j, 1]
-        @inbounds v[1-i, j, 1] = v[i, j, 1]
-        @inbounds v[Nx+i, j, 1] = v[Nx+1-i, j, 1]
+        @inbounds u[1-i, j, 1]  = - u[1+i, j, 1]
+        @inbounds v[1-i, j, 1]  = - v[i, j, 1]
+        @inbounds v[Nx+i, j, 1] = - v[Nx+1-i, j, 1]
     end
 end
 
@@ -132,13 +132,13 @@ end
     @inbounds v[i, Ny+1, 1] = 0 # Impenetrability
 
     for j in 1:Hy-1
-        @inbounds v[i, Ny+1+j, 1] = v[i, Ny+1-j, 1]
+        @inbounds v[i, Ny+1+j, 1] = - v[i, Ny+1-j, 1]
     end
     
     for j in 1:Hy
-        @inbounds v[i, 1-j, 1]    = v[i, 1+j, 1]
-        @inbounds u[i, 1-j, 1]  = u[i, j, 1]
-        @inbounds u[i, Ny+j, 1] = u[i, Ny+1-j, 1]
+        @inbounds v[i, 1-j, 1]  = - v[i, 1+j, 1]
+        @inbounds u[i, 1-j, 1]  = - u[i, j, 1]
+        @inbounds u[i, Ny+j, 1] = - u[i, Ny+1-j, 1]
     end
 end
 
@@ -148,7 +148,6 @@ using Oceananigans.Grids: halo_size, architecture
     u, v = velocities
     grid = u.grid
     arch = architecture(grid)
-    Nx, Ny, _ = size(parent(u))
     nx, ny, _ = size(grid)
     Hx, Hy = halo_size(grid)
 

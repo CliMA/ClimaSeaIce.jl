@@ -121,7 +121,7 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
 
     Nx, Ny, _ = size(grid)
 
-    parameters = KernelParameters(-2:Nx+3, -2:Ny+3)
+    parameters = KernelParameters(-6:Nx+7, -6:Ny+7)
 
     # Pretty simple timestepping
     Δτ = Δt / Ns
