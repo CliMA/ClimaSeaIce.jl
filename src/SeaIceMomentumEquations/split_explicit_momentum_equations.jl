@@ -99,13 +99,61 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
         end
 
         # TODO: This needs to be removed in some way!
-        fill_halo_regions!(model.velocities)
-
+        fill_my_halo_regions!(model.velocities)
+        
         mask_immersed_field_xy!(model.velocities.u, k=1)
         mask_immersed_field_xy!(model.velocities.v, k=1)
     end
 
     return nothing
+end
+
+@kernel function _fill_my_x_halo_regions!(u, v, Nx, Hx)
+    j, _ = @index(Global, NTuple)
+
+    @inbounds u[1,    j, 1] = 0 # Impenetrability
+    @inbounds u[Nx+1, j, 1] = 0 # Impenetrability
+
+    for i in 1:Hx-1
+        @inbounds u[Nx+1+i, j, 1] = u[Nx+1-i, j, 1]
+    end
+
+    for i in 1:Hx
+        @inbounds u[1-i, j, 1]    = u[1+i, j, 1]
+        @inbounds v[1-i, j, 1] = v[i, j, 1]
+        @inbounds v[Nx+i, j, 1] = v[Nx+1-i, j, 1]
+    end
+end
+
+@kernel function _fill_my_y_halo_regions!(u, v, Ny, Hy)
+    i, _= @index(Global, NTuple)
+
+    @inbounds v[i, 1,    1] = 0 # Impenetrability
+    @inbounds v[i, Ny+1, 1] = 0 # Impenetrability
+
+    for j in 1:Hy-1
+        @inbounds v[i, Ny+1+j, 1] = v[i, Ny+1-j, 1]
+    end
+    
+    for j in 1:Hy
+        @inbounds v[i, 1-j, 1]    = v[i, 1+j, 1]
+        @inbounds u[i, 1-j, 1]  = u[i, j, 1]
+        @inbounds u[i, Ny+j, 1] = u[i, Ny+1-j, 1]
+    end
+end
+
+using Oceananigans.Grids: halo_size, architecture
+
+@inline function fill_my_halo_regions!(velocities)
+    u, v = velocities
+    grid = u.grid
+    arch = architecture(grid)
+    Nx, Ny, _ = size(parent(u))
+    nx, ny, _ = size(grid)
+    Hx, Hy = halo_size(grid)
+
+    launch!(arch, grid, (ny, 1), _fill_my_x_halo_regions!, u, v, nx, Hx)
+    launch!(arch, grid, (nx, 1), _fill_my_y_halo_regions!, u, v, ny, Hy)
 end
 
 @kernel function _u_velocity_step!(u, grid, Δt, 

@@ -8,6 +8,12 @@ using Oceananigans.ImmersedBoundaries: IBG
 @inline strain_rate_yy(i, j, k, grid::IBG, u, v) = ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
 @inline strain_rate_xy(i, j, k, grid::IBG, u, v) = (∂xᴮᶠᶠᶜ(i, j, k, grid, u) + ∂yᴮᶠᶠᶜ(i, j, k, grid, v)) / 2
 
+@inline function strain_rate_xy_centered(i, j, k, grid, scheme, u, v)
+   δv = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, ℑxyᶠᶜᵃ, v) 
+   δu = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, ℑxyᶜᶠᵃ, u)
+   return (δv + δu) / Azᶜᶜᶜ(i, j, k, grid) / 2
+end
+
 # Hardcode No-slip boundary conditions on immersed boundaries?
 # TODO: Fix this mess!! 
 # Find a way not to hard-code. We need to pass the immersed_boundary_conditions of

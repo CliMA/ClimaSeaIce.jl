@@ -95,7 +95,8 @@ function update_state!(model::SIM)
         mask_immersed_field!(field)
     end
 
-    fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
+    fill_halo_regions!(model.ice_thickness, model.clock, fields(model))
+    fill_halo_regions!(model.ice_concentration, model.clock, fields(model))
 
     update_model_field_time_series!(model, model.clock)
 

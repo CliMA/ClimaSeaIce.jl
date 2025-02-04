@@ -29,6 +29,7 @@ compute_stresses!(model, dynamics, rheology, Δt) = nothing
 
 include("viscous_rheology.jl")
 include("strain_rates.jl")
+include("interpolation_schemes.jl")
 include("elasto_visco_plastic_rheology.jl")
 include("brittle_bingham_maxwell_rheology.jl")
 
