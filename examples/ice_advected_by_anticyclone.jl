@@ -95,7 +95,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 ##### Numerical details
 #####
 
-rheology = BrittleBinghamMaxellRheology(damage_interpolation_scheme = WENO(order=3))
+rheology = BrittleBinghamMaxellRheology()
 
 # rheology =  ElastoViscoPlasticRheology(min_substeps=50, 
 #                                        max_substeps=100,
@@ -131,7 +131,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_iteration = 6) #stop_time = 17hours) # 2days)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -172,7 +172,12 @@ function accumulate_timeseries(sim)
     σ₁₁ = sim.model.dynamics.auxiliary_fields.σ₁₁
     σ₁₂ = sim.model.dynamics.auxiliary_fields.σ₁₂
     σ₂₂ = sim.model.dynamics.auxiliary_fields.σ₂₂
-    d   = sim.model.tracers.d
+    
+    if haskey(sim.model.tracers, :d)
+        d = sim.model.tracers.d
+    else
+        d = sim.model.ice_concentration
+    end
 
     push!(htimeseries,   deepcopy(Array(interior(h))))
     push!(ℵtimeseries,   deepcopy(Array(interior(ℵ))))
