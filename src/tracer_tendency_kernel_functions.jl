@@ -62,6 +62,7 @@ end
                                                      model_fields)
      
     @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ice_concentration)
+    @inbounds Gⁿ.d[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, tracers.d)
 end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value

@@ -36,6 +36,8 @@ end
     Gh⁻ = G⁻.h
     Gℵ⁻ = G⁻.ℵ
 
+    d = tracers.d
+
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁻ = hmin[i, j, k]
@@ -49,6 +51,9 @@ end
 
         ℵ[i, j, k] = ℵt
         h[i, j, k] = ht
+
+        d⁺ = tracers.d[i, j, k] + Δt * (α * Gⁿ.d[i, j, k] + β * G⁻.d[i, j, k])
+        d[i, j, k] = clamp(d⁺, zero(d⁺), 99999 * one(d⁺) / 100000)
     end 
 end
 

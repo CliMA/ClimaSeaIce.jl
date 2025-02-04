@@ -1,4 +1,4 @@
-struct BrittleBinghamMaxellRheology{FT, A}
+struct BrittleBinghamMaxwellRheology{FT, A}
     ice_ridging_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     ice_cohesion :: FT # cohesion
@@ -10,41 +10,41 @@ struct BrittleBinghamMaxellRheology{FT, A}
     maximum_compressive_strength :: FT
     healing_constant :: FT
     damage_parameter :: FT 
-    damage_interpolation_scheme :: A # Interpolation of damage on face-face regions
+    interpolation_scheme :: A # Interpolation of cc variables to faces
 end
 
-function BrittleBinghamMaxellRheology(FT::DataType = Float64; 
-                                      ice_ridging_strength = 1e4, 
-                                      ice_compaction_hardening = 20, 
-                                      ice_cohesion = 5.8e3,
-                                      undamaged_elastic_modulus = 5.96e8,
-                                      undamaged_viscous_relaxation_time = 1e7,
-                                      ridging_ice_thickness = 1,
-                                      poisson_ratio = 1 / 3,
-                                      friction_coefficient = 0.7,
-                                      maximum_compressive_strength = 2.9e7, 
-                                      healing_constant = 26, # Ks
-                                      damage_parameter = 5,
-                                      damage_interpolation_scheme = Centered())
+function BrittleBinghamMaxwellRheology(FT::DataType = Float64; 
+                                       ice_ridging_strength = 1e4, 
+                                       ice_compaction_hardening = 20, 
+                                       ice_cohesion = 5.8e3,
+                                       undamaged_elastic_modulus = 5.96e8,
+                                       undamaged_viscous_relaxation_time = 1e7,
+                                       ridging_ice_thickness = 1,
+                                       poisson_ratio = 1 / 3,
+                                       friction_coefficient = 0.7,
+                                       maximum_compressive_strength = 2.9e7, 
+                                       healing_constant = 26, # Ks
+                                       damage_parameter = 5,
+                                       interpolation_scheme = Centered())
 
-    return BrittleBinghamMaxellRheology(convert(FT, ice_ridging_strength), 
-                                        convert(FT, ice_compaction_hardening), 
-                                        convert(FT, ice_cohesion),
-                                        convert(FT, undamaged_elastic_modulus),
-                                        convert(FT, undamaged_viscous_relaxation_time),
-                                        convert(FT, ridging_ice_thickness),
-                                        convert(FT, poisson_ratio),
-                                        convert(FT, friction_coefficient),
-                                        convert(FT, maximum_compressive_strength),
-                                        convert(FT, healing_constant),
-                                        convert(FT, damage_parameter),
-                                        damage_interpolation_scheme)
+    return BrittleBinghamMaxwellRheology(convert(FT, ice_ridging_strength), 
+                                         convert(FT, ice_compaction_hardening), 
+                                         convert(FT, ice_cohesion),
+                                         convert(FT, undamaged_elastic_modulus),
+                                         convert(FT, undamaged_viscous_relaxation_time),
+                                         convert(FT, ridging_ice_thickness),
+                                         convert(FT, poisson_ratio),
+                                         convert(FT, friction_coefficient),
+                                         convert(FT, maximum_compressive_strength),
+                                         convert(FT, healing_constant),
+                                         convert(FT, damage_parameter),
+                                         interpolation_scheme)
 end
 
-required_prognostic_tracers(::BrittleBinghamMaxellRheology, grid) = 
+required_prognostic_tracers(::BrittleBinghamMaxwellRheology, grid) = 
     (; d = Field{Center, Center, Nothing}(grid)) # damage tracer
     
-function required_auxiliary_fields(::BrittleBinghamMaxellRheology, grid)
+function required_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     
     # TODO: What about boundary conditions?
     P = Field{Center, Center, Nothing}(grid)
@@ -59,8 +59,8 @@ function required_auxiliary_fields(::BrittleBinghamMaxellRheology, grid)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
-Adapt.adapt_structure(to, r::BrittleBinghamMaxellRheology) = 
-    BrittleBinghamMaxellRheology(Adapt.adapt(to, r.ice_ridging_strength), 
+Adapt.adapt_structure(to, r::BrittleBinghamMaxwellRheology) = 
+    BrittleBinghamMaxwellRheology(Adapt.adapt(to, r.ice_ridging_strength), 
                                  Adapt.adapt(to, r.ice_compaction_hardening), 
                                  Adapt.adapt(to, r.ice_cohesion),
                                  Adapt.adapt(to, r.undamaged_elastic_modulus),
@@ -71,13 +71,13 @@ Adapt.adapt_structure(to, r::BrittleBinghamMaxellRheology) =
                                  Adapt.adapt(to, r.maximum_compressive_strength),
                                  Adapt.adapt(to, r.healing_constant),
                                  Adapt.adapt(to, r.damage_parameter),
-                                 Adapt.adapt(to, r.damage_interpolation_scheme))
+                                 Adapt.adapt(to, r.interpolation_scheme))
 
 #####
 ##### Computation of the stresses
 #####
 
-function initialize_rheology!(model, rheology::BrittleBinghamMaxellRheology)
+function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
     h = model.ice_thickness
     ℵ = model.ice_concentration
     
@@ -109,7 +109,7 @@ end
 end
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxellRheology, Δt, Ns) 
+function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheology, Δt, Ns) 
 
     grid = model.grid
     arch = architecture(grid)
@@ -170,7 +170,7 @@ end
     # Strain rates
     ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
     ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = ℑxyᶠᶠᵃ(i, j, 1, grid, strain_rate_xy, u, v)
+    ϵ̇₁₂ = ℑxyᶜᶜᵃ(i, j, 1, grid, strain_rate_xy, u, v)
     
     Kϵ₁₁ = (ϵ̇₁₁ + ν * ϵ̇₂₂) / (1 - ν^2)
     Kϵ₂₂ = (ϵ̇₂₂ + ν * ϵ̇₁₁) / (1 - ν^2)
@@ -219,7 +219,7 @@ end
     @inbounds σ₂₂[i, j, 1] += ifelse(0 ≤ dcrit ≤ 1, Gσ₂₂, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(0 ≤ dcrit ≤ 1, Gσ₁₂, zero(grid))
 
-    # Clamp damage between 0 and 1
+    # Clamp damage between 0 and a value close to 1 (cannot do 1 because of the relaxation time)
     @inbounds d[i, j, 1] = clamp(d[i, j, 1], zero(grid), 99999 * one(grid) / 100000)
 end
 
@@ -232,19 +232,18 @@ end
 @inline hσ₂₂(i, j, k, grid, fields) = @inbounds fields.σ₂₂[i, j, k] * fields.h[i, j, k]
 @inline hσ₁₂(i, j, k, grid, fields) = @inbounds fields.σ₁₂[i, j, k] * fields.h[i, j, k]
 
-
 @inline hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields) = ℑxyᶠᶠᵃ(i, j, k, grid, hσ₁₂, fields)
 
 # Here we extend all the functions that a rheology model needs to support:
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::BrittleBinghamMaxellRheology, clock, fields) 
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
     ∂xσ₁₁ = δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, hσ₁₁,    fields) / Azᶠᶜᶜ(i, j, k, grid)
-    ∂yσ₁₂ = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, hσ₁₂ᶠᶠᶜ, fields) / Azᶠᶜᶜ(i, j, k, grid)
+    ∂yσ₁₂ = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, hσ₁₂ᶠᶠᶜ, fields) / Azᶠᶜᶜ(i, j, k, grid)
 
     return ∂xσ₁₁ + ∂yσ₁₂
 end
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::BrittleBinghamMaxellRheology, clock, fields) 
-    ∂xσ₁₂ = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, hσ₁₂ᶠᶠᶜ, fields) / Azᶜᶠᶜ(i, j, k, grid)
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
+    ∂xσ₁₂ = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, hσ₁₂ᶠᶠᶜ, fields) / Azᶜᶠᶜ(i, j, k, grid)
     ∂yσ₂₂ = δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, hσ₂₂,    fields) / Azᶜᶠᶜ(i, j, k, grid)
 
     return ∂xσ₁₂ + ∂yσ₂₂
