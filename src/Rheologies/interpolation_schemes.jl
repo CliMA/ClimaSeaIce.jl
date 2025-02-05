@@ -109,6 +109,31 @@ const S23 = (-1,  2, 0, -2,  1) ./ 24
     return (ω₀ * q₀ + ω₁ * q₁ + ω₂ * q₂ + ω₃ * q₃) / (ω₀ + ω₁ + ω₂ + ω₃)
 end
 
+@inline interpolate_xᶠ(i, j, k, grid, scheme, σ, args...) = ℑxᶠᵃᵃ(i, j, k, grid, σ, args...)
+@inline interpolate_yᶠ(i, j, k, grid, scheme, σ, args...) = ℑyᵃᶠᵃ(i, j, k, grid, σ, args...)
+@inline interpolate_xᶜ(i, j, k, grid, scheme, σ, args...) = ℑxᶜᵃᵃ(i, j, k, grid, σ, args...)
+@inline interpolate_yᶜ(i, j, k, grid, scheme, σ, args...) = ℑyᵃᶜᵃ(i, j, k, grid, σ, args...)
+
+using Oceananigans.Advection: _biased_interpolate_xᶠᵃᵃ, 
+                              _biased_interpolate_yᵃᶠᵃ, 
+                              _biased_interpolate_xᶜᵃᵃ, 
+                              _biased_interpolate_yᵃᶜᵃ, 
+                              LeftBias, RightBias
+
+@inline interpolate_xᶠ(i, j, k, grid, scheme::WENO, σ, args...) = 
+        (_biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) + 
+         _biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
+@inline interpolate_yᶠ(i, j, k, grid, scheme::WENO, σ, args...) = 
+        (_biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) +
+         _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
+@inline interpolate_xᶜ(i, j, k, grid, scheme::WENO, σ, args...) = 
+        (_biased_interpolate_xᶜᵃᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) + 
+         _biased_interpolate_xᶜᵃᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
+@inline interpolate_yᶜ(i, j, k, grid, scheme::WENO, σ, args...) = 
+        (_biased_interpolate_yᵃᶜᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) +
+         _biased_interpolate_yᵃᶜᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
+
+# Now we can compute the in
 # Now we can compute the interpolation:
 @inline function interpolate_xᶠ(i, j, k, grid, ::CenteredWENO5, σ, args...)
     σ₀ = getvalue(i-3, j, k, grid, σ, args...)
@@ -193,8 +218,8 @@ function interpolate_xyᶜᶠ(i, j, k, grid, scheme::CenteredWENO5, σ, args...)
     return centered_weno(σ₀, σ₁, σ₂, σ₃, σ₄, σ₅)
 end
 
-@inline function strain_rate_xy_centered(i, j, k, grid, scheme::CenteredWENO5, u, v) 
-    δv = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, interpolate_xyᶠᶜ, scheme, v) 
-    δu = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, interpolate_xyᶜᶠ, scheme, u)
-    return (δv + δu) / Azᶜᶜᶜ(i, j, k, grid) / 2
-end
+# @inline function strain_rate_xy_centered(i, j, k, grid, scheme::CenteredWENO5, u, v) 
+#     δv = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, interpolate_xyᶠᶜ, scheme, v) 
+#     δu = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, interpolate_xyᶜᶠ, scheme, u)
+#     return (δv + δu) / Azᶜᶜᶜ(i, j, k, grid) / 2
+# end

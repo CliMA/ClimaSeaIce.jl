@@ -147,9 +147,12 @@ end
     return sqrt((σ₁₁ - σ₂₂)^2 / 4 + σ₁₂^2)
 end
 
-@inline strain_rate_xx(i, j, k, grid, u, v) =  δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, ℑyᵃᶜᵃ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, u, v) =  δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, ℑxᶜᵃᵃ, v) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, ℑyᵃᶜᵃ, v) + δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, ℑxᶜᵃᵃ, u)) / Azᶜᶜᶜ(i, j, k, grid) / 2
+@inline strain_rate_xx(i, j, k, grid, scheme, u, v) =  interpolate_yᶜ(i, j, k, grid, scheme, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, scheme, u, v) =  interpolate_xᶜ(i, j, k, grid, scheme, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+
+@inline strain_rate_xy(i, j, k, grid, scheme, u, v) = 
+        (interpolate_yᶜ(i, j, k, grid, scheme, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, v) + 
+         interpolate_xᶜ(i, j, k, grid, scheme, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, u)) / Azᶜᶜᶜ(i, j, k, grid) / 2
 
 @kernel function _advance_bbm_stresses!(fields, grid, rheology, d, u, v, Δτ)
     i, j = @index(Global, NTuple)
@@ -160,7 +163,8 @@ end
 
     α = rheology.damage_parameter
     ν = rheology.poisson_ratio
-    
+    I = rheology.interpolation_scheme
+
     P = @inbounds fields.P[i, j, 1]
     E = @inbounds fields.E[i, j, 1] * (1 - d[i, j, 1])
     λ = @inbounds fields.λ[i, j, 1] * (1 - d[i, j, 1])^(α - 1)
@@ -174,9 +178,9 @@ end
     scheme = rheology.interpolation_scheme
 
     # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
+    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, I, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, I, u, v) 
+    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, I, u, v)
     
     Kϵ₁₁ = (ϵ̇₁₁ + ν * ϵ̇₂₂) / (1 - ν^2)
     Kϵ₂₂ = (ϵ̇₂₂ + ν * ϵ̇₁₁) / (1 - ν^2)
@@ -239,18 +243,20 @@ end
 @inline hσ₁₂(i, j, k, grid, fields) = @inbounds fields.σ₁₂[i, j, k] * fields.h[i, j, k]
 
 # Here we extend all the functions that a rheology model needs to support:
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
-
-    ∂xσ₁₁ = δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, ℑyᵃᶠᵃ, hσ₁₁, fields) / Azᶠᶠᶜ(i, j, k, grid)
-    ∂yσ₁₂ = δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, ℑxᶠᵃᵃ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, r::BrittleBinghamMaxwellRheology, clock, fields) 
+    
+    scheme = r.interpolation_scheme
+    ∂xσ₁₁  = interpolate_yᶠ(i, j, k, grid, scheme, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₁, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂yσ₁₂  = interpolate_xᶠ(i, j, k, grid, scheme, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
 
     return ∂xσ₁₁ + ∂yσ₁₂
 end
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
-
-    ∂xσ₁₂ = δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, ℑyᵃᶠᵃ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
-    ∂yσ₂₂ = δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, ℑxᶠᵃᵃ, hσ₂₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, r::BrittleBinghamMaxwellRheology, clock, fields) 
+    
+    scheme = r.interpolation_scheme
+    ∂xσ₁₂  = interpolate_yᶠ(i, j, k, grid, scheme, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂yσ₂₂  = interpolate_xᶠ(i, j, k, grid, scheme, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₂₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
 
     return ∂xσ₁₂ + ∂yσ₂₂
 end

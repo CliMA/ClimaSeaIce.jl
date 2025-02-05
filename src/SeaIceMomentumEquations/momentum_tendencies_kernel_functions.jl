@@ -14,7 +14,6 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
      h = model_fields.h
      ℵ = model_fields.ℵ
      ρ = model_fields.ρ
-     U = (u = model_fields.u, v = model_fields.v)
 
      # Ice mass (per unit area) interpolated on u points
      ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
@@ -44,7 +43,6 @@ end
      h = model_fields.h
      ℵ = model_fields.ℵ
      ρ = model_fields.ρ
-     U = (u = model_fields.u, v = model_fields.v)
 
      # Ice mass (per unit area) interpolated on v points
      ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)

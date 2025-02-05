@@ -95,7 +95,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 ##### Numerical details
 #####
 
-interpolation_scheme = nothing # ClimaSeaIce.Rheologies.CenteredWENO5()
+interpolation_scheme = WENO() # ClimaSeaIce.Rheologies.CenteredWENO5()
 
 rheology = BrittleBinghamMaxwellRheology(; interpolation_scheme)
 
