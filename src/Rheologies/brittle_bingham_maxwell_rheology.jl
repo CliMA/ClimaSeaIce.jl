@@ -136,12 +136,12 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     return nothing
 end
 
-@inline strain_rate_xx(i, j, k, grid, scheme, u, v) = interpolate_yᶜ(i, j, k, grid, scheme, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, scheme, u, v) = interpolate_xᶜ(i, j, k, grid, scheme, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xx(i, j, k, grid, scheme, u, v) = ℑyᵃᶜᵃ(i, j, k, grid, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, scheme, u, v) = ℑxᶜᵃᵃ(i, j, k, grid, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
 
 @inline strain_rate_xy(i, j, k, grid, scheme, u, v) = 
-        (interpolate_yᶜ(i, j, k, grid, scheme, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, v) + 
-         interpolate_xᶜ(i, j, k, grid, scheme, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, u)) / Azᶜᶜᶜ(i, j, k, grid) / 2
+        (ℑyᵃᶜᵃ(i, j, k, grid, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, v) + 
+         ℑxᶜᵃᵃ(i, j, k, grid, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, u)) / Azᶜᶜᶜ(i, j, k, grid) / 2
 
 
 @inline  σᴵ(i, j, k, grid, fields) = @inbounds (fields.σ₁₁[i, j, k] + fields.σ₂₂[i, j, k]) / 2
@@ -237,8 +237,8 @@ end
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, r::BrittleBinghamMaxwellRheology, clock, fields) 
     
     scheme = r.interpolation_scheme
-    ∂xσ₁₁  = interpolate_yᶠ(i, j, k, grid, scheme, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₁, fields) / Azᶠᶠᶜ(i, j, k, grid)
-    ∂yσ₁₂  = interpolate_xᶠ(i, j, k, grid, scheme, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂xσ₁₁  = ℑyᵃᶠᵃ(i, j, k, grid, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₁, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂yσ₁₂  = ℑxᶠᵃᵃ(i, j, k, grid, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
 
     return ∂xσ₁₁ + ∂yσ₁₂
 end
@@ -246,8 +246,8 @@ end
 @inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, r::BrittleBinghamMaxwellRheology, clock, fields) 
     
     scheme = r.interpolation_scheme
-    ∂xσ₁₂  = interpolate_yᶠ(i, j, k, grid, scheme, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
-    ∂yσ₂₂  = interpolate_xᶠ(i, j, k, grid, scheme, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₂₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂xσ₁₂  = ℑyᵃᶠᵃ(i, j, k, grid, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂yσ₂₂  = ℑxᶠᵃᵃ(i, j, k, grid, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₂₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
 
     return ∂xσ₁₂ + ∂yσ₂₂
 end
