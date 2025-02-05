@@ -34,36 +34,77 @@ const C★0 = 0.05 # C6[1] / S0[1]
 const C★1 = 0.45 # (C6[2] - C★0 * S0[2]) / S1[1] 
 const C★2 = 0.45 # (C6[5] - C★3 * S3[2]) / S2[3]
 
-@inline   left_biased_β_constant(FT, ψ) = @inbounds FT(13/12) * (ψ[1] - 2ψ[2] + ψ[3])^2 + FT(1/4) * ( ψ[1] - 4ψ[2] + 3ψ[3])^2
-@inline center_biased_β_constant(FT, ψ) = @inbounds FT(13/12) * (ψ[1] - 2ψ[2] + ψ[3])^2 + FT(1/4) * ( ψ[1]         -  ψ[3])^2
-@inline  right_biased_β_constant(FT, ψ) = @inbounds FT(13/12) * (ψ[1] - 2ψ[2] + ψ[3])^2 + FT(1/4) * (3ψ[1] - 4ψ[2] +  ψ[3])^2
+@inline   left_biased_β(FT, ψ) = @inbounds FT(13/12) * (ψ[1] - 2ψ[2] + ψ[3])^2 + FT(1/4) * ( ψ[1] - 4ψ[2] + 3ψ[3])^2
+@inline center_biased_β(FT, ψ) = @inbounds FT(13/12) * (ψ[1] - 2ψ[2] + ψ[3])^2 + FT(1/4) * ( ψ[1]         -  ψ[3])^2
+@inline  right_biased_β(FT, ψ) = @inbounds FT(13/12) * (ψ[1] - 2ψ[2] + ψ[3])^2 + FT(1/4) * (3ψ[1] - 4ψ[2] +  ψ[3])^2
 
 @inline getvalue(i, j, k, grid, σ::Function, args...)      = σ(i, j, k, grid, args...)
 @inline getvalue(i, j, k, grid, σ::AbstractArray, args...) = @inbounds σ[i, j, k]
 
 const ϵ = 1e-10
 
+# @inline function centered_weno(σ₀::FT, σ₁, σ₂, σ₃, σ₄, σ₅) where FT
+    
+#     S₀ = (σ₀, σ₁, σ₂)
+#     S₁ = (σ₁, σ₂, σ₃)
+#     S₂ = (σ₂, σ₃, σ₄)
+#     S₃ = (σ₃, σ₄, σ₅)
+
+#     β₀ =    left_biased_β(FT, S₀)
+#     β₁ = (center_biased_β(FT, S₁) +  left_biased_β(FT, S₁)) / 2
+#     β₂ = (center_biased_β(FT, S₂) + right_biased_β(FT, S₂)) / 2
+#     β₃ =   right_biased_β(FT, S₃)
+
+#     ω₀ = C★0 / (β₀ + ϵ)^2
+#     ω₁ = C★1 / (β₁ + ϵ)^2
+#     ω₂ = C★2 / (β₂ + ϵ)^2
+#     ω₃ = C★3 / (β₃ + ϵ)^2
+
+#     q₀ = sum(S₀ .* S0)
+#     q₁ = sum(S₁ .* S1)
+#     q₂ = sum(S₂ .* S2)
+#     q₃ = sum(S₃ .* S3)
+    
+#     return (ω₀ * q₀ + ω₁ * q₁ + ω₂ * q₂ + ω₃ * q₃) / (ω₀ + ω₁ + ω₂ + ω₃)
+# end
+
+const S02 = ( 1, -5, 13, 3) ./ 12
+const S12 = (-1,  5,  2)    ./ 6
+const S22 = ( 2,  5, -1)    ./ 6
+const S32 = ( 3, 13, -5, 1) ./ 12
+
+const S13 = ( 1, -2, 0,  2, -1) ./ 24
+const S23 = (-1,  2, 0, -2,  1) ./ 24
+
+@inline βᵂ₀(S) = (2S[1] - 9S[2] + 18S[3] - 11S[4])^2 / 36 + (1S[1] - 4S[2] + 5S[3] - 2S[4])^2 / 12 * 13 + (1S[1] - 3S[2] + 3S[3] - 1S[4])^2 / 720 * 781
+@inline βᵂ₃(S) = (11S[1] - 18S[2] + 9S[3] - 2S[4])^2 / 36 + (2S[1] - 5S[2] + 4S[3] - 1S[4])^2 / 12 * 13 + (- 1S[1] + 3S[2] - 3S[3] + 1S[4])^2 / 720 * 781
+@inline βᵂ₁(S) = (1S[1] - 2S[2] + 1S[3])^2 / 12 * 13 + (S[1] - S[3])^2 / 4
+@inline βᵂ₂(S) = (1S[1] - 2S[2] + 1S[3])^2 / 12 * 13 + (3S[1] - 4S[2] + S[3])^2 / 4
+@inline βᶜ₁(S) = (- 1S[1] + 2S[2] - 2S[4] + 1S[5]) * ((- 1S[1] + 2S[2] - 2S[4] + 1S[5]) / 320 * 89  + (S[2] - S[4]) / 12)
+@inline βᶜ₂(S) = (- 1S[1] + 2S[2] - 2S[4] + 1S[5]) * ((- 1S[1] + 2S[2] - 2S[4] + 1S[5]) / 547 * 960 - (19S[3] - 34S[4] + 15S[5]) / 12)
+
 @inline function centered_weno(σ₀::FT, σ₁, σ₂, σ₃, σ₄, σ₅) where FT
     
-    S₀ = (σ₀, σ₁, σ₂)
+    S₀ = (σ₀, σ₁, σ₂, σ₃)
     S₁ = (σ₁, σ₂, σ₃)
     S₂ = (σ₂, σ₃, σ₄)
-    S₃ = (σ₃, σ₄, σ₅)
+    S₃ = (σ₂, σ₃, σ₄, σ₅)
+    Sᶜ = (σ₀, σ₁, σ₂, σ₃, σ₄)
 
-    β₀ =   left_biased_β_constant(FT, S₀)
-    β₁ = center_biased_β_constant(FT, S₁)
-    β₂ = center_biased_β_constant(FT, S₂)
-    β₃ =  right_biased_β_constant(FT, S₃)
+    β₀ = βᵂ₀(S₀) 
+    β₁ = βᵂ₁(S₁) + βᶜ₁(Sᶜ) 
+    β₂ = βᵂ₂(S₂) + βᶜ₂(Sᶜ) 
+    β₃ = βᵂ₃(S₃)  
 
-    ω₀ = C★0 / (β₀ + ϵ)^2
-    ω₁ = C★1 / (β₁ + ϵ)^2
-    ω₂ = C★2 / (β₂ + ϵ)^2
-    ω₃ = C★3 / (β₃ + ϵ)^2
+    ω₀ = 2 / (β₀ + ϵ)^2  # C★0
+    ω₁ = 3 / (β₁ + ϵ)^2  # C★1
+    ω₂ = 3 / (β₂ + ϵ)^2  # C★2
+    ω₃ = 2 / (β₃ + ϵ)^2  # C★3
 
-    q₀ = sum(S₀ .* S0)
-    q₁ = sum(S₁ .* S1)
-    q₂ = sum(S₂ .* S2)
-    q₃ = sum(S₃ .* S3)
+    q₀ = sum(S₀ .* S02)
+    q₁ = sum(S₁ .* S12) + sum(S13 .* Sᶜ)
+    q₂ = sum(S₂ .* S22) + sum(S23 .* Sᶜ)
+    q₃ = sum(S₃ .* S32)
     
     return (ω₀ * q₀ + ω₁ * q₁ + ω₂ * q₂ + ω₃ * q₃) / (ω₀ + ω₁ + ω₂ + ω₃)
 end

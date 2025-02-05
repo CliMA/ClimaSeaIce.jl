@@ -113,17 +113,15 @@ end
 
     @inbounds u[1,    j, 1] = 0 # Impenetrability
     @inbounds u[Nx+1, j, 1] = 0 # Impenetrability
-    @inbounds v[1,    j, 1] = 0 # Impenetrability
-    @inbounds v[Nx+1, j, 1] = 0 # Impenetrability
 
     for i in 1:Hx-1
         @inbounds u[Nx+1+i, j, 1] = - u[Nx+1-i, j, 1]
-        @inbounds v[Nx+1+i, j, 1] = - v[Nx+1-i, j, 1]
     end
 
     for i in 1:Hx
         @inbounds u[1-i, j, 1]  = - u[1+i, j, 1]
-        @inbounds v[1-i, j, 1]  = - v[1+i, j, 1]
+        @inbounds v[1-i, j, 1]  = - v[i, j, 1]
+        @inbounds v[Nx+i, j, 1] = - v[Nx+1-i, j, 1]
     end
 end
 
@@ -132,17 +130,15 @@ end
 
     @inbounds v[i, 1,    1] = 0 # Impenetrability
     @inbounds v[i, Ny+1, 1] = 0 # Impenetrability
-    @inbounds u[i, 1,    1] = 0 # Impenetrability
-    @inbounds u[i, Ny+1, 1] = 0 # Impenetrability
 
     for j in 1:Hy-1
         @inbounds v[i, Ny+1+j, 1] = - v[i, Ny+1-j, 1]
-        @inbounds u[i, Ny+1+j, 1] = - u[i, Ny+1-j, 1]
     end
     
     for j in 1:Hy
         @inbounds v[i, 1-j, 1]  = - v[i, 1+j, 1]
-        @inbounds u[i, 1-j, 1]  = - u[i, 1+j, 1]
+        @inbounds u[i, 1-j, 1]  = - u[i, j, 1]
+        @inbounds u[i, Ny+j, 1] = - u[i, Ny+1-j, 1]
     end
 end
 
@@ -168,8 +164,8 @@ end
 
     i, j = @index(Global, NTuple)
 
-    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
+    mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, model_fields.ℵ)
 
     Δτ = compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_top_stress, u_bottom_stress, u_forcing)
@@ -198,8 +194,8 @@ end
 
     i, j = @index(Global, NTuple)
     
-    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
+    mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, model_fields.ℵ)
     
     Δτ = compute_time_stepᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_top_stress, v_bottom_stress, v_forcing)

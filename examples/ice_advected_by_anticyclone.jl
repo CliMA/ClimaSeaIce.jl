@@ -16,10 +16,10 @@ using Oceananigans.Operators
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-using CUDA
-CUDA.device!(2)
+# using CUDA
+# CUDA.device!(2)
 
-arch = GPU()
+arch = CPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
@@ -111,13 +111,13 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             coriolis = FPlane(f=1.56e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology,
-                                            solver = SplitExplicitSolver(substeps=150))
+                                            solver = SplitExplicitSolver(substeps=300))
 
 # Define the model!
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    advection = WENO(order=7),
+                    advection = nothing, # WENO(order=7),
                     timestepper = :QuasiAdamsBashforth2,
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
@@ -135,7 +135,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=5)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
