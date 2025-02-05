@@ -16,7 +16,7 @@ end
 function BrittleBinghamMaxwellRheology(FT::DataType = Float64; 
                                        ice_ridging_strength = 1e4, 
                                        ice_compaction_hardening = 20, 
-                                       ice_cohesion = 2.8e3,
+                                       ice_cohesion = 5.7e3,
                                        undamaged_elastic_modulus = 5.96e8,
                                        undamaged_viscous_relaxation_time = 1e7,
                                        ridging_ice_thickness = 1,
@@ -54,8 +54,13 @@ function required_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Center, Center, Nothing}(grid)
+    σI  = Field{Center, Center, Nothing}(grid)
+    σII = Field{Center, Center, Nothing}(grid)
 
-    return (; σ₁₁, σ₂₂, σ₁₂, P, E, λ)
+    dcr  = Field{Center, Center, Nothing}(grid)
+    td   = Field{Center, Center, Nothing}(grid)
+    dadd = Field{Center, Center, Nothing}(grid)
+    return (; σ₁₁, σ₂₂, σ₁₂, P, E, λ, dcr, σI, σII, td, dadd)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
@@ -131,19 +136,25 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     return nothing
 end
 
-@inline strain_rate_xx(i, j, k, grid, scheme, u, v) = δxᶜᵃᵃ(i, j, k, grid, interpolate_yᶜ, scheme, Δy_qᶠᶠᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, scheme, u, v) = δyᵃᶜᵃ(i, j, k, grid, interpolate_xᶜ, scheme, Δx_qᶠᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xx(i, j, k, grid, scheme, u, v) = interpolate_yᶜ(i, j, k, grid, scheme, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, scheme, u, v) = interpolate_xᶜ(i, j, k, grid, scheme, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
 
 @inline strain_rate_xy(i, j, k, grid, scheme, u, v) = 
         (interpolate_yᶜ(i, j, k, grid, scheme, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, v) + 
          interpolate_xᶜ(i, j, k, grid, scheme, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, u)) / Azᶜᶜᶜ(i, j, k, grid) / 2
 
+
+@inline  σᴵ(i, j, k, grid, fields) = @inbounds (fields.σ₁₁[i, j, k] + fields.σ₂₂[i, j, k]) / 2
+@inline σᴵᴵ(i, j, k, grid, fields) = @inbounds sqrt((fields.σ₁₁[i, j, k] - fields.σ₂₂[i, j, k])^2 / 4 + fields.σ₁₂[i, j, k]^2)
+
+@inline function dcritical(i, j, k, grid, N, c, μ, fields)
+    σI  = σᴵ(i, j, k, grid, fields)
+    σII = σᴵᴵ(i, j, k, grid, fields)
+    return ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
+end
+
 @kernel function _advance_bbm_stresses!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
-
-    σ₁₁ = fields.σ₁₁
-    σ₂₂ = fields.σ₂₂
-    σ₁₂ = fields.σ₁₂
 
     α = rheology.damage_parameter
     ν = rheology.poisson_ratio
@@ -154,7 +165,6 @@ end
     c = rheology.ice_cohesion
     μ = rheology.friction_coefficient
     
-    # Strain rates
     ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, I, u, v) 
     ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, I, u, v) 
     ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, I, u, v)
@@ -168,45 +178,50 @@ end
     E  = @inbounds fields.E[i, j, 1] * (1 - dᵢ)
     λ  = @inbounds fields.λ[i, j, 1] * (1 - dᵢ)^(α - 1)
 
-    σ₁ = @inbounds σ₁₁[i, j, 1]
-    σ₂ = @inbounds σ₂₂[i, j, 1]
-    σ₃ = @inbounds σ₁₂[i, j, 1]
+    σ₁ = @inbounds fields.σ₁₁[i, j, 1]
+    σ₂ = @inbounds fields.σ₂₂[i, j, 1]
+    σ₃ = @inbounds fields.σ₁₂[i, j, 1]
 
     σI  = (σ₁ + σ₂) / 2
-    σII = sqrt((σ₁ - σ₂)^2 / 4 + σ₃^2)
-    
+    σII =  sqrt((σ₁ - σ₂)^2 / 4 + σ₃^2)
+
     # Test which isotropic stress to use
     P̃ = clamp(P / σI, -one(grid), zero(grid))
 
     # Implicit diagonal operator
     Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
 
-    σ₁ = @inbounds Ω * (σ₁₁[i, j, 1] + Δτ * E * Kϵ₁₁)
-    σ₂ = @inbounds Ω * (σ₂₂[i, j, 1] + Δτ * E * Kϵ₂₂)
-    σ₃ = @inbounds Ω * (σ₁₂[i, j, 1] + Δτ * E * Kϵ₁₂)
+    σ₁ = @inbounds Ω * (σ₁ + Δτ * E * Kϵ₁₁)
+    σ₂ = @inbounds Ω * (σ₂ + Δτ * E * Kϵ₂₂)
+    σ₃ = @inbounds Ω * (σ₃ + Δτ * E * Kϵ₁₂)
 
-    dcrit = ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
+    dcrit = dcritical(i, j, 1, grid, N, c, μ, fields)
 
     # Relaxation time
-    td   = @inbounds sqrt(2 * (1 + ν) * ρᵢ[i, j, 1] / E * Azᶜᶜᶜ(i, j, 1, grid))
-    Gd   = @inbounds   (1 - dcrit) * (1 - dᵢ) * Δτ / td
-    Gσ₁₁ = @inbounds - (1 - dcrit) * σ₁ * Δτ / td
-    Gσ₂₂ = @inbounds - (1 - dcrit) * σ₂ * Δτ / td
-    Gσ₁₂ = @inbounds - (1 - dcrit) * σ₃ * Δτ / td
+    td = @inbounds sqrt(2 * (1 + ν) * ρᵢ[i, j, 1] / E * Azᶜᶜᶜ(i, j, 1, grid))
+    dcr  = fields.dcr[i, j, 1]
+    dcr += dcrit * Δτ / td
+    
+    Gd = (1 - dcr) * Δτ / td
 
-    # Damage and stress updates
-    dᵢ  = @inbounds d[i, j, 1] + ifelse(0 ≤ dcrit ≤ 1, Gd, zero(grid))
-    σ₁ += ifelse(0 ≤ dcrit ≤ 1, Gσ₁₁, zero(grid))
-    σ₂ += ifelse(0 ≤ dcrit ≤ 1, Gσ₂₂, zero(grid))
-    σ₃ += ifelse(0 ≤ dcrit ≤ 1, Gσ₁₂, zero(grid))
+    # # Damage and stress updates
+    dᵢ += ifelse(0 ≤ dcr ≤ 1, Gd * (1 - dᵢ), zero(grid))
+    σ₁ -= ifelse(0 ≤ dcr ≤ 1, Gd * σ₁,       zero(grid))
+    σ₂ -= ifelse(0 ≤ dcr ≤ 1, Gd * σ₂,       zero(grid))
+    σ₃ -= ifelse(0 ≤ dcr ≤ 1, Gd * σ₃,       zero(grid))
 
     # Clamp damage between 0 and a value close to 1 (cannot do 1 because of the relaxation time)
     dᵢ = clamp(dᵢ, zero(grid), 99999 * one(grid) / 100000)
 
-    @inbounds σ₁₁[i, j, 1] = σ₁
-    @inbounds σ₂₂[i, j, 1] = σ₂
-    @inbounds σ₁₂[i, j, 1] = σ₃
-    @inbounds   d[i, j, 1] = dᵢ
+    @inbounds  fields.σ₁₁[i, j, 1] = σ₁
+    @inbounds  fields.σ₂₂[i, j, 1] = σ₂
+    @inbounds  fields.σ₁₂[i, j, 1] = σ₃
+    @inbounds           d[i, j, 1] = dᵢ
+    @inbounds  fields.dcr[i, j, 1] = dcrit
+    @inbounds   fields.σI[i, j, 1] = σI
+    @inbounds  fields.σII[i, j, 1] = σII
+    @inbounds   fields.td[i, j, 1] = td
+    @inbounds fields.dadd[i, j, 1] = 0 ≤ dcrit ≤ 1
 end
 
 #####

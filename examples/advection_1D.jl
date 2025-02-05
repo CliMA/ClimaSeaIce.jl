@@ -33,7 +33,7 @@ validity of the stretched WENO scheme
 arch = CPU()
 
 #parameters
-Nx = 200
+Nx = 50
 
 # 1D grid constructions
 grid = RectilinearGrid(size = Nx, x = (-1, 1), halo = 7, topology = (Periodic, Flat, Flat))
