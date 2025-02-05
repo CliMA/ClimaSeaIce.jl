@@ -20,7 +20,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
      ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
-     Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, U) 
+     Gᵁ = ( + coriolis.f * model_fields.v[i, j, 1]
             + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ
@@ -50,7 +50,7 @@ end
      ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
-     Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, U)
+     Gⱽ = ( - coriolis.f * model_fields.u[i, j, 1]
             + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ 
