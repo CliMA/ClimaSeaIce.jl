@@ -5,7 +5,7 @@ using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map, mask_immersed_field_xy!
 
-struct SplitExplicitSolver 
+mutable struct SplitExplicitSolver 
     substeps :: Int
 end
 
@@ -108,8 +108,9 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
     return nothing
 end
 
-@kernel function _fill_my_x_halo_regions!(u, v, Nx, Hx)
+@kernel function _fill_my_x_halo_regions!(u, v, Nx, Hx, Hy)
     j, _ = @index(Global, NTuple)
+    j = j - Hy
 
     @inbounds u[1,    j, 1] = 0 # Impenetrability
     @inbounds u[Nx+1, j, 1] = 0 # Impenetrability
@@ -127,9 +128,9 @@ end
     end
 end
 
-@kernel function _fill_my_y_halo_regions!(u, v, Ny, Hy)
+@kernel function _fill_my_y_halo_regions!(u, v, Ny, Hx, Hy)
     i, _= @index(Global, NTuple)
-
+    i = i - Hx
     @inbounds v[i, 1,    1] = 0 # Impenetrability
     @inbounds v[i, Ny+1, 1] = 0 # Impenetrability
     @inbounds u[i, 1,    1] = 0 # Impenetrability
@@ -152,11 +153,12 @@ using Oceananigans.Grids: halo_size, architecture
     u, v = velocities
     grid = u.grid
     arch = architecture(grid)
+    Nx, Ny, _ = size(parent(u))
     nx, ny, _ = size(grid)
     Hx, Hy = halo_size(grid)
 
-    launch!(arch, grid, (ny, 1), _fill_my_x_halo_regions!, u, v, nx, Hx)
-    launch!(arch, grid, (nx, 1), _fill_my_y_halo_regions!, u, v, ny, Hy)
+    launch!(arch, grid, (Ny, 1), _fill_my_x_halo_regions!, u, v, nx, Hx, Hy)
+    launch!(arch, grid, (Nx, 1), _fill_my_y_halo_regions!, u, v, ny, Hx, Hy)
 end
 
 @kernel function _u_velocity_step!(u, grid, Δt, 

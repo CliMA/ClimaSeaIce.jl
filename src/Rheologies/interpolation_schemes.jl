@@ -114,25 +114,6 @@ end
 @inline interpolate_xᶜ(i, j, k, grid, scheme, σ, args...) = ℑxᶜᵃᵃ(i, j, k, grid, σ, args...)
 @inline interpolate_yᶜ(i, j, k, grid, scheme, σ, args...) = ℑyᵃᶜᵃ(i, j, k, grid, σ, args...)
 
-using Oceananigans.Advection: _biased_interpolate_xᶠᵃᵃ, 
-                              _biased_interpolate_yᵃᶠᵃ, 
-                              _biased_interpolate_xᶜᵃᵃ, 
-                              _biased_interpolate_yᵃᶜᵃ, 
-                              LeftBias, RightBias
-
-@inline interpolate_xᶠ(i, j, k, grid, scheme::WENO, σ, args...) = 
-        (_biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) + 
-         _biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
-@inline interpolate_yᶠ(i, j, k, grid, scheme::WENO, σ, args...) = 
-        (_biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) +
-         _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
-@inline interpolate_xᶜ(i, j, k, grid, scheme::WENO, σ, args...) = 
-        (_biased_interpolate_xᶜᵃᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) + 
-         _biased_interpolate_xᶜᵃᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
-@inline interpolate_yᶜ(i, j, k, grid, scheme::WENO, σ, args...) = 
-        (_biased_interpolate_yᵃᶜᵃ(i, j, k, grid, scheme, LeftBias(),  σ, args...) +
-         _biased_interpolate_yᵃᶜᵃ(i, j, k, grid, scheme, RightBias(), σ, args...)) / 2
-
 # Now we can compute the in
 # Now we can compute the interpolation:
 @inline function interpolate_xᶠ(i, j, k, grid, ::CenteredWENO5, σ, args...)

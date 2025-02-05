@@ -35,16 +35,6 @@ grid = RectilinearGrid(arch;
                        halo = (8, 8),
                    topology = (Bounded, Bounded, Flat))
 
-#####                   
-##### Value boundary conditions for velocities
-#####
-
-u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
-
-v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
-                                east = ValueBoundaryCondition(0))
-
 #####
 ##### Ocean sea-ice stress
 #####
@@ -52,8 +42,8 @@ v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
 using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
 
 # Constant ocean velocities corresponding to a cyclonic eddy
-Uₒ = XFaceField(grid)
-Vₒ = YFaceField(grid)
+Uₒ = Field{Face, Face, Center}(grid)
+Vₒ = Field{Face, Face, Center}(grid)
 
 set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
@@ -67,8 +57,8 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 #### Atmosphere - sea ice stress 
 ####
 
-Uₐ = XFaceField(grid)
-Vₐ = YFaceField(grid)
+Uₐ = Field{Face, Face, Center}(grid)
+Vₐ = Field{Face, Face, Center}(grid)
 
 # Atmosphere - sea ice stress
 τᵤₐ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Uₐ)
@@ -95,7 +85,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 ##### Numerical details
 #####
 
-interpolation_scheme = WENO() # ClimaSeaIce.Rheologies.CenteredWENO5()
+interpolation_scheme = nothing # ClimaSeaIce.Rheologies.CenteredWENO5()
 
 rheology = BrittleBinghamMaxwellRheology(; interpolation_scheme)
 
@@ -108,18 +98,17 @@ rheology = BrittleBinghamMaxwellRheology(; interpolation_scheme)
 momentum_equations = SeaIceMomentumEquation(grid; 
                                             top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
                                             bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
-                                            coriolis = FPlane(f=1.56e-4),
+                                            coriolis = nothing, #FPlane(f=1.56e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology,
-                                            solver = SplitExplicitSolver(substeps=300))
+                                            solver = SplitExplicitSolver(substeps=10000))
 
 # Define the model!
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection = nothing, # WENO(order=7),
-                    timestepper = :QuasiAdamsBashforth2,
-                    boundary_conditions = (u = u_bcs, v = v_bcs))
+                    timestepper = :QuasiAdamsBashforth2)
 
 model.timestepper.χ = -0.5 # Euler forward
 
@@ -135,7 +124,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=5)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=1)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -226,64 +215,50 @@ using CairoMakie
 # jldsave("ice_anticyclone.jld2"; h=htimeseries, ℵ=ℵtimeseries, u=utimeseries, v=vtimeseries, σ₁₁=σ₁₁timeseries, σ₁₂=σ₁₂timeseries, σ₂₂=σ₂₂timeseries, d=dtimeseries)
 
 # Visualize!
-# Nt = length(htimeseries)
-# iter = Observable(1)
+Nt = length(htimeseries)
+iter = Observable(1)
 
-# a = @animate for i in 1:Nt
-#     @info "doing iter $i of $Nt"
-#     hm = Plots.heatmap(htimeseries[i][:, :, 1], colormap = :magma)
-# end
+hi   = @lift(htimeseries[$iter][:, :, 1])
+ℵi   = @lift(ℵtimeseries[$iter][:, :, 1])
+ui   = @lift(utimeseries[$iter][:, :, 1])
+vi   = @lift(vtimeseries[$iter][:, :, 1])
+σ₁₁i = @lift(σ₁₁timeseries[$iter][:, :, 1])
+σ₁₂i = @lift(σ₁₂timeseries[$iter][:, :, 1])
+σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
+di   = @lift(dtimeseries[$iter][:, :, 1])
 
-# gif(a1, "h.gif", fps = 15)
+fig = Figure()
+ax = Axis(fig[1, 1], title = "sea ice thickness")
+heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
 
-# a = @animate for i in 1:Nt
-#     @info "doing iter $i of $Nt"
-#     hm = Plots.heatmap(dtimeseries[i][:, :, 1], colormap = :deep)
-# end
+ax = Axis(fig[1, 2], title = "sea ice concentration")
+heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
 
-# gif(a, "d.gif", fps = 15)
+ax = Axis(fig[2, 1], title = "zonal velocity")
+heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 
-# hi   = @lift(htimeseries[$iter][:, :, 1])
-# ℵi   = @lift(ℵtimeseries[$iter][:, :, 1])
-# ui   = @lift(utimeseries[$iter][:, :, 1])
-# vi   = @lift(vtimeseries[$iter][:, :, 1])
-# σ₁₁i = @lift(σ₁₁timeseries[$iter][:, :, 1])
-# σ₁₂i = @lift(σ₁₂timeseries[$iter][:, :, 1])
-# σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
-# di   = @lift(dtimeseries[$iter][:, :, 1])
+ax = Axis(fig[2, 2], title = "meridional velocity")
+heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
-# fig = Figure()
-# ax = Axis(fig[1, 1], title = "sea ice thickness")
-# heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
+record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
+    iter[] = i
+    @info "doing iter $i"
+end
 
-# ax = Axis(fig[1, 2], title = "sea ice concentration")
-# heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
+fig = Figure()
+ax = Axis(fig[1, 1], title = "sigma 11")
+heatmap!(ax, σ₁₁i)
 
-# ax = Axis(fig[2, 1], title = "zonal velocity")
-# heatmap!(ax, ui, colorrange = (-0.1, 0.1))
+ax = Axis(fig[1, 2], title = "sigma 22")
+heatmap!(ax, σ₂₂i)
 
-# ax = Axis(fig[2, 2], title = "meridional velocity")
-# heatmap!(ax, vi, colorrange = (-0.1, 0.1))
+ax = Axis(fig[2, 1], title = "sigma 12")
+heatmap!(ax, σ₁₂i)
 
-# CairoMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
-#     iter[] = i
-#     @info "doing iter $i"
-# end
+ax = Axis(fig[2, 2], title = "damage")
+heatmap!(ax, di)
 
-# fig = Figure()
-# ax = Axis(fig[1, 1], title = "sigma 11")
-# heatmap!(ax, σ₁₁i)
-
-# ax = Axis(fig[1, 2], title = "sigma 22")
-# heatmap!(ax, σ₂₂i)
-
-# ax = Axis(fig[2, 1], title = "sigma 12")
-# heatmap!(ax, σ₁₂i)
-
-# ax = Axis(fig[2, 2], title = "damage")
-# heatmap!(ax, di)
-
-# CairoMakie.record(fig, "sea_ice_stress.mp4", 1:Nt-1, framerate = 8) do i
-#     iter[] = i
-#     @info "doing iter $i"
-# end
+record(fig, "sea_ice_stress.mp4", 1:Nt-1, framerate = 8) do i
+    iter[] = i
+    @info "doing iter $i"
+end
