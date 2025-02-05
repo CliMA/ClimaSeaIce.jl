@@ -163,14 +163,14 @@ end
     Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
     Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
 
-    σ₁ = @inbounds σ₁₁[i, j, 1]
-    σ₂ = @inbounds σ₂₂[i, j, 1]
-    σ₃ = @inbounds σ₁₂[i, j, 1]
-
     dᵢ = @inbounds d[i, j, 1]
     P  = @inbounds fields.P[i, j, 1]
     E  = @inbounds fields.E[i, j, 1] * (1 - dᵢ)
     λ  = @inbounds fields.λ[i, j, 1] * (1 - dᵢ)^(α - 1)
+
+    σ₁ = @inbounds σ₁₁[i, j, 1]
+    σ₂ = @inbounds σ₂₂[i, j, 1]
+    σ₃ = @inbounds σ₁₂[i, j, 1]
 
     σI  = (σ₁ + σ₂) / 2
     σII = sqrt((σ₁ - σ₂)^2 / 4 + σ₃^2)
@@ -181,18 +181,18 @@ end
     # Implicit diagonal operator
     Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
 
-    @inbounds σ₁ = Ω * (σ₁₁[i, j, 1] + Δτ * E * Kϵ₁₁)
-    @inbounds σ₂ = Ω * (σ₂₂[i, j, 1] + Δτ * E * Kϵ₂₂)
-    @inbounds σ₃ = Ω * (σ₁₂[i, j, 1] + Δτ * E * Kϵ₁₂)
+    σ₁ = @inbounds Ω * (σ₁₁[i, j, 1] + Δτ * E * Kϵ₁₁)
+    σ₂ = @inbounds Ω * (σ₂₂[i, j, 1] + Δτ * E * Kϵ₂₂)
+    σ₃ = @inbounds Ω * (σ₁₂[i, j, 1] + Δτ * E * Kϵ₁₂)
 
     dcrit = ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
 
     # Relaxation time
     td   = @inbounds sqrt(2 * (1 + ν) * ρᵢ[i, j, 1] / E * Azᶜᶜᶜ(i, j, 1, grid))
-    Gd   = @inbounds   (dcrit - 1) * (1 - dᵢ) * Δτ / td
-    Gσ₁₁ = @inbounds - (dcrit - 1) * σ₁ * Δτ / td
-    Gσ₂₂ = @inbounds - (dcrit - 1) * σ₂ * Δτ / td
-    Gσ₁₂ = @inbounds - (dcrit - 1) * σ₃ * Δτ / td
+    Gd   = @inbounds   (1 - dcrit) * (1 - dᵢ) * Δτ / td
+    Gσ₁₁ = @inbounds - (1 - dcrit) * σ₁ * Δτ / td
+    Gσ₂₂ = @inbounds - (1 - dcrit) * σ₂ * Δτ / td
+    Gσ₁₂ = @inbounds - (1 - dcrit) * σ₃ * Δτ / td
 
     # Damage and stress updates
     dᵢ  = @inbounds d[i, j, 1] + ifelse(0 ≤ dcrit ≤ 1, Gd, zero(grid))
