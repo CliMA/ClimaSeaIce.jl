@@ -16,14 +16,14 @@ using Oceananigans.Operators
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-# using CUDA
-# CUDA.device!(2)
+using CUDA
+CUDA.device!(2)
 
-arch = CPU()
+arch = GPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
-𝓋ₐ = 30.0 # m / s maximum atmospheric speed modifier
+𝓋ₐ = 20.0 # m / s maximum atmospheric speed modifier
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
 ρₐ = 1.3  # kg/m³
 
@@ -85,7 +85,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 ##### Numerical details
 #####
 
-interpolation_scheme = nothing # ClimaSeaIce.Rheologies.CenteredWENO5()
+interpolation_scheme = Centered() # ClimaSeaIce.Rheologies.CenteredWENO5()
 
 rheology = BrittleBinghamMaxwellRheology(; interpolation_scheme)
 
@@ -98,19 +98,19 @@ rheology = BrittleBinghamMaxwellRheology(; interpolation_scheme)
 momentum_equations = SeaIceMomentumEquation(grid; 
                                             top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
                                             bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
-                                            coriolis = nothing, #FPlane(f=1.56e-4),
+                                            coriolis = FPlane(f=1.56e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology,
-                                            solver = SplitExplicitSolver(substeps=10000))
+                                            solver = SplitExplicitSolver(substeps=150))
 
 # Define the model!
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    advection = nothing, # WENO(order=7),
+                    advection = WENO(order=7),
                     timestepper = :QuasiAdamsBashforth2)
 
-model.timestepper.χ = -0.5 # Euler forward
+# model.timestepper.χ = -0.5 # Euler forward
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
@@ -124,7 +124,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=1)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=3)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -209,7 +209,7 @@ simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInter
 
 run!(simulation)
 
-using CairoMakie
+using GLMakie
 
 # using JLD2
 # jldsave("ice_anticyclone.jld2"; h=htimeseries, ℵ=ℵtimeseries, u=utimeseries, v=vtimeseries, σ₁₁=σ₁₁timeseries, σ₁₂=σ₁₂timeseries, σ₂₂=σ₂₂timeseries, d=dtimeseries)

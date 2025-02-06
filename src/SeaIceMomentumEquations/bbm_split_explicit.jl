@@ -5,6 +5,8 @@ using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map, mask_immersed_field_xy!
 
+using ClimaSeaIce.Rheologies: _advance_bbm_stresses2!
+using Statistics: norm
 mutable struct SplitExplicitSolver 
     substeps :: Int
 end
@@ -53,22 +55,25 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
     u_forcing = model.forcing.u
     v_forcing = model.forcing.v
 
-    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+    model_fields = merge(dynamics.auxiliary_fields, model.velocities, model.tracers,
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
 
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step2!)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step2!)
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
     
     fill_halo_regions!(model.velocities)
     initialize_rheology!(model, dynamics.rheology)
-
+    
     for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
-        
+
+        not_converged = true
+        iter = 1
+
         while not_converged 
 
             grid = model.grid
@@ -77,16 +82,15 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
             ρᵢ   = model.ice_density
             d    = model.tracers.d
             u, v = model.velocities
-            fields = dynamics.auxiliary_fields
 
             Nx, Ny, _ = size(grid)
 
             parameters = KernelParameters(-6:Nx+7, -6:Ny+7)
 
             # Pretty simple timestepping
-            Δτ = Δt / Ns
+            Δτ = Δt / substeps
 
-            launch!(arch, grid, parameters, _advance_bbm_stresses2!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+            launch!(arch, grid, parameters, _advance_bbm_stresses2!, model_fields, grid, rheology, d, u, v, ρᵢ, Δτ)
     
             # The momentum equations are solved using an alternating leap-frog algorithm
             # for u and v (used for the ocean - ice stresses and the coriolis term)
@@ -116,18 +120,44 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
                                    u_top_stress, u_bottom_stress, u_forcing)
             end
 
-            notconverged = (norm(model_fields.uₒ .- model_fields.u) < 1e-6) | (norm(model_fields.vₒ .- model_fields.v) < 1e-6)
+            σ₁₁ₒ = interior(model_fields.σ₁₁ₒ)
+            σ₂₂ₒ = interior(model_fields.σ₂₂ₒ)
+            σ₁₂ₒ = interior(model_fields.σ₁₂ₒ)
+            dₒ   = interior(model_fields.dₒ)
 
+            σ₁₁ = interior(model_fields.σ₁₁)
+            σ₂₂ = interior(model_fields.σ₂₂)
+            σ₁₂ = interior(model_fields.σ₁₂)
+            dᵢ  = interior(model_fields.d)
+
+            nc₁ = norm(σ₁₁ₒ .- σ₁₁) > 1e-6
+            nc₂ = norm(σ₂₂ₒ .- σ₂₂) > 1e-6
+            nc₃ = norm(σ₁₂ₒ .- σ₁₂) > 1e-6            
+            nc₄ = norm(dₒ   .- dᵢ ) > 1e-6
+
+            # @show nc₁, nc₂, nc₃, nc₄
+
+            not_converged = (nc₁ | nc₂ | nc₃ | nc₄) & (iter < 10000)
+
+            iter += 1
             fill_my_halo_regions!(model.velocities)
 
-            parent(model_fields.uₒ) .= parent(model_fields.u)
-            parent(model_fields.vₒ) .= parent(model_fields.v)
+            parent(model_fields.σ₁₁ₒ) .= parent(model_fields.σ₁₁)
+            parent(model_fields.σ₂₂ₒ) .= parent(model_fields.σ₂₂)
+            parent(model_fields.σ₁₂ₒ) .= parent(model_fields.σ₁₂)
+            parent(model_fields.dₒ)   .= parent(model_fields.d)
 
             # TODO: This needs to be removed in some way!
-
-            mask_immersed_field_xy!(model.velocities.u, k=1)
-            mask_immersed_field_xy!(model.velocities.v, k=1)
         end
+
+        @show iter
+
+        parent(model_fields.uₙ)   .= parent(model_fields.u)
+        parent(model_fields.vₙ)   .= parent(model_fields.v)
+        parent(model_fields.dₙ)   .= parent(model_fields.d)
+        parent(model_fields.σ₁₁ₙ) .= parent(model_fields.σ₁₁)
+        parent(model_fields.σ₂₂ₙ) .= parent(model_fields.σ₂₂)
+        parent(model_fields.σ₁₂ₙ) .= parent(model_fields.σ₁₂)
     end
 
     return nothing
@@ -206,7 +236,7 @@ end
           + implicit_τx_coefficient(i, j, 1, grid, u_top_stress, clock, model_fields)) / mᵢ * ℵᵢ 
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
-    uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
+    uᴰ  = @inbounds (model_fields.uₙ[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
     uᶠ  = free_drift_u(i, j, 1, grid, ocean_velocities) # free drift velocity
 
     # If the ice mass or the ice concentration are below a certain threshold, 
@@ -237,7 +267,7 @@ end
 
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 
-    vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
+    vᴰ = @inbounds (model_fields.vₙ[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
     vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities) # free drift velocity
 
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
