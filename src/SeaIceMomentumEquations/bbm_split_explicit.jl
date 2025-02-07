@@ -5,7 +5,7 @@ using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map, mask_immersed_field_xy!
 
-using ClimaSeaIce.Rheologies: _advance_bbm_stresses2!
+using ClimaSeaIce.Rheologies: _advance_bbm_stresses2!, _correct_bbm_stresses!
 using Statistics: norm
 mutable struct SplitExplicitSolver 
     substeps :: Int
@@ -91,7 +91,7 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
             Δτ = Δt / substeps
 
             launch!(arch, grid, parameters, _advance_bbm_stresses2!, model_fields, grid, rheology, d, u, v, ρᵢ, Δτ)
-    
+            launch!(arch, grid, parameters, _correct_bbm_stresses!, model_fields, grid, rheology, d, ρᵢ, Δτ)
             # The momentum equations are solved using an alternating leap-frog algorithm
             # for u and v (used for the ocean - ice stresses and the coriolis term)
             # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).

@@ -1,3 +1,5 @@
+using Oceananigans.Grids: halo_size
+
 struct BrittleBinghamMaxwellRheology{FT, A}
     ice_ridging_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
@@ -24,8 +26,7 @@ function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
                                        friction_coefficient = 0.7,
                                        maximum_compressive_strength = 2.9e7, 
                                        healing_constant = 26, # Ks
-                                       damage_parameter = 5,
-                                       interpolation_scheme = Centered())
+                                       damage_parameter = 5)
 
     return BrittleBinghamMaxwellRheology(convert(FT, ice_ridging_strength), 
                                          convert(FT, ice_compaction_hardening), 
@@ -38,7 +39,7 @@ function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
                                          convert(FT, maximum_compressive_strength),
                                          convert(FT, healing_constant),
                                          convert(FT, damage_parameter),
-                                         interpolation_scheme)
+                                         nothing)
 end
 
 required_prognostic_tracers(::BrittleBinghamMaxwellRheology, grid) = 
@@ -134,13 +135,15 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     fields = dynamics.auxiliary_fields
 
     Nx, Ny, _ = size(grid)
+    Hx, Hy, _ = halo_size(grid)
 
-    parameters = KernelParameters(-6:Nx+7, -6:Ny+7)
+    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
 
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, parameters, _advance_bbm_stresses!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _compute_stress_predictors!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _advance_stresses!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
 
     return nothing
 end
@@ -158,8 +161,151 @@ end
 @inline function dcritical(i, j, k, grid, N, c, μ, fields)
     σI  = σᴵ(i, j, k, grid, fields)
     σII = σᴵᴵ(i, j, k, grid, fields)
-    return ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
+    return one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
 end
+
+@kernel function _compute_stress_predictors!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+    i, j = @index(Global, NTuple)
+
+    α = rheology.damage_parameter
+    ν = rheology.poisson_ratio
+    
+    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
+    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
+
+    Kϵ₁₁ = (ϵ̇₁₁ + ν  * ϵ̇₂₂) / (1 - ν^2)
+    Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
+    Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
+
+    dᵢ = @inbounds d[i, j, 1]
+    P  = @inbounds fields.P[i, j, 1]
+    E₀ = @inbounds fields.E[i, j, 1]
+    λ₀ = @inbounds fields.λ[i, j, 1] 
+
+    E  = E₀ * (1 - dᵢ)
+    λ  = λ₀ * (1 - dᵢ)^(α - 1)
+
+    # Test which isotropic stress to use
+    σI = σᴵ(i, j, 1, grid, fields)
+    P̃  = clamp(P / σI, -one(grid), zero(grid))
+
+    # Implicit diagonal operator
+    Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
+
+    @inbounds fields.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
+    @inbounds fields.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
+    @inbounds fields.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
+end
+
+@kernel function _advance_stresses!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+    i, j = @index(Global, NTuple)
+
+    α = rheology.damage_parameter
+    ν = rheology.poisson_ratio
+    N = rheology.maximum_compressive_strength
+    c = rheology.ice_cohesion
+    μ = rheology.friction_coefficient
+    
+    dᵢ = @inbounds d[i, j, 1]
+    ρ  = @inbounds ρᵢ[i, j, 1]
+    P  = @inbounds fields.P[i, j, 1]
+    E₀ = @inbounds fields.E[i, j, 1]
+    λ₀ = @inbounds fields.λ[i, j, 1] 
+
+    E   = E₀ * (1 - dᵢ)
+    σI  =  σᴵ(i, j, 1, grid, fields)
+    σII = σᴵᴵ(i, j, 1, grid, fields)
+
+    m = tand(90 - atand(μ))
+    q = σII - m * σI
+
+    # # Move towards the yield curve in a perpendicular fashion
+    σIf  = (c - q) / (m + μ)
+    σIIf = m * σIf + q
+
+    dcrit2 = one(grid) - sqrt(σIf^2 + σIIf^2) / sqrt(σI^2 + σII^2)
+    dcrit2 = ifelse(isnan(dcrit2), zero(grid), dcrit2)
+    dcrit = dcrit2 * (σII > c - μ * σI)
+
+    # dcrit = one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI) # dcritical(i, j, 1, grid, N, c, μ, fields)
+    # dcrit = dcrit * (0 ≤ dcrit ≤ 1) # (σII > c - μ * σI)
+
+    # # @show dcrit, dcrit2
+
+    # Relaxation time
+    td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))        
+
+    # Damage update
+    @inbounds dᵢ += dcrit * Δτ / td * (1 - dᵢ)
+
+    # Clamp damage between 0 and a value close to 1 (cannot do 1 because of the relaxation time)
+    dᵢ = clamp(dᵢ, zero(grid), 99999 * one(grid) / 100000)
+    Δd = @inbounds (dᵢ - d[i, j, 1]) 
+
+    # Now we readvance the stresses with the new information
+    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
+    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
+
+    Kϵ₁₁ = (ϵ̇₁₁ + ν  * ϵ̇₂₂) / (1 - ν^2)
+    Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
+    Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
+
+    E  = E₀ * (1 - dᵢ)
+    λ  = λ₀ * (1 - dᵢ)^(α - 1)
+
+    P̃  = clamp(P / σI, -one(grid), zero(grid))
+
+    # Implicit diagonal operator
+    Ω = @inbounds 1 / (1 + Δτ * (1 + P̃) / λ + Δd / (1 - dᵢ))
+
+    @inbounds fields.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
+    @inbounds fields.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
+    @inbounds fields.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
+    @inbounds fields.dcr[i, j, 1] = dcrit
+
+    @inbounds   fields.σI[i, j, 1] = σI
+    @inbounds  fields.σII[i, j, 1] = σII
+    @inbounds fields.dadd[i, j, 1] = 0 ≤ dcrit ≤ 1
+    @inbounds   fields.td[i, j, 1] = dcrit2
+    
+    @inbounds fields.σ₁₁ₙ[i, j, 1] = fields.σ₁₁[i, j, 1]
+    @inbounds fields.σ₂₂ₙ[i, j, 1] = fields.σ₂₂[i, j, 1]
+    @inbounds fields.σ₁₂ₙ[i, j, 1] = fields.σ₁₂[i, j, 1]
+    @inbounds           d[i, j, 1] = dᵢ
+end
+
+#####
+##### Methods for the BBM rheology
+#####
+
+# In the BBM rheology, the stresses need to be vertically integrated
+@inline hσ₁₁(i, j, k, grid, fields) = @inbounds fields.σ₁₁[i, j, k] * fields.h[i, j, k]
+@inline hσ₂₂(i, j, k, grid, fields) = @inbounds fields.σ₂₂[i, j, k] * fields.h[i, j, k]
+@inline hσ₁₂(i, j, k, grid, fields) = @inbounds fields.σ₁₂[i, j, k] * fields.h[i, j, k]
+
+# Here we extend all the functions that a rheology model needs to support:
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
+
+    ∂xσ₁₁  = ℑyᵃᶠᵃ(i, j, k, grid, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₁, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂yσ₁₂  = ℑxᶠᵃᵃ(i, j, k, grid, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+
+    return ∂xσ₁₁ + ∂yσ₁₂
+end
+
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
+    
+    ∂xσ₁₂  = ℑyᵃᶠᵃ(i, j, k, grid, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+    ∂yσ₂₂  = ℑxᶠᵃᵃ(i, j, k, grid, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₂₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
+
+    return ∂xσ₁₂ + ∂yσ₂₂
+end
+
+
+
+
+#=
 
 @kernel function _advance_bbm_stresses2!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
@@ -236,110 +382,4 @@ end
     @inbounds  fields.σ₁₂[i, j, 1] = σ₃
     @inbounds           d[i, j, 1] = dᵢ
 end
-
-@kernel function _advance_bbm_stresses!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
-    i, j = @index(Global, NTuple)
-
-    α = rheology.damage_parameter
-    ν = rheology.poisson_ratio
-    I = rheology.interpolation_scheme
-
-    ν = rheology.poisson_ratio
-    N = rheology.maximum_compressive_strength
-    c = rheology.ice_cohesion
-    μ = rheology.friction_coefficient
-    
-    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
-
-    Kϵ₁₁ = (ϵ̇₁₁ + ν  * ϵ̇₂₂) / (1 - ν^2)
-    Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
-    Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
-
-    dᵢ = @inbounds d[i, j, 1]
-    ρ  = @inbounds ρᵢ[i, j, 1]
-    P  = @inbounds fields.P[i, j, 1]
-    σ₁ = @inbounds fields.σ₁₁[i, j, 1]
-    σ₂ = @inbounds fields.σ₂₂[i, j, 1]
-    σ₃ = @inbounds fields.σ₁₂[i, j, 1]
-    E₀ = @inbounds fields.E[i, j, 1]
-    λ₀ = @inbounds fields.λ[i, j, 1] 
-    
-    dcrit = 1.0
-
-    σI  = (σ₁ + σ₂) / 2
-    σII = sqrt((σ₁ - σ₂)^2 / 4 + σ₃^2)
-    td  = Δτ
-
-    σ₀₁ = σ₁
-    σ₀₂ = σ₂
-    σ₀₃ = σ₃
-
-    E  = E₀ * (1 - dᵢ)
-    λ  = λ₀ * (1 - dᵢ)^(α - 1)
-
-    # Test which isotropic stress to use
-    P̃ = clamp(P / σI, -one(grid), zero(grid))
-
-    # Implicit diagonal operator
-    Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
-
-    σ₁ =  Ω * (σ₀₁ + Δτ * E * Kϵ₁₁)
-    σ₂ =  Ω * (σ₀₂ + Δτ * E * Kϵ₂₂)
-    σ₃ =  Ω * (σ₀₃ + Δτ * E * Kϵ₁₂)
-
-    σI  = (σ₁ + σ₂) / 2
-    σII = sqrt((σ₁ - σ₂)^2 / 4 + σ₃^2)
-
-    dcrit = ifelse(σI > - N, c / (σII + μ * σI), - N / σI) 
-
-    # Relaxation time
-    td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))        
-    Gd = (1 - dcrit) * Δτ / td
-
-    # # Damage and stress updates
-    dᵢ = d[i, j, 1] + ifelse(0 ≤ dcrit ≤ 1, Gd * (1 - dᵢ), zero(grid))
-    σ₁ -= ifelse(0 ≤ dcrit ≤ 1, Gd * σ₁, zero(grid))
-    σ₂ -= ifelse(0 ≤ dcrit ≤ 1, Gd * σ₂, zero(grid))
-    σ₃ -= ifelse(0 ≤ dcrit ≤ 1, Gd * σ₃, zero(grid))
-
-    # Clamp damage between 0 and a value close to 1 (cannot do 1 because of the relaxation time)
-        dᵢ = clamp(dᵢ, zero(grid), 99999 * one(grid) / 100000)
-
-    @inbounds  fields.dcr[i, j, 1] = dcrit
-    @inbounds   fields.σI[i, j, 1] = σI
-    @inbounds  fields.σII[i, j, 1] = σII
-    @inbounds fields.dadd[i, j, 1] = 0 ≤ dcrit ≤ 1
-    @inbounds   fields.td[i, j, 1] = td
-    @inbounds  fields.σ₁₁[i, j, 1] = σ₁
-    @inbounds  fields.σ₂₂[i, j, 1] = σ₂
-    @inbounds  fields.σ₁₂[i, j, 1] = σ₃
-    @inbounds           d[i, j, 1] = dᵢ
-end
-
-#####
-##### Methods for the BBM rheology
-#####
-
-# In the BBM rheology, the stresses need to be vertically integrated
-@inline hσ₁₁(i, j, k, grid, fields) = @inbounds fields.σ₁₁[i, j, k] * fields.h[i, j, k]
-@inline hσ₂₂(i, j, k, grid, fields) = @inbounds fields.σ₂₂[i, j, k] * fields.h[i, j, k]
-@inline hσ₁₂(i, j, k, grid, fields) = @inbounds fields.σ₁₂[i, j, k] * fields.h[i, j, k]
-
-# Here we extend all the functions that a rheology model needs to support:
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
-
-    ∂xσ₁₁  = ℑyᵃᶠᵃ(i, j, k, grid, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₁, fields) / Azᶠᶠᶜ(i, j, k, grid)
-    ∂yσ₁₂  = ℑxᶠᵃᵃ(i, j, k, grid, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
-
-    return ∂xσ₁₁ + ∂yσ₁₂
-end
-
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) 
-    
-    ∂xσ₁₂  = ℑyᵃᶠᵃ(i, j, k, grid, δxᶠᵃᵃ, Δy_qᶜᶜᶜ, hσ₁₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
-    ∂yσ₂₂  = ℑxᶠᵃᵃ(i, j, k, grid, δyᵃᶠᵃ, Δx_qᶜᶜᶜ, hσ₂₂, fields) / Azᶠᶠᶜ(i, j, k, grid)
-
-    return ∂xσ₁₂ + ∂yσ₂₂
-end
+=#

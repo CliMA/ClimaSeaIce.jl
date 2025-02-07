@@ -48,6 +48,6 @@ include("sea_ice_momentum_equations.jl")
 include("sea_ice_external_stress.jl")
 include("momentum_tendencies_kernel_functions.jl")
 include("explicit_momentum_equations.jl")
-include("bbm_split_explicit.jl")
+include("split_explicit_momentum_equations.jl")
 
 end

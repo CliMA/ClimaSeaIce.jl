@@ -85,9 +85,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
 ##### Numerical details
 #####
 
-interpolation_scheme = Centered() # ClimaSeaIce.Rheologies.CenteredWENO5()
-
-rheology = BrittleBinghamMaxwellRheology(; interpolation_scheme)
+rheology = BrittleBinghamMaxwellRheology() 
 
 # rheology =  ElastoViscoPlasticRheology(min_substeps=50, 
 #                                        max_substeps=100,
@@ -124,7 +122,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=3)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=1)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -214,51 +212,51 @@ using GLMakie
 # using JLD2
 # jldsave("ice_anticyclone.jld2"; h=htimeseries, ℵ=ℵtimeseries, u=utimeseries, v=vtimeseries, σ₁₁=σ₁₁timeseries, σ₁₂=σ₁₂timeseries, σ₂₂=σ₂₂timeseries, d=dtimeseries)
 
-# Visualize!
-Nt = length(htimeseries)
-iter = Observable(1)
+# # Visualize!
+# Nt = length(htimeseries)
+# iter = Observable(1)
 
-hi   = @lift(htimeseries[$iter][:, :, 1])
-ℵi   = @lift(ℵtimeseries[$iter][:, :, 1])
-ui   = @lift(utimeseries[$iter][:, :, 1])
-vi   = @lift(vtimeseries[$iter][:, :, 1])
-σ₁₁i = @lift(σ₁₁timeseries[$iter][:, :, 1])
-σ₁₂i = @lift(σ₁₂timeseries[$iter][:, :, 1])
-σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
-di   = @lift(dtimeseries[$iter][:, :, 1])
+# hi   = @lift(htimeseries[$iter][:, :, 1])
+# ℵi   = @lift(ℵtimeseries[$iter][:, :, 1])
+# ui   = @lift(utimeseries[$iter][:, :, 1])
+# vi   = @lift(vtimeseries[$iter][:, :, 1])
+# σ₁₁i = @lift(σ₁₁timeseries[$iter][:, :, 1])
+# σ₁₂i = @lift(σ₁₂timeseries[$iter][:, :, 1])
+# σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
+# di   = @lift(dtimeseries[$iter][:, :, 1])
 
-fig = Figure()
-ax = Axis(fig[1, 1], title = "sea ice thickness")
-heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
+# fig = Figure()
+# ax = Axis(fig[1, 1], title = "sea ice thickness")
+# heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
 
-ax = Axis(fig[1, 2], title = "sea ice concentration")
-heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
+# ax = Axis(fig[1, 2], title = "sea ice concentration")
+# heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
 
-ax = Axis(fig[2, 1], title = "zonal velocity")
-heatmap!(ax, ui, colorrange = (-0.1, 0.1))
+# ax = Axis(fig[2, 1], title = "zonal velocity")
+# heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 
-ax = Axis(fig[2, 2], title = "meridional velocity")
-heatmap!(ax, vi, colorrange = (-0.1, 0.1))
+# ax = Axis(fig[2, 2], title = "meridional velocity")
+# heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
-record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
-    iter[] = i
-    @info "doing iter $i"
-end
+# record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
+#     iter[] = i
+#     @info "doing iter $i"
+# end
 
-fig = Figure()
-ax = Axis(fig[1, 1], title = "sigma 11")
-heatmap!(ax, σ₁₁i)
+# fig = Figure()
+# ax = Axis(fig[1, 1], title = "sigma 11")
+# heatmap!(ax, σ₁₁i)
 
-ax = Axis(fig[1, 2], title = "sigma 22")
-heatmap!(ax, σ₂₂i)
+# ax = Axis(fig[1, 2], title = "sigma 22")
+# heatmap!(ax, σ₂₂i)
 
-ax = Axis(fig[2, 1], title = "sigma 12")
-heatmap!(ax, σ₁₂i)
+# ax = Axis(fig[2, 1], title = "sigma 12")
+# heatmap!(ax, σ₁₂i)
 
-ax = Axis(fig[2, 2], title = "damage")
-heatmap!(ax, di)
+# ax = Axis(fig[2, 2], title = "damage")
+# heatmap!(ax, di)
 
-record(fig, "sea_ice_stress.mp4", 1:Nt-1, framerate = 8) do i
-    iter[] = i
-    @info "doing iter $i"
-end
+# record(fig, "sea_ice_stress.mp4", 1:Nt-1, framerate = 8) do i
+#     iter[] = i
+#     @info "doing iter $i"
+# end
