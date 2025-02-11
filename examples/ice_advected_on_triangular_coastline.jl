@@ -1,13 +1,11 @@
+using ClimaSeaIce
+using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.Rheologies
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators
-using ClimaSeaIce
 using Printf
 using CairoMakie
-using ClimaSeaIce.SeaIceMomentumEquations
-using ClimaSeaIce.Rheologies
-
-using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
 
 # A solid block of ice moving against a triangular coastline in a periodic channel
 
