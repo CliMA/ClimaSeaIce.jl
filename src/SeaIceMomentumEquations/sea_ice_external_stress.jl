@@ -22,62 +22,82 @@ using Oceananigans.Fields: ZeroField
 @inline explicit_τx(i, j, k, grid, stress::NamedTuple, clock, fields) = explicit_τx(i, j, k, grid, stress.u, clock, fields)
 @inline explicit_τy(i, j, k, grid, stress::NamedTuple, clock, fields) = explicit_τx(i, j, k, grid, stress.v, clock, fields)
 
-"""
-    struct SemiImplicitOceanSeaIceStress{U, V, FT}
+#####
+##### SemiImplicitStress
+#####
 
-A structure representing the semi-implicit stress between the ocean and sea ice, 
-calculated as
-```math
-τᵤ = ρₒ Cᴰ sqrt((uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²) (uₒ - uᵢⁿ⁺¹)
-τᵥ = ρₒ Cᴰ sqrt((uₒ - uᵢⁿ)² + (vₒ - vᵢⁿ)²) (vₒ - vᵢⁿ⁺¹)
-```
-
-Fields
-======
-- `u`: The zonal (x-direction) component of the ocean velocity.
-- `v`: The meridional (y-direction) component of the ocean velocity.
-- `ρₒ`: The density of the ocean.
-- `Cᴰ`: The drag coefficient between the ocean and sea ice.
-"""
-struct SemiImplicitOceanSeaIceStress{U, V, FT}
-    u  :: U
-    v  :: V
-    ρₒ :: FT
+struct SemiImplicitStress{U, V, FT}
+    uₑ :: U
+    vₑ :: V
+    ρₑ :: FT
     Cᴰ :: FT
 end
 
-# Just with zero ocean velocities
-SemiImplicitOceanSeaIceStress(FT=Float64; uₒ = ZeroField(FT), vₒ = ZeroField(FT), ρₒ = 1026.0, Cᴰ = 5.5e-3) = 
-    SemiImplicitOceanSeaIceStress(uₒ, vₒ, convert(FT, ρₒ), convert(FT, Cᴰ))
+"""
+    SemiImplicitStress(FT = Float64; 
+                       uₑ = ZeroField(FT), 
+                       vₑ = ZeroField(FT), 
+                       ρₑ = 1026.0, 
+                       Cᴰ = 5.5e-3)
 
-Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) = 
-    SemiImplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
-                                  Adapt.adapt(to, τ.v), 
-                                  τ.ρₒ,
+A structure representing the semi-implicit stress between the sea ice and an external fluid (either the ocean or the atmosphere),
+calculated as
+```math
+    τᵤ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (uₑ - uᵢⁿ⁺¹)
+    τᵥ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (vₑ - vᵢⁿ⁺¹)
+```
+
+where `uₑ` and `vₑ` are the external velocities, `uᵢⁿ` and `vᵢⁿ` are the sea ice velocities at the current time step,
+and `uᵢⁿ⁺¹` and `vᵢⁿ⁺¹` are the sea ice velocities at the next time step.
+
+Arguments
+==========
+- `FT`: The field type of the velocities (optional, default: Float64).
+
+Keyword Arguments
+==================
+- `uₑ`: The external x-velocity field.
+- `vₑ`: The external y-velocity field.
+- `ρₑ`: The density of the external fluid.
+- `Cᴰ`: The drag coefficient.
+"""
+function SemiImplicitStress(FT = Float64; 
+                            uₑ = ZeroField(FT), 
+                            vₑ = ZeroField(FT), 
+                            ρₑ = 1026.0, 
+                            Cᴰ = 5.5e-3) 
+
+    return SemiImplicitStress(uₑ, vₑ, convert(FT, ρₑ), convert(FT, Cᴰ))
+end
+
+Adapt.adapt_structure(to, τ::SemiImplicitStress) = 
+               SemiImplicitStress(Adapt.adapt(to, τ.uₑ), 
+                                  Adapt.adapt(to, τ.vₑ), 
+                                  τ.ρₑ,
                                   τ.Cᴰ)
 
-@inline function explicit_τx(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    uₒ = @inbounds τ.u[i, j, k]
-    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
-    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * uₒ
+@inline function explicit_τx(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+    uₑ = @inbounds τ.uₑ[i, j, k]
+    Δu = @inbounds fields.u[i, j, k] - τ.uₑ[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * uₑ
 end
 
-@inline function explicit_τy(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    vₒ = @inbounds τ.v[i, j, k]
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
-    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
-    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₒ
+@inline function explicit_τy(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+    vₑ = @inbounds τ.vₑ[i, j, k]
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    Δv = @inbounds fields.v[i, j, k] - τ.vₑ[i, j, k] 
+    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₑ
 end
 
-@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    Δu = @inbounds fields.u[i, j, k] - τ.u[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.v) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+    Δu = @inbounds fields.u[i, j, k] - τ.uₑ[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
     return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
 end
 
-@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitOceanSeaIceStress, clock, fields) 
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.u) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
-    Δv = @inbounds fields.v[i, j, k] - τ.v[i, j, k] 
+@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    Δv = @inbounds fields.v[i, j, k] - τ.vₑ[i, j, k] 
     return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
 end

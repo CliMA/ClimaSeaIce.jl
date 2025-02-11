@@ -48,7 +48,7 @@ grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 ##### Ocean stress (a zero-velocity ocean with a drag)
 #####
 
-τₒ = SemiImplicitOceanSeaIceStress()
+τₒ = SemiImplicitStress()
 
 #####
 ##### Numerical details

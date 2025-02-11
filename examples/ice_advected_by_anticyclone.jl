@@ -46,8 +46,6 @@ v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
 ##### Ocean sea-ice stress
 #####
 
-using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
-
 # Constant ocean velocities corresponding to a cyclonic eddy
 Uₒ = XFaceField(grid)
 Vₒ = YFaceField(grid)
@@ -58,7 +56,7 @@ set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 
-τₒ = SemiImplicitOceanSeaIceStress(uₒ = Uₒ, vₒ = Vₒ)
+τₒ = SemiImplicitStress(uₑ=Uₒ, vₑ=Vₒ)
 
 ####
 #### Atmosphere - sea ice stress 
