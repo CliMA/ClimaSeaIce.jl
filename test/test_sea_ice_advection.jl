@@ -8,7 +8,7 @@ using Oceananigans
 
     grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
 
-    model = SeaIceModel(grid, advection=WENO()) 
+    model = SeaIceModel(grid, advection=WENO(), timestepper=:RungeKutta3) 
 
     @test !(model.velocities.u isa Nothing)
     @test !(model.velocities.v isa Nothing)
