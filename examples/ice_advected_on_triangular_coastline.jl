@@ -83,7 +83,7 @@ end
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 dynamics = SeaIceMomentumEquation(grid; 
-                                  coriolis = nothing,
+                                  coriolis = BetaPlane(latitude=45),
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = (u=τₒ, v=τₒ), 
                                   solver = SplitExplicitSolver(substeps=120))
@@ -182,7 +182,10 @@ heatmap!(ax, ui, colorrange = (0, 0.12), colormap = :balance)
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.025, 0.025), colormap = :bwr)
 
-CairoMakie.record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
+CairoMakie.record(fig, "sea_ice_advected_on_coastline.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "doing iter $i"
 end
+nothing #hide
+
+# ![](sea_ice_advected_on_coastline.mp4)
