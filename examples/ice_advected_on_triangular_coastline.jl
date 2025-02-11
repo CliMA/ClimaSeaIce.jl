@@ -11,7 +11,7 @@ using CairoMakie
 
 Lx = 512kilometers
 Ly = 256kilometers
-Nx = 256
+Nx = 512
 Ny = 256
 
 y_max = Ly / 2
@@ -32,14 +32,18 @@ grid = RectilinearGrid(arch; size = (Nx, Ny),
 bottom(x, y) = ifelse(y > y_max, 0, 
                ifelse(abs(x / Lx) * Nx + y / Ly * Ny > 24, 0, 1))
 
-grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
+# grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 
 #####
 ##### Setup atmospheric and oceanic forcing
 #####
 
 # Atmosphere - sea ice stress
-τᵤ = ρₐ * Cᴰ * 𝓋ₐ^2
+Ua = XFaceField(grid)
+τᵤ = Field(ρₐ * Cᴰ * Ua^2)
+set!(Ua, 𝓋ₐ)
+compute!(τᵤ)
+Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 τᵥ = 0.0
 
 #####
@@ -55,11 +59,12 @@ grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 dynamics = SeaIceMomentumEquation(grid; 
-                                  coriolis = BetaPlane(latitude=45),
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = τₒ, 
-                                  rheology = ElastoViscoPlasticRheology(),
-                                  solver = SplitExplicitSolver(substeps=120))
+                                  rheology = ElastoViscoPlasticRheology(min_substeps=50, 
+                                                                        max_substeps=100,
+                                                                        minimum_plastic_stress=1e-10),
+                                  solver = SplitExplicitSolver(substeps=150))
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
                                 north = ValueBoundaryCondition(0),
@@ -72,11 +77,8 @@ model = SeaIceModel(grid;
                     boundary_conditions = (; u=u_bcs),
                     ice_thermodynamics = nothing)
 
-# Initial height field equal to one
-h₀(x, y) = 1.0
-
 # We start with a concentration of ℵ = 1 everywhere
-set!(model, h = h₀)
+set!(model, h = 1)
 set!(model, ℵ = 1)
 
 #####
@@ -84,7 +86,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 10 days
-simulation = Simulation(model, Δt = 10minutes, stop_time = 10days) 
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) 
 
 # Container to hold the data
 htimeseries = []

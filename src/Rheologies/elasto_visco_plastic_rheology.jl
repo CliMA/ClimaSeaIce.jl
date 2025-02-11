@@ -1,6 +1,6 @@
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
-using Oceananigans.Grids: AbstractGrid, architecture
+using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.ImmersedBoundaries: inactive_node
 using Oceananigans.Utils
@@ -79,7 +79,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     ice_compaction_hardening = 20, 
                                     yield_curve_eccentricity = 2, 
                                     minimum_plastic_stress = 2e-9,
-                                    min_substeps = 30,
+                                    min_substeps = 50,
                                     max_substeps = 1000)
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
@@ -166,8 +166,9 @@ function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology
     u, v = model.velocities
 
     Nx, Ny, _ = size(grid)
+    Hx, Hy, _ = halo_size(grid)
 
-    parameters = KernelParameters(-1:Nx+2, -1:Ny+2)
+    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
 
     launch!(arch, grid, parameters, _compute_evp_viscosities!, fields, grid, rheology, u, v)
     launch!(arch, grid, parameters, _compute_evp_stresses!, fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
@@ -265,11 +266,6 @@ end
     @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
     @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
     @inbounds   α[i, j, 1]  = γᶜᶜᶜ
-    
-    # Mask inactive nodes
-    @inbounds σ₁₁[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Center(), Center(), Center()), zero(grid), σ₁₁[i, j, 1])
-    @inbounds σ₂₂[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Center(), Center(), Center()), zero(grid), σ₂₂[i, j, 1])
-    @inbounds σ₁₂[i, j, 1] = ifelse(inactive_node(i, j, 1, grid, Face(),   Face(),   Center()), zero(grid), σ₁₂[i, j, 1]) 
 end
 
 #####

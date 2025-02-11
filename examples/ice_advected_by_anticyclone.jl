@@ -36,11 +36,11 @@ grid = RectilinearGrid(arch;
 ##### Value boundary conditions for velocities
 #####
 
-u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
+u_bcs = FieldBoundaryConditions(north=ValueBoundaryCondition(0),
+                                south=ValueBoundaryCondition(0))
 
-v_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0),
-                                east = ValueBoundaryCondition(0))
+v_bcs = FieldBoundaryConditions(west=ValueBoundaryCondition(0),
+                                east=ValueBoundaryCondition(0))
 
 #####
 ##### Ocean sea-ice stress
@@ -121,7 +121,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
+simulation = Simulation(model, Δt = 2minutes, stop_iteration = 1) #stop_time = 2days)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
@@ -211,7 +211,7 @@ heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
-CairoMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
+GLMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "doing iter $i"
 end
