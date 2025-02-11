@@ -44,7 +44,7 @@ function SeaIceModel(grid;
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
                      ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
-                     dynamics                = nothing,
+                     dynamics                    = nothing,
                      forcing                     = NamedTuple())
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
