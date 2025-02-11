@@ -83,10 +83,8 @@ for file in files
     rm(file)
 end
 
-withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
-    deploydocs(        repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
-                   versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
-                  forcepush = true,
-                  devbranch = "main",
-               push_preview = true)
-end
+deploydocs(repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
+            versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
+            forcepush = true,
+            push_preview = true,
+            devbranch = "main")
