@@ -7,6 +7,8 @@ using CairoMakie
 using ClimaSeaIce.SeaIceMomentumEquations
 using ClimaSeaIce.Rheologies
 
+using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
+
 # A solid block of ice moving against a triangular coastline in a periodic channel
 
 Lx = 512kilometers
@@ -38,23 +40,13 @@ grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 ##### Setup atmospheric and oceanic forcing
 #####
 
-Uₐ = XFaceField(grid)
-Vₐ = YFaceField(grid)
-
 # Atmosphere - sea ice stress
-τᵤ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Uₐ)
-τᵥ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Vₐ)
-
-# Initialize the wind stress (constant in time)
-set!(Uₐ, (x, y) -> 𝓋ₐ)
-compute!(τᵤ)
-compute!(τᵥ)
+τᵤ = ρₐ * Cᴰ * 𝓋ₐ^2
+τᵥ = 0.0
 
 #####
 ##### Ocean stress (a zero-velocity ocean with a drag)
 #####
-
-using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
 
 τₒ = SemiImplicitOceanSeaIceStress()
 
@@ -77,9 +69,9 @@ u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
 
 #Define the model! 
 model = SeaIceModel(grid; 
-                    advection = WENO(; order = 7),
+                    advection = WENO(order=7),
                     dynamics = dynamics,
-                    boundary_conditions = (; u = u_bcs),
+                    boundary_conditions = (; u=u_bcs),
                     ice_thermodynamics = nothing)
 
 # Initial height field equal to one
