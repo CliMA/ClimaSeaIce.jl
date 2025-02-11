@@ -20,7 +20,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # First stage
     #
 
-    compute_tendencies!(model)
+    compute_tendencies!(model, Δt)
     step_tracers!(model, Δt, 1)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
@@ -35,7 +35,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # Second stage
     #
 
-    compute_tendencies!(model)
+    compute_tendencies!(model, Δt)
     step_tracers!(model, Δt, 2)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!
@@ -50,7 +50,7 @@ function time_step!(model::RK3SeaIceModel, Δt; callbacks = [])
     # Third stage
     #
 
-    compute_tendencies!(model)
+    compute_tendencies!(model, Δt)
     step_tracers!(model, Δt, 3)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!

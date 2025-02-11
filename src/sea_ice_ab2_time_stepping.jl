@@ -34,7 +34,7 @@ function time_step!(model::AB2SeaIceModel, Δt; euler=false, callbacks = [])
         end
     end
 
-    compute_tendencies!(model)
+    compute_tendencies!(model, Δt)
     step_tracers!(model, Δt, 1)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum!

@@ -12,6 +12,8 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
 
+    dynamics = model.dynamics
+
     α, β = timestepping_coefficients(model.timestepper, stage)
 
     model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
@@ -20,24 +22,24 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
                          ρ = model.ice_density))
 
 
-    ocean_velocities = model.dynamics.ocean_velocities
+    ocean_velocities = dynamics.ocean_velocities
     clock = model.clock
-    minimum_mass = model.dynamics.minimum_mass
-    minimum_concentration = model.dynamics.minimum_concentration
+    minimum_mass = dynamics.minimum_mass
+    minimum_concentration = dynamics.minimum_concentration
 
-    τu_top = model.external_momentum_stresses.top.u
-    τv_top = model.external_momentum_stresses.top.v
-    τu_bottom = model.external_momentum_stresses.bottom.u
-    τv_bottom = model.external_momentum_stresses.bottom.v
+    τu_top = dynamics.external_momentum_stresses.top.u
+    τv_top = dynamics.external_momentum_stresses.top.v
+    τu_bottom = dynamics.external_momentum_stresses.bottom.u
+    τv_bottom = dynamics.external_momentum_stresses.bottom.v
 
-    launch!(arch, grid, :xyz, _step_velocities!, u, v, Gⁿ, G⁻, Δt, α, β,
+    launch!(arch, grid, :xyz, _step_velocities!, u, v, grid, Gⁿ, G⁻, Δt, α, β,
             τu_top, τv_top, τu_bottom, τv_bottom, ocean_velocities, 
             minimum_mass, minimum_concentration, clock, model_fields)
 
     return nothing
 end
 
-@kernel function _step_velocities!(u, v, Gⁿ, G⁻, Δt, α, β, 
+@kernel function _step_velocities!(u, v, grid, Gⁿ, G⁻, Δt, α, β, 
                                    τu_top, τv_top, τu_bottom, τv_bottom, 
                                    ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
     i, j, k = @index(Global, NTuple)
@@ -70,36 +72,44 @@ end
 end
 
 # Compute the tendencies for the explicit momentum equations
-function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
+function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     
-    ice_dynamics = model.ice_dynamics
+    dynamics = model.dynamics
     grid = model.grid
 
-    args = (model.clock, 
-            model.velocities, 
-            ice_dynamics.coriolis, 
-            ice_dynamics.rheology, 
-            ice_dynamics.auxiliary_fields, 
-            model.ice_thickness, 
-            model.ice_concentration, 
-            model.ice_density)
+    clock    = model.clock
+    coriolis = dynamics.coriolis
+    rheology = dynamics.rheology
 
-    u_top_stress = model.external_momentum_stresses.top.u
-    v_top_stress = model.external_momentum_stresses.top.v
-    u_bottom_stress = model.external_momentum_stresses.bottom.u
-    v_bottom_stress = model.external_momentum_stresses.bottom.v
+    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+            (; h = model.ice_thickness, 
+               ℵ = model.ice_concentration, 
+               ρ = model.ice_density))
+
+    u_top_stress = dynamics.external_momentum_stresses.top.u
+    v_top_stress = dynamics.external_momentum_stresses.top.v
+    u_bottom_stress = dynamics.external_momentum_stresses.bottom.u
+    v_bottom_stress = dynamics.external_momentum_stresses.bottom.v
 
     Gu = model.timestepper.Gⁿ.u
     Gv = model.timestepper.Gⁿ.v
 
-    launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, args,
-            u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
+    launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, Δt,
+            rheology, model_fields, clock, coriolis,
+            u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress, model.forcing)
 
     return nothing
 end
 
-@kernel function _compute_velocity_tendencies!(Gu, Gv, grid, args, u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
+@kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt,
+                                               rheology, model_fields, clock, coriolis,
+                                               u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress, forcing)
     i, j = @index(Global, NTuple)
-    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress)
-    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt,
+                                                rheology, model_fields, clock, coriolis,
+                                                u_top_stress, u_bottom_stress, forcing.u)
+
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt,
+                                                rheology, model_fields, clock, coriolis,
+                                                v_top_stress, v_bottom_stress, forcing.v)
 end

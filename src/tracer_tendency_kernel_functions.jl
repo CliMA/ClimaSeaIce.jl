@@ -2,9 +2,9 @@ using Oceananigans.Advection
 using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 using ClimaSeaIce.SeaIceMomentumEquations: compute_momentum_tendencies!
 
-function compute_tendencies!(model::SIM)
+function compute_tendencies!(model::SIM, Δt)
     compute_tracer_tendencies!(model)
-    compute_momentum_tendencies!(model, model.dynamics)
+    compute_momentum_tendencies!(model, model.dynamics, Δt)
 
     return nothing
 end
