@@ -85,30 +85,28 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
                ℵ = model.ice_concentration, 
                ρ = model.ice_density))
 
-    u_top_stress = dynamics.external_momentum_stresses.top.u
-    v_top_stress = dynamics.external_momentum_stresses.top.v
-    u_bottom_stress = dynamics.external_momentum_stresses.bottom.u
-    v_bottom_stress = dynamics.external_momentum_stresses.bottom.v
+    top_stress = dynamics.external_momentum_stresses.top
+    bottom_stress = dynamics.external_momentum_stresses.bottom
 
     Gu = model.timestepper.Gⁿ.u
     Gv = model.timestepper.Gⁿ.v
 
     launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, Δt,
             rheology, model_fields, clock, coriolis,
-            u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress, model.forcing)
+            top_stress, bottom_stress, model.forcing)
 
     return nothing
 end
 
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt,
                                                rheology, model_fields, clock, coriolis,
-                                               u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress, forcing)
+                                               top_stress, bottom_stress, forcing)
     i, j = @index(Global, NTuple)
     @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt,
                                                 rheology, model_fields, clock, coriolis,
-                                                u_top_stress, u_bottom_stress, forcing.u)
+                                                top_stress, bottom_stress, forcing.u)
 
     @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt,
                                                 rheology, model_fields, clock, coriolis,
-                                                v_top_stress, v_bottom_stress, forcing.v)
+                                                top_stress, bottom_stress, forcing.v)
 end
