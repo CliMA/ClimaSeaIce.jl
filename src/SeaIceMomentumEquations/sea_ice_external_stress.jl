@@ -82,24 +82,24 @@ Adapt.adapt_structure(to, τ::SemiImplicitStress) =
     uₑ = @inbounds τ.uₑ[i, j, k]
     Δu = @inbounds fields.u[i, j, k] - τ.uₑ[i, j, k]
     Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
-    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * uₑ
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * uₑ
 end
 
 @inline function explicit_τy(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
     vₑ = @inbounds τ.vₑ[i, j, k]
     Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
     Δv = @inbounds fields.v[i, j, k] - τ.vₑ[i, j, k] 
-    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₑ
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₑ
 end
 
 @inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
     Δu = @inbounds fields.u[i, j, k] - τ.uₑ[i, j, k]
     Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
-    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
 end
 
 @inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
     Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
     Δv = @inbounds fields.v[i, j, k] - τ.vₑ[i, j, k] 
-    return τ.ρₒ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
 end

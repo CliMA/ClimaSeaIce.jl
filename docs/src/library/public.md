@@ -31,3 +31,17 @@ Private = false
 Modules = [ClimaSeaIce.EnthalpyMethodSeaIceModels]
 Private = false
 ```
+
+## ClimaSeaIce.Rheologies
+
+```@autodocs
+Modules = [ClimaSeaIce.Rheologies]
+Private = false
+```
+
+## ClimaSeaIce.SeaIceMomentumEquations
+
+```@autodocs
+Modules = [ClimaSeaIce.SeaIceMomentumEquations]
+Private = false
+```
