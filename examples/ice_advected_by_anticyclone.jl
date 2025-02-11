@@ -3,14 +3,14 @@
 #
 #
 #
+using ClimaSeaIce
+using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.Rheologies
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators
-using ClimaSeaIce
+using Oceananigans.BoundaryConditions
 using Printf
-using ClimaSeaIce.SeaIceMomentumEquations
-using ClimaSeaIce.Rheologies
-using Oceananigans.Operators
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -68,8 +68,8 @@ Uₐ = XFaceField(grid)
 Vₐ = YFaceField(grid)
 
 # Atmosphere - sea ice stress
-τᵤₐ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Uₐ)
-τᵥₐ = Field(ρₐ * Cᴰ * sqrt(Uₐ^2 + Vₐ^2) * Vₐ)
+τᵤₐ = Field(ρₐ * Cᴰ * Uₐ * sqrt(Uₐ^2 + Vₐ^2))
+τᵥₐ = Field(ρₐ * Cᴰ * Vₐ * sqrt(Uₐ^2 + Vₐ^2))
 
 # Atmospheric velocities corresponding to an anticyclonic eddy moving north-east
 @inline center(t) = 256kilometers + 51.2kilometers * t / 86400
@@ -85,8 +85,8 @@ set!(Vₐ, (x, y) -> va_time(x, y, 0))
 compute!(τᵤₐ)
 compute!(τᵥₐ)
 
-Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤₐ)
-Oceananigans.BoundaryConditions.fill_halo_regions!(τᵥₐ)
+fill_halo_regions!(τᵤₐ)
+fill_halo_regions!(τᵥₐ)
 
 #####
 ##### Numerical details
@@ -102,15 +102,13 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             rheology = ElastoViscoPlasticRheology(min_substeps=50, 
                                                                                   max_substeps=100,
                                                                                   minimum_plastic_stress=1e-10),
-                                            solver   = SplitExplicitSolver(substeps=100))
-advection = WENO(; order = 7)
+                                            solver   = SplitExplicitSolver(substeps=150))
 
 # Define the model!
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    advection = WENO(order=9),
-                    timestepper = :QuasiAdamsBashforth2,
+                    advection = WENO(order=7),
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
 # Initial height field with perturbations around 0.3 m
