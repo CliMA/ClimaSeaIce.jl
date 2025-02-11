@@ -58,7 +58,7 @@ set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 
-τₒ = SemiImplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5e-3, 1025.0)
+τₒ = SemiImplicitOceanSeaIceStress(uₒ = Uₒ, vₒ = Vₒ)
 
 ####
 #### Atmosphere - sea ice stress 

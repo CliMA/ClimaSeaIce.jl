@@ -1,4 +1,5 @@
 using Adapt
+using Oceananigans.Fields: ZeroField
 
 # Fallback
 @inline implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
@@ -46,11 +47,8 @@ struct SemiImplicitOceanSeaIceStress{U, V, FT}
 end
 
 # Just with zero ocean velocities
-SemiImplicitOceanSeaIceStress(grid; ρₒ = 1025.0, Cᴰ = 5.5e-3) = 
-    SemiImplicitOceanSeaIceStress(XFaceField(grid), 
-                                  YFaceField(grid), 
-                                  convert(eltype(grid), ρₒ),  
-                                  convert(eltype(grid), Cᴰ))
+SemiImplicitOceanSeaIceStress(FT=Float64; uₒ = ZeroField(FT), vₒ = ZeroField(FT), ρₒ = 1026.0, Cᴰ = 5.5e-3) = 
+    SemiImplicitOceanSeaIceStress(uₒ, vₒ, convert(FT, ρₒ), convert(FT, Cᴰ))
 
 Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) = 
     SemiImplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
