@@ -38,6 +38,13 @@ struct SemiImplicitOceanSeaIceStress{U, V, FT}
     Cᴰ :: FT
 end
 
+# Just with zero ocean velocities
+SemiImplicitOceanSeaIceStress(grid; ρₒ = 1025.0, Cᴰ = 5.5e-3) = 
+    SemiImplicitOceanSeaIceStress(XFaceField(grid), 
+                                  YFaceField(grid), 
+                                  convert(eltype(grid), ρₒ),  
+                                  convert(eltype(grid), Cᴰ))
+
 Adapt.adapt_structure(to, τ::SemiImplicitOceanSeaIceStress) = 
     SemiImplicitOceanSeaIceStress(Adapt.adapt(to, τ.u), 
                                   Adapt.adapt(to, τ.v), 

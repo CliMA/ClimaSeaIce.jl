@@ -16,7 +16,7 @@ Ny = 256
 
 y_max = Ly / 2
 
-arch = GPU()
+arch = CPU()
 
 𝓋ₐ = 10.0   # m / s 
 Cᴰ = 1.2e-3 # Atmosphere - sea ice drag coefficient
@@ -53,28 +53,10 @@ compute!(τᵥ)
 #####
 ##### Ocean stress (a zero-velocity ocean with a drag)
 #####
-struct PrescribedOceanStress{FT}
-    ρₒ :: FT
-    Cᴰ :: FT
-end
 
-import ClimaSeaIce.SeaIceMomentumEquations: implicit_τx_coefficient, implicit_τy_coefficient
+using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
 
-@inline function implicit_τx_coefficient(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
-    uᵢ = @inbounds fields.u[i, j, k]
-    vᵢ = ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
-    
-    return τ.ρₒ * τ.Cᴰ * sqrt(uᵢ^2 + vᵢ^2)
-end
-
-@inline function implicit_τy_coefficient(i, j, k, grid, τ::PrescribedOceanStress, clock, fields) 
-    uᵢ = ℑxyᶠᶜᵃ(i, j, k, grid, fields.u)
-    vᵢ = @inbounds fields.v[i, j, k]
-    
-    return τ.ρₒ * τ.Cᴰ * sqrt(uᵢ^2 + vᵢ^2)
-end
-
-τₒ = PrescribedOceanStress(1025.0, 5.5e-3)
+τₒ = SemiImplicitOceanSeaIceStress()
 
 #####
 ##### Numerical details
@@ -86,25 +68,24 @@ dynamics = SeaIceMomentumEquation(grid;
                                   coriolis = BetaPlane(latitude=45),
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = (u=τₒ, v=τₒ), 
+                                  rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=120))
-
-advection = WENO(; order = 7)
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
                                 north = ValueBoundaryCondition(0),
                                 south = ValueBoundaryCondition(0))
 
-#Define the model!
+#Define the model! 
 model = SeaIceModel(grid; 
-                    advection,
+                    advection = WENO(; order = 7),
                     dynamics = dynamics,
                     boundary_conditions = (; u = u_bcs),
                     ice_thermodynamics = nothing)
 
-# Initial height field with perturbations around 0.3 m
+# Initial height field equal to one
 h₀(x, y) = 1.0
 
-# We start with a concentration of ℵ = 1
+# We start with a concentration of ℵ = 1 everywhere
 set!(model, h = h₀)
 set!(model, ℵ = 1)
 
@@ -112,8 +93,8 @@ set!(model, ℵ = 1)
 ##### Setup the simulation
 #####
 
-# run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 30days) 
+# run the model for 10 days
+simulation = Simulation(model, Δt = 10minutes, stop_time = 10days) 
 
 # Container to hold the data
 htimeseries = []
