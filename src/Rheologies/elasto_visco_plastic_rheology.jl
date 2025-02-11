@@ -24,22 +24,23 @@ end
 
 """
     ElastoViscoPlasticRheology(grid::AbstractGrid; 
-                                 ice_compressive_strength = 27500, 
-                                 ice_compaction_hardening = 20, 
-                                 yield_curve_eccentricity = 2, 
-                                 Δ_min = 1e-10,
-                                 min_substeps = 30,
-                                 max_substeps = 500)
+                               ice_compressive_strength = 27500, 
+                               ice_compaction_hardening = 20, 
+                               yield_curve_eccentricity = 2, 
+                               Δ_min = 1e-10,
+                               min_substeps = 30,
+                               max_substeps = 500)
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
 rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al (2016).
-The stress tensor is computed then following the constitutive relation:
+The stress tensor is computed following the constitutive relation:
 ```math
 σᵢⱼ = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
 ```
 where ``ϵ̇ᵢⱼ`` are the strain rates, ``η`` is the shear viscosity, ``ζ`` is the bulk viscosity,
 and ``P`` is the ice strength (acting as the isotropic part of the stress tensor)
-parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))``. 
+parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))`` where ``P★`` is the `ice_compressive_strength`, 
+``C`` is the `ice_compaction_hardening`, ``h`` is the ice thickness, and ``ℵ`` is the ice concentration.
 
 The stresses are substepped using a dynamic substepping coefficient ``α`` that is
 spatially varying and computed dynamically as in Kimmritz et al (2016)
@@ -52,9 +53,8 @@ The stresses are substepped with:
 σᵢⱼᵖ⁺¹ = σᵢⱼᵖ + (σᵢⱼᵖ⁺¹ - σᵢⱼᵖ) / α
 ```
 
-This formulation allows fast convergence in regions where ``γ`` is small. Regions where
-the coefficients are large correspond to regions where the ice is more solid 
-and the convergence is slower.
+This formulation allows fast convergence in regions where α is small. Regions where
+α is large correspond to regions where the ice is more solid and the convergence is slower.
 
 The number of substeps is then bounded by `min_substeps` and `max_substeps`.
 

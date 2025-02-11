@@ -43,8 +43,10 @@ end
 A structure representing the semi-implicit stress between the sea ice and an external fluid (either the ocean or the atmosphere),
 calculated as
 ```math
-    τᵤ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (uₑ - uᵢⁿ⁺¹)
-    τᵥ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (vₑ - vᵢⁿ⁺¹)
+τᵤ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (uₑ - uᵢⁿ⁺¹)
+```
+```math
+τᵥ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (vₑ - vᵢⁿ⁺¹)
 ```
 
 where `uₑ` and `vₑ` are the external velocities, `uᵢⁿ` and `vᵢⁿ` are the sea ice velocities at the current time step,
