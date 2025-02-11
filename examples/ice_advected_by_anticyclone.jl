@@ -58,7 +58,7 @@ set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Uₒ)
 Oceananigans.BoundaryConditions.fill_halo_regions!(Vₒ)
 
-τᵤₒ = τᵥₒ = SemiImplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5e-3, 1025.0)
+τₒ = SemiImplicitOceanSeaIceStress(Uₒ, Vₒ, 5.5e-3, 1025.0)
 
 ####
 #### Atmosphere - sea ice stress 
@@ -96,7 +96,7 @@ fill_halo_regions!(τᵥₐ)
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
                                             top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                                            bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
+                                            bottom_momentum_stress = τₒ,
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
                                             rheology = ElastoViscoPlasticRheology(min_substeps=50, 
