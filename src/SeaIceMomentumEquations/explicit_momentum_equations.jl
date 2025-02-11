@@ -27,21 +27,20 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     minimum_mass = dynamics.minimum_mass
     minimum_concentration = dynamics.minimum_concentration
 
-    τu_top = dynamics.external_momentum_stresses.top.u
-    τv_top = dynamics.external_momentum_stresses.top.v
-    τu_bottom = dynamics.external_momentum_stresses.bottom.u
-    τv_bottom = dynamics.external_momentum_stresses.bottom.v
+    top_stress = dynamics.external_momentum_stresses.top
+    bottom_stress = dynamics.external_momentum_stresses.bottom
 
     launch!(arch, grid, :xyz, _step_velocities!, u, v, grid, Gⁿ, G⁻, Δt, α, β,
-            τu_top, τv_top, τu_bottom, τv_bottom, ocean_velocities, 
+            τ_top, τ_bottom, ocean_velocities, 
             minimum_mass, minimum_concentration, clock, model_fields)
 
     return nothing
 end
 
 @kernel function _step_velocities!(u, v, grid, Gⁿ, G⁻, Δt, α, β, 
-                                   τu_top, τv_top, τu_bottom, τv_bottom, 
+                                   top_stress, bottom_stress, 
                                    ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
+
     i, j, k = @index(Global, NTuple)
 
     ℵᶠᶜ = ℑxᶠᵃᵃ(i, j, k, grid, fields.ℵ)
@@ -50,11 +49,11 @@ end
     mᶜᶠ = ℑyᵃᶠᵃ(i, j, k, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
    # Implicit part of the stress that depends linearly on the velocity
-   τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, τu_bottom, clock, fields) 
-         + implicit_τx_coefficient(i, j, 1, grid, τu_top,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
+   τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
+         + implicit_τx_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
    
-   τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, τv_bottom, clock, fields) 
-         + implicit_τy_coefficient(i, j, 1, grid, τv_top,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
+   τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
+         + implicit_τy_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
 
     @inbounds begin
         uᴰ = (Δt * (α * Gⁿ.u[i, j, k] + β * G⁻.u[i, j, k])) / (1 + Δt * τuᵢ)

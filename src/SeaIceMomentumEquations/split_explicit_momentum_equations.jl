@@ -43,11 +43,8 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
     minimum_mass = dynamics.minimum_mass
     minimum_concentration = dynamics.minimum_concentration
 
-    u_top_stress = dynamics.external_momentum_stresses.top.u
-    v_top_stress = dynamics.external_momentum_stresses.top.v
-
-    u_bottom_stress = dynamics.external_momentum_stresses.bottom.u
-    v_bottom_stress = dynamics.external_momentum_stresses.bottom.v
+    top_stress = dynamics.external_momentum_stresses.top
+    bottom_stress = dynamics.external_momentum_stresses.bottom
 
     u_forcing = model.forcing.u
     v_forcing = model.forcing.v
@@ -77,24 +74,24 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
-                               u_top_stress, u_bottom_stress, u_forcing)
+                               top_stress, bottom_stress, u_forcing)
 
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
-                               v_top_stress, v_bottom_stress, v_forcing)
+                               top_stress, bottom_stress, v_forcing)
 
         else
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
-                               v_top_stress, v_bottom_stress, v_forcing)
+                               top_stress, bottom_stress, v_forcing)
             
 
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
-                               u_top_stress, u_bottom_stress, u_forcing)
+                               top_stress, bottom_stress, u_forcing)
         end
 
         # TODO: This needs to be removed in some way!

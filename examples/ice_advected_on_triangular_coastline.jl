@@ -67,7 +67,7 @@ using ClimaSeaIce.SeaIceMomentumEquations: SemiImplicitOceanSeaIceStress
 dynamics = SeaIceMomentumEquation(grid; 
                                   coriolis = BetaPlane(latitude=45),
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
-                                  bottom_momentum_stress = (u=τₒ, v=τₒ), 
+                                  bottom_momentum_stress = τₒ, 
                                   rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=120))
 

@@ -14,6 +14,13 @@ using Adapt
 @inline explicit_τx(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
 @inline explicit_τy(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
 
+# NamedTuple stess (assuming it is `u` and `v`)
+@inline implicit_τx_coefficient(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τx_coefficient(i, j, k, grid, stress.u, clock, fields)
+@inline implicit_τy_coefficient(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τy_coefficient(i, j, k, grid, stress.v, clock, fields)
+
+@inline explicit_τx(i, j, k, grid, stress::NamedTuple, clock, fields) = explicit_τx(i, j, k, grid, stress.u, clock, fields)
+@inline explicit_τy(i, j, k, grid, stress::NamedTuple, clock, fields) = explicit_τx(i, j, k, grid, stress.v, clock, fields)
+
 """
     struct SemiImplicitOceanSeaIceStress{U, V, FT}
 
