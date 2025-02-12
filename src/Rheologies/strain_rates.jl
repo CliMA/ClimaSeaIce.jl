@@ -1,4 +1,4 @@
-using Oceananigans.ImmersedBoundaries: IBG
+using Oceananigans.ImmersedBoundaries: IBG, immersed_inactive_node
 
 @inline strain_rate_xx(i, j, k, grid, u, v) = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
 @inline strain_rate_yy(i, j, k, grid, u, v) = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
@@ -8,13 +8,13 @@ using Oceananigans.ImmersedBoundaries: IBG
 @inline strain_rate_yy(i, j, k, grid::IBG, u, v) = ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
 @inline strain_rate_xy(i, j, k, grid::IBG, u, v) = (∂xᴮᶠᶠᶜ(i, j, k, grid, u) + ∂yᴮᶠᶠᶜ(i, j, k, grid, v)) / 2
 
-# Hardcode No-slip boundary conditions on immersed boundaries?
+# # Hardcode No-slip boundary conditions on immersed boundaries?
 # TODO: Fix this mess!! 
 # Find a way not to hard-code. We need to pass the immersed_boundary_conditions of
 # the velocities to the kernels
 @inline function ∂xᴮᶜᶜᶜ(i, j, k, grid, u)
-    i1 = inactive_node(i,   j, k, grid, f, c, c)
-    i2 = inactive_node(i+1, j, k, grid, f, c, c) 
+    i1 = immersed_inactive_node(i,   j, k, grid, f, c, c)
+    i2 = immersed_inactive_node(i+1, j, k, grid, f, c, c) 
     Az = Azᶜᶜᶜ(i, j, k, grid)
 
     u1 = @inbounds u[i,   j, k] * Δyᶠᶜᶜ(i,   j, k, grid)
@@ -24,8 +24,8 @@ using Oceananigans.ImmersedBoundaries: IBG
 end
 
 @inline function ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
-    j1 = inactive_node(i, j,   k, grid, c, f, c)
-    j2 = inactive_node(i, j+1, k, grid, c, f, c) 
+    j1 = immersed_inactive_node(i, j,   k, grid, c, f, c)
+    j2 = immersed_inactive_node(i, j+1, k, grid, c, f, c) 
     Az = Azᶜᶜᶜ(i, j, k, grid)
 
     v1 = @inbounds v[i, j,   k] * Δxᶜᶠᶜ(i,   j, k, grid)
@@ -35,8 +35,8 @@ end
 end
 
 @inline function ∂xᴮᶠᶠᶜ(i, j, k, grid, v)
-    i1 = inactive_node(i-1, j, k, grid, c, f, c)
-    i2 = inactive_node(i,   j, k, grid, c, f, c) 
+    i1 = immersed_inactive_node(i-1, j, k, grid, c, f, c)
+    i2 = immersed_inactive_node(i,   j, k, grid, c, f, c) 
     Az = Azᶠᶠᶜ(i, j, k, grid)
 
     v1 = @inbounds v[i-1, j, k] * Δyᶜᶠᶜ(i,   j, k, grid)
@@ -46,8 +46,8 @@ end
 end
 
 @inline function ∂yᴮᶠᶠᶜ(i, j, k, grid, u)
-    j1 = inactive_node(i, j-1, k, grid, f, c, c)
-    j2 = inactive_node(i, j,   k, grid, f, c, c) 
+    j1 = immersed_inactive_node(i, j-1, k, grid, f, c, c)
+    j2 = immersed_inactive_node(i, j,   k, grid, f, c, c) 
     Az = Azᶠᶠᶜ(i, j, k, grid)
 
     u1 = @inbounds u[i, j-1, k] * Δxᶠᶜᶜ(i,   j, k, grid)

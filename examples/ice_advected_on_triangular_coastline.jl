@@ -5,7 +5,7 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators
 using Printf
-using CairoMakie
+# using CairoMakie
 
 # A solid block of ice moving against a triangular coastline in a periodic channel
 
@@ -32,7 +32,7 @@ grid = RectilinearGrid(arch; size = (Nx, Ny),
 bottom(x, y) = ifelse(y > y_max, 0, 
                ifelse(abs(x / Lx) * Nx + y / Ly * Ny > 24, 0, 1))
 
-# grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
+grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 
 #####
 ##### Setup atmospheric and oceanic forcing
@@ -61,10 +61,10 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 dynamics = SeaIceMomentumEquation(grid; 
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = τₒ, 
-                                  rheology = ElastoViscoPlasticRheology(min_substeps=50, 
-                                                                        max_substeps=100,
+                                  rheology = ElastoViscoPlasticRheology(min_substeps=150, 
+                                                                        max_substeps=150,
                                                                         minimum_plastic_stress=1e-10),
-                                  solver = SplitExplicitSolver(substeps=150))
+                                  solver = SplitExplicitSolver(substeps=1))
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
                                 north = ValueBoundaryCondition(0),
@@ -85,8 +85,8 @@ set!(model, ℵ = 1)
 ##### Setup the simulation
 #####
 
-# run the model for 10 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) 
+# run the model for 10 day
+simulation = Simulation(model, Δt = 2minutes / 150, stop_iteration=1, stop_time=2days) 
 
 # Container to hold the data
 htimeseries = []
