@@ -16,7 +16,7 @@ include("prescribed_external_stress.jl")
 
 arch = GPU()
 
-sea_ice_grid  = TripolarGrid(arch; size=(1440, 400, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
+sea_ice_grid  = TripolarGrid(arch; size=(2560, 400, 1), southernmost_latitude=55, z=(-30, 0), halo=(5, 5, 4))
 bottom_height = regrid_bathymetry(sea_ice_grid, interpolation_passes=1, minimum_depth=0, major_basins=10)
 grid = ImmersedBoundaryGrid(sea_ice_grid, GridFittedBottom(bottom_height))
 
@@ -32,10 +32,7 @@ grid = ImmersedBoundaryGrid(sea_ice_grid, GridFittedBottom(bottom_height))
 # uₒ = ECCO.ECCOFieldTimeSeries(u_velocity, arch)
 # vₒ = ECCO.ECCOFieldTimeSeries(v_velocity, arch)
 
-ρₒ = 1025.0 # kg/m³
-Cᴰ = 5.5e-3 # N/m²
-
-τᵤₒ = τᵥₒ = PrescribedOceanStress(ρₒ, Cᴰ)
+τₒ = SemiImplicitStress()
 
 ##### 
 ##### Prescribed JRA55 Atmosphere
@@ -47,7 +44,7 @@ vₐ = JRA55.JRA55_field_time_series(:northward_velocity; architecture=arch, bac
 ρₐ = 1.125  # kg/m³
 Cᴰ = 1.2e-3 # N/m²
 
-τᵤₐ = τᵥₐ = PrescribedAtmosphereStress(uₐ, vₐ, ρₐ, Cᴰ, uₐ.grid)
+τₐ = PrescribedAtmosphereStress(uₐ, vₐ, ρₐ, Cᴰ, uₐ.grid)
 
 #####
 ##### Set up the model
@@ -59,18 +56,18 @@ v_bcs = FieldBoundaryConditions(top=nothing, bottom=nothing)
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 momentum_equations = SeaIceMomentumEquation(grid; 
-                                            top_momentum_stress = (u = τᵤₐ, v = τᵥₐ),
-                                            bottom_momentum_stress = (u = τᵤₒ, v = τᵥₒ),
+                                            top_momentum_stress = τₐ,
+                                            bottom_momentum_stress = τₒ,
                                             coriolis = HydrostaticSphericalCoriolis(),
-                                            rheology = ElastoViscoPlasticRheology(max_substeps=150, 
+                                            rheology = ElastoViscoPlasticRheology(max_substeps=100, 
                                                                                   min_substeps=50),
-                                            solver   = SplitExplicitSolver(substeps=300))
+                                            solver   = SplitExplicitSolver(substeps=100))
 
 # Define the model!
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
-                    ice_consolidation_thickness = 0.05, # 10 cm
+                    ice_consolidation_thickness = 0.01, # 10 cm
                     advection = WENO(),
                     boundary_conditions = (u = u_bcs, v = v_bcs))
 
@@ -88,7 +85,7 @@ launch!(arch, grid, :xy, ClimaSeaIce._set_minium_ice_thickness!,
 @show minimum(Array(interior(model.ice_thickness, :, :, 1)))
 @show maximum(Array(interior(model.ice_thickness, :, :, 1)))
 
-simulation = Simulation(model, Δt=120, stop_time=50days)
+simulation = Simulation(model, Δt=120, stop_time=150days)
 
 # # Container to hold the data
 htimeseries   = []
