@@ -261,11 +261,18 @@ end
     γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), rheology.max_substeps^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
 
-    # Compute the new stresses and store the value of the dynamic substepping coefficient α
-    @inbounds σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ, zero(grid))
-    @inbounds σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ, zero(grid))
-    @inbounds σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ, zero(grid))
-    @inbounds   α[i, j, 1]  = γᶜᶜᶜ
+    @inbounds begin
+        # Compute the new stresses and store the value of the 
+        # dynamic substepping coefficient α
+        σ₁₁★ = (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ
+        σ₂₂★ = (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ
+        σ₁₂★ = (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ
+
+        σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, σ₁₁★, zero(grid))
+        σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, σ₂₂★, zero(grid))
+        σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, σ₁₂★, zero(grid))
+          α[i, j, 1]  = γᶜᶜᶜ
+    end
 end
 
 #####
