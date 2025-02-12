@@ -1,12 +1,12 @@
 using Oceananigans.ImmersedBoundaries: IBG, immersed_inactive_node
 
-@inline strain_rate_xx(i, j, k, grid, immered_bc, u, v) = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, immered_bc, u, v) = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_xy(i, j, k, grid, immered_bc, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
+@inline strain_rate_xx(i, j, k, grid, u, v) = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, u, v) = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
 
-@inline strain_rate_xx(i, j, k, grid::IBG, immersed_bc, u, v) = ∂xᴮᶜᶜᶜ(i, j, k, grid, u)
-@inline strain_rate_yy(i, j, k, grid::IBG, immersed_bc, u, v) = ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
-@inline strain_rate_xy(i, j, k, grid::IBG, immersed_bc, u, v) = (∂xᴮᶠᶠᶜ(i, j, k, grid, v) + ∂yᴮᶠᶠᶜ(i, j, k, grid, u)) / 2
+@inline strain_rate_xx(i, j, k, grid::IBG, u, v) = ∂xᴮᶜᶜᶜ(i, j, k, grid, u)
+@inline strain_rate_yy(i, j, k, grid::IBG, u, v) = ∂yᴮᶜᶜᶜ(i, j, k, grid, v)
+@inline strain_rate_xy(i, j, k, grid::IBG, u, v) = (∂xᴮᶠᶠᶜ(i, j, k, grid, v) + ∂yᴮᶠᶠᶜ(i, j, k, grid, u)) / 2
 
 # # Hardcode No-slip boundary conditions on immersed boundaries?
 # TODO: Fix this mess!! 
