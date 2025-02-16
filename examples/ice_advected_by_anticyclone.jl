@@ -11,6 +11,7 @@ using Oceananigans.Units
 using Oceananigans.Operators
 using Oceananigans.BoundaryConditions
 using Printf
+using CairoMakie
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -211,7 +212,7 @@ heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
-GLMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
+CairoMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "doing iter $i"
 end

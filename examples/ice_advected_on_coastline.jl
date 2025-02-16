@@ -5,7 +5,7 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators
 using Printf
-using GLMakie
+using CairoMakie
 
 # A solid block of ice moving against a triangular coastline in a periodic channel
 
@@ -155,7 +155,7 @@ heatmap!(ax, ui, colorrange = (0, 0.12), colormap = :balance)
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.025, 0.025), colormap = :bwr)
 
-record(fig, "sea_ice_advected_on_coastline.mp4", 1:Nt, framerate = 8) do i
+CairoMakie.record(fig, "sea_ice_advected_on_coastline.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "doing iter $i"
 end
