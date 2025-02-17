@@ -1,4 +1,4 @@
-using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
+using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U, fᶠᶠᵃ
 using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 
 """compute explicit ice u-velocity tendencies"""
@@ -19,7 +19,7 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
      ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
-     Gᵁ = ( + coriolis.f * model_fields.v[i, j, 1]
+     Gᵁ = ( + fᶠᶠᵃ(i, j, k, grid, coriolis) * model_fields.v[i, j, 1]
             + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ
@@ -48,7 +48,7 @@ end
      ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
      mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
-     Gⱽ = ( - coriolis.f * model_fields.u[i, j, 1]
+     Gⱽ = ( - fᶠᶠᵃ(i, j, k, grid, coriolis) * model_fields.u[i, j, 1]
             + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ 
