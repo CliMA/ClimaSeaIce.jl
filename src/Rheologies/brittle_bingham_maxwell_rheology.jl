@@ -164,6 +164,68 @@ end
     return one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
 end
 
+@inline function P_tilde(i, j, k, grid, fields)
+    P = @inbounds fields.P[i, j, k]
+    σI = σᴵ(i, j, k, grid, fields)
+    return clamp(P / σI, -one(grid), zero(grid))
+end
+
+@inline function reconstruction_2d(i, j, k, grid, f, args...)
+    fij = f(i,   j,   k, grid, args...)
+    fmj = f(i-1, j,   k, grid, args...)
+    fpj = f(i+1, j,   k, grid, args...)
+    fim = f(i,   j-1, k, grid, args...)
+    fip = f(i,   j+1, k, grid, args...)
+    fmm = f(i-1, j-1, k, grid, args...)
+    fmp = f(i-1, j+1, k, grid, args...)
+    fpm = f(i+1, j-1, k, grid, args...)
+    fpp = f(i+1, j+1, k, grid, args...)
+
+    # remove NaNs
+    isnanij = isnan(fij)
+    isnanmj = isnan(fmj)
+    isnanpj = isnan(fpj)
+    isnanim = isnan(fim)
+    isnanip = isnan(fip)
+    isnanmm = isnan(fmm)
+    isnanmp = isnan(fmp)
+    isnanpm = isnan(fpm)
+    isnanpp = isnan(fpp)
+
+    fij = ifelse(isnanij, zero(grid), fij) / 4
+    fmj = ifelse(isnanmj, zero(grid), fmj) / 8
+    fpj = ifelse(isnanpj, zero(grid), fpj) / 8
+    fim = ifelse(isnanim, zero(grid), fim) / 8
+    fip = ifelse(isnanip, zero(grid), fip) / 8
+    fmm = ifelse(isnanmm, zero(grid), fmm) / 16
+    fmp = ifelse(isnanmp, zero(grid), fmp) / 16
+    fpm = ifelse(isnanpm, zero(grid), fpm) / 16
+    fpp = ifelse(isnanpp, zero(grid), fpp) / 16
+
+    return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
+end
+
+@inline function dcrit2(i, j, k, grid, N, c, μ, fields)
+
+    σI  =  σᴵ(i, j, k, grid, fields)
+    σII = σᴵᴵ(i, j, k, grid, fields)
+
+    m = tand(90 - atand(μ))
+    q = σII - m * σI
+
+    # # Move towards the yield curve in a perpendicular fashion
+    σIf  = (c - q) / (m + μ)
+    σIIf = m * σIf + q
+
+    dcrit = one(grid) - sqrt(σIf^2 + σIIf^2) / sqrt(σI^2 + σII^2)
+    dcrit = ifelse(isnan(dcrit), zero(grid), dcrit)
+
+    # dcrit = one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI) # dcritical(i, j, 1, grid, N, c, μ, fields)
+    # dcrit = dcrit * (0 ≤ dcrit ≤ 1) # (σII > c - μ * σI)
+
+    return dcrit * (σII > c - μ * σI)
+end
+
 @kernel function _compute_stress_predictors!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
 
@@ -187,8 +249,8 @@ end
     λ  = λ₀ * (1 - dᵢ)^(α - 1)
 
     # Test which isotropic stress to use
-    σI = σᴵ(i, j, 1, grid, fields)
-    P̃  = clamp(P / σI, -one(grid), zero(grid))
+    P̃ = zero(grid) 
+    # P̃  = clamp(P / σI, -one(grid), zero(grid))
 
     # Implicit diagonal operator
     Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
@@ -206,7 +268,7 @@ end
     N = rheology.maximum_compressive_strength
     c = rheology.ice_cohesion
     μ = rheology.friction_coefficient
-    
+
     dᵢ = @inbounds d[i, j, 1]
     ρ  = @inbounds ρᵢ[i, j, 1]
     P  = @inbounds fields.P[i, j, 1]
@@ -214,26 +276,12 @@ end
     λ₀ = @inbounds fields.λ[i, j, 1] 
 
     E   = E₀ * (1 - dᵢ)
+    dcrit = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, fields) 
+
     σI  =  σᴵ(i, j, 1, grid, fields)
     σII = σᴵᴵ(i, j, 1, grid, fields)
 
-    m = tand(90 - atand(μ))
-    q = σII - m * σI
-
-    # # Move towards the yield curve in a perpendicular fashion
-    σIf  = (c - q) / (m + μ)
-    σIIf = m * σIf + q
-
-    dcrit2 = one(grid) - sqrt(σIf^2 + σIIf^2) / sqrt(σI^2 + σII^2)
-    dcrit2 = ifelse(isnan(dcrit2), zero(grid), dcrit2)
-    dcrit = dcrit2 * (σII > c - μ * σI)
-
-    # dcrit = one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI) # dcritical(i, j, 1, grid, N, c, μ, fields)
-    # dcrit = dcrit * (0 ≤ dcrit ≤ 1) # (σII > c - μ * σI)
-
-    # # @show dcrit, dcrit2
-
-    # Relaxation time
+    # Relaxation time (constant)
     td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))        
 
     # Damage update
@@ -252,10 +300,10 @@ end
     Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
     Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
 
-    E  = E₀ * (1 - dᵢ)
-    λ  = λ₀ * (1 - dᵢ)^(α - 1)
-
-    P̃  = clamp(P / σI, -one(grid), zero(grid))
+    E = E₀ * (1 - dᵢ)
+    λ = λ₀ * (1 - dᵢ)^(α - 1)
+    P̃ = zero(grid) 
+    # P̃  = clamp(P / σI, -one(grid), zero(grid))
 
     # Implicit diagonal operator
     Ω = @inbounds 1 / (1 + Δτ * (1 + P̃) / λ + Δd / (1 - dᵢ))
@@ -268,7 +316,7 @@ end
     @inbounds   fields.σI[i, j, 1] = σI
     @inbounds  fields.σII[i, j, 1] = σII
     @inbounds fields.dadd[i, j, 1] = 0 ≤ dcrit ≤ 1
-    @inbounds   fields.td[i, j, 1] = dcrit2
+    @inbounds   fields.td[i, j, 1] = dcrit
     
     @inbounds fields.σ₁₁ₙ[i, j, 1] = fields.σ₁₁[i, j, 1]
     @inbounds fields.σ₂₂ₙ[i, j, 1] = fields.σ₂₂[i, j, 1]
@@ -301,9 +349,6 @@ end
 
     return ∂xσ₁₂ + ∂yσ₂₂
 end
-
-
-
 
 #=
 
