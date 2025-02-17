@@ -1,6 +1,5 @@
 using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.Architectures: convert_args
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map, mask_immersed_field_xy!
