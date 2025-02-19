@@ -16,10 +16,7 @@ using Oceananigans.Operators
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
-using CUDA
-CUDA.device!(2)
-
-arch = GPU()
+arch = CPU()
 
 L  = 512kilometers
 𝓋ₒ = 0.01 # m / s maximum ocean speed
@@ -108,7 +105,7 @@ model = SeaIceModel(grid;
                     advection = WENO(order=7),
                     timestepper = :QuasiAdamsBashforth2)
 
-# model.timestepper.χ = -0.5 # Euler forward
+model.timestepper.χ = -0.5 # Euler forward
 
 # Initial height field with perturbations around 0.3 m
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
@@ -212,51 +209,51 @@ using GLMakie
 # using JLD2
 # jldsave("ice_anticyclone.jld2"; h=htimeseries, ℵ=ℵtimeseries, u=utimeseries, v=vtimeseries, σ₁₁=σ₁₁timeseries, σ₁₂=σ₁₂timeseries, σ₂₂=σ₂₂timeseries, d=dtimeseries)
 
-# # Visualize!
-# Nt = length(htimeseries)
-# iter = Observable(1)
+# Visualize!
+Nt = length(htimeseries)
+iter = Observable(1)
 
-# hi   = @lift(htimeseries[$iter][:, :, 1])
-# ℵi   = @lift(ℵtimeseries[$iter][:, :, 1])
-# ui   = @lift(utimeseries[$iter][:, :, 1])
-# vi   = @lift(vtimeseries[$iter][:, :, 1])
-# σ₁₁i = @lift(σ₁₁timeseries[$iter][:, :, 1])
-# σ₁₂i = @lift(σ₁₂timeseries[$iter][:, :, 1])
-# σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
-# di   = @lift(dtimeseries[$iter][:, :, 1])
+hi   = @lift(htimeseries[$iter][:, :, 1])
+ℵi   = @lift(ℵtimeseries[$iter][:, :, 1])
+ui   = @lift(utimeseries[$iter][:, :, 1])
+vi   = @lift(vtimeseries[$iter][:, :, 1])
+σ₁₁i = @lift(σ₁₁timeseries[$iter][:, :, 1])
+σ₁₂i = @lift(σ₁₂timeseries[$iter][:, :, 1])
+σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
+di   = @lift(dtimeseries[$iter][:, :, 1])
 
-# fig = Figure()
-# ax = Axis(fig[1, 1], title = "sea ice thickness")
-# heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
+fig = Figure()
+ax = Axis(fig[1, 1], title = "sea ice thickness")
+heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
 
-# ax = Axis(fig[1, 2], title = "sea ice concentration")
-# heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
+ax = Axis(fig[1, 2], title = "sea ice concentration")
+heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
 
-# ax = Axis(fig[2, 1], title = "zonal velocity")
-# heatmap!(ax, ui, colorrange = (-0.1, 0.1))
+ax = Axis(fig[2, 1], title = "damage")
+heatmap!(ax, di, colorrange = (0.8, 1.0))
 
-# ax = Axis(fig[2, 2], title = "meridional velocity")
-# heatmap!(ax, vi, colorrange = (-0.1, 0.1))
+ax = Axis(fig[2, 2], title = "total deformation")
+heatmap!(ax, totn, colorrange = (0, 1e-5), colormap = Reverse(:grays))
 
-# record(fig, "sea_ice_dynamics.mp4", 1:Nt, framerate = 8) do i
-#     iter[] = i
-#     @info "doing iter $i"
-# end
+record(fig, "sea_ice_rheology.mp4", 1:Nt, framerate = 8) do i
+    iter[] = i
+    @info "doing iter $i"
+end
 
-# fig = Figure()
-# ax = Axis(fig[1, 1], title = "sigma 11")
-# heatmap!(ax, σ₁₁i)
+fig = Figure()
+ax = Axis(fig[1, 1], title = "sigma 11")
+heatmap!(ax, σ₁₁i)
 
-# ax = Axis(fig[1, 2], title = "sigma 22")
-# heatmap!(ax, σ₂₂i)
+ax = Axis(fig[1, 2], title = "sigma 22")
+heatmap!(ax, σ₂₂i)
 
-# ax = Axis(fig[2, 1], title = "sigma 12")
-# heatmap!(ax, σ₁₂i)
+ax = Axis(fig[2, 1], title = "sigma 12")
+heatmap!(ax, σ₁₂i)
 
-# ax = Axis(fig[2, 2], title = "damage")
-# heatmap!(ax, di)
+ax = Axis(fig[2, 2], title = "damage")
+heatmap!(ax, di, colorrange = (0.8, 1.0))
 
-# record(fig, "sea_ice_stress.mp4", 1:Nt-1, framerate = 8) do i
-#     iter[] = i
-#     @info "doing iter $i"
-# end
+record(fig, "sea_ice_stress.mp4", 1:Nt-1, framerate = 8) do i
+    iter[] = i
+    @info "doing iter $i"
+end
