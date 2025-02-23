@@ -5,7 +5,6 @@ using ClimaSeaIce.SeaIceMomentumEquations: compute_momentum_tendencies!
 function compute_tendencies!(model::SIM, Δt)
     compute_tracer_tendencies!(model)
     compute_momentum_tendencies!(model, model.dynamics, Δt)
-
     return nothing
 end
 
@@ -45,9 +44,9 @@ end
                                              h_forcing,
                                              model_fields)
 
-    i, j, k = @index(Global, NTuple)
+    i, j = @index(Global, NTuple)
     
-    @inbounds Gⁿ.h[i, j, k] = ice_thickness_tendency(i, j, k, grid, clock,
+    @inbounds Gⁿ.h[i, j, 1] = ice_thickness_tendency(i, j, 1, grid, clock,
                                                      velocities,
                                                      advection,
                                                      ice_thickness,
@@ -59,7 +58,7 @@ end
                                                      h_forcing,
                                                      model_fields)
      
-    @inbounds Gⁿ.ℵ[i, j, k] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ice_concentration)
+    @inbounds Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_concentration)
 end
 
 # Thickness change due to accretion and melting, restricted by minimum allowable value
