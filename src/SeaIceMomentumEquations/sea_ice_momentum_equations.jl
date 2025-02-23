@@ -81,28 +81,6 @@ end
 
 fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
 
-struct MitigatedOceanSurfaceVelocity{U, V, FT}
-    u :: U
-    v :: V
-    C :: FT
-end
-
-""" 
-    MitigatedOceanSurfaceVelocity(grid; velocities=nothing, mitigation=0.01)
-
-Build a `MitigatedOceanSurfaceVelocity` type that controls the free drift velocity of the sea ice where 
-concentration and mass are lower than a threshold. The free drift velocity is calculated as `velocities` 
-mitigated by a factor `mitigation`.
-"""
-function MitigatedOceanSurfaceVelocity(; velocities=nothing, mitigation=0.01)
-    u = velocities.u
-    v = velocities.v
-    return OceanSurfaceVelocity(u, v, mitigation)
-end
-
-@inline free_drift_u(i, j, k, grid, f::MitigatedOceanSurfaceVelocity) = @inbounds f.u[i, j, k] * f.C
-@inline free_drift_v(i, j, k, grid, f::MitigatedOceanSurfaceVelocity) = @inbounds f.v[i, j, k] * f.C
-
 # Just passing ocean velocities without mitigation
 @inline free_drift_u(i, j, k, grid, f) = @inbounds f.u[i, j, k] 
 @inline free_drift_v(i, j, k, grid, f) = @inbounds f.v[i, j, k] 
