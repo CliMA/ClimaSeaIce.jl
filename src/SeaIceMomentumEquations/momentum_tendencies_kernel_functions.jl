@@ -24,8 +24,8 @@ using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
      Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, U) 
             + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
-            + immersed_∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, u_immersed_bc, clock, model_fields) / mᵢ
+            + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ
+            + immersed_∂ⱼ_σ₁ⱼ(i, j, 1, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
             + sum_of_forcing_u(i, j, 1, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
 
      Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
