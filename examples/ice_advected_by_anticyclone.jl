@@ -196,7 +196,7 @@ ax = Axis(fig[1, 1], title = "sea ice thickness")
 heatmap!(ax, hi, colormap = :magma, colorrange = (0.23, 0.37))
 
 ax = Axis(fig[1, 2], title = "total deformation of sea ice")
-heatmap!(ax, ϵi, colormap = Reverse(:deep), colorrange = (0.8, 1))
+heatmap!(ax, ϵi, colormap = Reverse(:deep), colorrange = (0, 1e-5))
 
 ax = Axis(fig[2, 1], title = "zonal velocity")
 heatmap!(ax, ui, colorrange = (-0.1, 0.1))
