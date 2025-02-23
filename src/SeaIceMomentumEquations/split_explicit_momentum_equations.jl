@@ -48,6 +48,8 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
 
     u_forcing = model.forcing.u
     v_forcing = model.forcing.v
+    u_immersed_bc = u.boundary_conditions.immersed
+    v_immersed_bc = v.boundary_conditions.immersed
 
     model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
                       (; h = model.ice_thickness, 
@@ -74,24 +76,24 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
-                               top_stress, bottom_stress, u_forcing)
+                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
 
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
-                               top_stress, bottom_stress, v_forcing)
+                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
 
         else
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
-                               top_stress, bottom_stress, v_forcing)
+                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
             
 
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
-                               top_stress, bottom_stress, u_forcing)
+                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
         end
 
         # TODO: This needs to be removed in some way!
@@ -109,15 +111,15 @@ end
                                    model_fields, ocean_velocities, 
                                    clock, coriolis, 
                                    minimum_mass, minimum_concentration,
-                                   u_top_stress, u_bottom_stress, u_forcing)
+                                   u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
 
     i, j = @index(Global, NTuple)
 
     mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, model_fields.ℵ)
 
-    Δτ = compute_time_stepᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
-    Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_top_stress, u_bottom_stress, u_forcing)
+    Δτ = compute_time_step_sizeᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+    Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
    
     # Implicit part of the stress that depends linearly on the velocity
     τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, u_bottom_stress, clock, model_fields) 
@@ -139,15 +141,15 @@ end
                                    model_fields, ocean_velocities, 
                                    clock, coriolis, 
                                    minimum_mass, minimum_concentration,
-                                   v_top_stress, v_bottom_stress, v_forcing)
+                                   v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     i, j = @index(Global, NTuple)
     
     mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, model_fields.ℵ)
     
-    Δτ = compute_time_stepᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
-    Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_top_stress, v_bottom_stress, v_forcing)
+    Δτ = compute_time_step_sizeᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+    Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity
     τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, v_bottom_stress, clock, model_fields)
@@ -158,6 +160,8 @@ end
     vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
     vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities) # free drift velocity
 
+    # If the ice mass or the ice concentration are below a certain threshold, 
+    # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
 
     @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
