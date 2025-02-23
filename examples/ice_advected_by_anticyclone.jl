@@ -177,17 +177,17 @@ run!(simulation)
 
 using CairoMakie
 
-htimeseries = FieldTimeSeries(" sea_ice_advected_by_anticyclone.jld2", "h")
-utimeseries = FieldTimeSeries(" sea_ice_advected_by_anticyclone.jld2", "u")
-vtimeseries = FieldTimeSeries(" sea_ice_advected_by_anticyclone.jld2", "v")
-ϵtimeseries = FieldTimeSeries(" sea_ice_advected_by_anticyclone.jld2", "ϵ")
+htimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "h")
+utimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "u")
+vtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "v")
+ϵtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "ϵ")
 
 # Visualize!
 Nt = length(htimeseries)
 iter = Observable(1)
 
 hi = @lift(htimeseries[$iter])
-ϵi = @lift(ℵtimeseries[$iter])
+ϵi = @lift(ϵtimeseries[$iter])
 ui = @lift(utimeseries[$iter])
 vi = @lift(vtimeseries[$iter])
 
@@ -196,7 +196,7 @@ ax = Axis(fig[1, 1], title = "sea ice thickness")
 heatmap!(ax, hi, colormap = :magma, colorrange = (0.23, 0.37))
 
 ax = Axis(fig[1, 2], title = "total deformation of sea ice")
-heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.8, 1))
+heatmap!(ax, ϵi, colormap = Reverse(:deep), colorrange = (0.8, 1))
 
 ax = Axis(fig[2, 1], title = "zonal velocity")
 heatmap!(ax, ui, colorrange = (-0.1, 0.1))
