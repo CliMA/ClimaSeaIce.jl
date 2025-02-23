@@ -28,8 +28,9 @@ end
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
 @kernel function _step_tracers!(h, ℵ, hmin, tracers, Gⁿ, G⁻, Δt, α, β)
-    i, j, k = @index(Global, NTuple)
-
+    i, j = @index(Global, NTuple)
+    k = 1
+    
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
     
