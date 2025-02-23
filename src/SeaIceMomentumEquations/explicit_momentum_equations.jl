@@ -30,7 +30,7 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
-    launch!(arch, grid, :xyz, _step_velocities!, u, v, grid, Gⁿ, G⁻, Δt, α, β,
+    launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, G⁻, Δt, α, β,
             top_stress, bottom_stress, ocean_velocities, 
             minimum_mass, minimum_concentration, clock, model_fields)
 

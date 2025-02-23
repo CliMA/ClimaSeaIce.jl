@@ -13,7 +13,7 @@ function compute_tracer_tendencies!(model::SIM)
     grid = model.grid
     arch = architecture(grid)
    
-    launch!(arch, grid, :xyz,
+    launch!(arch, grid, :xy,
             _compute_tracer_tendencies!,
             model.timestepper.Gⁿ,
             model.ice_thickness,

@@ -18,7 +18,7 @@ function step_tracers!(model::SIM, Δt, substep)
 
     α, β = timestepping_coefficients(model.timestepper, substep)
     
-    launch!(arch, grid, :xyz, _step_tracers!, h, ℵ, hmin, tracers, Gⁿ, G⁻, Δt, α, β)
+    launch!(arch, grid, :xy, _step_tracers!, h, ℵ, hmin, tracers, Gⁿ, G⁻, Δt, α, β)
 
     return nothing
 end
