@@ -18,8 +18,8 @@ struct ElastoViscoPlasticRheology{FT}
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
     minimum_plastic_stress :: FT # minimum plastic parameter (transitions to viscous behaviour)
-    min_substeps :: FT # minimum number of substeps expressed as the dynamic coefficient
-    max_substeps :: FT # maximum number of substeps expressed as the dynamic coefficient
+    min_relaxation_parameter :: FT # minimum number of substeps expressed as the dynamic coefficient
+    max_relaxation_parameter :: FT # maximum number of substeps expressed as the dynamic coefficient
 end
 
 """
