@@ -86,7 +86,7 @@ end
 withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
     deploydocs(repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
            versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
-           forcepush = true,
-           push_preview = true,
-           devbranch = "main")
+          forcepush = true,
+       push_preview = true,
+          devbranch = "main")
 end
