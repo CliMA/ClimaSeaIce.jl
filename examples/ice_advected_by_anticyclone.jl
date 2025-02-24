@@ -90,7 +90,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             bottom_momentum_stress = τₒ,
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
-                                            rheology = ElastoViscoPlasticRheology(min_substeps=50, max_substeps=100),
+                                            rheology = ElastoViscoPlasticRheology(),
                                             solver   = SplitExplicitSolver(substeps=150))
 
 # Define the model!
