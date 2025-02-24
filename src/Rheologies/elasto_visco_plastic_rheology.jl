@@ -80,7 +80,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     yield_curve_eccentricity = 2, 
                                     minimum_plastic_stress = 2e-9,
                                     min_relaxation_parameter = 50,
-                                    max_relaxation_parameter = 1000)
+                                    max_relaxation_parameter = 300)
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
                                       convert(FT, ice_compaction_hardening), 
