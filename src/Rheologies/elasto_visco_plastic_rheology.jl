@@ -23,13 +23,13 @@ struct ElastoViscoPlasticRheology{FT}
 end
 
 """
-    ElastoViscoPlasticRheology(grid::AbstractGrid; 
+    ElastoViscoPlasticRheology(FT::DataType = Float64; 
                                ice_compressive_strength = 27500, 
                                ice_compaction_hardening = 20, 
                                yield_curve_eccentricity = 2, 
-                               Δ_min = 1e-10,
-                               min_substeps = 30,
-                               max_substeps = 500)
+                               minimum_plastic_stress = 2e-9,
+                               min_relaxation_parameter = 50,
+                               max_relaxation_parameter = 300)
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
 rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al (2016).
@@ -258,11 +258,11 @@ end
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as in Kimmritz et al (2016)
     γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
-    γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), rheology.max_substeps^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
+    γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), α⁺^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
     γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), α⁻, α⁺)
 
     γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
-    γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), rheology.max_substeps^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
+    γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), α⁺^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), α⁻, α⁺)
 
     @inbounds begin

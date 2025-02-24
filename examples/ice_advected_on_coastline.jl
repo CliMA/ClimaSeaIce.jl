@@ -61,9 +61,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 dynamics = SeaIceMomentumEquation(grid; 
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = τₒ, 
-                                  rheology = ElastoViscoPlasticRheology(min_substeps=150, 
-                                                                        max_substeps=150,
-                                                                        minimum_plastic_stress=1e-10),
+                                  rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
