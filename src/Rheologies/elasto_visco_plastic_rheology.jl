@@ -55,8 +55,8 @@ The stresses are substepped with:
 
 This formulation allows fast convergence in regions where α is small. Regions where
 α is large correspond to regions where the ice is more solid and the convergence is slower.
-α can be thougth of as a ``pseudo substep number'' or a ``relaxation parameter''.
-α is bounded by `min_substeps` and `max_substeps`.
+α can be thougth of as a ``pseudo substep number'' or a ``relaxation parameter''. If we are using 
+a subcycling solver, if `α` ≪ number of substeps, the convergence will be faster.
 
 Arguments
 =========
