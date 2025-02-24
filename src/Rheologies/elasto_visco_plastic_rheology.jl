@@ -55,8 +55,8 @@ The stresses are substepped with:
 
 This formulation allows fast convergence in regions where α is small. Regions where
 α is large correspond to regions where the ice is more solid and the convergence is slower.
-
-The number of substeps is then bounded by `min_substeps` and `max_substeps`.
+α can be thougth of as a ``pseudo substep number'' or a ``relaxation parameter''.
+α is bounded by `min_substeps` and `max_substeps`.
 
 Arguments
 =========
@@ -71,23 +71,23 @@ Keyword Arguments
 - `yield_curve_eccentricity`: eccentricity of the elliptic yield curve. Default `2`.
 - `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice, 
            transitioning the ice from a plastic to a viscous behaviour. Default value is `1e-10`.
-- `min_substeps`: Minimum number of substeps expressed as the dynamic coefficient. Default value is `30`.
-- `max_substeps`: Maximum number of substeps expressed as the dynamic coefficient. Default value is `500`.
+- `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`. Default value is `30`.
+- `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default value is `500`.
 """
 function ElastoViscoPlasticRheology(FT::DataType = Float64; 
                                     ice_compressive_strength = 27500, 
                                     ice_compaction_hardening = 20, 
                                     yield_curve_eccentricity = 2, 
                                     minimum_plastic_stress = 2e-9,
-                                    min_substeps = 50,
-                                    max_substeps = 1000)
+                                    min_relaxation_parameter = 50,
+                                    max_relaxation_parameter = 1000)
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
                                       convert(FT, ice_compaction_hardening), 
                                       convert(FT, yield_curve_eccentricity),
                                       convert(FT, minimum_plastic_stress),
-                                      convert(FT, min_substeps),
-                                      convert(FT, max_substeps))
+                                      convert(FT, min_relaxation_parameter),
+                                      convert(FT, max_relaxation_parameter))
 end
 
 function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
@@ -116,8 +116,8 @@ Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) =
                                Adapt.adapt(to, r.ice_compaction_hardening),
                                Adapt.adapt(to, r.yield_curve_eccentricity),
                                Adapt.adapt(to, r.minimum_plastic_stress),
-                               Adapt.adapt(to, r.min_substeps),
-                               Adapt.adapt(to, r.max_substeps))
+                               Adapt.adapt(to, r.min_relaxation_parameter),
+                               Adapt.adapt(to, r.max_relaxation_parameter))
 
 """
     initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
@@ -222,11 +222,14 @@ end
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
+    α⁺  = rheology.max_relaxation_parameter
+    α⁻  = rheology.max_relaxation_parameter
+
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
     α   = fields.α
-
+    
     # Strain rates
     ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
     ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
@@ -256,11 +259,11 @@ end
     # with spatially varying coefficients as in Kimmritz et al (2016)
     γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
     γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), rheology.max_substeps^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
-    γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), rheology.min_substeps, rheology.max_substeps)
+    γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), α⁻, α⁺)
 
     γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
     γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), rheology.max_substeps^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
-    γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), rheology.min_substeps, rheology.max_substeps)
+    γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), α⁻, α⁺)
 
     @inbounds begin
         # Compute the new stresses and store the value of the 
