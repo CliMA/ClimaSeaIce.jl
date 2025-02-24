@@ -106,7 +106,7 @@ function accumulate_timeseries(sim)
     push!(vtimeseries, deepcopy(Array(interior(v))))
 end
 
-wall_time = [time_ns()]
+wall_time = Ref(time_ns())
 
 function progress(sim) 
     h = sim.model.ice_thickness
