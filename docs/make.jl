@@ -14,7 +14,8 @@ const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
 example_scripts = [
     "freezing_bucket.jl",
-    "ice_advected_by_anticyclone.jl"
+    "ice_advected_by_anticyclone.jl",
+    "ice_advected_on_coastline.jl",
 ]
 
 for filename in example_scripts
@@ -24,7 +25,8 @@ end
 
 example_pages = [
     "Freezing bucket" => "literated/freezing_bucket.md",
-    "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md"
+    "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
+    "Ice advected on coastline" => "literated/ice_advected_on_coastline.md",
 ]
 
 #####
@@ -82,9 +84,9 @@ for file in files
 end
 
 withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
-    deploydocs(        repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
-                   versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
-                  forcepush = true,
-                  devbranch = "main",
-               push_preview = true)
+    deploydocs(repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
+           versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
+           forcepush = true,
+           push_preview = true,
+           devbranch = "main")
 end

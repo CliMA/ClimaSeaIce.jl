@@ -12,53 +12,106 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     Gⁿ = model.timestepper.Gⁿ
     G⁻ = model.timestepper.G⁻
 
+    dynamics = model.dynamics
+
     α, β = timestepping_coefficients(model.timestepper, stage)
-    
-    launch!(arch, grid, :xyz, _step_velocities!, u, v, Gⁿ, G⁻, Δt, α, β)
+
+    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+                      (; h = model.ice_thickness, 
+                         ℵ = model.ice_concentration, 
+                         ρ = model.ice_density))
+
+
+    ocean_velocities = dynamics.ocean_velocities
+    clock = model.clock
+    minimum_mass = dynamics.minimum_mass
+    minimum_concentration = dynamics.minimum_concentration
+
+    top_stress = dynamics.external_momentum_stresses.top
+    bottom_stress = dynamics.external_momentum_stresses.bottom
+
+    launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, G⁻, Δt, α, β,
+            top_stress, bottom_stress, ocean_velocities, 
+            minimum_mass, minimum_concentration, clock, model_fields)
 
     return nothing
 end
 
-@kernel function _step_velocities!(u, v, Gⁿ, G⁻, Δt, α, β)
-    i, j, k = @index(Global, NTuple)
+@kernel function _step_velocities!(u, v, grid, Gⁿ, G⁻, Δt, α, β, 
+                                   top_stress, bottom_stress, 
+                                   ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
+
+    i, j = @index(Global, NTuple)
+    
+    ℵᶠᶜ = ℑxᶠᵃᵃ(i, j, 1, grid, fields.ℵ)
+    ℵᶜᶠ = ℑyᵃᶠᵃ(i, j, 1, grid, fields.ℵ)
+    mᶠᶜ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
+    mᶜᶠ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
+
+   # Implicit part of the stress that depends linearly on the velocity
+   τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
+         + implicit_τx_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
+   
+   τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
+         + implicit_τy_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
 
     @inbounds begin
-        u[i, j, k] += Δt * (α * Gⁿ.u[i, j, k] + β * G⁻.u[i, j, k])
-        v[i, j, k] += Δt * (α * Gⁿ.v[i, j, k] + β * G⁻.v[i, j, k])
+        uᴰ = (Δt * (α * Gⁿ.u[i, j, 1] + β * G⁻.u[i, j, 1])) / (1 + Δt * τuᵢ)
+        vᴰ = (Δt * (α * Gⁿ.v[i, j, 1] + β * G⁻.v[i, j, 1])) / (1 + Δt * τvᵢ)
+
+        uᶠ = free_drift_u(i, j, 1, grid, ocean_velocities)
+        vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities)
+
+        sea_ice = (mᶠᶜ ≥ minimum_mass) & (ℵᶠᶜ ≥ minimum_concentration)
+        u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
+
+        sea_ice = (mᶜᶠ ≥ minimum_mass) & (ℵᶜᶠ ≥ minimum_concentration)
+        v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
     end 
 end
 
 # Compute the tendencies for the explicit momentum equations
-function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation)
+function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     
-    ice_dynamics = model.ice_dynamics
+    dynamics = model.dynamics
     grid = model.grid
 
-    args = (model.clock, 
-            model.velocities, 
-            ice_dynamics.coriolis, 
-            ice_dynamics.rheology, 
-            ice_dynamics.auxiliary_fields, 
-            model.ice_thickness, 
-            model.ice_concentration, 
-            model.ice_density)
+    clock    = model.clock
+    coriolis = dynamics.coriolis
+    rheology = dynamics.rheology
 
-    u_top_stress = model.external_momentum_stresses.top.u
-    v_top_stress = model.external_momentum_stresses.top.v
-    u_bottom_stress = model.external_momentum_stresses.bottom.u
-    v_bottom_stress = model.external_momentum_stresses.bottom.v
+    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+            (; h = model.ice_thickness, 
+               ℵ = model.ice_concentration, 
+               ρ = model.ice_density))
+
+    top_stress = dynamics.external_momentum_stresses.top
+    bottom_stress = dynamics.external_momentum_stresses.bottom
+
+    u_immersed_bc = model_fields.u.boundary_conditions.immersed
+    v_immersed_bc = model_fields.v.boundary_conditions.immersed
 
     Gu = model.timestepper.Gⁿ.u
     Gv = model.timestepper.Gⁿ.v
 
-    launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, args,
-            u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
+    launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, Δt,
+            rheology, model_fields, clock, coriolis,
+            u_immersed_bc, v_immersed_bc,
+            top_stress, bottom_stress, model.forcing)
 
     return nothing
 end
 
-@kernel function _compute_velocity_tendencies!(Gu, Gv, grid, args, u_top_stress, v_top_stress, u_bottom_stress, v_bottom_stress)
+@kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt,
+                                               rheology, model_fields, clock, coriolis,
+                                               u_immersed_bc, v_immersed_bc,
+                                               top_stress, bottom_stress, forcing)
     i, j = @index(Global, NTuple)
-    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, args..., u_top_stress, u_bottom_stress)
-    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, args..., v_top_stress, v_bottom_stress)
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt,
+                                                rheology, model_fields, clock, coriolis,
+                                                u_immersed_bc, top_stress, bottom_stress, forcing.u)
+
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt,
+                                                rheology, model_fields, clock, coriolis,
+                                                v_immersed_bc, top_stress, bottom_stress, forcing.v)
 end
