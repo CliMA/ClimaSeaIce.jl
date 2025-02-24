@@ -106,7 +106,7 @@ function accumulate_timeseries(sim)
     push!(vtimeseries, deepcopy(Array(interior(v))))
 end
 
-wall_time = [time_ns()]
+wall_time = Ref(time_ns())
 
 function progress(sim) 
     h = sim.model.ice_thickness
@@ -117,7 +117,7 @@ function progress(sim)
     hmax = maximum(interior(h))
     ℵmin = minimum(interior(ℵ))
     umax = maximum(interior(u)), maximum(interior(v))
-    step_time = 1e-9 * (time_ns() - wall_time[1])
+    step_time = 1e-9 * (time_ns() - wall_time[])
 
     @info @sprintf("Time: %s, Iteration %d, Δt %s, max(vel): (%.2e, %.2e), max(trac): %.2f, %.2f, wtime: %s \n",
                    prettytime(sim.model.clock.time),
@@ -125,7 +125,7 @@ function progress(sim)
                    prettytime(sim.Δt),
                    umax..., hmax, ℵmin, prettytime(step_time))
 
-     wall_time[1] = time_ns()
+     wall_time[] = time_ns()
 end
 
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
