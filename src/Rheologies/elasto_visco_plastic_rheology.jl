@@ -105,7 +105,7 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     Δ  = Field{Center, Center, Nothing}(grid)
 
     # An initial (safe) educated guess
-    fill!(α, r.max_substeps)
+    fill!(α, r.max_relaxation_parameter)
 
     return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
 end
