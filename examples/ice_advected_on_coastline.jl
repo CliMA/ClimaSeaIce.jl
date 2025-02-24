@@ -125,7 +125,7 @@ function progress(sim)
                    prettytime(sim.Δt),
                    umax..., hmax, ℵmin, prettytime(step_time))
 
-     wall_time[1] = time_ns()
+     wall_time[] = time_ns()
 end
 
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(10))
