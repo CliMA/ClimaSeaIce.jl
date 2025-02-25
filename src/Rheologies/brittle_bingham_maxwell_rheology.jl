@@ -220,9 +220,6 @@ end
     dcrit = one(grid) - sqrt(σIf^2 + σIIf^2) / sqrt(σI^2 + σII^2)
     dcrit = ifelse(isnan(dcrit), zero(grid), dcrit)
 
-    # dcrit = one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI) # dcritical(i, j, 1, grid, N, c, μ, fields)
-    # dcrit = dcrit * (0 ≤ dcrit ≤ 1) # (σII > c - μ * σI)
-
     return dcrit * (σII > c - μ * σI)
 end
 
@@ -250,7 +247,6 @@ end
 
     # Test which isotropic stress to use
     P̃ = zero(grid) 
-    # P̃  = clamp(P / σI, -one(grid), zero(grid))
 
     # Implicit diagonal operator
     Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
@@ -349,82 +345,3 @@ end
 
     return ∂xσ₁₂ + ∂yσ₂₂
 end
-
-#=
-
-@kernel function _advance_bbm_stresses2!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
-    i, j = @index(Global, NTuple)
-
-    α = rheology.damage_parameter
-    ν = rheology.poisson_ratio
-    N = rheology.maximum_compressive_strength
-    c = rheology.ice_cohesion
-    μ = rheology.friction_coefficient
-    
-    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
-
-    Kϵ₁₁ = (ϵ̇₁₁ + ν  * ϵ̇₂₂) / (1 - ν^2)
-    Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
-    Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
-
-    dᵢ = @inbounds d[i, j, 1]
-    ρ  = @inbounds ρᵢ[i, j, 1]
-    P  = @inbounds fields.P[i, j, 1]
-    σ₁ = @inbounds fields.σ₁₁[i, j, 1]
-    σ₂ = @inbounds fields.σ₂₂[i, j, 1]
-    σ₃ = @inbounds fields.σ₁₂[i, j, 1]
-    E₀ = @inbounds fields.E[i, j, 1]
-    λ₀ = @inbounds fields.λ[i, j, 1] 
-
-    σI  = (σ₁ + σ₂) / 2
-    σII = sqrt((σ₁ - σ₂)^2 / 4 + σ₃^2)
-
-    σ₀₁ = @inbounds fields.σ₁₁ₙ[i, j, 1]
-    σ₀₂ = @inbounds fields.σ₂₂ₙ[i, j, 1]
-    σ₀₃ = @inbounds fields.σ₁₂ₙ[i, j, 1]
-    d₀  = @inbounds fields.dₙ[i, j, 1]
-
-    E  = E₀ * (1 - dᵢ)
-    λ  = λ₀ * (1 - dᵢ)^(α - 1)
-
-    # Test which isotropic stress to use
-    P̃ = clamp(P / σI, -one(grid), zero(grid))
-
-    # Implicit diagonal operator
-    Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
-
-    σ₁ =  Ω * (σ₀₁ + Δτ * E * Kϵ₁₁)
-    σ₂ =  Ω * (σ₀₂ + Δτ * E * Kϵ₂₂)
-    σ₃ =  Ω * (σ₀₃ + Δτ * E * Kϵ₁₂)
-
-    σI  = (σ₁ + σ₂) / 2
-    σII = sqrt((σ₁ - σ₂)^2 / 4 + σ₃^2)
-
-    dcrit = ifelse(σI > - N, c / (σII + μ * σI), - N / σI) 
-
-    # Relaxation time
-    td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))        
-    Gd = (1 - dcrit) * Δτ / td
-
-    # # Damage and stress updates
-    dᵢ = d₀ + ifelse(0 ≤ dcrit ≤ 1, Gd * (1 - dᵢ), zero(grid))
-    σ₁ -= ifelse(0 ≤ dcrit ≤ 1, Gd * σ₁, zero(grid))
-    σ₂ -= ifelse(0 ≤ dcrit ≤ 1, Gd * σ₂, zero(grid))
-    σ₃ -= ifelse(0 ≤ dcrit ≤ 1, Gd * σ₃, zero(grid))
-
-    # Clamp damage between 0 and a value close to 1 (cannot do 1 because of the relaxation time)
-    dᵢ = clamp(dᵢ, zero(grid), 99999 * one(grid) / 100000)
-
-    @inbounds  fields.dcr[i, j, 1] = dcrit
-    @inbounds   fields.σI[i, j, 1] = σI
-    @inbounds  fields.σII[i, j, 1] = σII
-    @inbounds fields.dadd[i, j, 1] = 0 ≤ dcrit ≤ 1
-    @inbounds   fields.td[i, j, 1] = td
-    @inbounds  fields.σ₁₁[i, j, 1] = σ₁
-    @inbounds  fields.σ₂₂[i, j, 1] = σ₂
-    @inbounds  fields.σ₁₂[i, j, 1] = σ₃
-    @inbounds           d[i, j, 1] = dᵢ
-end
-=#

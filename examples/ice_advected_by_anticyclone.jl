@@ -119,7 +119,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 2 days
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days, stop_iteration=1)
+simulation = Simulation(model, Δt = 2minutes, stop_time = 2days) #, stop_iteration=1)
 
 # Remember to evolve the wind stress field in time!
 function compute_wind_stress(sim)
