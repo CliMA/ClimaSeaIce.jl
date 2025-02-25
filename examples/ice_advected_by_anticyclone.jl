@@ -222,6 +222,13 @@ vi   = @lift(vtimeseries[$iter][:, :, 1])
 σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
 di   = @lift(dtimeseries[$iter][:, :, 1])
 
+∂xu = @lift(∂x(utimeseries[$iter]))
+∂yu = @lift(∂y(utimeseries[$iter]))
+∂xv = @lift(∂x(vtimeseries[$iter]))
+∂yv = @lift(∂y(vtimeseries[$iter]))
+
+ϵ = @lift(interior(compute!(Field(sqrt(($∂xu + $∂yv)^2 + ($∂yu - $∂xv)^2))), :, :, 1))
+
 fig = Figure()
 ax = Axis(fig[1, 1], title = "sea ice thickness")
 heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
@@ -233,7 +240,7 @@ ax = Axis(fig[2, 1], title = "damage")
 heatmap!(ax, di, colorrange = (0.8, 1.0))
 
 ax = Axis(fig[2, 2], title = "total deformation")
-heatmap!(ax, totn, colorrange = (0, 1e-5), colormap = Reverse(:grays))
+heatmap!(ax, ϵ, colorrange = (0, 1e-5), colormap = Reverse(:grays))
 
 record(fig, "sea_ice_rheology.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
