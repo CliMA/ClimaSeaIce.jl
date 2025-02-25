@@ -272,7 +272,7 @@ end
 #####
 
 # Here we extend all the functions that a rheology model needs to support:
-@inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, 1, grid, fields.σ₁₁)
+@inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᵃᶠᵃ(i, j, 1, grid, fields.σ₁₁)
 @inline ice_stress_vx(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, 1, grid, fields.σ₁₂)
 @inline ice_stress_uy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, 1, grid, fields.σ₁₂)
 @inline ice_stress_vy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, 1, grid, fields.σ₂₂)
