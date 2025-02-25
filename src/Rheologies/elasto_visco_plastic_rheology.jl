@@ -97,16 +97,17 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Face, Face, Nothing}(grid)
 
-    uⁿ = Field{Face,   Center, Nothing}(grid)
-    vⁿ = Field{Center, Face,   Nothing}(grid)
     P  = Field{Center, Center, Nothing}(grid)
-    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
     ζ  = Field{Center, Center, Nothing}(grid)
     Δ  = Field{Center, Center, Nothing}(grid)
 
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
 
+    α  = Field{Face, Face, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+    uⁿ = Field{Face, Face, Nothing}(grid)
+    vⁿ = Field{Face, Face, Nothing}(grid)
+    
     return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
 end
 

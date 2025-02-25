@@ -61,6 +61,7 @@ end
 end
 
 @inline horizontal_div_Uc(i, j, k, grid, ::Nothing, U, c) = zero(grid)
+
 @inline horizontal_div_Uc(i, j, k, grid, advection, U, c) = 
     1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_x, advection, U.u, c) +
                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_y, advection, U.v, c))

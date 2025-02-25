@@ -115,10 +115,10 @@ end
 
     i, j = @index(Global, NTuple)
 
-    mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, model_fields.ℵ)
+    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
 
-    Δτ = compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+    Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
    
     # Implicit part of the stress that depends linearly on the velocity
@@ -145,10 +145,10 @@ end
 
     i, j = @index(Global, NTuple)
     
-    mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, model_fields.ℵ)
+    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
     
-    Δτ = compute_substep_Δtᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+    Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity
