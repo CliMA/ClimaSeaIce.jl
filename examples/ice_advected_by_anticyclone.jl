@@ -25,7 +25,7 @@ L  = 512kilometers
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
                        halo = (7, 7),

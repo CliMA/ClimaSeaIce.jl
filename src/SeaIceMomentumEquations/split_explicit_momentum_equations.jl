@@ -99,8 +99,8 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
         # TODO: This needs to be removed in some way!
         fill_halo_regions!(model.velocities)
 
-        mask_immersed_field_xy!(model.velocities.u, k=1)
-        mask_immersed_field_xy!(model.velocities.v, k=1)
+        mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
+        mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
     end
 
     return nothing
