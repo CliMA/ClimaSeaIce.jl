@@ -21,8 +21,7 @@ using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
                               required_auxiliary_fields, 
                               compute_stresses!,
                               initialize_rheology!,
-                              compute_substep_Δtᶠᶜᶜ,
-                              compute_substep_Δtᶜᶠᶜ,
+                              compute_substep_Δtᶠᶠᶜ,
                               sum_of_forcing_u,
                               sum_of_forcing_v
 

@@ -64,8 +64,8 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
     
     if isnothing(velocities) 
-        u = Field{Face, Face, Center}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Face, Face, Center}(grid, boundary_conditions=boundary_conditions.v)
+        u = Field{Face, Face, Center}(grid) #, boundary_conditions=boundary_conditions.u)
+        v = Field{Face, Face, Center}(grid) #, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 

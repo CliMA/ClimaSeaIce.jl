@@ -13,8 +13,7 @@ initialize_rheology!(model, rheology) = nothing
 compute_stresses!(model, dynamics, rheology, Δt) = nothing
 
 # Nothing rheology or viscous rheology
-@inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
-@inline compute_substep_Δtᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
+@inline compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
 
 # Fallback
 @inline sum_of_forcing_u(i, j, k, grid, rheology, u_forcing, fields, Δt) = u_forcing(i, j, k, grid, fields)

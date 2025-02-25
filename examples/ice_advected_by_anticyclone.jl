@@ -46,8 +46,8 @@ v_bcs = FieldBoundaryConditions(west=ValueBoundaryCondition(0),
 #####
 
 # Constant ocean velocities corresponding to a cyclonic eddy
-Uₒ = XFaceField(grid)
-Vₒ = YFaceField(grid)
+Uₒ = Field{Face, Face, Nothing}(grid)
+Vₒ = Field{Face, Face, Nothing}(grid)
 
 set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
@@ -59,8 +59,8 @@ fill_halo_regions!((Uₒ, Vₒ))
 #### Atmosphere - sea ice stress 
 ####
 
-Uₐ = XFaceField(grid)
-Vₐ = YFaceField(grid)
+Uₐ = Field{Face, Face, Nothing}(grid)
+Vₐ = Field{Face, Face, Nothing}(grid)
 
 τₐ = SemiImplicitStress(; uₑ=Uₐ, vₑ=Vₐ, ρₑ=1.3, Cᴰ=1.2e-3)
 
