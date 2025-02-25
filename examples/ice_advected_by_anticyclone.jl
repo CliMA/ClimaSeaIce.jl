@@ -157,9 +157,9 @@ function accumulate_timeseries(sim)
     u = sim.model.velocities.u
     v = sim.model.velocities.v
 
-    σ₁₁ = sim.model.dynamics.auxiliary_fields.σ₁₁
-    σ₁₂ = sim.model.dynamics.auxiliary_fields.σ₁₂
-    σ₂₂ = sim.model.dynamics.auxiliary_fields.σ₂₂
+    σ₁₁ = sim.model.tracers.σ₁₁
+    σ₁₂ = sim.model.tracers.σ₁₂
+    σ₂₂ = sim.model.tracers.σ₂₂
     
     if haskey(sim.model.tracers, :d)
         d = sim.model.tracers.d
@@ -222,25 +222,34 @@ vi   = @lift(vtimeseries[$iter][:, :, 1])
 σ₂₂i = @lift(σ₂₂timeseries[$iter][:, :, 1])
 di   = @lift(dtimeseries[$iter][:, :, 1])
 
-∂xu = @lift(∂x(utimeseries[$iter]))
-∂yu = @lift(∂y(utimeseries[$iter]))
-∂xv = @lift(∂x(vtimeseries[$iter]))
-∂yv = @lift(∂y(vtimeseries[$iter]))
+ut = Field{Face, Face, Center}(grid)
+vt = Field{Face, Face, Center}(grid)
 
-ϵ = @lift(interior(compute!(Field(sqrt(($∂xu + $∂yv)^2 + ($∂yu - $∂xv)^2))), :, :, 1))
+∂xu = ∂x(ut)
+∂yu = ∂y(ut)
+∂xv = ∂x(vt)
+∂yv = ∂y(vt)
+
+ϵ = Field(sqrt((∂xu + ∂yv)^2 + (∂yu - ∂xv)^2))
+
+ϵi = @lift begin
+    set!(ut, utimeseries[$iter])
+    set!(vt, vtimeseries[$iter])
+    interior(compute!(ϵ), :, :, 1)
+end
 
 fig = Figure()
 ax = Axis(fig[1, 1], title = "sea ice thickness")
 heatmap!(ax, hi, colormap = :magma,         colorrange = (0.23, 0.37))
 
-ax = Axis(fig[1, 2], title = "sea ice concentration")
-heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.75, 1))
+ax = Axis(fig[1, 2], title = "total deformation of sea ice")
+heatmap!(ax, ϵi, colorrange = (0, 2e-5), colormap = Reverse(:deep))
 
-ax = Axis(fig[2, 1], title = "damage")
-heatmap!(ax, di, colorrange = (0.8, 1.0))
+ax = Axis(fig[2, 1], title = "zonal velocity")
+heatmap!(ax, ui)
 
-ax = Axis(fig[2, 2], title = "total deformation")
-heatmap!(ax, ϵ, colorrange = (0, 1e-5), colormap = Reverse(:grays))
+ax = Axis(fig[2, 2], title = "meridional velocity")
+heatmap!(ax, vi)
 
 record(fig, "sea_ice_rheology.mp4", 1:Nt, framerate = 8) do i
     iter[] = i

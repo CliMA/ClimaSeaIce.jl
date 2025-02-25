@@ -43,7 +43,10 @@ function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
 end
 
 required_prognostic_tracers(::BrittleBinghamMaxwellRheology, grid) = 
-    (; d = Field{Center, Center, Nothing}(grid)) # damage tracer
+    (; d = Field{Center, Center, Nothing}(grid),
+     σ₁₁ = Field{Center, Center, Nothing}(grid),
+     σ₂₂ = Field{Center, Center, Nothing}(grid),
+     σ₁₂ = Field{Center, Center, Nothing}(grid)) # damage tracer
     
 function required_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     
@@ -52,25 +55,17 @@ function required_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     E = Field{Center, Center, Nothing}(grid)
     λ = Field{Center, Center, Nothing}(grid)
     
-    σ₁₁  = Field{Center, Center, Nothing}(grid)
-    σ₂₂  = Field{Center, Center, Nothing}(grid)
-    σ₁₂  = Field{Center, Center, Nothing}(grid)
     σ₁₁ₙ = Field{Center, Center, Nothing}(grid)
     σ₂₂ₙ = Field{Center, Center, Nothing}(grid)
     σ₁₂ₙ = Field{Center, Center, Nothing}(grid)
     uₙ   = Field{Face, Face, Center}(grid)
     vₙ   = Field{Face, Face, Center}(grid)
-    dₙ   = Field{Center, Center, Nothing}(grid)
     σI   = Field{Center, Center, Nothing}(grid)
     σII  = Field{Center, Center, Nothing}(grid)
-    σ₁₁ₒ = Field{Center, Center, Nothing}(grid)
-    σ₂₂ₒ = Field{Center, Center, Nothing}(grid)
-    σ₁₂ₒ = Field{Center, Center, Nothing}(grid)
-    dₒ   = Field{Center, Center, Nothing}(grid)
     dcr  = Field{Center, Center, Nothing}(grid)
     td   = Field{Center, Center, Nothing}(grid)
     dadd = Field{Center, Center, Nothing}(grid)
-    return (; σ₁₁, σ₂₂, σ₁₂, σ₁₁ₙ, σ₂₂ₙ, σ₁₂ₙ, dₙ, P, E, λ, uₙ, vₙ, σ₁₁ₒ, σ₂₂ₒ, σ₁₂ₒ, dₒ, dcr, σI, σII, td, dadd)
+    return (; σ₁₁ₙ, σ₂₂ₙ, σ₁₂ₙ, P, E, λ, uₙ, vₙ, dcr, σI, σII, td, dadd)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
@@ -130,7 +125,6 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     arch = architecture(grid)
 
     ρᵢ   = model.ice_density
-    d    = model.tracers.d
     u, v = model.velocities
     fields = dynamics.auxiliary_fields
 
@@ -142,8 +136,8 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, parameters, _compute_stress_predictors!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
-    launch!(arch, grid, parameters, _advance_stresses!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _compute_stress_predictors!, fields, grid, rheology, model.tracers, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _advance_stresses!, fields, grid, rheology, model.tracers, u, v, ρᵢ, Δτ)
 
     return nothing
 end
@@ -164,9 +158,9 @@ end
     return one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
 end
 
-@inline function P_tilde(i, j, k, grid, fields)
+@inline function P_tilde(i, j, k, grid, fields, tracers)
     P = @inbounds fields.P[i, j, k]
-    σI = σᴵ(i, j, k, grid, fields)
+    σI = σᴵ(i, j, k, grid, tracers)
     return clamp(P / σI, -one(grid), zero(grid))
 end
 
@@ -223,12 +217,12 @@ end
     return dcrit * (σII > c - μ * σI)
 end
 
-@kernel function _compute_stress_predictors!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+@kernel function _compute_stress_predictors!(fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
 
     α = rheology.damage_parameter
     ν = rheology.poisson_ratio
-    
+
     ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
     ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
     ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
@@ -237,7 +231,7 @@ end
     Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
     Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
 
-    dᵢ = @inbounds d[i, j, 1]
+    dᵢ = @inbounds tracers.d[i, j, 1]
     P  = @inbounds fields.P[i, j, 1]
     E₀ = @inbounds fields.E[i, j, 1]
     λ₀ = @inbounds fields.λ[i, j, 1] 
@@ -247,16 +241,17 @@ end
 
     # Test which isotropic stress to use
     P̃ = zero(grid) 
+    P̃ = reconstruction_2d(i, j, 1, grid, P_tilde, fields, tracers)
 
     # Implicit diagonal operator
     Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
 
-    @inbounds fields.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
-    @inbounds fields.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
-    @inbounds fields.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
+    @inbounds tracers.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
+    @inbounds tracers.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
+    @inbounds tracers.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
 end
 
-@kernel function _advance_stresses!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+@kernel function _advance_stresses!(fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
 
     α = rheology.damage_parameter
@@ -265,17 +260,17 @@ end
     c = rheology.ice_cohesion
     μ = rheology.friction_coefficient
 
-    dᵢ = @inbounds d[i, j, 1]
+    dᵢ = @inbounds tracers.d[i, j, 1]
     ρ  = @inbounds ρᵢ[i, j, 1]
     P  = @inbounds fields.P[i, j, 1]
     E₀ = @inbounds fields.E[i, j, 1]
     λ₀ = @inbounds fields.λ[i, j, 1] 
 
     E   = E₀ * (1 - dᵢ)
-    dcrit = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, fields) 
+    dcrit = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, tracers) 
 
-    σI  =  σᴵ(i, j, 1, grid, fields)
-    σII = σᴵᴵ(i, j, 1, grid, fields)
+    σI  =  σᴵ(i, j, 1, grid, tracers)
+    σII = σᴵᴵ(i, j, 1, grid, tracers)
 
     # Relaxation time (constant)
     td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))        
@@ -285,7 +280,7 @@ end
 
     # Clamp damage between 0 and a value close to 1 (cannot do 1 because of the relaxation time)
     dᵢ = clamp(dᵢ, zero(grid), 99999 * one(grid) / 100000)
-    Δd = @inbounds (dᵢ - d[i, j, 1]) 
+    Δd = @inbounds (dᵢ - tracers.d[i, j, 1]) 
 
     # Now we readvance the stresses with the new information
     ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
@@ -299,14 +294,14 @@ end
     E = E₀ * (1 - dᵢ)
     λ = λ₀ * (1 - dᵢ)^(α - 1)
     P̃ = zero(grid) 
-    # P̃  = clamp(P / σI, -one(grid), zero(grid))
+    P̃ = reconstruction_2d(i, j, 1, grid, P_tilde, fields, tracers)
 
     # Implicit diagonal operator
     Ω = @inbounds 1 / (1 + Δτ * (1 + P̃) / λ + Δd / (1 - dᵢ))
 
-    @inbounds fields.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
-    @inbounds fields.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
-    @inbounds fields.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
+    @inbounds tracers.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
+    @inbounds tracers.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
+    @inbounds tracers.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
     @inbounds fields.dcr[i, j, 1] = dcrit
 
     @inbounds   fields.σI[i, j, 1] = σI
@@ -314,10 +309,10 @@ end
     @inbounds fields.dadd[i, j, 1] = 0 ≤ dcrit ≤ 1
     @inbounds   fields.td[i, j, 1] = dcrit
     
-    @inbounds fields.σ₁₁ₙ[i, j, 1] = fields.σ₁₁[i, j, 1]
-    @inbounds fields.σ₂₂ₙ[i, j, 1] = fields.σ₂₂[i, j, 1]
-    @inbounds fields.σ₁₂ₙ[i, j, 1] = fields.σ₁₂[i, j, 1]
-    @inbounds           d[i, j, 1] = dᵢ
+    @inbounds fields.σ₁₁ₙ[i, j, 1] = tracers.σ₁₁[i, j, 1]
+    @inbounds fields.σ₂₂ₙ[i, j, 1] = tracers.σ₂₂[i, j, 1]
+    @inbounds fields.σ₁₂ₙ[i, j, 1] = tracers.σ₁₂[i, j, 1]
+    @inbounds   tracers.d[i, j, 1] = dᵢ
 end
 
 #####

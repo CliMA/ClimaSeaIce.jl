@@ -55,7 +55,8 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
     model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
-                         ρ = model.ice_density))
+                         ρ = model.ice_density),
+                         model.tracers)
 
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
