@@ -271,6 +271,6 @@ end
 @inline hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields) = ℑxyᶠᶠᵃ(i, j, k, grid, hσ₁₂, fields)
 
 @inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₁(i, j, k, grid, fields)
-@inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields)
-@inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields)
-@inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₂₂(i, j, k, grid, fields)
+@inline ice_stress_uy(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields)
+@inline ice_stress_vx(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields)
+@inline ice_stress_vy(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₂₂(i, j, k, grid, fields)
