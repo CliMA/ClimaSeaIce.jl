@@ -143,6 +143,41 @@ end
     return sqrt((σ₁₁ - σ₂₂)^2 / 4 + σ₁₂^2)
 end
 
+@inline function reconstruction_2d(i, j, k, grid, f, args...)
+    fij = f(i,   j,   k, grid, args...)
+    fmj = f(i-1, j,   k, grid, args...)
+    fpj = f(i+1, j,   k, grid, args...)
+    fim = f(i,   j-1, k, grid, args...)
+    fip = f(i,   j+1, k, grid, args...)
+    fmm = f(i-1, j-1, k, grid, args...)
+    fmp = f(i-1, j+1, k, grid, args...)
+    fpm = f(i+1, j-1, k, grid, args...)
+    fpp = f(i+1, j+1, k, grid, args...)
+
+    # remove NaNs
+    isnanij = isnan(fij)
+    isnanmj = isnan(fmj)
+    isnanpj = isnan(fpj)
+    isnanim = isnan(fim)
+    isnanip = isnan(fip)
+    isnanmm = isnan(fmm)
+    isnanmp = isnan(fmp)
+    isnanpm = isnan(fpm)
+    isnanpp = isnan(fpp)
+
+    fij = ifelse(isnanij, zero(grid), fij) / 4
+    fmj = ifelse(isnanmj, zero(grid), fmj) / 8
+    fpj = ifelse(isnanpj, zero(grid), fpj) / 8
+    fim = ifelse(isnanim, zero(grid), fim) / 8
+    fip = ifelse(isnanip, zero(grid), fip) / 8
+    fmm = ifelse(isnanmm, zero(grid), fmm) / 16
+    fmp = ifelse(isnanmp, zero(grid), fmp) / 16
+    fpm = ifelse(isnanpm, zero(grid), fpm) / 16
+    fpp = ifelse(isnanpp, zero(grid), fpp) / 16
+
+    return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
+end
+
 @kernel function _advance_bbm_stresses!(fields, grid, rheology, d, u, v, Δτ)
     i, j = @index(Global, NTuple)
 
@@ -160,15 +195,13 @@ end
     σI = σᴵ(i, j, 1, grid, fields) 
     
     # Test which isotropic stress to use
-    P̃ = ifelse(σI < - P, P / σI, 
-        ifelse(σI > 0, zero(grid), - one(grid)))
-
-    scheme = rheology.interpolation_scheme
+    P̃ = zero(grid) # ifelse(σI < - P, P / σI, 
+                   # ifelse(σI > 0, zero(grid), - one(grid)))
 
     # Strain rates
     ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
     ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = ℑxyᶠᶠᵃ(i, j, 1, grid, scheme, strain_rate_xy, u, v)
+    ϵ̇₁₂ = ℑxyᶜᶜᵃ(i, j, 1, grid, strain_rate_xy, u, v)
     
     Kϵ₁₁ = (ϵ̇₁₁ + ν * ϵ̇₂₂) / (1 - ν^2)
     Kϵ₂₂ = (ϵ̇₂₂ + ν * ϵ̇₁₁) / (1 - ν^2)
@@ -203,13 +236,9 @@ end
     μ = rheology.friction_coefficient
 
     E = @inbounds fields.E[i, j, 1] * (1 - d[i, j, 1])
-
-    # Principal stress invariant
-    σI  =  σᴵ(i, j, 1, grid, fields) 
-    σII = σᴵᴵ(i, j, 1, grid, fields) 
     
     # critical damage computation
-    dcrit = ℑxyᶠᶠᵃ(i, j, 1, grid, ℑxyᶜᶜᵃ, critical_damage, N, c, μ, fields)
+    dcrit = reconstruction_2d(i, j, 1, grid, critical_damage, N, c, μ, fields)
 
     # Relaxation time
     td = @inbounds sqrt(2 * (1 + ν) * ρᵢ[i, j, 1] / E * Azᶜᶜᶜ(i, j, 1, grid))
@@ -239,25 +268,9 @@ end
 @inline hσ₁₂(i, j, k, grid, fields) = @inbounds fields.σ₁₂[i, j, k] * fields.h[i, j, k]
 
 # using Oceananigans.Advection: _biased_interpolate_yᵃᶠᵃ, _biased_interpolate_xᶠᵃᵃ, LeftBias
-@inline hσ₁₂ᶠᶠᶜ(i, j, k, grid, scheme, fields) = reconstruct_on_node(i, j, k, grid, scheme, hσ₁₂, fields)
+@inline hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields) = ℑxyᶠᶠᵃ(i, j, k, grid, hσ₁₂, fields)
 
-# Here we extend all the functions that a rheology model needs to support:
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology::BrittleBinghamMaxwellRheology, clock, fields) 
-
-    scheme = rheology.interpolation_scheme
-
-    ∂xσ₁₁ = δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, hσ₁₁,    fields)         / Azᶠᶜᶜ(i, j, k, grid)
-    ∂yσ₁₂ = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, hσ₁₂ᶠᶠᶜ, scheme, fields) / Azᶠᶜᶜ(i, j, k, grid)
-
-    return ∂xσ₁₁ + ∂yσ₁₂
-end
-
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology::BrittleBinghamMaxwellRheology, clock, fields) 
-
-    scheme = rheology.interpolation_scheme
-
-    ∂xσ₁₂ = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, hσ₁₂ᶠᶠᶜ, scheme, fields) / Azᶜᶠᶜ(i, j, k, grid)
-    ∂yσ₂₂ = δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, hσ₂₂,    fields)         / Azᶜᶠᶜ(i, j, k, grid)
-
-    return ∂xσ₁₂ + ∂yσ₂₂
-end
+@inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₁(i, j, k, grid, fields)
+@inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields)
+@inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₁₂ᶠᶠᶜ(i, j, k, grid, fields)
+@inline ice_stress_ux(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = hσ₂₂(i, j, k, grid, fields)

@@ -25,7 +25,7 @@ L  = 512kilometers
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
                        halo = (7, 7),
@@ -90,7 +90,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             bottom_momentum_stress = τₒ,
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
-                                            rheology = ElastoViscoPlasticRheology(),
+                                            rheology = BrittleBinghamMaxwellRheology(),
                                             solver   = SplitExplicitSolver(substeps=150))
 
 # Define the model!
