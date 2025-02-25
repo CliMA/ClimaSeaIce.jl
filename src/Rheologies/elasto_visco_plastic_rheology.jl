@@ -154,7 +154,7 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology, Δt) 
+function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology, Δt, Ns) 
 
     grid = model.grid
     arch = architecture(grid)

@@ -90,7 +90,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             bottom_momentum_stress = τₒ,
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
-                                            rheology = ElastoViscoPlasticRheology(),
+                                            rheology = BrittleBinghamMaxwellRheology(),
                                             solver   = SplitExplicitSolver(substeps=150))
 
 # Define the model!
@@ -99,6 +99,7 @@ model = SeaIceModel(grid;
                     dynamics = momentum_equations,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection = WENO(order=7),
+                    tracers = :d,
                     boundary_conditions = (u=u_bcs, v=v_bcs))
 
 # We start with a concentration of ℵ = 1 and an 
