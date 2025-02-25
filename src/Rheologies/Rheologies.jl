@@ -23,5 +23,6 @@ compute_stresses!(model, dynamics, rheology, Δt) = nothing
 include("ice_stress_divergence.jl")
 include("viscous_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")
+include("brittle_bingham_maxwell_rheology.jl")
 
 end
