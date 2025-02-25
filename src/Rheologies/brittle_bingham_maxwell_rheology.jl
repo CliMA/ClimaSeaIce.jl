@@ -1,4 +1,4 @@
-struct BrittleBinghamMaxwellRheology{FT, A}
+struct BrittleBinghamMaxwellRheology{FT}
     ice_ridging_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     ice_cohesion :: FT # cohesion
@@ -37,9 +37,6 @@ function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
                                          convert(FT, healing_constant),
                                          convert(FT, damage_parameter))
 end
-
-required_prognostic_tracers(::BrittleBinghamMaxwellRheology, grid) = 
-    (; d = Field{Center, Center, Nothing}(grid)) # damage tracer
     
 function required_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     
@@ -47,12 +44,13 @@ function required_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     P = Field{Center, Center, Nothing}(grid)
     E = Field{Center, Center, Nothing}(grid)
     λ = Field{Center, Center, Nothing}(grid)
-    
+    d = Field{Center, Center, Nothing}(grid)
+
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Center, Center, Nothing}(grid)
 
-    return (; σ₁₁, σ₂₂, σ₁₂, P, E, λ)
+    return (; σ₁₁, σ₂₂, σ₁₂, P, E, λ, d)
 end
 
 # Extend the `adapt_structure` function for the `BrittleBinghamMaxwellRheology`
@@ -85,7 +83,7 @@ function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
     h★ = rheology.ridging_ice_thickness
     α  = rheology.damage_parameter
     C  = rheology.ice_compaction_hardening
-    
+
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
     launch!(architecture(model.grid), model.grid, parameters, _initialize_bbm_rheology!, fields, model.grid, P★, E★, λ★, h★, α, C, h, ℵ)
@@ -111,7 +109,6 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     arch = architecture(grid)
 
     ρᵢ   = model.ice_density
-    d    = model.tracers.d
     u, v = model.velocities
     fields = dynamics.auxiliary_fields
 
@@ -122,8 +119,8 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, parameters, _advance_bbm_stresses!, fields, grid, rheology, d, u, v, Δτ)
-    launch!(arch, grid, parameters, _mohr_colomb_correction!, fields, grid, rheology, d, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _advance_bbm_stresses!, fields, grid, rheology, u, v, Δτ)
+    launch!(arch, grid, parameters, _mohr_colomb_correction!, fields, grid, rheology, ρᵢ, Δτ)
 
     return nothing
 end
@@ -178,12 +175,13 @@ end
     return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
 end
 
-@kernel function _advance_bbm_stresses!(fields, grid, rheology, d, u, v, Δτ)
+@kernel function _advance_bbm_stresses!(fields, grid, rheology, u, v, Δτ)
     i, j = @index(Global, NTuple)
 
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
+    d   = fields.d
 
     α = rheology.damage_parameter
     ν = rheology.poisson_ratio
@@ -192,8 +190,6 @@ end
     E = @inbounds fields.E[i, j, 1] * (1 - d[i, j, 1])
     λ = @inbounds fields.λ[i, j, 1] * (1 - d[i, j, 1])^(α - 1)
 
-    σI = σᴵ(i, j, 1, grid, fields) 
-    
     # Test which isotropic stress to use
     P̃ = zero(grid) # ifelse(σI < - P, P / σI, 
                    # ifelse(σI > 0, zero(grid), - one(grid)))
@@ -223,12 +219,13 @@ end
     return ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
 end
 
-@kernel function _mohr_colomb_correction!(fields, grid, rheology, d, ρᵢ, Δτ)
+@kernel function _mohr_colomb_correction!(fields, grid, rheology, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
     
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
+    d   = fields.d
 
     ν = rheology.poisson_ratio
     N = rheology.maximum_compressive_strength

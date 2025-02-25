@@ -6,12 +6,13 @@
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceMomentumEquations
 using ClimaSeaIce.Rheologies
+using ClimaSeaIce.Rheologies: BrittleBinghamMaxwellRheology
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators
 using Oceananigans.BoundaryConditions
 using Printf
-using CairoMakie
+# using CairoMakie
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -147,7 +148,8 @@ outputs = (; h, u, v, ℵ, ϵ)
 
 simulation.output_writers[:sea_ice] = JLD2OutputWriter(model, outputs;
                                                        filename = "sea_ice_advected_by_anticyclone.jld2", 
-                                                       schedule = IterationInterval(5))
+                                                       schedule = IterationInterval(5),
+                                                       overwrite_existing = true)
 
 wall_time = [time_ns()]
 
@@ -204,7 +206,7 @@ heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 ax = Axis(fig[2, 2], title = "meridional velocity")
 heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
-CairoMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
+record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "doing iter $i"
 end
