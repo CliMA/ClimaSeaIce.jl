@@ -31,15 +31,12 @@ end
 
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
-                     ice_thickness               = nothing,
                      ice_consolidation_thickness = 0.05, # m
-                     ice_concentration           = nothing,
                      ice_salinity                = 0, # psu
                      ice_density                 = 900, # kg m⁻³
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,
                      velocities                  = nothing,
-                     timestepper                 = :ForwardEuler,
                      advection                   = nothing,
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
@@ -93,7 +90,7 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
-    timestepper = TimeStepper(timestepper, grid, prognostic_fields)
+    timestepper = TimeStepper(:ForwardEuler, grid, prognostic_fields)
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)

@@ -2,9 +2,30 @@ using Oceananigans.Utils: Time
 using Oceananigans.Fields: flattened_unique_values
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 
+using ClimaSeaIce.SeaIceMomentumEquations: step_momentum!
+
 import Oceananigans.Models: update_model_field_time_series!
 
-function step_tracers!(model::SIM, Δt, substep)
+const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEuler}
+
+function time_step!(model::FESeaIceModel, Δt; callbacks = [])
+    
+    # Be paranoid and update state at iteration 0
+    model.clock.iteration == 0 && update_state!(model)
+
+    compute_tendencies!(model, Δt)
+    step_tracers!(model, Δt)
+
+    # TODO: This is an implicit (or split-explicit) step to advance momentum!
+    step_momentum!(model, model.dynamics, Δt, 1)
+
+    tick!(model.clock, Δt)
+    update_state!(model)
+
+    return nothing
+end
+
+function step_tracers!(model::SIM, Δt)
     grid = model.grid
     arch = architecture(grid)
 
@@ -14,11 +35,8 @@ function step_tracers!(model::SIM, Δt, substep)
     tracers = model.tracers
 
     Gⁿ = model.timestepper.Gⁿ
-    G⁻ = model.timestepper.G⁻
-
-    α, β = timestepping_coefficients(model.timestepper, substep)
     
-    launch!(arch, grid, :xy, _step_tracers!, h, ℵ, hmin, tracers, Gⁿ, G⁻, Δt, α, β)
+    launch!(arch, grid, :xy, _step_tracers!, h, ℵ, hmin, tracers, Gⁿ, Δt)
 
     return nothing
 end
@@ -27,7 +45,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _step_tracers!(h, ℵ, hmin, tracers, Gⁿ, G⁻, Δt, α, β)
+@kernel function _step_tracers!(h, ℵ, hmin, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
     
@@ -40,8 +58,8 @@ end
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁻ = hmin[i, j, k]
-        h⁺ = h[i, j, k] + Δt * (α * Ghⁿ[i, j, k] + β * Gh⁻[i, j, k])        
-        ℵ⁺ = ℵ[i, j, k] + Δt * (α * Gℵⁿ[i, j, k] + β * Gℵ⁻[i, j, k])
+        h⁺ = h[i, j, k] + Δt * Ghⁿ[i, j, k]
+        ℵ⁺ = ℵ[i, j, k] + Δt * Gℵⁿ[i, j, k]
 
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
         h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
@@ -70,19 +88,6 @@ end
     ℵt = ifelse(ℵt > 1, one(ℵt), ℵt)
 
     return ht, ℵt
-end
-
-function store_tendencies!(model::SIM) 
-
-    Gⁿ = model.timestepper.Gⁿ
-    G⁻ = model.timestepper.G⁻
-    Nt = length(Gⁿ)
-
-    for n in 1:Nt
-        parent(G⁻[n]) .= parent(Gⁿ[n])
-    end
-
-    return nothing
 end
 
 function update_state!(model::SIM)
