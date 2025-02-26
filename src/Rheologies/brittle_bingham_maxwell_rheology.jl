@@ -121,7 +121,6 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     arch = architecture(grid)
 
     ρᵢ   = model.ice_density
-    d    = model.tracers.d
     u, v = model.velocities
     fields = dynamics.auxiliary_fields
 
@@ -133,8 +132,8 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, parameters, _compute_stress_predictors!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
-    launch!(arch, grid, parameters, _advance_stresses!, fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _compute_stress_predictors!, fields, grid, rheology, model.tracers, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _advance_stresses!, fields, grid, rheology, model.tracers, u, v, ρᵢ, Δτ)
 
     return nothing
 end
@@ -201,7 +200,7 @@ end
     return dcrit * (σII > c - μ * σI)
 end
 
-@kernel function _compute_stress_predictors!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+@kernel function _compute_stress_predictors!(fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
 
     α = rheology.damage_parameter
@@ -215,7 +214,7 @@ end
     Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
     Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
 
-    dᵢ = @inbounds d[i, j, 1]
+    dᵢ = @inbounds tracers.d[i, j, 1]
     P  = @inbounds fields.P[i, j, 1]
     E₀ = @inbounds fields.E[i, j, 1]
     λ₀ = @inbounds fields.λ[i, j, 1] 
@@ -229,12 +228,12 @@ end
     # Implicit diagonal operator
     Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
 
-    @inbounds fields.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
-    @inbounds fields.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
-    @inbounds fields.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
+    @inbounds tracers.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
+    @inbounds tracers.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
+    @inbounds tracers.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
 end
 
-@kernel function _advance_stresses!(fields, grid, rheology, d, u, v, ρᵢ, Δτ)
+@kernel function _advance_stresses!(fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
 
     α = rheology.damage_parameter
@@ -243,17 +242,17 @@ end
     c = rheology.ice_cohesion
     μ = rheology.friction_coefficient
 
-    dᵢ = @inbounds d[i, j, 1]
     ρ  = @inbounds ρᵢ[i, j, 1]
+    dᵢ = @inbounds tracers.d[i, j, 1]
     P  = @inbounds fields.P[i, j, 1]
     E₀ = @inbounds fields.E[i, j, 1]
     λ₀ = @inbounds fields.λ[i, j, 1] 
 
     E   = E₀ * (1 - dᵢ)
-    dcrit = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, fields) 
+    dcrit = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, tracers) 
 
-    σI  =  σᴵ(i, j, 1, grid, fields)
-    σII = σᴵᴵ(i, j, 1, grid, fields)
+    σI  =  σᴵ(i, j, 1, grid, tracers)
+    σII = σᴵᴵ(i, j, 1, grid, tracers)
 
     # Relaxation time (constant)
     td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))        
@@ -284,7 +283,7 @@ end
     @inbounds fields.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
     @inbounds fields.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
     @inbounds fields.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
-    @inbounds          d[i, j, 1] = dᵢ
+    @inbounds  tracers.d[i, j, 1] = dᵢ
 end
 
 #####
