@@ -4,7 +4,7 @@ using ClimaSeaIce: timestepping_coefficients
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
 # Simple explicit stepping of the momentum equations
-function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
+function step_momentum!(model, ::ExplicitMomentumEquation, Δt, args...)
     grid = model.grid
     arch = architecture(grid)
 

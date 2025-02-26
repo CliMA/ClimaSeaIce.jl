@@ -39,7 +39,7 @@ function SeaIceModel(grid;
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,
                      velocities                  = nothing,
-                     timestepper                 = :QuasiAdamsBashforth2,
+                     timestepper                 = :ForwardEuler,
                      advection                   = nothing,
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
@@ -64,8 +64,8 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
     
     if isnothing(velocities) 
-        u = Field{Face, Center, Center}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Center}(grid, boundary_conditions=boundary_conditions.v)
+        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 
@@ -73,12 +73,12 @@ function SeaIceModel(grid;
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field 
-    ice_salinity = field((Center, Center, Center), ice_salinity, grid)
-    ice_density  = field((Center, Center, Center), ice_density, grid)
+    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    ice_density  = field((Center, Center, Nothing), ice_density, grid)
 
     # Construct prognostic fields if not provided
-    ice_thickness = isnothing(ice_thickness) ?  Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
-    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
+    ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
+    ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) 
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
