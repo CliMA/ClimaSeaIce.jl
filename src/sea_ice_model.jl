@@ -7,7 +7,8 @@ using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: AbstractModel{TS}
+struct SeaIceModel{A, GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, ADV, F} <: AbstractModel{TS, A}
+    architecture :: A
     grid :: GR
     clock :: CL
     forcing :: F
@@ -26,7 +27,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: Abstra
     external_heat_fluxes :: STF
     # Numerics
     timestepper :: TS
-    advection :: A
+    advection :: ADV
 end
 
 function SeaIceModel(grid;
@@ -113,7 +114,8 @@ function SeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 
 
-    return SeaIceModel(grid,
+    return SeaIceModel(architecture(grid),
+                       grid,
                        clock,
                        forcing, 
                        velocities,

@@ -21,14 +21,16 @@ import Oceananigans.Fields: set!
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Simulations: reset!
 
-mutable struct EnthalpyMethodSeaIceModel{Grid,
+mutable struct EnthalpyMethodSeaIceModel{Arch,
+                                         Grid,
                                          Tim,
                                          Clk,
                                          Clo,
                                          State,
                                          Cp,
                                          Fu,
-                                         Tend} <: AbstractModel{Nothing}
+                                         Tend} <: AbstractModel{Nothing, Arch}
+    architecture :: Arch
     grid :: Grid
     timestepper :: Tim # unused placeholder for now
     clock :: Clk
@@ -79,15 +81,16 @@ function EnthalpyMethodSeaIceModel(; grid,
     tendencies = (; H=CenterField(grid))
     clock = Clock{eltype(grid)}(time = 0)
 
-    return EnthalpyMethodSeaIceModel(grid,
-                                    nothing,
-                                    clock,
-                                    closure,
-                                    state,
-                                    ice_heat_capacity,
-                                    water_heat_capacity,
-                                    fusion_enthalpy,
-                                    tendencies)
+    return EnthalpyMethodSeaIceModel(architecture, 
+                                     grid,
+                                     nothing,
+                                     clock,
+                                     closure,
+                                     state,
+                                     ice_heat_capacity,
+                                     water_heat_capacity,
+                                     fusion_enthalpy,
+                                     tendencies)
 end
 
 function set!(model::ETSIM; T=nothing, H=nothing)
