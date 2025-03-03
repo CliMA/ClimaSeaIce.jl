@@ -52,9 +52,6 @@ end
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
     
-    Gh⁻ = G⁻.h
-    Gℵ⁻ = G⁻.ℵ
-
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁻ = hmin[i, j, k]

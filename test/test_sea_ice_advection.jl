@@ -13,7 +13,7 @@ using Oceananigans
     @test !(model.velocities.u isa Nothing)
     @test !(model.velocities.v isa Nothing)
 
-    # test that model runs with AB2
+    # test that model runs 
     @test begin
         time_step!(model, 1)
         true
@@ -31,7 +31,7 @@ end
     @test !(model.velocities.u isa Nothing)
     @test !(model.velocities.v isa Nothing)
 
-    # test that model runs with RK3
+    # test that model runs 
     @test begin
         time_step!(model, 1)
         true
