@@ -1,3 +1,4 @@
+i
 
 function time_step_sea_ice_model_works(grid;
                                        dynamics = nothing,
@@ -11,7 +12,6 @@ function time_step_sea_ice_model_works(grid;
 
     return model.clock.iteration == 1
 end
-
 
 @testset "Sea ice Models" begin
     @info "Testing sea icemodels..."
