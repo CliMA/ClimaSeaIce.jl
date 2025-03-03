@@ -81,7 +81,5 @@ end
 
     slabby_Gh = wu + wb
 
-    @show wu, wb, slabby_Gh, hᵢ, ℵᵢ, Quᵢ, Qiᵢ, ℰu, ℰb, Tuᵢ, Tbᵢ
-
     return slabby_Gh
 end
