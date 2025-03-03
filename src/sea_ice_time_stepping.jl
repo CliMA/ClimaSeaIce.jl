@@ -6,7 +6,7 @@ using ClimaSeaIce.SeaIceMomentumEquations: step_momentum!
 
 import Oceananigans.Models: update_model_field_time_series!
 
-const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEuler}
+const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEulerTimeStepper}
 
 function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     

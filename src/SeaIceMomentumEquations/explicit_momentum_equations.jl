@@ -1,5 +1,4 @@
 using Oceananigans.Utils
-using ClimaSeaIce: timestepping_coefficients
 
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
