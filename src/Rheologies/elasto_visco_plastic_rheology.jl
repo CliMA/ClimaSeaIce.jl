@@ -223,7 +223,7 @@ end
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
     α⁺  = rheology.max_relaxation_parameter
-    α⁻  = rheology.max_relaxation_parameter
+    α⁻  = rheology.min_relaxation_parameter
 
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂

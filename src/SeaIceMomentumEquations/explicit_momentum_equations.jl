@@ -1,20 +1,16 @@
 using Oceananigans.Utils
-using ClimaSeaIce: timestepping_coefficients
 
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
 # Simple explicit stepping of the momentum equations
-function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
+function step_momentum!(model, ::ExplicitMomentumEquation, Δt, args...)
     grid = model.grid
     arch = architecture(grid)
 
     u, v = model.velocities
     Gⁿ = model.timestepper.Gⁿ
-    G⁻ = model.timestepper.G⁻
 
     dynamics = model.dynamics
-
-    α, β = timestepping_coefficients(model.timestepper, stage)
 
     model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
                       (; h = model.ice_thickness, 
@@ -30,14 +26,14 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, stage)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
-    launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, G⁻, Δt, α, β,
+    launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, Δt, 
             top_stress, bottom_stress, ocean_velocities, 
             minimum_mass, minimum_concentration, clock, model_fields)
 
     return nothing
 end
 
-@kernel function _step_velocities!(u, v, grid, Gⁿ, G⁻, Δt, α, β, 
+@kernel function _step_velocities!(u, v, grid, Gⁿ, Δt, 
                                    top_stress, bottom_stress, 
                                    ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
 
@@ -56,8 +52,8 @@ end
          + implicit_τy_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
 
     @inbounds begin
-        uᴰ = (Δt * (α * Gⁿ.u[i, j, 1] + β * G⁻.u[i, j, 1])) / (1 + Δt * τuᵢ)
-        vᴰ = (Δt * (α * Gⁿ.v[i, j, 1] + β * G⁻.v[i, j, 1])) / (1 + Δt * τvᵢ)
+        uᴰ = (u[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
+        vᴰ = (v[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
 
         uᶠ = free_drift_u(i, j, 1, grid, ocean_velocities)
         vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities)

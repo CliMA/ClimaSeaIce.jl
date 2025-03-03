@@ -136,18 +136,13 @@ simulation.callbacks[:top_stress] = Callback(compute_wind_stress, IterationInter
 h = model.ice_thickness
 ℵ = model.ice_concentration
 u, v = model.velocities
-∂xu = ∂x(u)
-∂yu = ∂y(u)
-∂xv = ∂x(v)
-∂yv = ∂y(v)
 
-ϵ = sqrt((∂xu + ∂yv)^2 + (∂yu - ∂xv)^2)
-
-outputs = (; h, u, v, ℵ, ϵ)
+outputs = (; h, u, v, ℵ)
 
 simulation.output_writers[:sea_ice] = JLD2OutputWriter(model, outputs;
                                                        filename = "sea_ice_advected_by_anticyclone.jld2", 
-                                                       schedule = IterationInterval(5))
+                                                       schedule = IterationInterval(5),
+                                                       overwrite_existing = true)
 
 wall_time = [time_ns()]
 
@@ -180,14 +175,14 @@ using CairoMakie
 htimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "h")
 utimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "u")
 vtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "v")
-ϵtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "ϵ")
+ℵtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "ℵ")
 
 # Visualize!
 Nt = length(htimeseries)
 iter = Observable(1)
 
 hi = @lift(htimeseries[$iter])
-ϵi = @lift(ϵtimeseries[$iter])
+ℵi = @lift(ℵtimeseries[$iter])
 ui = @lift(utimeseries[$iter])
 vi = @lift(vtimeseries[$iter])
 
@@ -195,8 +190,8 @@ fig = Figure()
 ax = Axis(fig[1, 1], title = "sea ice thickness")
 heatmap!(ax, hi, colormap = :magma, colorrange = (0.23, 0.37))
 
-ax = Axis(fig[1, 2], title = "total deformation of sea ice")
-heatmap!(ax, ϵi, colormap = Reverse(:deep), colorrange = (0, 1e-5))
+ax = Axis(fig[1, 2], title = "sea ice concentration")
+heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.9, 1))
 
 ax = Axis(fig[2, 1], title = "zonal velocity")
 heatmap!(ax, ui, colorrange = (-0.1, 0.1))
