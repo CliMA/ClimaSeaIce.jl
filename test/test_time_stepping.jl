@@ -14,23 +14,25 @@ end
 @testset "Sea ice Models" begin
     @info "Testing sea icemodels..."
 
-    grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
+    grid_2d = RectilinearGrid(size=(10, 10),     x=(0, 1), y=(0, 1),            topology=(Bounded, Bounded, Flat))
+    grid_3d = RectilinearGrid(size=(10, 10, 10), x=(0, 1), y=(0, 1), z=(-1, 0), topology=(Bounded, Bounded, Bounded))
 
-    rheologies = (ElastoViscoPlasticRheology(), ViscousRheology(ν=1000))
-    advections = (WENO(), UpwindBiased(order=5))
+    for grid in (grid_2d, grid_3d)
+        rheologies = (ElastoViscoPlasticRheology(), ViscousRheology(ν=1000))
+        advections = (WENO(), UpwindBiased(order=5))
 
-    ice_thermodynamics = (nothing, SlabSeaIceThermodynamics(grid))
+        ice_thermodynamics = (nothing, SlabSeaIceThermodynamics(grid))
 
-    coriolises = (nothing, BetaPlane(latitude=45))
-    solvers = (ExplicitSolver(), SplitExplicitSolver())
+        coriolises = (nothing, FPlane(latitude=45), BetaPlane(latitude=45))
+        solvers = (ExplicitSolver(), SplitExplicitSolver())
 
-    for coriolis in coriolises, advection in advections, rheology in rheologies, thermodynamics in ice_thermodynamics, solver in solvers
-        dynamics = SeaIceMomentumEquation(grid; coriolis, rheology, solver)
+        for coriolis in coriolises, advection in advections, rheology in rheologies, thermodynamics in ice_thermodynamics, solver in solvers
+            dynamics = SeaIceMomentumEquation(grid; coriolis, rheology, solver)
 
-        @test time_step_sea_ice_model_works(grid;
-                                            dynamics,
-                                            ice_thermodynamics=thermodynamics,
-                                            advection=advection)
+            @test time_step_sea_ice_model_works(grid;
+                                                dynamics,
+                                                ice_thermodynamics=thermodynamics,
+                                                advection=advection)
+        end
     end
-
 end

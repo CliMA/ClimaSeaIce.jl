@@ -29,6 +29,10 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: Abstra
     advection :: A
 end
 
+assumed_sea_ice_field_location(name) = name === :u  ? (Face, Center, Nothing) :
+                                       name === :v  ? (Center, Face, Nothing) :
+                                                      (Center, Center, Nothing)
+
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
                      ice_consolidation_thickness = 0.05, # m
@@ -52,8 +56,9 @@ function SeaIceModel(grid;
 
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
-    default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions()
-                                                          for name in field_names))
+
+    default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions(grid, assumed_sea_ice_field_location(name)) 
+                                                         for name in field_names))
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
     # have precedence, followed by embedded, followed by default.
