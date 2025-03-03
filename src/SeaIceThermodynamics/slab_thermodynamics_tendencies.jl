@@ -48,8 +48,11 @@ end
 
     @inbounds begin
         hᵢ = ice_thickness[i, j, k]
+        hc = ice_consolidation_thickness[i, j, k]
         ℵᵢ = ice_concentration[i, j, k]
     end
+
+    consolidated_ice = hᵢ > hc
 
     # Determine top surface temperature. 
     # Does this really fit here?
