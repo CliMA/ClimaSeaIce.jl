@@ -27,14 +27,14 @@ function step_momentum!(model, ::ExplicitMomentumEquation, Δt, args...)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
-    launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, G⁻, Δt, 
+    launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, Δt, 
             top_stress, bottom_stress, ocean_velocities, 
             minimum_mass, minimum_concentration, clock, model_fields)
 
     return nothing
 end
 
-@kernel function _step_velocities!(u, v, grid, Gⁿ, G⁻, Δt, α, β, 
+@kernel function _step_velocities!(u, v, grid, Gⁿ, Δt, 
                                    top_stress, bottom_stress, 
                                    ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
 
