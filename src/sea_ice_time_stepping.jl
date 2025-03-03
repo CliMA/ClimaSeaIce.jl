@@ -61,7 +61,7 @@ end
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
         h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
 
-        ht, ℵt = cap_ice_thickness(h⁺, h⁻, ℵ⁺)
+        ht, ℵt = conservative_adjustment(h⁺, h⁻, ℵ⁺)
 
         ℵ[i, j, k] = ℵt
         h[i, j, k] = ht
@@ -72,14 +72,14 @@ end
 # to maintain a constant ice volume. 
 # A no ice condition is represented by h = hmin and ℵ = 0 since ice_volume = (h * ℵ)
 # The thickness should _NEVER_ be zero! 
-@inline function cap_ice_thickness(h⁺, h⁻, ℵ⁺)
+@inline function conservative_adjustment(h⁺, h⁻, ℵ⁺)
 
     # Remove ice if h⁺ == 0
     thin_ice = (0 < h⁺ < h⁻) # Thin ice condition
 
-    ht = ifelse(thin_ice, h⁻, h⁺)
+    ht = ifelse(thin_ice, h⁻, h⁺) # Non conservative adjustement of thickness
+    V⁺ = h⁺ * ℵ⁺ # Total sea ice volume
     ht = ifelse(ℵ⁺ > 1, ht * ℵ⁺, ht)
-
     ℵt = ifelse(ht == 0, zero(ℵ⁺), ℵ⁺)
     ht = ifelse(ht == 0, h⁻, ht)
     ℵt = ifelse(ℵt > 1, one(ℵt), ℵt)

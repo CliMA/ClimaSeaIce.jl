@@ -1,14 +1,40 @@
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
-import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
-@inline function thickness_thermodynamic_tendency(i, j, k, grid,
-                                                  ice_thickness,
-                                                  ice_concentration,
-                                                  ice_consolidation_thickness,
-                                                  thermodynamics::SlabSeaIceThermodynamics,
-                                                  top_external_heat_flux,
-                                                  bottom_external_heat_flux,
-                                                  clock, model_fields)
+# Frazil ice formation
+@inline function bottom_ice_formation(i, j, k, grid,
+                                      thermodynamics::SlabSeaIceThermodynamics,
+                                      bottom_external_heat_flux,
+                                      clock, model_fields)
+
+    phase_transitions = thermodynamics.phase_transitions 
+    bottom_heat_bc = thermodynamics.heat_boundary_conditions.bottom
+    liquidus = phase_transitions.liquidus
+    Tu = thermodynamics.top_surface_temperature
+    @inbounds Tuᵢ = Tu[i, j, k]
+
+    Qb = bottom_external_heat_flux
+
+    Tbᵢ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+    ℰb = latent_heat(phase_transitions, Tbᵢ)
+
+    # Retrieve bottom flux
+    Qbᵢ = getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
+
+    # If ice is consolidated, compute tendency for an ice slab; otherwise
+    # just add ocean fluxes from frazil ice formation or melting
+    wb = - Qbᵢ / ℰb
+
+    return wb
+end
+
+@inline function thickness_growth(i, j, k, grid,
+                                  thermodynamics::SlabSeaIceThermodynamics,
+                                  ice_thickness,
+                                  ice_concentration,
+                                  ice_consolidation_thickness,
+                                  top_external_heat_flux,
+                                  bottom_external_heat_flux,
+                                  clock, model_fields)
 
     phase_transitions = thermodynamics.phase_transitions
 
@@ -18,16 +44,12 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
 
     Qi = thermodynamics.internal_heat_flux
     Qu = top_external_heat_flux
-    Qb = bottom_external_heat_flux
     Tu = thermodynamics.top_surface_temperature
 
     @inbounds begin
-        hᶜ = ice_consolidation_thickness[i, j, k]
         hᵢ = ice_thickness[i, j, k]
+        ℵᵢ = ice_concentration[i, j, k]
     end
-
-    # Consolidation criteria
-    consolidated_ice = hᵢ >= hᶜ
 
     # Determine top surface temperature. 
     # Does this really fit here?
@@ -52,18 +74,14 @@ import ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
     # Retrieve fluxes
     Quᵢ = getflux(Qu, i, j, grid, Tuᵢ, clock, model_fields)
     Qiᵢ = getflux(Qi, i, j, grid, Tuᵢ, clock, model_fields)
-    Qbᵢ = getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
-
-    # If ice is consolidated, compute tendency for an ice slab; otherwise
-    # just add ocean fluxes from frazil ice formation or melting
-    slushy_Gh = - Qbᵢ / ℰb
 
     # Upper (top) and bottom interface velocities
-    wu = (Quᵢ - Qiᵢ) / ℰu # < 0 => melting
-    wb = (Qiᵢ - Qbᵢ) / ℰb # < 0 => freezing
+    wu = (Quᵢ - Qiᵢ) / ℰu * ℵᵢ # < 0 => melting
+    wb =      + Qiᵢ  / ℰb * ℵᵢ # < 0 => freezing
 
     slabby_Gh = wu + wb
 
-    return ifelse(consolidated_ice, slabby_Gh, slushy_Gh)
-end
+    @show wu, wb, slabby_Gh, hᵢ, ℵᵢ, Quᵢ, Qiᵢ, ℰu, ℰb, Tuᵢ, Tbᵢ
 
+    return slabby_Gh
+end

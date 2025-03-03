@@ -58,8 +58,10 @@ ice_thermodynamics = SlabSeaIceThermodynamics(grid;
                                               top_heat_boundary_condition)
 
 # Then we assemble it all into a model,
-
 model = SeaIceModel(grid; ice_thermodynamics)
+
+# The ice concentration is set to 1 everywhere, otherwise the ice cannot grow!
+fill!(model.ice_concentration, 1)
 
 # Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!

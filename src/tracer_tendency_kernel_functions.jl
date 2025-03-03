@@ -1,5 +1,5 @@
 using Oceananigans.Advection
-using ClimaSeaIce.SeaIceThermodynamics: thickness_thermodynamic_tendency
+using ClimaSeaIce.SeaIceThermodynamics: thickness_growth, bottom_ice_formation
 using ClimaSeaIce.SeaIceMomentumEquations: compute_momentum_tendencies!
 
 function compute_tendencies!(model::SIM, Δt)
@@ -46,49 +46,27 @@ end
 
     i, j = @index(Global, NTuple)
     
-    @inbounds Gⁿ.h[i, j, 1] = ice_thickness_tendency(i, j, 1, grid, clock,
-                                                     velocities,
-                                                     advection,
-                                                     ice_thickness,
-                                                     ice_concentration,
-                                                     ice_consolidation_thickness,
-                                                     thermodynamics,
-                                                     top_external_heat_flux,
-                                                     bottom_external_heat_flux,
-                                                     h_forcing,
-                                                     model_fields)
-     
-    @inbounds Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_concentration)
-end
+    @inbounds hᵢ = ice_thickness[i, j, 1]
+    @inbounds ℵᵢ = ice_concentration[i, j, 1]
 
-# Thickness change due to accretion and melting, restricted by minimum allowable value
-function ice_thickness_tendency(i, j, k, grid, clock,
-                                velocities,
-                                advection,
-                                ice_thickness,
-                                ice_concentration,
-                                ice_consolidation_thickness,
-                                thermodynamics,
-                                top_external_heat_flux,
-                                bottom_external_heat_flux,
-                                h_forcing,
-                                model_fields)
+    Gh⁺ = thickness_growth(i, j, 1, grid,
+                           thermodynamics,
+                           ice_thickness,
+                           ice_concentration,
+                           ice_consolidation_thickness,
+                           top_external_heat_flux,
+                           bottom_external_heat_flux,
+                           clock, model_fields)
 
-    Gh_advection = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ice_thickness) # div_Uℵh(i, j, k, grid, advection, velocities, ice_concentration, ice_thickness)
+    GV⁺ = bottom_ice_formation(i, j, 1, grid, thermodynamics, bottom_external_heat_flux, clock, model_fields)
 
-    Gh_thermodynamics = thickness_thermodynamic_tendency(i, j, k, grid, 
-                                                         ice_thickness, 
-                                                         ice_concentration,
-                                                         ice_consolidation_thickness,
-                                                         thermodynamics,
-                                                         top_external_heat_flux,
-                                                         bottom_external_heat_flux,
-                                                         clock, model_fields)
+    Gℵ = GV⁺ / hᵢ
+    Gh = Gh⁺ * ℵᵢ
 
-    
-    # Compute forcing
-    Fh = zero(grid) #h_forcing(i, j, grid, clock, model_fields)
+    Guh = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_thickness)
+    Guℵ = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_concentration)
 
-    return Gh_advection + Gh_thermodynamics + Fh 
+    @inbounds Gⁿ.h[i, j, 1] = Gh + Guh
+    @inbounds Gⁿ.ℵ[i, j, 1] = Gℵ + Guℵ
 end
 

@@ -121,7 +121,8 @@ end
 end
 
 # Fallback for no thermodynamics
-@inline thickness_thermodynamic_tendency(i, j, grid, args...) = zero(grid)
+@inline bottom_ice_formation(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline thickness_growth(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 

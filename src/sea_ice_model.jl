@@ -141,7 +141,7 @@ const SIM = SeaIceModel
         ℵ⁺ = ℵ[i, j, 1]
         h⁻ = hmin[i, j, 1]
 
-        ht, ℵt = cap_ice_thickness(h⁺, h⁻, ℵ⁺)
+        ht, ℵt = conservative_adjustment(h⁺, h⁻, ℵ⁺)
 
         ℵ[i, j, 1] = ℵt
         h[i, j, 1] = ht
