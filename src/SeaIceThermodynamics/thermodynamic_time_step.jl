@@ -9,7 +9,7 @@ function thermodynamic_step!(model, ::SlabSeaIceThermodynamics, Δt)
             _slab_thermodynamic_step!,
             model.ice_thickness,
             model.ice_concentration,
-            grid,
+            grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
             model.thermodynamics,
@@ -25,30 +25,17 @@ end
 #
 # ∂t_V = ∂t_h * ℵ + h * ∂t_ℵ
 #
-# We consider the lateral growth as increasing ℵ and the vertical growth as increasing h. 
-# This equation is solved semi-implicitly to avoid NaNs coming from the division by quantities that can go to zero.
 # Therefore:
 #    
-#                     hⁿ⁺¹ - hⁿ          ℵⁿ⁺¹ - ℵⁿ       
-#  ∂t_V = Gᴸ + Gⱽ  = --------- ⋅ ℵⁿ⁺¹ + --------- ⋅ hⁿ⁺¹
-#                       Δt                  Δt           
+#                     h⁺ * ℵ⁺ - hⁿ * ℵⁿ  
+#  ∂t_V = Gᴸ + Gⱽ  = ------------------- 
+#                             Δt               
 #      
-# Leading to:
-#  
-#  ℵⁿ⁺¹ - ℵⁿ     Gᴸ    
-#  --------- = ----- 
-#     Δt        hⁿ⁺¹  
-#     
-# And
-#
-#  hⁿ⁺¹ - hⁿ            hⁿ⁺¹ - 1    1
-#  --------- = [Gⱽ + Gᴸ --------] -----
-#     Δt                 hⁿ⁺¹      ℵⁿ⁺¹  
-#
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
 @kernel function _slab_thermodynamic_step!(ice_thickness,
                                            ice_concentration,
                                            grid,
+                                           Δt,
                                            clock,
                                            ice_consolidation_thickness,
                                            thermodynamics,
@@ -58,26 +45,51 @@ end
 
     i, j = @index(Global, NTuple)
     
-    @inbounds hᵢ = ice_thickness[i, j, 1]
-    @inbounds ℵᵢ = ice_concentration[i, j, 1]
+    @inbounds hⁿ = ice_thickness[i, j, 1]
+    @inbounds ℵⁿ = ice_concentration[i, j, 1]
 
-    Gh⁺ = lateral_growth(i, j, 1, grid,
-                           thermodynamics,
-                           ice_thickness,
-                           ice_concentration,
-                           ice_consolidation_thickness,
-                           top_external_heat_flux,
-                           bottom_external_heat_flux,
-                           clock, model_fields)
+    Gⱽ = vertical_growth(i, j, 1, grid,
+                         thermodynamics,
+                         ice_thickness,
+                         ice_concentration,
+                         ice_consolidation_thickness,
+                         top_external_heat_flux,
+                         bottom_external_heat_flux,
+                         clock, model_fields)
 
-    GV⁺ = vertical_growth(i, j, 1, grid, thermodynamics, bottom_external_heat_flux, clock, model_fields)
+    Gᴸ = lateral_growth(i, j, 1, grid, thermodynamics, bottom_external_heat_flux, clock, model_fields)
 
-    Gℵ = GV⁺ / hᵢ
-    Gh = Gh⁺ * ℵᵢ
+    # Total volume tendency
+    ∂t_V = Gᴸ + Gⱽ
 
-    Guh = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_thickness)
-    Guℵ = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_concentration)
+    # ice volume at timestep n+1
+    Vⁿ⁺¹ = hⁿ * ℵⁿ + Δt * ∂t_V
 
-    @inbounds Gⁿ.h[i, j, 1] = Gh + Guh
-    @inbounds Gⁿ.ℵ[i, j, 1] = Gℵ + Guℵ
+    # Adjust the ice volume to zero
+    Vⁿ⁺¹ = max(zero(Vⁿ⁺¹), Vⁿ⁺¹)
+
+    # If Vⁿ⁺¹ == 0 the ice has melted completely, and we set both hⁿ⁺¹ and ℵⁿ⁺¹ to zero
+    # Otherwise, if the volume is positive, we adjust the thickness and concentration conservatively
+    # To account for this, we recalculate the actual volume derivative
+    ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
+
+    # Simple explicit step, we assume lateral growth 
+    # (at the beginning) contributes only to the ice concentration
+    ℵ⁺ = ℵⁿ + Δt * Gᴸ / hⁿ * (hⁿ > 0)
+    ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
+
+    # The concentration derivative
+    ∂t_ℵ = (ℵ⁺ - ℵⁿ) / Δt
+
+    # Adjust the thickness accordingly
+    h⁺ = hⁿ + Δt * (GV - hⁿ * ∂t_ℵ) / ℵ⁺ * (ℵ⁺ > 0)
+
+    # Ridging and rafting caused by the thermodynamic step
+    h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
+
+    # Ridging and rafting caused by the advection step
+    V⁺ = h⁺ * ℵ⁺
+    
+    @inbounds ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
+    @inbounds h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
 end
