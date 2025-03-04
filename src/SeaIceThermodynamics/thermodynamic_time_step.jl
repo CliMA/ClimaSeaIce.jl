@@ -82,7 +82,7 @@ end
     ∂t_ℵ = (ℵ⁺ - ℵⁿ) / Δt
 
     # Adjust the thickness accordingly
-    h⁺ = hⁿ + Δt * (GV - hⁿ * ∂t_ℵ) / ℵ⁺ * (ℵ⁺ > 0)
+    h⁺ = hⁿ + Δt * (∂t_V - hⁿ * ∂t_ℵ) / ℵ⁺ * (ℵ⁺ > 0)
 
     # Ridging and rafting caused by the thermodynamic step
     h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
