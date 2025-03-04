@@ -86,8 +86,6 @@ end
 
     # Ridging and rafting caused by the thermodynamic step
     h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
-
-    # Ridging and rafting caused by the advection step
     V⁺ = h⁺ * ℵ⁺
     
     @inbounds ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
