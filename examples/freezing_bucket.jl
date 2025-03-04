@@ -57,12 +57,15 @@ thermodynamics = SlabSeaIceThermodynamics(grid;
                                           phase_transitions,
                                           top_heat_boundary_condition)
 
-# We also prescribe a frazil ice heat flux that stops 
-# when the ice has reached a concentration of 1.
+# We also prescribe a frazil ice heat flux that stops when the ice has reached a concentration of 1.
+# This heat flux represents the initial ice formation from a liquid bucket.
+
 @inline frazil_ice_formation(i, j, grid, Tuᵢ, clock, fields) = - (1 - fields.ℵ[i, j, 1]) # W m⁻²
+
 bottom_heat_flux = FluxFunction(frazil_ice_formation)
 
-# Then we assemble it all into a model,
+# Then we assemble it all into a model.
+
 model = SeaIceModel(grid; thermodynamics, bottom_heat_flux)
 
 # Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics` is
@@ -70,8 +73,9 @@ model = SeaIceModel(grid; thermodynamics, bottom_heat_flux)
 
 model.thermodynamics.heat_boundary_conditions.bottom
 
-# Ok, we're ready to freeze the bucket for 10 straight days with an initial ice
-# thickness of 1 cm,
+# Ok, we're ready to freeze the bucket for 10 straight days.
+# The ice will start forming suddenly due to the frazil ice heat flux and then eventually
+# grow more slowly.
 
 simulation = Simulation(model, Δt=10minute, stop_time=10days)
 
@@ -124,7 +128,7 @@ axV = Axis(fig[1, 3], xlabel="Ice Volume (cm)", ylabel="Freezing rate (μm s⁻�
 
 lines!(axh, t ./ day, 1e2 .* h)
 lines!(axℵ, t ./ day, ℵ)
-lines!(axV, 1e2 .* V[1:end-1], 1e6 .* dhdt)
+lines!(axV, 1e2 .* V[1:end-1], 1e6 .* dVdt)
 
 current_figure() # hide
 fig
