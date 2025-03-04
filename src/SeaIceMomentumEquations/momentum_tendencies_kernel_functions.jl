@@ -1,5 +1,4 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-using Oceananigans.ImmersedBoundaries: active_linear_index_to_tuple
 
 """compute explicit ice u-velocity tendencies"""
 @inline function u_velocity_tendency(i, j, grid, Δt,
