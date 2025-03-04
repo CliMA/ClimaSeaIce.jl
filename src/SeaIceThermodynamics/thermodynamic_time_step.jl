@@ -79,7 +79,6 @@ end
 
     # Simple explicit step, we assume lateral growth 
     # (at the beginning) contributes only to the ice concentration
-    # This ice grows following the 
     ℵ⁺ = ℵⁿ + Δt * Gᴸ / max(hⁿ, hᶜ)
     ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
 
