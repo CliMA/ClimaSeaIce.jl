@@ -121,8 +121,8 @@ end
 end
 
 # Fallback for no thermodynamics
-@inline bottom_ice_formation(i, j, k, grid, ::Nothing, args...) = zero(grid)
-@inline thickness_growth(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline vertical_growth(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline  lateral_growth(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
@@ -150,8 +150,9 @@ import Oceananigans.Utils: prettytime
 # TODO: Fix this after this PR
 # include("EnthalpyMethodThermodynamics.jl")
 
-include("slab_sea_ice_thermodynamics.jl")
+include("slab_sea_thermodynamics.jl")
 include("slab_heat_and_tracer_fluxes.jl")
 include("slab_thermodynamics_tendencies.jl")
+include("thermodynamic_time_step.jl")
 
 end

@@ -1,10 +1,10 @@
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 
 # Frazil ice formation
-@inline function bottom_ice_formation(i, j, k, grid,
-                                      thermodynamics::SlabSeaIceThermodynamics,
-                                      bottom_external_heat_flux,
-                                      clock, model_fields)
+@inline function lateral_growth(i, j, k, grid,
+                                thermodynamics::SlabSeaIceThermodynamics,
+                                bottom_external_heat_flux,
+                                clock, model_fields)
 
     phase_transitions = thermodynamics.phase_transitions 
     bottom_heat_bc = thermodynamics.heat_boundary_conditions.bottom
@@ -22,19 +22,17 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
 
     # If ice is consolidated, compute tendency for an ice slab; otherwise
     # just add ocean fluxes from frazil ice formation or melting
-    wb = - Qbᵢ / ℰb
-
-    return wb
+    return - Qbᵢ / ℰb
 end
 
-@inline function thickness_growth(i, j, k, grid,
-                                  thermodynamics::SlabSeaIceThermodynamics,
-                                  ice_thickness,
-                                  ice_concentration,
-                                  ice_consolidation_thickness,
-                                  top_external_heat_flux,
-                                  bottom_external_heat_flux,
-                                  clock, model_fields)
+@inline function vertical_growth(i, j, k, grid,
+                                 thermodynamics::SlabSeaIceThermodynamics,
+                                 ice_thickness,
+                                 ice_concentration,
+                                 ice_consolidation_thickness,
+                                 top_external_heat_flux,
+                                 bottom_external_heat_flux,
+                                 clock, model_fields)
 
     phase_transitions = thermodynamics.phase_transitions
 
