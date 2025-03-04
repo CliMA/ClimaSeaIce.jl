@@ -77,6 +77,12 @@ end
     # To account for this, we recalculate the actual volume derivative
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
 
+    # Probably need to change this: 
+    # - If the ice is growing this is good
+    # - If the ice is melting, this is bad because we just remove concentration,
+    #   but we should probably start by removing thickness until we reach the consolidation thickness
+    #   and then remove concentration.
+    
     # Simple explicit step, we assume lateral growth 
     # (at the beginning) contributes only to the ice concentration
     ℵ⁺ = ℵⁿ + Δt * Gᴸ / max(hⁿ, hᶜ)
