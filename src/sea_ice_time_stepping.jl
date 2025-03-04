@@ -89,7 +89,7 @@ end
 function update_state!(model::SIM)
     
     foreach(prognostic_fields(model)) do field
-        mask_immersed_field_xy!(field, k=size(grid, 3))
+        mask_immersed_field_xy!(field, k=size(model.grid, 3))
     end
 
     fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
