@@ -1,6 +1,7 @@
 using Oceananigans.Utils: Time
 using Oceananigans.Fields: flattened_unique_values
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
+using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
 using ClimaSeaIce.SeaIceMomentumEquations: step_momentum!
 
