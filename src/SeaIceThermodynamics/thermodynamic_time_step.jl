@@ -50,6 +50,7 @@ end
     
     @inbounds hⁿ = ice_thickness[i, j, 1]
     @inbounds ℵⁿ = ice_concentration[i, j, 1]
+    @inbounds hᶜ = ice_consolidation_thickness[i, j, 1]
 
     Gⱽ = vertical_growth(i, j, 1, grid,
                          thermodynamics,
@@ -78,7 +79,11 @@ end
 
     # Simple explicit step, we assume lateral growth 
     # (at the beginning) contributes only to the ice concentration
-    ℵ⁺ = ℵⁿ + Δt * Gᴸ / hⁿ * (hⁿ > 0)
+    # This ice grows following the 
+    ℵ⁺ = ℵⁿ + Δt * Gᴸ / max(hⁿ, hᶜ)
+
+    @show Gᴸ, Gⱽ, hⁿ * ℵⁿ, Vⁿ⁺¹, ℵ⁺
+
     ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
 
     # The concentration derivative
@@ -86,7 +91,7 @@ end
 
     # Adjust the thickness accordingly
     h⁺ = hⁿ + Δt * (∂t_V - hⁿ * ∂t_ℵ) / ℵ⁺ * (ℵ⁺ > 0)
-
+        
     # Ridging and rafting caused by the thermodynamic step
     h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
     ℵ⁺ = ifelse(Vⁿ⁺¹ == 0, zero(ℵ⁺), ℵ⁺)

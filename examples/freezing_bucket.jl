@@ -53,15 +53,17 @@ top_heat_boundary_condition = PrescribedTemperature(-10)
 # slab sea ice representation of thermodynamics
 
 thermodynamics = SlabSeaIceThermodynamics(grid;
-                                              internal_heat_flux,
-                                              phase_transitions,
-                                              top_heat_boundary_condition)
+                                          internal_heat_flux,
+                                          phase_transitions,
+                                          top_heat_boundary_condition)
+
+# We also prescribe a frazil ice heat flux that stops 
+# when the ice has reached a concentration of 1.
+@inline frazil_ice_formation(i, j, grid, Tuᵢ, clock, fields) = - (1 - fields.ℵ[i, j, 1]) # W m⁻²
+bottom_heat_flux = FluxFunction(frazil_ice_formation)
 
 # Then we assemble it all into a model,
-model = SeaIceModel(grid; thermodynamics)
-
-# The ice concentration is set to 1 everywhere, otherwise the ice cannot grow!
-fill!(model.ice_concentration, 1)
+model = SeaIceModel(grid; thermodynamics, bottom_heat_flux)
 
 # Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!
@@ -72,8 +74,6 @@ model.thermodynamics.heat_boundary_conditions.bottom
 # thickness of 1 cm,
 
 simulation = Simulation(model, Δt=10minute, stop_time=10days)
-
-set!(model, h=0.01)
 
 # # Collecting data and running the simulation
 #
@@ -86,7 +86,8 @@ timeseries = []
 ## Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
     h = sim.model.ice_thickness
-    push!(timeseries, (time(sim), first(h)))
+    ℵ = sim.model.ice_concentration
+    push!(timeseries, (time(sim), first(h), first(ℵ)))
 end
 
 ## Add the callback to `simulation`
@@ -106,20 +107,24 @@ using CairoMakie
 # to build `Vector`s of time `t` and thickness `h`. It's not much work though:
 t = [datum[1] for datum in timeseries]
 h = [datum[2] for datum in timeseries]
+ℵ = [datum[3] for datum in timeseries]
+V = h .* ℵ
 
 # Just for fun, we also compute the velocity of the ice-water interface:
-dhdt = @. (h[2:end] - h[1:end-1]) / simulation.Δt
+dVdt = @. (h[2:end] .* ℵ[2:end] - h[1:end-1] .* ℵ[1:end-1]) / simulation.Δt
 
 # All that's left, really, is to put those `lines!` in an `Axis`:
 set_theme!(Theme(fontsize=24, linewidth=4))
 
-fig = Figure(size=(1200, 600))
+fig = Figure(size=(1600, 700))
 
 axh = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (cm)")
-axd = Axis(fig[1, 2], xlabel="Ice thickness (cm)", ylabel="Freezing rate (μm s⁻¹)")
+axℵ = Axis(fig[1, 2], xlabel="Time (days)", ylabel="Ice concentration (-)")
+axV = Axis(fig[1, 3], xlabel="Ice Volume (cm)", ylabel="Freezing rate (μm s⁻¹)")
 
 lines!(axh, t ./ day, 1e2 .* h)
-lines!(axd, 1e2 .* h[1:end-1], 1e6 .* dhdt)
+lines!(axℵ, t ./ day, ℵ)
+lines!(axV, 1e2 .* V[1:end-1], 1e6 .* dhdt)
 
 current_figure() # hide
 fig
