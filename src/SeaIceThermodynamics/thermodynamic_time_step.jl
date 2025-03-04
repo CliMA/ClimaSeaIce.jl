@@ -92,6 +92,6 @@ end
     ℵ⁺ = ifelse(Vⁿ⁺¹ == 0, zero(ℵ⁺), ℵ⁺)
     h⁺ = ifelse(Vⁿ⁺¹ == 0, zero(h⁺), h⁺)
     
-    @inbounds ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
-    @inbounds h[i, j, k] = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
+    @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
+    @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
 end

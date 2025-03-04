@@ -3,7 +3,7 @@ using Oceananigans.Utils
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
 # Simple explicit stepping of the momentum equations
-function step_momentum!(model, ::ExplicitMomentumEquation, Δt, args...)
+function step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     grid = model.grid
     arch = architecture(grid)
 

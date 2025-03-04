@@ -38,9 +38,9 @@ end
         Gⁿ.h[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_thickness)
         Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_concentration)
 
-        for (n, θ) in enumerate(tracers)
-            @inbounds Gⁿ[n] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, θ)
-        end
+        # for (n, θ) in enumerate(tracers)
+        #     @inbounds Gⁿ[n] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, θ)
+        # end
     end
 end
 

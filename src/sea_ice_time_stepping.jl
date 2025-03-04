@@ -44,7 +44,7 @@ function step_tracers!(model::SIM, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _step_tracers!, h, ℵ, hmin, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
 
     return nothing
 end
