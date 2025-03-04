@@ -78,7 +78,6 @@ end
     thin_ice = (0 < h⁺ < h⁻) # Thin ice condition
 
     ht = ifelse(thin_ice, h⁻, h⁺) # Non conservative adjustement of thickness
-    V⁺ = h⁺ * ℵ⁺ # Total sea ice volume
     ht = ifelse(ℵ⁺ > 1, ht * ℵ⁺, ht)
     ℵt = ifelse(ht == 0, zero(ℵ⁺), ℵ⁺)
     ht = ifelse(ht == 0, h⁻, ht)
@@ -90,7 +89,7 @@ end
 function update_state!(model::SIM)
     
     foreach(prognostic_fields(model)) do field
-        mask_immersed_field!(field)
+        mask_immersed_field_xy!(field, k=size(grid, 3))
     end
 
     fill_halo_regions!(prognostic_fields(model), model.clock, fields(model))
