@@ -81,9 +81,6 @@ end
     # (at the beginning) contributes only to the ice concentration
     # This ice grows following the 
     ℵ⁺ = ℵⁿ + Δt * Gᴸ / max(hⁿ, hᶜ)
-
-    @show Gᴸ, Gⱽ, hⁿ * ℵⁿ, Vⁿ⁺¹, ℵ⁺
-
     ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
 
     # The concentration derivative
