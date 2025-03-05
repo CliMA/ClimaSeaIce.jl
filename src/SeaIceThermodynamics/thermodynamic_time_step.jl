@@ -95,7 +95,6 @@ end
     hᶠ = hⁿ + Δt * ∂t_V * ℵⁿ * !open_ocean
     hᵐ = hⁿ + Δt * ∂t_V * ℵⁿ * consolidated
     hᵐ = max(hᵐ, zero(hᵐ))
-
     h⁺ = ifelse(freezing, hᶠ, hᵐ)
 
     # There is also a very particular case when the ice is nucleating corresponding
@@ -110,4 +109,6 @@ end
     # Ridging caused by the thermodynamic step
     @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
     @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
+
+    @show i, ℵ⁺
 end
