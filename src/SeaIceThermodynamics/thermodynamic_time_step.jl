@@ -52,19 +52,15 @@ end
     @inbounds ℵⁿ = ice_concentration[i, j, 1]
     @inbounds hᶜ = ice_consolidation_thickness[i, j, 1]
 
-    Gⱽ = vertical_growth(i, j, 1, grid,
-                         thermodynamics,
-                         ice_thickness,
-                         ice_concentration,
-                         ice_consolidation_thickness,
-                         top_external_heat_flux,
-                         bottom_external_heat_flux,
-                         clock, model_fields)
-
-    Gᴸ = lateral_growth(i, j, 1, grid, thermodynamics, bottom_external_heat_flux, clock, model_fields)
-
     # Total volume tendency
-    ∂t_V = Gᴸ + Gⱽ
+    ∂t_V = thermodynamic_tendency(i, j, 1, grid,
+                                  thermodynamics,
+                                  ice_thickness,
+                                  ice_concentration,
+                                  ice_consolidation_thickness,
+                                  top_external_heat_flux,
+                                  bottom_external_heat_flux,
+                                  clock, model_fields)
 
     # ice volume at timestep n+1
     Vⁿ⁺¹ = hⁿ * ℵⁿ + Δt * ∂t_V

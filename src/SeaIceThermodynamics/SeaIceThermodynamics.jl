@@ -121,8 +121,7 @@ end
 end
 
 # Fallback for no thermodynamics
-@inline vertical_growth(i, j, k, grid, ::Nothing, args...) = zero(grid)
-@inline  lateral_growth(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline thermodynamic_tendency(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
