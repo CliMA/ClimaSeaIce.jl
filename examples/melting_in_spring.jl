@@ -94,7 +94,7 @@ h4 = [datum[11] for datum in timeseries]
 ℵ4 = [datum[12] for datum in timeseries]
 T4 = [datum[13] for datum in timeseries]
 
-set_theme!(Theme(fontsize=24, linewidth=4))
+set_theme!(Theme(fontsize=18, linewidth=3))
 
 fig = Figure(size=(1000, 800))
 
