@@ -23,7 +23,7 @@ parameters = (
     transfer_coefficient     = 1e-3,  # Unitless
     atmosphere_density       = 1.225, # kg m⁻³
     atmosphere_heat_capacity = 1004,  # 
-    atmosphere_temperature   = [-20, -10, -1, -0.1],    # ᵒC
+    atmosphere_temperature   = [-20, -10, -5, 0],    # ᵒC
     atmosphere_wind_speed    = 5      # m s⁻¹
 )
 
@@ -49,7 +49,7 @@ lake = (
     lake_heat_capacity   = 4000,  # 
     lake_temperature     = [1.0, 1.0, 1.0, 1.0], # ᵒC
     lake_depth           = 10, # m
-    atmosphere           = parameters
+    atmosphere           = parameters,
     Δt                   = 10minutes
 )
 
@@ -140,7 +140,7 @@ L2 = [datum[15] for datum in timeseries]
 L3 = [datum[16] for datum in timeseries]
 L4 = [datum[17] for datum in timeseries]
 
-set_theme!(Theme(fontsize=24, linewidth=4))
+set_theme!(Theme(fontsize=18, linewidth=3))
 
 fig = Figure(size=(1000, 900))
 
