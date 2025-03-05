@@ -1,4 +1,4 @@
-# # Melting in Spring
+# # Freezing in Winter
 #
 # A simulation that mimicks the melting of (relatively thick) sea ice in the spring
 # when the sun is shining. The ice is subject to solar insolation and sensible heat
@@ -17,20 +17,13 @@ using CairoMakie
 
 grid = RectilinearGrid(size=4, x=(0, 1), topology=(Periodic, Flat, Flat))
 
-# Build a model of an ice slab that has internal conductive fluxes
-# and that emits radiation from its top surface.
-
-solar_insolation = [-600, -800, -1000, -1200] # W m⁻²
-solar_insolation = reshape(solar_insolation, (4, 1, 1))
-outgoing_radiation = RadiativeEmission()
-
 # The sensible heat flux from the atmosphere is represented by a `FluxFunction`.
 
 parameters = (
     transfer_coefficient     = 1e-3,  # Unitless
     atmosphere_density       = 1.225, # kg m⁻³
     atmosphere_heat_capacity = 1004,  # 
-    atmosphere_temperature   = -5,    # ᵒC
+    atmosphere_temperature   = [-20, -10, -1, -0.1],    # ᵒC
     atmosphere_wind_speed    = 5      # m s⁻¹
 )
 
@@ -38,24 +31,65 @@ parameters = (
     Cₛ = parameters.transfer_coefficient
     ρₐ = parameters.atmosphere_density
     cₐ = parameters.atmosphere_heat_capacity
-    Tₐ = parameters.atmosphere_temperature
+    Tₐ = parameters.atmosphere_temperature[i]
     uₐ = parameters.atmosphere_wind_speed
-
+    
     # Flux is positive (cooling by fluxing heat up away from upper surface)
     # when Tₐ < Tᵤ:
     return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ)
 end
 
+# We also evolve a bucket freshwater lake that cools down and freezes the ice from below.
+
+lake = (
+    lake_density         = 1000, # kg m⁻³
+    lake_heat_capacity   = 4000,  # 
+    lake_temperature     = [1.0, 1.0, 1.0, 1.0], # ᵒC
+    lake_depth           = 10, # m
+    atmosphere           = parameters
+)
+
+@inline function advance_ocean_and_bottom_heat_flux(i, j, grid, Tuᵢ, clock, fields, parameters)
+    # First we calculate the heat flux between the atmosphere and the ocean
+    atmos = parameters.atmosphere
+
+    Cₛ = atmos.transfer_coefficient
+    ρₐ = atmos.atmosphere_density
+    cₐ = atmos.atmosphere_heat_capacity
+    Tₐ = atmos.atmosphere_temperature[i]
+    uₐ = atmos.atmosphere_wind_speed
+    Tₒ = parameters.lake_temperature
+    cₒ = parameters.lake_heat_capacity
+    ρₒ = parameters.lake_density
+    Δ  = parameters.lake_depth
+    ℵ  = fields.ℵ[i, j, 1]
+
+    Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
+
+    # Cool down the ocean
+    Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * 10minute
+
+    # If the ocean temperature is low enough, we freeze the ice from below
+    # and add the heat flux to the bottom of the ice
+    Qᵢ = ρₒ * cₒ * (Tₒ[i] - 0) / 10minute * Δ # W m⁻²
+    Qᵢ = min(Qᵢ, zero(Qᵢ)) # We only freeze, not melt
+
+    Tₒ[i] = ifelse(Qᵢ == 0, Tₒ[i], zero(Qᵢ))
+
+    return Qᵢ
+end
+
 aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)
-top_heat_flux = (outgoing_radiation, solar_insolation, aerodynamic_flux)
+top_heat_flux = (aerodynamic_flux)
+bottom_heat_flux = FluxFunction(advance_ocean_and_bottom_heat_flux; parameters=lake)
 
 model = SeaIceModel(grid;
                     ice_consolidation_thickness = 0.05, # m
-                    top_heat_flux)
+                    top_heat_flux, 
+                    bottom_heat_flux)
 
-# We initialize all the columns with a 1 m thick slab of ice with 100% ice concentration.
-            
-set!(model, h=1, ℵ=1)
+# We initialize all the columns with open ocean (0 thickness and 0 concentration)
+set!(model, h=0, ℵ=0)
 
 simulation = Simulation(model, Δt=10minute, stop_time=30days)
 
@@ -64,14 +98,16 @@ simulation = Simulation(model, Δt=10minute, stop_time=30days)
 timeseries = []
 
 function accumulate_timeseries(sim)
-    T = model.thermodynamics.top_surface_temperature
-    h = model.ice_thickness
-    ℵ = model.ice_concentration
+    T  = model.thermodynamics.top_surface_temperature
+    h  = model.ice_thickness
+    ℵ  = model.ice_concentration
+    To = lake.lake_temperature
     push!(timeseries, (time(sim),
                        h[1, 1, 1], ℵ[1, 1, 1], T[1, 1, 1],
                        h[2, 1, 1], ℵ[2, 1, 1], T[2, 1, 1],
                        h[3, 1, 1], ℵ[3, 1, 1], T[3, 1, 1],
-                       h[4, 1, 1], ℵ[4, 1, 1], T[4, 1, 1]))
+                       h[4, 1, 1], ℵ[4, 1, 1], T[4, 1, 1],
+                       To[1], To[2], To[3], To[4]))
 end
 
 simulation.callbacks[:save] = Callback(accumulate_timeseries)
@@ -93,33 +129,42 @@ T3 = [datum[10] for datum in timeseries]
 h4 = [datum[11] for datum in timeseries]
 ℵ4 = [datum[12] for datum in timeseries]
 T4 = [datum[13] for datum in timeseries]
+L1 = [datum[14] for datum in timeseries]
+L2 = [datum[15] for datum in timeseries]
+L3 = [datum[16] for datum in timeseries]
+L4 = [datum[17] for datum in timeseries]
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 
-fig = Figure(size=(1000, 800))
+fig = Figure(size=(1000, 900))
 
 axT = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Top temperature (ᵒC)")
 axℵ = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice concentration (-)")
 axh = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
+axL = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Lake temperature (ᵒC)")
 
 lines!(axT, t / day, T1)
 lines!(axℵ, t / day, ℵ1)
 lines!(axh, t / day, h1)
+lines!(axL, t / day, L1)
 
 lines!(axT, t / day, T2)
 lines!(axℵ, t / day, ℵ2)
 lines!(axh, t / day, h2)
+lines!(axL, t / day, L2)
 
 lines!(axT, t / day, T3)
 lines!(axℵ, t / day, ℵ3)
 lines!(axh, t / day, h3)
+lines!(axL, t / day, L3)
 
 lines!(axT, t / day, T4)
 lines!(axℵ, t / day, ℵ4)
 lines!(axh, t / day, h4)
+lines!(axL, t / day, L4)
 
-save("melting_in_spring.png", fig)
+save("freezing_in_winter.png", fig)
 nothing # hide
 
-# ![](melting_in_spring.png)
+# ![](freezing_in_winter.png)
 
