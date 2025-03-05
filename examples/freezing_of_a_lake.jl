@@ -53,29 +53,31 @@ lake = (
     Δt                   = 10minutes
 )
 
-@inline function advance_lake_and_frazil_flux(i, j, grid, Tuᵢ, clock, fields, parameters)
-    # First we calculate the heat flux between the atmosphere and the ocean
-    atmos = parameters.atmosphere
+# We build a flux function that serves three purposes:
+# 1. computing the cooling of the lake caused by the atmosphere
+# 2. If the lake temperature is low enough, freezing the lake from above
+# 3. and adding the heat flux to the bottom of the ice
 
-    Cₛ = atmos.transfer_coefficient
+@inline function advance_lake_and_frazil_flux(i, j, grid, Tuᵢ, clock, fields, parameters)
+    atmos = parameters.atmosphere
+    lake  = parameters
+
+    Cₛ  = atmos.transfer_coefficient
     ρₐ = atmos.atmosphere_density
     cₐ = atmos.atmosphere_heat_capacity
     Tₐ = atmos.atmosphere_temperature[i]
     uₐ = atmos.atmosphere_wind_speed
-    Tₒ = parameters.lake_temperature
-    cₒ = parameters.lake_heat_capacity
-    ρₒ = parameters.lake_density
-    Δ  = parameters.lake_depth
+    Tₒ = lake.lake_temperature
+    cₒ = lake.lake_heat_capacity
+    ρₒ = lake.lake_density
+    Δ  = lake.lake_depth
     ℵ  = fields.ℵ[i, j, 1]
-    Δt = parameters.Δt
+    Δt = lake.Δt
 
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
 
-    # Cool down the ocean
     Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
 
-    # If the ocean temperature is low enough, we freeze the ice from below
-    # and add the heat flux to the bottom of the ice
     Qᵢ = ρₒ * cₒ * (Tₒ[i] - 0) / Δt * Δ # W m⁻²
     Qᵢ = min(Qᵢ, zero(Qᵢ)) # We only freeze, not melt
 
