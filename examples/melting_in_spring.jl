@@ -1,9 +1,19 @@
+# # Melting in Spring
+#
+# A simulation that mimicks the melting of (relatively thick) sea ice in the spring
+# when the sun is shining. The ice is subject to solar insolation and sensible heat
+# fluxes from the atmosphere. Different cells show how the ice melts at different rates
+# depending on the amount of solar insolation they receive.
+#
+# We start by `using Oceananigans` to bring in functions for building grids
+# and `Simulation`s and the like.
+
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
-using GLMakie
+using CairoMakie
 
-# Generate a 0D grid for a single column slab model 
+# Generate a 1D grid for difference ice columns subject to different solar insolation
 
 grid = RectilinearGrid(size=4, x=(0, 1), topology=(Periodic, Flat, Flat))
 
@@ -14,7 +24,7 @@ solar_insolation = [-600, -800, -1000, -1200] # W m⁻²
 solar_insolation = reshape(solar_insolation, (4, 1, 1))
 outgoing_radiation = RadiativeEmission()
 
-# Define a FluxFunction representing a sensible heat flux
+# The sensible heat flux from the atmosphere is represented by a `FluxFunction`.
 
 parameters = (
     transfer_coefficient     = 1e-3,  # Unitless
@@ -43,13 +53,13 @@ model = SeaIceModel(grid;
                     ice_consolidation_thickness = 0.05, # m
                     top_heat_flux)
 
-# We initialize the model with a 1 m thick slab of ice with 100% ice concentration.
+# We initialize all the columns with a 1 m thick slab of ice with 100% ice concentration.
             
 set!(model, h=1, ℵ=1)
 
 simulation = Simulation(model, Δt=10minute, stop_time=30days)
 
-# Accumulate data
+# The data is accumulated in a timeseries for visualization.
 
 timeseries = []
 
@@ -108,5 +118,8 @@ lines!(axT, t / day, T4)
 lines!(axℵ, t / day, ℵ4)
 lines!(axh, t / day, h4)
 
-display(fig)
+save("melting_in_march.png", fig)
+nothing # hide
+
+# ![](melting_in_march.png)
 

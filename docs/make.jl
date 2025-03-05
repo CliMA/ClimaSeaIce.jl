@@ -14,6 +14,7 @@ const OUTPUT_DIR   = joinpath(@__DIR__, "src/literated")
 
 example_scripts = [
     "freezing_bucket.jl",
+    "melting_in_spring.jl",
     "ice_advected_by_anticyclone.jl",
     "ice_advected_on_coastline.jl",
 ]
@@ -25,6 +26,7 @@ end
 
 example_pages = [
     "Freezing bucket" => "literated/freezing_bucket.md",
+    "Melting in Spring" => "literated/melting_in_spring.md",
     "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
     "Ice advected on coastline" => "literated/ice_advected_on_coastline.md",
 ]

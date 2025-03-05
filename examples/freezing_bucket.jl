@@ -3,7 +3,7 @@
 # A common laboratory experiment freezes an insultated bucket of water
 # from the top down, using a metal lid to keep the top of the bucket
 # at some constant, very cold temperature. In this example, we simulate such
-# a scenario using `SlabSeaIceModel`. Here, the bucket is perfectly insulated
+# a scenario using the `SeaIceModel`. Here, the bucket is perfectly insulated
 # and infinitely deep, like many buckets are: if the `Simulation` is run for longer,
 # the ice will keep freezing, and freezing, and will never run out of water.
 # Also, the water in the infinite bucket is (somehow) all at the same temperature,
@@ -130,8 +130,10 @@ lines!(axh, t ./ day, 1e2 .* h)
 lines!(axℵ, t ./ day, ℵ)
 lines!(axV, 1e2 .* V[1:end-1], 1e6 .* dVdt)
 
-current_figure() # hide
-fig
+save("freezing_bucket.png", fig)
+nothing # hide
+
+# ![](freezing_bucket.png)
 
 # If you want more ice, you can increase `simulation.stop_time` and
 # `run!(simulation)` again (or just re-run the whole script).
