@@ -1,9 +1,9 @@
-# # Freezing in Winter
+# # Freezing of a lake
 #
-# A simulation that mimicks the melting of (relatively thick) sea ice in the spring
-# when the sun is shining. The ice is subject to solar insolation and sensible heat
-# fluxes from the atmosphere. Different cells show how the ice melts at different rates
-# depending on the amount of solar insolation they receive.
+# In this example we simulate the freezing of a lake in winter. The lake is
+# represented by four points that start at 1ᵒC and are cooled down by an atmosphere with 
+# temperatures of -20, -10, -1, and -0.1ᵒC. The lake is 10 m deep and not subjected to 
+# radiative transfer (this lake is covered in a wind tunnel under which we blow some cold air).
 #
 # We start by `using Oceananigans` to bring in functions for building grids
 # and `Simulation`s and the like.
@@ -39,7 +39,10 @@ parameters = (
     return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ)
 end
 
-# We also evolve a bucket freshwater lake that cools down and freezes the ice from below.
+# We also evolve a bucket freshwater lake that cools down and freezes from below
+# generating fresh sea-ice (or lake-ice in this case?).
+# We set the Δt of the lake to 10 minutes. This time step will be used to also for the sea-ice
+# model.
 
 lake = (
     lake_density         = 1000, # kg m⁻³
@@ -47,9 +50,10 @@ lake = (
     lake_temperature     = [1.0, 1.0, 1.0, 1.0], # ᵒC
     lake_depth           = 10, # m
     atmosphere           = parameters
+    Δt                   = 10minutes
 )
 
-@inline function advance_ocean_and_bottom_heat_flux(i, j, grid, Tuᵢ, clock, fields, parameters)
+@inline function advance_lake_and_frazil_flux(i, j, grid, Tuᵢ, clock, fields, parameters)
     # First we calculate the heat flux between the atmosphere and the ocean
     atmos = parameters.atmosphere
 
@@ -63,15 +67,16 @@ lake = (
     ρₒ = parameters.lake_density
     Δ  = parameters.lake_depth
     ℵ  = fields.ℵ[i, j, 1]
+    Δt = parameters.Δt
 
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
 
     # Cool down the ocean
-    Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * 10minute
+    Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
 
     # If the ocean temperature is low enough, we freeze the ice from below
     # and add the heat flux to the bottom of the ice
-    Qᵢ = ρₒ * cₒ * (Tₒ[i] - 0) / 10minute * Δ # W m⁻²
+    Qᵢ = ρₒ * cₒ * (Tₒ[i] - 0) / Δt * Δ # W m⁻²
     Qᵢ = min(Qᵢ, zero(Qᵢ)) # We only freeze, not melt
 
     Tₒ[i] = ifelse(Qᵢ == 0, Tₒ[i], zero(Qᵢ))
@@ -81,17 +86,18 @@ end
 
 aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)
 top_heat_flux = (aerodynamic_flux)
-bottom_heat_flux = FluxFunction(advance_ocean_and_bottom_heat_flux; parameters=lake)
+bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux; parameters=lake)
 
 model = SeaIceModel(grid;
                     ice_consolidation_thickness = 0.05, # m
                     top_heat_flux, 
                     bottom_heat_flux)
 
-# We initialize all the columns with open ocean (0 thickness and 0 concentration)
+# We initialize all the columns with open water (0 thickness and 0 concentration)
+
 set!(model, h=0, ℵ=0)
 
-simulation = Simulation(model, Δt=10minute, stop_time=30days)
+simulation = Simulation(model, Δt=lake.Δt, stop_time=30days)
 
 # The data is accumulated in a timeseries for visualization.
 
