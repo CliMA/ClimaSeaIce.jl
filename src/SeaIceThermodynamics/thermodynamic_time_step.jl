@@ -72,33 +72,42 @@ end
     # Adjust the ice volume to zero
     Vⁿ⁺¹ = max(zero(Vⁿ⁺¹), Vⁿ⁺¹)
 
-    # If Vⁿ⁺¹ == 0 the ice has melted completely, and we set both hⁿ⁺¹ and ℵⁿ⁺¹ to zero
-    # Otherwise, if the volume is positive, we adjust the thickness and concentration conservatively
-    # To account for this, we recalculate the actual volume derivative
+    # We recalculate the actual volume derivative, after accounting for the
+    # volume adjustment (the ice cannot produce more melt than its actual volume!)
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
 
-    # Probably need to change this: 
-    # - If the ice is growing this is good
-    # - If the ice is melting, this is bad because we just remove concentration,
-    #   but we should probably start by removing thickness until we reach the consolidation thickness
-    #   and then remove concentration.
-    
-    # Simple explicit step, we assume lateral growth 
-    # (at the beginning) contributes only to the ice concentration
-    ℵ⁺ = ℵⁿ + Δt * Gᴸ / max(hⁿ, hᶜ)
-    ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
+    # There are 6 typical cases depending on the sign of ∂t_V, ℵⁿ and hⁿ
+    #
+    # - ∂t_V ≥ 0 : the ice is growing * easy case to handle *
+    # ├── ℵⁿ == 0 -> new ice is forming (we only increase ℵⁿ, post increase ridging will adjust h)
+    # └── ℵⁿ > 0  -> ice is growing (we increase both ℵ and h based on ℵⁿ)
+    #
+    # - ∂t_V < 0 : the ice is melting * tricky case to handle *
+    # ├── ℵⁿ == 0 -> not possible! (there is no ice to begin with)
+    # ├── h > hᶜ  -> ice is melting (we decrease both ℵ and h based on ℵⁿ)
+    # └── h ≤ hᶜ  -> unconsolidated ice is melting (we only decrease ℵⁿ)
 
-    # The concentration derivative
-    ∂t_ℵ = (ℵ⁺ - ℵⁿ) / Δt
+    freezing     = ∂t_V > 0  
+    consolidated = hⁿ > hᶜ
+    open_ocean   = ℵⁿ == 0
 
-    # Adjust the thickness accordingly
-    h⁺ = hⁿ + Δt * (∂t_V - hⁿ * ∂t_ℵ) / ℵ⁺ * (ℵ⁺ > 0)
-        
-    # Ridging and rafting caused by the thermodynamic step
-    h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
-    ℵ⁺ = ifelse(Vⁿ⁺¹ == 0, zero(ℵ⁺), ℵ⁺)
-    h⁺ = ifelse(Vⁿ⁺¹ == 0, zero(h⁺), h⁺)
+    # Freezing and melting cases:
+    hᶠ = hⁿ + Δt * ∂t_V * ℵⁿ * !open_ocean
+    hᵐ = hⁿ + Δt * ∂t_V * ℵⁿ * consolidated
+    hᵐ = max(hᵐ, zero(hᵐ))
+
+    h⁺ = ifelse(freezing, hᶠ, hᵐ)
+
+    # There is also a very particular case when the ice is nucleating corresponding
+    # h⁺ == 0 and freezing. In this case, we set h = hᶜ and advance ℵ accordingly
+    h⁺ = ifelse(freezing & (h⁺ == 0), hᶜ, h⁺)
+    ℵ⁺ = Vⁿ⁺¹ / h⁺
     
+    # No volume change
+    ℵ⁺ = ifelse(∂t_V == 0, ℵⁿ, ℵ⁺)
+    h⁺ = ifelse(∂t_V == 0, hⁿ, h⁺)
+
+    # Ridging caused by the thermodynamic step
     @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
     @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
 end
