@@ -36,6 +36,7 @@ parameters = (
 
 # Flux is positive (cooling by fluxing heat up away from upper surface)
 # when Tₐ < Tᵤ:
+
 @inline function sensible_heat_flux(i, j, grid, Tᵤ, clock, fields, parameters)
     Cₛ = parameters.transfer_coefficient
     ρₐ = parameters.atmosphere_density
