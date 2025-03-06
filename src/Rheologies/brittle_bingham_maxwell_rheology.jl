@@ -47,11 +47,12 @@ rheology_prognostic_tracers(::BrittleBinghamMaxwellRheology) =  (:d, :σ₁₁, 
 function rheology_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     
     # TODO: What about boundary conditions?
-    P = Field{Center, Center, Nothing}(grid)
-    E = Field{Center, Center, Nothing}(grid)
-    λ = Field{Center, Center, Nothing}(grid)
-    
-    return (; P, E, λ)
+    P  = Field{Center, Center, Nothing}(grid)
+    E  = Field{Center, Center, Nothing}(grid)
+    λ  = Field{Center, Center, Nothing}(grid)
+    σ¹ = Field{Center, Center, Nothing}(grid)
+    σ² = Field{Center, Center, Nothing}(grid)
+    return (; P, E, λ, σ¹, σ²)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
@@ -117,6 +118,7 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     ρᵢ   = model.ice_density
     u, v = model.velocities
     fields = dynamics.auxiliary_fields
+    tracers = model.tracers
 
     Nx, Ny, _ = size(grid)
     Hx, Hy, _ = halo_size(grid)
@@ -126,72 +128,18 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, parameters, _compute_stress_predictors!, fields, grid, rheology, model.tracers, u, v, ρᵢ, Δτ)
-    launch!(arch, grid, parameters, _advance_stresses!, fields, grid, rheology, model.tracers, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _compute_stress_predictors!,   fields,  grid, rheology, tracers, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, parameters, _advance_stresses_and_damage!, tracers, grid, rheology, fields,  ρᵢ, Δτ)
 
     return nothing
 end
 
-@inline  σᴵ(i, j, k, grid, tracers) = @inbounds (tracers.σ₁₁[i, j, k] + tracers.σ₂₂[i, j, k]) / 2
-@inline σᴵᴵ(i, j, k, grid, tracers) = @inbounds sqrt((tracers.σ₁₁[i, j, k] - tracers.σ₂₂[i, j, k])^2 / 4 + tracers.σ₁₂[i, j, k]^2)
-
-@inline function reconstruction_2d(i, j, k, grid, f, args...)
-    fij = f(i,   j,   k, grid, args...)
-    fmj = f(i-1, j,   k, grid, args...)
-    fpj = f(i+1, j,   k, grid, args...)
-    fim = f(i,   j-1, k, grid, args...)
-    fip = f(i,   j+1, k, grid, args...)
-    fmm = f(i-1, j-1, k, grid, args...)
-    fmp = f(i-1, j+1, k, grid, args...)
-    fpm = f(i+1, j-1, k, grid, args...)
-    fpp = f(i+1, j+1, k, grid, args...)
-
-    # remove NaNs
-    isnanij = isnan(fij)
-    isnanmj = isnan(fmj)
-    isnanpj = isnan(fpj)
-    isnanim = isnan(fim)
-    isnanip = isnan(fip)
-    isnanmm = isnan(fmm)
-    isnanmp = isnan(fmp)
-    isnanpm = isnan(fpm)
-    isnanpp = isnan(fpp)
-
-    fij = ifelse(isnanij, zero(grid), fij) / 4
-    fmj = ifelse(isnanmj, zero(grid), fmj) / 8
-    fpj = ifelse(isnanpj, zero(grid), fpj) / 8
-    fim = ifelse(isnanim, zero(grid), fim) / 8
-    fip = ifelse(isnanip, zero(grid), fip) / 8
-    fmm = ifelse(isnanmm, zero(grid), fmm) / 16
-    fmp = ifelse(isnanmp, zero(grid), fmp) / 16
-    fpm = ifelse(isnanpm, zero(grid), fpm) / 16
-    fpp = ifelse(isnanpp, zero(grid), fpp) / 16
-
-    return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
-end
-
-@inline function dcritical(i, j, k, grid, N, c, μ, tracers)
-    σI  = σᴵ(i, j, k, grid, tracers)
-    σII = σᴵᴵ(i, j, k, grid, tracers)
-    return one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
-end
-
-@inline function dcrit2(i, j, k, grid, N, c, μ, tracers)
-
-    σI  =  σᴵ(i, j, k, grid, tracers)
-    σII = σᴵᴵ(i, j, k, grid, tracers)
-
-    m = tand(90 - atand(μ))
-    q = σII - m * σI
-
-    # # Move towards the yield curve in a perpendicular fashion
-    σIf  = (c - q) / (m + μ)
-    σIIf = m * σIf + q
-
-    dcrit = one(grid) - sqrt(σIf^2 + σIIf^2) / sqrt(σI^2 + σII^2)
-    dcrit = ifelse(isnan(dcrit), zero(grid), dcrit)
-
-    return dcrit * (σII > c - μ * σI)
+@inline function critical_damage(i, j, k, grid, N, c, μ, fields)
+    σ¹ = @inbounds fields.σ¹[i, j, k]
+    σ² = @inbounds fields.σ²[i, j, k]
+    dc = one(grid) - ifelse(σ¹ > - N, c / (σ² + μ * σ¹), - N / σ¹)
+    dc = ifelse(isnan(dc), zero(grid), dc)
+    return dc * (σ² > c - μ * σ¹)
 end
 
 @kernel function _compute_stress_predictors!(fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
@@ -225,9 +173,17 @@ end
     @inbounds tracers.σ₁₁[i, j, 1] = Ω * (tracers.σ₁₁[i, j, 1] + Δτ * E * Kϵ₁₁)
     @inbounds tracers.σ₂₂[i, j, 1] = Ω * (tracers.σ₂₂[i, j, 1] + Δτ * E * Kϵ₂₂)
     @inbounds tracers.σ₁₂[i, j, 1] = Ω * (tracers.σ₁₂[i, j, 1] + Δτ * E * Kϵ₁₂)
+
+    σ₁₁ = @inbounds tracers.σ₁₁[i, j, 1]
+    σ₂₂ = @inbounds tracers.σ₂₂[i, j, 1]
+    σ₁₂ = @inbounds tracers.σ₁₂[i, j, 1]
+
+    # Principal stress components
+    @inbounds fields.σ¹[i, j, 1] = (σ₁₁ + σ₂₂) / 2
+    @inbounds fields.σ²[i, j, 1] = sqrt((σ₁₁ - σ₂₂)^2 / 4 + σ₁₂^2)
 end
 
-@kernel function _advance_stresses!(fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
+@kernel function _advance_stresses_and_damage!(tracers, grid, rheology, fields, ρᵢ, Δτ)
     i, j = @index(Global, NTuple)
 
     α = rheology.damage_parameter
@@ -245,7 +201,7 @@ end
     td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))   
 
     # damage tendency
-    Gd = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, tracers) / td
+    Gd = critical_damage(i, j, 1, grid, N, c, μ, fields) / td
      
     # Damage update
     dᵢ += Gd * (1 - dᵢ) * Δτ 
@@ -271,3 +227,60 @@ end
 @inline ice_stress_uy(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, 1, grid, hσ₁₂, fields)
 @inline ice_stress_vx(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, 1, grid, hσ₁₂, fields)
 @inline ice_stress_vy(i, j, k, grid, ::BrittleBinghamMaxwellRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, 1, grid, hσ₂₂, fields)
+
+# Another formulation of the critical Damage
+
+# @inline function dc_perpendicular(i, j, k, grid, N, c, μ, fields)
+
+#     σ¹ = @inbounds fields.σ¹[i, j, k]
+#     σ² = @inbounds fields.σ²[i, j, k]
+
+#     m = tand(90 - atand(μ))
+#     q = σ² - m * σ¹
+
+#     # # Move towards the yield curve in a perpendicular fashion
+#     σᵪ¹ = (c - q) / (m + μ)
+#     σᵪ² = m * σᵪ¹ + q
+
+#     dc = one(grid) - sqrt(σᵪ¹^2 + σᵪ²^2) / sqrt(σ¹^2 + σ²^2)
+#     dc = ifelse(isnan(dc), zero(grid), dc)
+
+#     return dc * (σ² > c - μ * σ¹)
+# end
+#
+# Dcrit needs to be reconstructed
+#
+# @inline function reconstruction_2d(i, j, k, grid, f, args...)
+#     fij = f(i,   j,   k, grid, args...)
+#     fmj = f(i-1, j,   k, grid, args...)
+#     fpj = f(i+1, j,   k, grid, args...)
+#     fim = f(i,   j-1, k, grid, args...)
+#     fip = f(i,   j+1, k, grid, args...)
+#     fmm = f(i-1, j-1, k, grid, args...)
+#     fmp = f(i-1, j+1, k, grid, args...)
+#     fpm = f(i+1, j-1, k, grid, args...)
+#     fpp = f(i+1, j+1, k, grid, args...)
+
+#     # remove NaNs
+#     isnanij = isnan(fij)
+#     isnanmj = isnan(fmj)
+#     isnanpj = isnan(fpj)
+#     isnanim = isnan(fim)
+#     isnanip = isnan(fip)
+#     isnanmm = isnan(fmm)
+#     isnanmp = isnan(fmp)
+#     isnanpm = isnan(fpm)
+#     isnanpp = isnan(fpp)
+
+#     fij = ifelse(isnanij, zero(grid), fij) / 4
+#     fmj = ifelse(isnanmj, zero(grid), fmj) / 8
+#     fpj = ifelse(isnanpj, zero(grid), fpj) / 8
+#     fim = ifelse(isnanim, zero(grid), fim) / 8
+#     fip = ifelse(isnanip, zero(grid), fip) / 8
+#     fmm = ifelse(isnanmm, zero(grid), fmm) / 16
+#     fmp = ifelse(isnanmp, zero(grid), fmp) / 16
+#     fpm = ifelse(isnanpm, zero(grid), fpm) / 16
+#     fpp = ifelse(isnanpp, zero(grid), fpp) / 16
+
+#     return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
+# end
