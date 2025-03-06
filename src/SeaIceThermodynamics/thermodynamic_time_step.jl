@@ -20,7 +20,6 @@ function thermodynamic_step!(model, ::SlabSeaIceThermodynamics, Δt)
             model.external_heat_fluxes.bottom,
             fields(model))
 
-
     return nothing
 end
 
@@ -84,7 +83,7 @@ end
     # └── h ≤ hᶜ  -> unconsolidated ice is melting (we only decrease ℵⁿ)
 
     freezing     = ∂t_V > 0  
-    consolidated = hⁿ > hᶜ
+    consolidated = hⁿ ≥ hᶜ
     open_ocean   = ℵⁿ == 0
 
     # Freezing and melting cases:
