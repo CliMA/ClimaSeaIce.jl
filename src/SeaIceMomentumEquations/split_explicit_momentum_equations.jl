@@ -12,7 +12,7 @@ end
     SplitExplicitSolver(; substeps=120)
 
 Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
-by subcycling `substeps` times in between each thermodynamics / tracer advection time step.
+by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
 """
@@ -25,7 +25,7 @@ const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolv
 
 function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than 
-sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
+sea-ice ice_thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
 function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)

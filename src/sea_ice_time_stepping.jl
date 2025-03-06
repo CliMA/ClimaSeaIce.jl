@@ -18,7 +18,7 @@ function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     model.clock.iteration == 0 && update_state!(model)
 
     # Perform the thermodynamic step
-    thermodynamic_step!(model, model.thermodynamics, Δt)
+    thermodynamic_step!(model, model.ice_thermodynamics, Δt)
 
     # Compute advective tendencies and update 
     # advected tracers

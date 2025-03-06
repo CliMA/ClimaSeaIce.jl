@@ -73,7 +73,7 @@ model = SeaIceModel(grid;
                     advection = WENO(order=7),
                     dynamics = dynamics,
                     boundary_conditions = (; u=u_bcs),
-                    thermodynamics = nothing)
+                    ice_thermodynamics = nothing)
 
 # We start with a concentration of ℵ = 1 everywhere
 set!(model, h = 1)

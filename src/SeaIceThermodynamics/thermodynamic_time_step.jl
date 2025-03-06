@@ -15,7 +15,7 @@ function thermodynamic_step!(model, ::SlabSeaIceThermodynamics, Δt)
             grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
-            model.thermodynamics,
+            model.ice_thermodynamics,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
             fields(model))
@@ -40,7 +40,7 @@ end
                                            Δt,
                                            clock,
                                            ice_consolidation_thickness,
-                                           thermodynamics,
+                                           ice_thermodynamics,
                                            top_external_heat_flux,
                                            bottom_external_heat_flux,
                                            model_fields)
@@ -53,7 +53,7 @@ end
 
     # Total volume tendency
     ∂t_V = thermodynamic_tendency(i, j, 1, grid,
-                                  thermodynamics,
+                                  ice_thermodynamics,
                                   ice_thickness,
                                   ice_concentration,
                                   ice_consolidation_thickness,
