@@ -2,14 +2,14 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.Utils
 using KernelAbstractions: @kernel, @index
 
-thermodynamic_step!(model, ::Nothing, Δt) = nothing
+thermodynamic_time_step!(model, ::Nothing, Δt) = nothing
 
-function thermodynamic_step!(model, ::SlabSeaIceThermodynamics, Δt)
+function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
     grid = model.grid
     arch = architecture(grid)
     
     launch!(arch, grid, :xy,
-            _slab_thermodynamic_step!,
+            _slab_thermodynamic_time_step!,
             model.ice_thickness,
             model.ice_concentration,
             grid, Δt,
@@ -34,7 +34,7 @@ end
 #                             Δt               
 #      
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
-@kernel function _slab_thermodynamic_step!(ice_thickness,
+@kernel function _slab_thermodynamic_time_step!(ice_thickness,
                                            ice_concentration,
                                            grid,
                                            Δt,

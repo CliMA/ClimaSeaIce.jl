@@ -4,7 +4,7 @@ using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_s
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
 using ClimaSeaIce.SeaIceMomentumEquations: time_step_momentum!
-using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_step!
+using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
 
 import Oceananigans.Models: update_model_field_time_series!
 
@@ -18,12 +18,12 @@ function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     model.clock.iteration == 0 && update_state!(model)
 
     # Perform the thermodynamic step
-    thermodynamic_step!(model, model.ice_thermodynamics, Δt)
+    thermodynamic_time_step!(model, model.ice_thermodynamics, Δt)
 
     # Compute advective tendencies and update 
     # advected tracers
     compute_tendencies!(model, Δt)
-    step_tracers!(model, Δt)
+    dynamic_time_step!(model, Δt)
 
     # This is an implicit (or split-explicit) step to advance momentum.
     time_step_momentum!(model, model.dynamics, Δt)
@@ -34,7 +34,7 @@ function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     return nothing
 end
 
-function step_tracers!(model::SIM, Δt)
+function dynamic_time_step!(model::SIM, Δt)
     grid = model.grid
     arch = architecture(grid)
 
@@ -44,7 +44,7 @@ function step_tracers!(model::SIM, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
 
     return nothing
 end
@@ -53,7 +53,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _step_tracers!(h, ℵ, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_tracers!(h, ℵ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
     
