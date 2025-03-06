@@ -149,9 +149,9 @@ import Oceananigans.Utils: prettytime
 # TODO: Fix this after this PR
 # include("EnthalpyMethodThermodynamics.jl")
 
-include("slab_sea_ice_ice_thermodynamics.jl")
+include("slab_sea_ice_thermodynamics.jl")
 include("slab_heat_and_tracer_fluxes.jl")
-include("slab_ice_thermodynamics_tendencies.jl")
+include("slab_thermodynamics_tendencies.jl")
 include("thermodynamic_time_step.jl")
 
 end
