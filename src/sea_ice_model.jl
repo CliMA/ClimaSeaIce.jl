@@ -6,8 +6,9 @@ using Oceananigans: tupleit, tracernames
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+using ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, IS, ID, CT, STF, A, F} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     forcing :: F
@@ -16,10 +17,11 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: Abstra
     tracers :: T
     ice_thickness :: IT
     ice_concentration :: IC
+    ice_salinity :: IS
     ice_density :: ID
     ice_consolidation_thickness :: CT
     # Thermodynamics
-    ice_thermodynamics :: TD
+    thermodynamics :: TD
     # Dynamics
     dynamics :: D
     # External boundary conditions
@@ -29,8 +31,8 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: Abstra
     advection :: A
 end
 
-assumed_sea_ice_field_location(name) = name === :u  ? (Face, Center, Nothing) :
-                                       name === :v  ? (Center, Face, Nothing) :
+assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Face,   Nothing) :
+                                       name === :v  ? (Face,   Face,   Nothing) :
                                                       (Center, Center, Nothing)
 
 function SeaIceModel(grid;
@@ -44,7 +46,7 @@ function SeaIceModel(grid;
                      advection                   = nothing,
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
-                     ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
+                     thermodynamics              = SlabSeaIceThermodynamics(grid),
                      dynamics                    = nothing,
                      forcing                     = NamedTuple())
 
@@ -53,6 +55,7 @@ function SeaIceModel(grid;
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
+    tracers = (tracers..., rheology_prognostic_tracers(dynamics)...) # add prognostic tracers
 
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
@@ -66,8 +69,8 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
     
     if isnothing(velocities) 
-        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
+        u = Field{Face, Face, Nothing}(grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Face, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 
@@ -79,7 +82,7 @@ function SeaIceModel(grid;
     ice_density  = field((Center, Center, Nothing), ice_density, grid)
 
     # Construct prognostic fields if not provided
-    ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
+    ice_thickness     = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
     ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) 
 
     # Adding thickness and concentration if not there
@@ -94,14 +97,13 @@ function SeaIceModel(grid;
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
-    tracers = merge(tracers, (; S = ice_salinity))
     timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
 
-    if !isnothing(ice_thermodynamics)
+    if !isnothing(thermodynamics)
         if isnothing(top_heat_flux)
-            if ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
+            if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
                 # Default: external top flux is in equilibrium with internal fluxes
-                top_heat_flux = ice_thermodynamics.internal_heat_flux
+                top_heat_flux = thermodynamics.internal_heat_flux
             else
                 # Default: no external top surface flux
                 top_heat_flux = 0
@@ -122,9 +124,10 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
+                       ice_salinity,
                        ice_density,
                        ice_consolidation_thickness,
-                       ice_thermodynamics,
+                       thermodynamics,
                        dynamics,
                        external_heat_fluxes,
                        timestepper,
@@ -133,33 +136,10 @@ end
 
 const SIM = SeaIceModel
 
-@kernel function _set_minium_ice_thickness!(h, ℵ, hmin)
-    i, j = @index(Global, NTuple)
-
-    @inbounds begin
-        h⁺ = h[i, j, 1]
-        ℵ⁺ = ℵ[i, j, 1]
-        h⁻ = hmin[i, j, 1]
-
-        ht, ℵt = cap_ice_thickness(h⁺, h⁻, ℵ⁺)
-
-        ℵ[i, j, 1] = ℵt
-        h[i, j, 1] = ht
-    end
-end
-
 function set!(model::SIM; h=nothing, ℵ=nothing)
-    grid = model.grid
-    arch = architecture(model)
 
     !isnothing(h) && set!(model.ice_thickness, h)
     !isnothing(ℵ) && set!(model.ice_concentration, ℵ)
-
-        #We cap the ice to the consolidation thickness
-    launch!(arch, grid, :xy, _set_minium_ice_thickness!, 
-            model.ice_thickness,
-            model.ice_concentration,
-            model.ice_consolidation_thickness)
 
     return nothing
 end
@@ -176,7 +156,7 @@ function Base.show(io::IO, model::SIM)
 
     print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
-    print(io, "├── ice_thermodynamics: ", summary(model.ice_thermodynamics), '\n')
+    print(io, "├── thermodynamics: ", summary(model.thermodynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
@@ -194,7 +174,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                               ℵ  = model.ice_concentration),
                            model.tracers,
                            model.velocities,
-                           fields(model.ice_thermodynamics),
+                           fields(model.thermodynamics),
                            fields(model.dynamics))
 
 # TODO: make this correct

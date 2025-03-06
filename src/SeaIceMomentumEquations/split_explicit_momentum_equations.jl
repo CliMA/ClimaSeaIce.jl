@@ -21,14 +21,14 @@ SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
 """
-    step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
+    step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
 
 function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than 
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, args...)
+function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)
 
     grid = model.grid
     arch = architecture(grid)
@@ -54,7 +54,8 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
     model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
-                         ρ = model.ice_density))
+                         ρ = model.ice_density),
+                         model.tracers)
 
     u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
@@ -66,7 +67,7 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
 
     for substep in 1 : substeps
         # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, dynamics, rheology, Δt)
+        compute_stresses!(model, dynamics, rheology, Δt, substeps)
 
         # The momentum equations are solved using an alternating leap-frog algorithm
         # for u and v (used for the ocean - ice stresses and the coriolis term)
@@ -99,8 +100,8 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
         # TODO: This needs to be removed in some way!
         fill_halo_regions!(model.velocities)
 
-        mask_immersed_field_xy!(model.velocities.u, k=1)
-        mask_immersed_field_xy!(model.velocities.v, k=1)
+        mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
+        mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
     end
 
     return nothing
@@ -115,10 +116,10 @@ end
 
     i, j = @index(Global, NTuple)
 
-    mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, model_fields.ℵ)
+    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
 
-    Δτ = compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+    Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
    
     # Implicit part of the stress that depends linearly on the velocity
@@ -145,10 +146,10 @@ end
 
     i, j = @index(Global, NTuple)
     
-    mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, model_fields.ℵ)
+    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
     
-    Δτ = compute_substep_Δtᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+    Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity

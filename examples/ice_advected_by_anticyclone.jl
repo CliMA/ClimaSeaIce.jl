@@ -25,7 +25,7 @@ L  = 512kilometers
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
                        halo = (7, 7),
@@ -35,19 +35,23 @@ grid = RectilinearGrid(arch;
 ##### Value boundary conditions for velocities
 #####
 
-u_bcs = FieldBoundaryConditions(north=ValueBoundaryCondition(0),
-                                south=ValueBoundaryCondition(0))
+u_bcs = FieldBoundaryConditions(north=OpenBoundaryCondition(0),
+                                south=OpenBoundaryCondition(0),
+                                west=OpenBoundaryCondition(0),
+                                east=OpenBoundaryCondition(0))
 
-v_bcs = FieldBoundaryConditions(west=ValueBoundaryCondition(0),
-                                east=ValueBoundaryCondition(0))
+v_bcs = FieldBoundaryConditions(north=OpenBoundaryCondition(0),
+                                south=OpenBoundaryCondition(0),
+                                west=OpenBoundaryCondition(0),
+                                east=OpenBoundaryCondition(0))
 
 #####
 ##### Ocean sea-ice stress
 #####
 
 # Constant ocean velocities corresponding to a cyclonic eddy
-Uₒ = XFaceField(grid)
-Vₒ = YFaceField(grid)
+Uₒ = Field{Face, Face, Nothing}(grid)
+Vₒ = Field{Face, Face, Nothing}(grid)
 
 set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
@@ -59,8 +63,8 @@ fill_halo_regions!((Uₒ, Vₒ))
 #### Atmosphere - sea ice stress 
 ####
 
-Uₐ = XFaceField(grid)
-Vₐ = YFaceField(grid)
+Uₐ = Field{Face, Face, Nothing}(grid)
+Vₐ = Field{Face, Face, Nothing}(grid)
 
 τₐ = SemiImplicitStress(; uₑ=Uₐ, vₑ=Vₐ, ρₑ=1.3, Cᴰ=1.2e-3)
 
@@ -97,7 +101,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
 
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
-                    ice_thermodynamics = nothing, # No thermodynamics here
+                    thermodynamics = nothing, # No thermodynamics here
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs))
 

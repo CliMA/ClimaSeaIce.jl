@@ -1,9 +1,9 @@
 function time_step_sea_ice_model_works(grid;
                                        dynamics = nothing,
-                                       ice_thermodynamics = nothing,
+                                       thermodynamics = nothing,
                                        advection = nothing)
 
-    model = SeaIceModel(grid; dynamics, ice_thermodynamics, advection)
+    model = SeaIceModel(grid; dynamics, thermodynamics, advection)
     simulation = Simulation(model, Δt=1.0, stop_iteration=1)
 
     run!(simulation)
@@ -21,17 +21,17 @@ end
         rheologies = (ElastoViscoPlasticRheology(), ViscousRheology(ν=1000))
         advections = (WENO(), UpwindBiased(order=5))
 
-        ice_thermodynamics = (nothing, SlabSeaIceThermodynamics(grid))
+        thermodynamics = (nothing, SlabSeaIceThermodynamics(grid))
 
         coriolises = (nothing, FPlane(latitude=45), BetaPlane(latitude=45))
         solvers = (ExplicitSolver(), SplitExplicitSolver())
 
-        for coriolis in coriolises, advection in advections, rheology in rheologies, thermodynamics in ice_thermodynamics, solver in solvers
+        for coriolis in coriolises, advection in advections, rheology in rheologies, thermodynamics in thermodynamics, solver in solvers
             dynamics = SeaIceMomentumEquation(grid; coriolis, rheology, solver)
 
             @test time_step_sea_ice_model_works(grid;
                                                 dynamics,
-                                                ice_thermodynamics=thermodynamics,
+                                                thermodynamics=thermodynamics,
                                                 advection=advection)
         end
     end

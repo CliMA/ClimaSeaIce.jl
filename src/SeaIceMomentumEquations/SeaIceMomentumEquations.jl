@@ -18,15 +18,15 @@ using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
                               ∂ⱼ_σ₂ⱼ, 
                               immersed_∂ⱼ_σ₁ⱼ,
                               immersed_∂ⱼ_σ₂ⱼ,
-                              required_auxiliary_fields, 
+                              rheology_auxiliary_fields, 
                               compute_stresses!,
                               initialize_rheology!,
-                              compute_substep_Δtᶠᶜᶜ,
-                              compute_substep_Δtᶜᶠᶜ,
+                              compute_substep_Δtᶠᶠᶜ,
                               sum_of_forcing_u,
                               sum_of_forcing_v
 
 import Oceananigans: fields
+import ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ## 
@@ -43,7 +43,7 @@ import Oceananigans: fields
 ## - ocean dynamic surface
 
 # Fallbacks for `nothing` ice dynamics
-step_momentum!(model, dynamics, Δt, stage) = nothing
+step_momentum!(model, dynamics, Δt) = nothing
 compute_momentum_tendencies!(model, dynamics, Δt) = nothing
 
 include("sea_ice_momentum_equations.jl")
