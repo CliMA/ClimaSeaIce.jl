@@ -29,17 +29,18 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: Abstra
     advection :: A
 end
 
+assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Face,   Nothing) :
+                                       name === :v  ? (Face,   Face,   Nothing) :
+                                                      (Center, Center, Nothing)
+
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
-                     ice_thickness               = nothing,
                      ice_consolidation_thickness = 0.05, # m
-                     ice_concentration           = nothing,
                      ice_salinity                = 0, # psu
                      ice_density                 = 900, # kg m⁻³
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,
                      velocities                  = nothing,
-                     timestepper                 = :QuasiAdamsBashforth2,
                      advection                   = nothing,
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
@@ -55,8 +56,9 @@ function SeaIceModel(grid;
 
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
-    default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions()
-                                                          for name in field_names))
+
+    default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions(grid, assumed_sea_ice_field_location(name)) 
+                                                         for name in field_names))
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
     # have precedence, followed by embedded, followed by default.
@@ -64,8 +66,8 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
     
     if isnothing(velocities) 
-        u = Field{Face, Face, Center}(grid) #, boundary_conditions=boundary_conditions.u)
-        v = Field{Face, Face, Center}(grid) #, boundary_conditions=boundary_conditions.v)
+        u = Field{Face, Face, Nothing}(grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Face, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 
@@ -73,12 +75,12 @@ function SeaIceModel(grid;
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field 
-    ice_salinity = field((Center, Center, Center), ice_salinity, grid)
-    ice_density  = field((Center, Center, Center), ice_density, grid)
+    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
+    ice_density  = field((Center, Center, Nothing), ice_density, grid)
 
     # Construct prognostic fields if not provided
-    ice_thickness = isnothing(ice_thickness) ?  Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.h) : ice_thickness
-    ice_concentration = isnothing(ice_concentration) ? Field{Center, Center, Center}(grid, boundary_conditions=boundary_conditions.ℵ) : ice_concentration
+    ice_thickness     = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
+    ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) 
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
@@ -93,7 +95,7 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
-    timestepper = TimeStepper(timestepper, grid, prognostic_fields)
+    timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
@@ -131,33 +133,10 @@ end
 
 const SIM = SeaIceModel
 
-@kernel function _set_minium_ice_thickness!(h, ℵ, hmin)
-    i, j = @index(Global, NTuple)
-
-    @inbounds begin
-        h⁺ = h[i, j, 1]
-        ℵ⁺ = ℵ[i, j, 1]
-        h⁻ = hmin[i, j, 1]
-
-        ht, ℵt = cap_ice_thickness(h⁺, h⁻, ℵ⁺)
-
-        ℵ[i, j, 1] = ℵt
-        h[i, j, 1] = ht
-    end
-end
-
 function set!(model::SIM; h=nothing, ℵ=nothing)
-    grid = model.grid
-    arch = architecture(model)
 
     !isnothing(h) && set!(model.ice_thickness, h)
     !isnothing(ℵ) && set!(model.ice_concentration, ℵ)
-
-        #We cap the ice to the consolidation thickness
-    launch!(arch, grid, :xy, _set_minium_ice_thickness!, 
-            model.ice_thickness,
-            model.ice_concentration,
-            model.ice_consolidation_thickness)
 
     return nothing
 end

@@ -31,23 +31,8 @@ export SeaIceModel,
        FluxFunction,
        SlabSeaIceThermodynamics
 
-function timestepping_coefficients(ts::RungeKutta3TimeStepper, substep) 
-   if substep == 1 
-      return ts.γ¹, zero(ts.γ¹)
-   elseif substep == 2
-      return ts.γ², ts.ζ²
-   elseif substep == 3
-      return ts.γ³, ts.ζ³
-   end
-end
-
-function timestepping_coefficients(ts::QuasiAdamsBashforth2TimeStepper, args...) 
-   χ  = ts.χ
-   FT = eltype(χ)
-   α  = + convert(FT, 1.5) + χ
-   β  = - convert(FT, 0.5) + χ
-   return α, β
-end
+# TODO: Move this to Oceananigans.jl
+include("forward_euler_timestepper.jl")
    
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
 
@@ -58,8 +43,6 @@ include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
 include("tracer_tendency_kernel_functions.jl")
 include("sea_ice_time_stepping.jl")
-include("sea_ice_ab2_time_stepping.jl")
-include("sea_ice_rk3_time_stepping.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
