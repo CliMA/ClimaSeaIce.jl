@@ -97,7 +97,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
 
 model = SeaIceModel(grid; 
                     dynamics = momentum_equations,
-                    ice_thermodynamics = nothing, # No thermodynamics here
+                    thermodynamics = nothing, # No thermodynamics here
                     advection = WENO(order=7),
                     tracers = :d,
                     boundary_conditions = (u=u_bcs, v=v_bcs))

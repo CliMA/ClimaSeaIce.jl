@@ -2,7 +2,7 @@ using Oceananigans.Grids: AbstractGrid, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.TimeSteppers: store_field_tendencies!
-using Oceananigans.ImmersedBoundaries: retrieve_surface_active_cells_map, mask_immersed_field_xy!
+using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
 struct SplitExplicitSolver 
     substeps :: Int
@@ -21,14 +21,14 @@ SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
 """
-    step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
+    step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
 
 function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than 
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, args...)
+function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)
 
     grid = model.grid
     arch = architecture(grid)

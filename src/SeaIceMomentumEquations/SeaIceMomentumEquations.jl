@@ -42,7 +42,7 @@ import Oceananigans: fields
 ## - ocean dynamic surface
 
 # Fallbacks for `nothing` ice dynamics
-step_momentum!(model, dynamics, Δt, stage) = nothing
+step_momentum!(model, dynamics, Δt) = nothing
 compute_momentum_tendencies!(model, dynamics, Δt) = nothing
 
 include("sea_ice_momentum_equations.jl")

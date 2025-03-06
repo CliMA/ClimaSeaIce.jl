@@ -95,7 +95,8 @@ function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
     h★ = rheology.ridging_ice_thickness
     α  = rheology.damage_parameter
     C  = rheology.ice_compaction_hardening
-    
+    d  = model.tracers.d
+
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
     launch!(architecture(model.grid), model.grid, parameters, _initialize_bbm_rheology!, fields, model.grid, P★, E★, λ★, h★, α, C, h, ℵ)
@@ -103,7 +104,7 @@ function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
     return nothing
 end
 
-@kernel function _initialize_bbm_rheology!(fields, grid, P★, E★, λ★, h★, α, C, h, ℵ)
+@kernel function _initialize_bbm_rheology!(fields, d, grid, P★, E★, λ★, h★, α, C, h, ℵ)
     i, j = @index(Global, NTuple)    
     @inbounds begin
         ecc = exp(- C * (1 - ℵ[i, j, 1])) 
@@ -111,6 +112,9 @@ end
         fields.P[i, j, 1] = P★ * (h[i, j, 1] / h★)^(3/2) * ecc
         fields.E[i, j, 1] = E★ * ecc
         fields.λ[i, j, 1] = λ★ * ecc^(α - 1)
+        # Clamp the damage between 0 and a value close to 1
+        dᵢ = d[i, j, k]
+        d[i, j, k] = clamp(dᵢ, zero(dᵢ), 99999 * one(dᵢ) / 100000)
     end
 end
 

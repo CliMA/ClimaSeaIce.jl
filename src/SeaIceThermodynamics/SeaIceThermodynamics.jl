@@ -121,7 +121,7 @@ end
 end
 
 # Fallback for no thermodynamics
-@inline thickness_thermodynamic_tendency(i, j, grid, args...) = zero(grid)
+@inline thermodynamic_tendency(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
@@ -152,5 +152,6 @@ import Oceananigans.Utils: prettytime
 include("slab_sea_ice_thermodynamics.jl")
 include("slab_heat_and_tracer_fluxes.jl")
 include("slab_thermodynamics_tendencies.jl")
+include("thermodynamic_time_step.jl")
 
 end
