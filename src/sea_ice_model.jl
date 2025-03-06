@@ -6,8 +6,9 @@ using Oceananigans: tupleit, tracernames
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+using ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, IS, ID, CT, STF, A, F} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     forcing :: F
@@ -16,6 +17,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: Abstra
     tracers :: T
     ice_thickness :: IT
     ice_concentration :: IC
+    ice_salinity :: IS
     ice_density :: ID
     ice_consolidation_thickness :: CT
     # Thermodynamics
@@ -53,6 +55,7 @@ function SeaIceModel(grid;
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
+    tracers = (tracers..., rheology_prognostic_tracers(dynamics)...) # add prognostic tracers
 
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
@@ -94,7 +97,6 @@ function SeaIceModel(grid;
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
-    tracers = merge(tracers, (; S = ice_salinity))
     timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
 
     if !isnothing(thermodynamics)
@@ -122,6 +124,7 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
+                       ice_salinity,
                        ice_density,
                        ice_consolidation_thickness,
                        thermodynamics,

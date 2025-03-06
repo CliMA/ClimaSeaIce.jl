@@ -35,11 +35,15 @@ grid = RectilinearGrid(arch;
 ##### Value boundary conditions for velocities
 #####
 
-u_bcs = FieldBoundaryConditions(north=ValueBoundaryCondition(0),
-                                south=ValueBoundaryCondition(0))
+u_bcs = FieldBoundaryConditions(north=OpenBoundaryCondition(0),
+                                south=OpenBoundaryCondition(0),
+                                west=OpenBoundaryCondition(0),
+                                east=OpenBoundaryCondition(0))
 
-v_bcs = FieldBoundaryConditions(west=ValueBoundaryCondition(0),
-                                east=ValueBoundaryCondition(0))
+v_bcs = FieldBoundaryConditions(north=OpenBoundaryCondition(0),
+                                south=OpenBoundaryCondition(0),
+                                west=OpenBoundaryCondition(0),
+                                east=OpenBoundaryCondition(0))
 
 #####
 ##### Ocean sea-ice stress
@@ -99,7 +103,6 @@ model = SeaIceModel(grid;
                     dynamics = momentum_equations,
                     thermodynamics = nothing, # No thermodynamics here
                     advection = WENO(order=7),
-                    tracers = :d,
                     boundary_conditions = (u=u_bcs, v=v_bcs))
 
 # We start with a concentration of ℵ = 1 and an 

@@ -74,15 +74,16 @@ end
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
 
-        advance_tracers!(tracers, i, j, k, grid, Gⁿ, Δt)
+        advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
     end 
 end
 
-advance_tracer_tendencies!(::EmptyTuples, args...) = nothing
+advance_tracers!(::EmptyTuples, args...) = nothing
 
-function advance_tracer_tendencies!(tracers, i, j, k, grid, G, Δt)
-    for (name, tracer) in tracers
-        tracer += Δt * G[name][i, j, k]
+function advance_tracers!(tracers, i, j, k, G, Δt)
+    # Assumption! The tracer tendencies are the first ones
+    for n in eachindex(tracers)
+        @inbounds tracers[n][i, j, 1] += Δt * G[n][i, j, k]
     end
 end
 

@@ -42,26 +42,16 @@ function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
                                          nothing)
 end
 
-required_prognostic_tracers(::BrittleBinghamMaxwellRheology, grid) = 
-    (; d = Field{Center, Center, Nothing}(grid)) # damage tracer
+rheology_prognostic_tracers(::BrittleBinghamMaxwellRheology) =  (:d, :σ₁₁, :σ₁₂, :σ₂₂)
     
-function required_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
+function rheology_auxiliary_fields(::BrittleBinghamMaxwellRheology, grid)
     
     # TODO: What about boundary conditions?
     P = Field{Center, Center, Nothing}(grid)
     E = Field{Center, Center, Nothing}(grid)
     λ = Field{Center, Center, Nothing}(grid)
     
-    σ₁₁  = Field{Center, Center, Nothing}(grid)
-    σ₂₂  = Field{Center, Center, Nothing}(grid)
-    σ₁₂  = Field{Center, Center, Nothing}(grid)
-    σ₁₁ₙ = Field{Center, Center, Nothing}(grid)
-    σ₂₂ₙ = Field{Center, Center, Nothing}(grid)
-    σ₁₂ₙ = Field{Center, Center, Nothing}(grid)
-    uₙ   = Field{Face, Face, Center}(grid)
-    vₙ   = Field{Face, Face, Center}(grid)
-    dₙ   = Field{Center, Center, Nothing}(grid)
-    return (; σ₁₁, σ₂₂, σ₁₂, σ₁₁ₙ, σ₂₂ₙ, σ₁₂ₙ, dₙ, P, E, λ, uₙ, vₙ)
+    return (; P, E, λ)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
@@ -99,7 +89,7 @@ function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
 
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
-    launch!(architecture(model.grid), model.grid, parameters, _initialize_bbm_rheology!, fields, model.grid, P★, E★, λ★, h★, α, C, h, ℵ)
+    launch!(architecture(model.grid), model.grid, parameters, _initialize_bbm_rheology!, fields, d, model.grid, P★, E★, λ★, h★, α, C, h, ℵ)
     
     return nothing
 end
@@ -113,8 +103,8 @@ end
         fields.E[i, j, 1] = E★ * ecc
         fields.λ[i, j, 1] = λ★ * ecc^(α - 1)
         # Clamp the damage between 0 and a value close to 1
-        dᵢ = d[i, j, k]
-        d[i, j, k] = clamp(dᵢ, zero(dᵢ), 99999 * one(dᵢ) / 100000)
+        dᵢ = d[i, j, 1]
+        d[i, j, 1] = clamp(dᵢ, zero(dᵢ), 99999 * one(dᵢ) / 100000)
     end
 end
 
@@ -142,14 +132,8 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     return nothing
 end
 
-@inline  σᴵ(i, j, k, grid, fields) = @inbounds (fields.σ₁₁[i, j, k] + fields.σ₂₂[i, j, k]) / 2
-@inline σᴵᴵ(i, j, k, grid, fields) = @inbounds sqrt((fields.σ₁₁[i, j, k] - fields.σ₂₂[i, j, k])^2 / 4 + fields.σ₁₂[i, j, k]^2)
-
-@inline function dcritical(i, j, k, grid, N, c, μ, fields)
-    σI  = σᴵ(i, j, k, grid, fields)
-    σII = σᴵᴵ(i, j, k, grid, fields)
-    return one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
-end
+@inline  σᴵ(i, j, k, grid, tracers) = @inbounds (tracers.σ₁₁[i, j, k] + tracers.σ₂₂[i, j, k]) / 2
+@inline σᴵᴵ(i, j, k, grid, tracers) = @inbounds sqrt((tracers.σ₁₁[i, j, k] - tracers.σ₂₂[i, j, k])^2 / 4 + tracers.σ₁₂[i, j, k]^2)
 
 @inline function reconstruction_2d(i, j, k, grid, f, args...)
     fij = f(i,   j,   k, grid, args...)
@@ -186,10 +170,16 @@ end
     return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
 end
 
-@inline function dcrit2(i, j, k, grid, N, c, μ, fields)
+@inline function dcritical(i, j, k, grid, N, c, μ, tracers)
+    σI  = σᴵ(i, j, k, grid, tracers)
+    σII = σᴵᴵ(i, j, k, grid, tracers)
+    return one(grid) - ifelse(σI > - N, c / (σII + μ * σI), - N / σI)
+end
 
-    σI  =  σᴵ(i, j, k, grid, fields)
-    σII = σᴵᴵ(i, j, k, grid, fields)
+@inline function dcrit2(i, j, k, grid, N, c, μ, tracers)
+
+    σI  =  σᴵ(i, j, k, grid, tracers)
+    σII = σᴵᴵ(i, j, k, grid, tracers)
 
     m = tand(90 - atand(μ))
     q = σII - m * σI
@@ -232,9 +222,9 @@ end
     # Implicit diagonal operator
     Ω = 1 / (1 + Δτ * (1 + P̃) / λ)
 
-    @inbounds tracers.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
-    @inbounds tracers.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
-    @inbounds tracers.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
+    @inbounds tracers.σ₁₁[i, j, 1] = Ω * (tracers.σ₁₁[i, j, 1] + Δτ * E * Kϵ₁₁)
+    @inbounds tracers.σ₂₂[i, j, 1] = Ω * (tracers.σ₂₂[i, j, 1] + Δτ * E * Kϵ₂₂)
+    @inbounds tracers.σ₁₂[i, j, 1] = Ω * (tracers.σ₁₂[i, j, 1] + Δτ * E * Kϵ₁₂)
 end
 
 @kernel function _advance_stresses!(fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
@@ -248,46 +238,23 @@ end
 
     ρ  = @inbounds ρᵢ[i, j, 1]
     dᵢ = @inbounds tracers.d[i, j, 1]
-    P  = @inbounds fields.P[i, j, 1]
     E₀ = @inbounds fields.E[i, j, 1]
-    λ₀ = @inbounds fields.λ[i, j, 1] 
 
-    E   = E₀ * (1 - dᵢ)
-    dcrit = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, tracers) 
+    # The relaxation time is time-dependent
+    E  = E₀ * (1 - dᵢ)
+    td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))   
 
-    σI  =  σᴵ(i, j, 1, grid, tracers)
-    σII = σᴵᴵ(i, j, 1, grid, tracers)
-
-    # Relaxation time (constant)
-    td = sqrt(2 * (1 + ν) * ρ / E * Azᶜᶜᶜ(i, j, 1, grid))        
-
+    # damage tendency
+    Gd = reconstruction_2d(i, j, 1, grid, dcrit2, N, c, μ, tracers) / td
+     
     # Damage update
-    @inbounds dᵢ += dcrit * Δτ / td * (1 - dᵢ)
+    dᵢ += Gd * (1 - dᵢ) * Δτ 
 
-    # Clamp damage between 0 and a value close to 1 (cannot do 1 because of the relaxation time)
-    dᵢ = clamp(dᵢ, zero(grid), 99999 * one(grid) / 100000)
-    Δd = @inbounds (dᵢ - d[i, j, 1]) 
-
-    # Now we readvance the stresses with the new information
-    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
-
-    Kϵ₁₁ = (ϵ̇₁₁ + ν  * ϵ̇₂₂) / (1 - ν^2)
-    Kϵ₂₂ = (ϵ̇₂₂ + ν  * ϵ̇₁₁) / (1 - ν^2)
-    Kϵ₁₂ =   (1 - ν) * ϵ̇₁₂  / (1 - ν^2)
-
-    E = E₀ * (1 - dᵢ)
-    λ = λ₀ * (1 - dᵢ)^(α - 1)
-    P̃ = zero(grid) 
-
-    # Implicit diagonal operator
-    Ω = @inbounds 1 / (1 + Δτ * (1 + P̃) / λ + Δd / (1 - dᵢ))
-
-    @inbounds fields.σ₁₁[i, j, 1] = Ω * (fields.σ₁₁ₙ[i, j, 1] + Δτ * E * Kϵ₁₁)
-    @inbounds fields.σ₂₂[i, j, 1] = Ω * (fields.σ₂₂ₙ[i, j, 1] + Δτ * E * Kϵ₂₂)
-    @inbounds fields.σ₁₂[i, j, 1] = Ω * (fields.σ₁₂ₙ[i, j, 1] + Δτ * E * Kϵ₁₂)
-    @inbounds  tracers.d[i, j, 1] = dᵢ
+    # Advance stresses and clamp damage
+    @inbounds tracers.σ₁₁[i, j, 1] -= Gd * Δτ * tracers.σ₁₁[i, j, 1]
+    @inbounds tracers.σ₂₂[i, j, 1] -= Gd * Δτ * tracers.σ₂₂[i, j, 1]
+    @inbounds tracers.σ₁₂[i, j, 1] -= Gd * Δτ * tracers.σ₁₂[i, j, 1]
+    @inbounds tracers.d[i, j, 1]    = clamp(dᵢ, zero(grid), 99999 * one(grid) / 100000)
 end
 
 #####

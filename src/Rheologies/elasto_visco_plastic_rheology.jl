@@ -90,7 +90,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       convert(FT, max_relaxation_parameter))
 end
 
-function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
+function rheology_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
