@@ -7,7 +7,7 @@ using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, IS, ID, CT, STF, A, F} <: AbstractModel{TS}
     grid :: GR
     clock :: CL
     forcing :: F
@@ -16,6 +16,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F} <: Abstra
     tracers :: T
     ice_thickness :: IT
     ice_concentration :: IC
+    ice_salinity :: IS
     ice_density :: ID
     ice_consolidation_thickness :: CT
     # Thermodynamics
@@ -94,7 +95,6 @@ function SeaIceModel(grid;
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
-    tracers = merge(tracers, (; S = ice_salinity))
     timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
 
     if !isnothing(ice_thermodynamics)
@@ -122,6 +122,7 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
+                       ice_salinity,
                        ice_density,
                        ice_consolidation_thickness,
                        ice_thermodynamics,
