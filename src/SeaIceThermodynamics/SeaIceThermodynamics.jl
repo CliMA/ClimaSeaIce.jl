@@ -11,7 +11,7 @@ export SlabSeaIceThermodynamics,
 using Adapt
 
 #####
-##### A bit of thermodynamics to start the day
+##### A bit of ice_thermodynamics to start the day
 #####
 
 struct LinearLiquidus{FT}
@@ -120,8 +120,8 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-# Fallback for no thermodynamics
-@inline thickness_thermodynamic_tendency(i, j, grid, args...) = zero(grid)
+# Fallback for no ice_thermodynamics
+@inline thermodynamic_tendency(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
@@ -152,5 +152,6 @@ import Oceananigans.Utils: prettytime
 include("slab_sea_ice_thermodynamics.jl")
 include("slab_heat_and_tracer_fluxes.jl")
 include("slab_thermodynamics_tendencies.jl")
+include("thermodynamic_time_step.jl")
 
 end
