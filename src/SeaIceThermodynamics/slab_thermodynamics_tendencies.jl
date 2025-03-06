@@ -57,8 +57,8 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
     Qbᵢ = getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
 
     # Upper (top) and bottom interface velocities
-    wu = (Quᵢ - Qiᵢ) / ℰu * ℵᵢ # < 0 => melting
-    wb =      + Qiᵢ  / ℰb * ℵᵢ # < 0 => freezing
+    wu = (Quᵢ - Qiᵢ) / ℰu # < 0 => melting
+    wb =      + Qiᵢ  / ℰb # < 0 => freezing
 
     # Ice forming at the bottom.
     # it applies to the whole area, so it need 
