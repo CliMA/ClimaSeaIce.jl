@@ -25,7 +25,7 @@ function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     compute_tendencies!(model, Δt)
     step_tracers!(model, Δt)
 
-    # TODO: This is an implicit (or split-explicit) step to advance momentum.
+    # This is an implicit (or split-explicit) step to advance momentum.
     time_step_momentum!(model, model.dynamics, Δt)
 
     tick!(model.clock, Δt)
