@@ -21,14 +21,14 @@ SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
 """
-    step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
+    time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
 
 function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than 
 sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)
+function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)
 
     grid = model.grid
     arch = architecture(grid)

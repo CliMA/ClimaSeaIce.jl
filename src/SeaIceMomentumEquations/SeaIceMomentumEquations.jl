@@ -1,7 +1,7 @@
 module SeaIceMomentumEquations
 
 # The only functions provided by the module
-export compute_momentum_tendencies!, step_momentum!
+export compute_momentum_tendencies!, time_step_momentum!
 export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress
 
 using ClimaSeaIce
@@ -43,7 +43,7 @@ import Oceananigans: fields
 ## - ocean dynamic surface
 
 # Fallbacks for `nothing` ice dynamics
-step_momentum!(model, dynamics, Δt) = nothing
+time_step_momentum!(model, dynamics, Δt) = nothing
 compute_momentum_tendencies!(model, dynamics, Δt) = nothing
 
 include("sea_ice_momentum_equations.jl")

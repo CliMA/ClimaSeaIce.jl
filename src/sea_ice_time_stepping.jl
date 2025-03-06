@@ -3,7 +3,7 @@ using Oceananigans.Fields: flattened_unique_values
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
-using ClimaSeaIce.SeaIceMomentumEquations: step_momentum!
+using ClimaSeaIce.SeaIceMomentumEquations: time_step_momentum!
 using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_step!
 
 import Oceananigans.Models: update_model_field_time_series!
@@ -26,7 +26,7 @@ function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     step_tracers!(model, Δt)
 
     # TODO: This is an implicit (or split-explicit) step to advance momentum.
-    step_momentum!(model, model.dynamics, Δt)
+    time_step_momentum!(model, model.dynamics, Δt)
 
     tick!(model.clock, Δt)
     update_state!(model)
