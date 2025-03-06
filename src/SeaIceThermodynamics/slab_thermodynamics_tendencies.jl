@@ -29,7 +29,7 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
 
     @inbounds Tuᵢ = Tu[i, j, k]
 
-    consolidated_ice = hᵢ > hc
+    consolidated_ice = hᵢ ≥ hc
 
     # Determine top surface temperature. 
     # Does this really fit here?
