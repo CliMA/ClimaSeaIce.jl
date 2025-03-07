@@ -74,7 +74,8 @@ lake = (
     ρₒ = lake.lake_density
     Δ  = lake.lake_depth
     Δt = lake.Δt
-
+    ℵ  = fields.ℵ[i, j, 1]
+    
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
 
     Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
