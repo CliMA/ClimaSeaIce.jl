@@ -43,8 +43,9 @@ parameters = (
     cₐ = parameters.atmosphere_heat_capacity
     Tₐ = parameters.atmosphere_temperature
     uₐ = parameters.atmosphere_wind_speed
+    ℵ  = fields.ℵ[i, j, 1]
 
-    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ)
+    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ 
 end
 
 aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)

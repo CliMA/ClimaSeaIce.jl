@@ -36,8 +36,9 @@ parameters = (
     cₐ = parameters.atmosphere_heat_capacity
     Tₐ = parameters.atmosphere_temperature[i]
     uₐ = parameters.atmosphere_wind_speed
+    ℵ  = fields.ℵ[i, j, 1]
 
-    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ)
+    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ
 end
 
 # We also evolve a bucket freshwater lake that cools down and freezes from below
@@ -72,7 +73,6 @@ lake = (
     cₒ = lake.lake_heat_capacity
     ρₒ = lake.lake_density
     Δ  = lake.lake_depth
-    ℵ  = fields.ℵ[i, j, 1]
     Δt = lake.Δt
 
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
