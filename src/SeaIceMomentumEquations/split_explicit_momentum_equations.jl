@@ -12,7 +12,7 @@ end
     SplitExplicitSolver(; substeps=120)
 
 Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
-by subcycling `substeps` times in between each thermodynamics / tracer advection time step.
+by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
 """
@@ -21,14 +21,14 @@ SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
 """
-    step_momentum!(model, rheology::AbstractExplicitRheology, Δt, χ)
+    time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
 
 function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than 
-sea-ice thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
+sea-ice ice_thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
 substepping over a set number of substeps.
 """
-function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, args...)
+function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)
 
     grid = model.grid
     arch = architecture(grid)
@@ -99,8 +99,8 @@ function step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt, arg
         # TODO: This needs to be removed in some way!
         fill_halo_regions!(model.velocities)
 
-        mask_immersed_field_xy!(model.velocities.u, k=1)
-        mask_immersed_field_xy!(model.velocities.v, k=1)
+        mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
+        mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
     end
 
     return nothing

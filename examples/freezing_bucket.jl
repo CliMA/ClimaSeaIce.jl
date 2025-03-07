@@ -3,7 +3,7 @@
 # A common laboratory experiment freezes an insultated bucket of water
 # from the top down, using a metal lid to keep the top of the bucket
 # at some constant, very cold temperature. In this example, we simulate such
-# a scenario using `SlabSeaIceModel`. Here, the bucket is perfectly insulated
+# a scenario using the `SeaIceModel`. Here, the bucket is perfectly insulated
 # and infinitely deep, like many buckets are: if the `Simulation` is run for longer,
 # the ice will keep freezing, and freezing, and will never run out of water.
 # Also, the water in the infinite bucket is (somehow) all at the same temperature,
@@ -49,29 +49,35 @@ phase_transitions = PhaseTransitions(; ice_heat_capacity, ice_density)
 top_temperature = -10 # ᵒC
 top_heat_boundary_condition = PrescribedTemperature(-10)
 
-# Construct the thermodynamics of sea ice, for this we use a simple
-# slab sea ice representation of thermodynamics
+# Construct the ice_thermodynamics of sea ice, for this we use a simple
+# slab sea ice representation of ice_thermodynamics
 
 ice_thermodynamics = SlabSeaIceThermodynamics(grid;
-                                              internal_heat_flux,
-                                              phase_transitions,
-                                              top_heat_boundary_condition)
+                                          internal_heat_flux,
+                                          phase_transitions,
+                                          top_heat_boundary_condition)
 
-# Then we assemble it all into a model,
+# We also prescribe a frazil ice heat flux that stops when the ice has reached a concentration of 1.
+# This heat flux represents the initial ice formation from a liquid bucket.
 
-model = SeaIceModel(grid; ice_thermodynamics)
+@inline frazil_ice_formation(i, j, grid, Tuᵢ, clock, fields) = - (1 - fields.ℵ[i, j, 1]) # W m⁻²
+
+bottom_heat_flux = FluxFunction(frazil_ice_formation)
+
+# Then we assemble it all into a model.
+
+model = SeaIceModel(grid; ice_thermodynamics, bottom_heat_flux)
 
 # Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!
 
 model.ice_thermodynamics.heat_boundary_conditions.bottom
 
-# Ok, we're ready to freeze the bucket for 10 straight days with an initial ice
-# thickness of 1 cm,
+# Ok, we're ready to freeze the bucket for 10 straight days.
+# The ice will start forming suddenly due to the frazil ice heat flux and then eventually
+# grow more slowly.
 
 simulation = Simulation(model, Δt=10minute, stop_time=10days)
-
-set!(model, h=0.01)
 
 # # Collecting data and running the simulation
 #
@@ -84,7 +90,8 @@ timeseries = []
 ## Callback function to collect the data from the `sim`ulation
 function accumulate_timeseries(sim)
     h = sim.model.ice_thickness
-    push!(timeseries, (time(sim), first(h)))
+    ℵ = sim.model.ice_concentration
+    push!(timeseries, (time(sim), first(h), first(ℵ)))
 end
 
 ## Add the callback to `simulation`
@@ -104,23 +111,29 @@ using CairoMakie
 # to build `Vector`s of time `t` and thickness `h`. It's not much work though:
 t = [datum[1] for datum in timeseries]
 h = [datum[2] for datum in timeseries]
+ℵ = [datum[3] for datum in timeseries]
+V = h .* ℵ
 
 # Just for fun, we also compute the velocity of the ice-water interface:
-dhdt = @. (h[2:end] - h[1:end-1]) / simulation.Δt
+dVdt = @. (h[2:end] .* ℵ[2:end] - h[1:end-1] .* ℵ[1:end-1]) / simulation.Δt
 
 # All that's left, really, is to put those `lines!` in an `Axis`:
 set_theme!(Theme(fontsize=24, linewidth=4))
 
-fig = Figure(size=(1200, 600))
+fig = Figure(size=(1600, 700))
 
 axh = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (cm)")
-axd = Axis(fig[1, 2], xlabel="Ice thickness (cm)", ylabel="Freezing rate (μm s⁻¹)")
+axℵ = Axis(fig[1, 2], xlabel="Time (days)", ylabel="Ice concentration (-)")
+axV = Axis(fig[1, 3], xlabel="Ice Volume (cm)", ylabel="Freezing rate (μm s⁻¹)")
 
 lines!(axh, t ./ day, 1e2 .* h)
-lines!(axd, 1e2 .* h[1:end-1], 1e6 .* dhdt)
+lines!(axℵ, t ./ day, ℵ)
+lines!(axV, 1e2 .* V[1:end-1], 1e6 .* dVdt)
 
-current_figure() # hide
-fig
+save("freezing_bucket.png", fig)
+nothing # hide
+
+# ![](freezing_bucket.png)
 
 # If you want more ice, you can increase `simulation.stop_time` and
 # `run!(simulation)` again (or just re-run the whole script).
