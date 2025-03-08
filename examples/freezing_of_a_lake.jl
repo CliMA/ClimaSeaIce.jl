@@ -36,8 +36,9 @@ parameters = (
     cₐ = parameters.atmosphere_heat_capacity
     Tₐ = parameters.atmosphere_temperature[i]
     uₐ = parameters.atmosphere_wind_speed
+    ℵ  = fields.ℵ[i, j, 1]
 
-    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ)
+    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ
 end
 
 # We also evolve a bucket freshwater lake that cools down and freezes from below
@@ -50,7 +51,6 @@ lake = (
     lake_heat_capacity   = 4000,  # 
     lake_temperature     = [1.0, 1.0, 1.0, 1.0], # ᵒC
     lake_depth           = 10, # m
-    atmosphere           = parameters,
     Δt                   = 10minutes
 )
 
@@ -61,9 +61,9 @@ lake = (
 
 @inline function advance_lake_and_frazil_flux(i, j, grid, Tuᵢ, clock, fields, parameters)
     atmos = parameters.atmosphere
-    lake  = parameters
+    lake  = parameters.lake
 
-    Cₛ  = atmos.transfer_coefficient
+    Cₛ = atmos.transfer_coefficient
     ρₐ = atmos.atmosphere_density
     cₐ = atmos.atmosphere_heat_capacity
     Tₐ = atmos.atmosphere_temperature[i]
@@ -72,9 +72,9 @@ lake = (
     cₒ = lake.lake_heat_capacity
     ρₒ = lake.lake_density
     Δ  = lake.lake_depth
-    ℵ  = fields.ℵ[i, j, 1]
     Δt = lake.Δt
-
+    ℵ  = fields.ℵ[i, j, 1]
+    
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
 
     Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
@@ -87,9 +87,8 @@ lake = (
     return Qᵢ
 end
 
-aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)
-top_heat_flux = (aerodynamic_flux)
-bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux; parameters=lake)
+top_heat_flux    = FluxFunction(sensible_heat_flux; parameters)
+bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux; parameters=(; lake, atmosphere))
 
 model = SeaIceModel(grid;
                     ice_consolidation_thickness = 0.05, # m
