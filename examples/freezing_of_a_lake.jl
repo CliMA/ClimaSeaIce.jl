@@ -99,7 +99,7 @@ lake = (
     return Qᵢ
 end
 
-top_heat_flux    = FluxFunction(sensible_heat_flux; parameters)
+top_heat_flux    = FluxFunction(sensible_heat_flux; parameters=atmosphere)
 bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux; parameters=(; lake, atmosphere))
 
 model = SeaIceModel(grid;
@@ -141,12 +141,15 @@ function accumulate_energy(sim)
     T  = sim.model.ice_thermodynamics.top_surface_temperature
     h  = sim.model.ice_thickness
     ℵ  = sim.model.ice_concentration
-    ρ  = sim.model.ice_density
+    ρ  = sim.model.ice_density[1, 1, 1]
+    c  = sim.model.ice_thermodynamics.phase_transitions.ice_heat_capacity
+    PT = sim.model.ice_thermodynamics.phase_transitions
+    
+    ℰ = latent_heat.(Ref(PT), T)
 
-    # TODO: Need to subtract the latent energy here
-    push!(Ei, @. ρ * T * h * ℵ)
-    push!(Qa, atmosphere.atmosphere_ice_flux)
-    push!(Ql, lake.lake_ice_flux)
+    push!(Ei, deepcopy(@. h * ℵ * ρ * c * (T + 273.15) - ℰ))
+    push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
+    push!(Ql, deepcopy(lake.lake_ice_flux))
 end
 
 simulation.callbacks[:save]   = Callback(accumulate_timeseries)
@@ -208,3 +211,51 @@ nothing # hide
 
 # ![](freezing_in_winter.png)
 
+# Extract and visualize energy
+Ei1 = [datum[1]  for datum in Ei]
+Qa1 = [datum[1]  for datum in Qa]
+Ql1 = [datum[1]  for datum in Ql]
+Ei2 = [datum[2]  for datum in Ei]
+Qa2 = [datum[2]  for datum in Qa]
+Ql2 = [datum[2]  for datum in Ql]
+Ei3 = [datum[3]  for datum in Ei]
+Qa3 = [datum[3]  for datum in Qa]
+Ql3 = [datum[3]  for datum in Ql]
+Ei4 = [datum[4]  for datum in Ei]
+Qa4 = [datum[4]  for datum in Qa]
+Ql4 = [datum[4]  for datum in Ql]
+
+fig = Figure(size=(1000, 900))
+
+axE = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Sea Ice energy (J)")
+axA = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Atmosphere HF")
+axL = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Lake HF")
+axB = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Heat budget", yscale=log10)
+
+pEt1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
+pEt2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
+pEt3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
+pEt4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
+thalf = (t[2:end] .+ t[1:end-1]) ./ 2
+
+lines!(axE, t / day, Ei1)
+lines!(axA, t / day, Qa1)
+lines!(axL, t / day, Ql1)
+
+lines!(axE, t / day, Ei2)
+lines!(axA, t / day, Qa2)
+lines!(axL, t / day, Ql2)
+
+lines!(axE, t / day, Ei3)
+lines!(axA, t / day, Qa3)
+lines!(axL, t / day, Ql3)
+
+lines!(axE, t / day, Ei4)
+lines!(axA, t / day, Qa4)
+lines!(axL, t / day, Ql4)
+
+lines!(axB, thalf / day, pEt1)
+lines!(axB, t / day, 2 .* (Qa1 - Ql1))
+
+save("freezing_in_winter.png", fig)
+nothing # hide
