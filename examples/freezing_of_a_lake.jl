@@ -19,26 +19,30 @@ grid = RectilinearGrid(size=4, x=(0, 1), topology=(Periodic, Flat, Flat))
 
 # The sensible heat flux from the atmosphere is represented by a `FluxFunction`.
 
-parameters = (
+atmosphere = (
     transfer_coefficient     = 1e-3,  # Unitless
     atmosphere_density       = 1.225, # kg m⁻³
     atmosphere_heat_capacity = 1004,  # 
     atmosphere_temperature   = [-20, -10, -5, 0],    # ᵒC
-    atmosphere_wind_speed    = 5      # m s⁻¹
+    atmosphere_wind_speed    = 5,     # m s⁻¹
+    atmosphere_ice_flux      = [0.0, 0.0, 0.0, 0.0], # W m⁻²
 )
     
 # Flux is positive (cooling by fluxing heat up away from upper surface)
 # when Tₐ < Tᵤ:
 
-@inline function sensible_heat_flux(i, j, grid, Tᵤ, clock, fields, parameters)
-    Cₛ = parameters.transfer_coefficient
-    ρₐ = parameters.atmosphere_density
-    cₐ = parameters.atmosphere_heat_capacity
-    Tₐ = parameters.atmosphere_temperature[i]
-    uₐ = parameters.atmosphere_wind_speed
+@inline function sensible_heat_flux(i, j, grid, Tᵤ, clock, fields, atmosphere)
+    Cₛ = atmosphere.transfer_coefficient
+    ρₐ = atmosphere.atmosphere_density
+    cₐ = atmosphere.atmosphere_heat_capacity
+    Tₐ = atmosphere.atmosphere_temperature[i]
+    uₐ = atmosphere.atmosphere_wind_speed
     ℵ  = fields.ℵ[i, j, 1]
+    Qₐ = atmosphere.atmosphere_ice_flux
 
-    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ
+    Qₐ[i] =  Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ
+
+    return Qₐ[i] 
 end
 
 # We also evolve a bucket freshwater lake that cools down and freezes from below
@@ -51,6 +55,8 @@ lake = (
     lake_heat_capacity   = 4000,  # 
     lake_temperature     = [1.0, 1.0, 1.0, 1.0], # ᵒC
     lake_depth           = 10, # m
+    lake_ice_flux        = [0.0, 0.0, 0.0, 0.0], # W m⁻²
+    atmosphere_lake_flux = [0.0, 0.0, 0.0, 0.0], # W m⁻²
     Δt                   = 10minutes
 )
 
@@ -75,6 +81,9 @@ lake = (
     Δt = lake.Δt
     ℵ  = fields.ℵ[i, j, 1]
     
+    Qᵗ = lake.atmosphere_lake_flux
+    Qᵇ = lake.lake_ice_flux
+    
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
 
     Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
@@ -83,6 +92,9 @@ lake = (
     Qᵢ = min(Qᵢ, zero(Qᵢ)) # We only freeze, not melt
 
     Tₒ[i] = ifelse(Qᵢ == 0, Tₒ[i], zero(Qᵢ))
+
+    Qᵗ[i] = Qₐ
+    Qᵇ[i] = Qᵢ
 
     return Qᵢ
 end
@@ -119,6 +131,26 @@ function accumulate_timeseries(sim)
 end
 
 simulation.callbacks[:save] = Callback(accumulate_timeseries)
+
+# accumulate energy
+Ei = []
+Qa = []
+Ql = []
+
+function accumulate_energy(sim)
+    T  = sim.model.ice_thermodynamics.top_surface_temperature
+    h  = sim.model.ice_thickness
+    ℵ  = sim.model.ice_concentration
+    ρ  = sim.model.ice_density
+
+    # TODO: Need to subtract the latent energy here
+    push!(Ei, @. ρ * T * h * ℵ)
+    push!(Qa, atmosphere.atmosphere_ice_flux)
+    push!(Ql, lake.lake_ice_flux)
+end
+
+simulation.callbacks[:save]   = Callback(accumulate_timeseries)
+simulation.callbacks[:energy] = Callback(accumulate_energy)
 
 run!(simulation)
 
