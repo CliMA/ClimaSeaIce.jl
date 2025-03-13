@@ -28,7 +28,7 @@ mutable struct EnthalpyMethodSeaIceModel{Grid,
                                          State,
                                          Cp,
                                          Fu,
-                                         Tend} <: AbstractModel{Nothing}
+                                         Tend} <: AbstractModel{Nothing, Nothing}
     grid :: Grid
     timestepper :: Tim # unused placeholder for now
     clock :: Clk
