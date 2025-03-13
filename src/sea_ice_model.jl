@@ -46,7 +46,7 @@ function SeaIceModel(grid;
                      advection                   = nothing,
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
-                     ice_thermodynamics              = SlabSeaIceThermodynamics(grid),
+                     ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
                      dynamics                    = nothing,
                      forcing                     = NamedTuple())
 
