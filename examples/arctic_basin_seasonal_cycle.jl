@@ -5,6 +5,7 @@
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Utils: Time
+using Oceananigans.OutputReaders
 using ClimaSeaIce
 
 # Generate a 0D grid for a single column slab model 
@@ -46,16 +47,16 @@ display(fig)
 
 # Make them into a FieldTimeSeries for better manipulation
 
-Rs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical)
-Rl = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical)
-Qs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical)
-Ql = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical)
+Rs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
+Rl = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
+Qs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
+Ql = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
 
 for (i, time) in enumerate(times)
-    set!(Rs, tabulated_shortwave[i])
-    set!(Rl, tabulated_longwave[i])
-    set!(Qs, tabulated_sensible[i])
-    set!(Ql, tabulated_latent[i])
+    set!(Rs[i], tabulated_shortwave[i:i])
+    set!(Rl[i], tabulated_longwave[i:i])
+    set!(Qs[i], tabulated_sensible[i:i])
+    set!(Ql[i], tabulated_latent[i:i])
 end
 
 @inline function linearly_interpolate_flux(i, j, grid, Tₛ, clock, model_fields, flux)
