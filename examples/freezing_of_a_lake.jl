@@ -11,6 +11,7 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: latent_heat
 using CairoMakie
 
 # Generate a 1D grid for difference ice columns subject to different solar insolation
