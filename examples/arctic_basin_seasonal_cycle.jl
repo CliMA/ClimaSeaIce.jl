@@ -73,11 +73,15 @@ end
     return Q * (1 - α)
 end
 
+# NOTE: Semtner (1976) uses a wrong value for the Stefan-Boltzmann constant (roughly 2% higher) to match
+# the results of Maykut & Unterstainer (196(5)). We use the same value here for comparison purposes.
+σ = 5.67e-8 * 1.02 # Wrong value!!
+
 Q_shortwave = FluxFunction(linearly_interpolate_solar_flux, parameters=Rs)
 Q_longwave  = FluxFunction(linearly_interpolate_flux,       parameters=Rl)
 Q_sensible  = FluxFunction(linearly_interpolate_flux,       parameters=Qs)
 Q_latent    = FluxFunction(linearly_interpolate_flux,       parameters=Ql)
-Q_emission  = RadiativeEmission(emissivity=ϵ)
+Q_emission  = RadiativeEmission(emissivity=ϵ, stefan_boltzmann_constant=σ)
 
 top_heat_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
 
