@@ -1,21 +1,20 @@
 #####
 ##### The purpose of this script is to reproduce some results from Semtner (1976)
-##### Note that this script probably doesn't work and is a work in progress.
-##### Don't hestitate to update this script in a PR!
 #####
 
 using Oceananigans
 using Oceananigans.Units
+using Oceananigans.Fields: index_binary_search
 using ClimaSeaIce
 
 # Forcings (Semtner 1976, table 1), originally tabulated by Fletcher (1965)
 # Note: these are in kcal, which was deprecated in the ninth General Conference on Weights and
 # Measures in 1948. We convert these to Joules (and then to Watts) below.
 # Month:        Jan    Feb    Mar    Apr    May    Jun    Jul    Aug    Sep   Oct    Nov    Dec
-tabulated_shortwave = [   0      0    1.9    9.9   17.7   19.2   13.6    9.0    3.7   0.4      0      0]
-tabulated_longwave  = [10.4   10.3   10.3   11.6   15.1   18.0   19.1   18.7   16.5  13.9   11.2   10.9]
-tabulated_sensible  = [1.18   0.76   0.72   0.29  -0.45  -0.39  -0.30  -0.40  -0.17   0.1   0.56   0.79]
-tabulated_latent    = [   0  -0.02  -0.03  -0.46  -0.70  -0.64  -0.66  -0.39  -0.19 -0.01  -0.01  -3.20]
+tabulated_shortwave = [   0,      0,    1.9,    9.9,   17.7,   19.2,   13.6,    9.0,    3.7,   0.4,      0,      0] .* 1e4 # to convert to kcal / m²
+tabulated_longwave  = [10.4,   10.3,   10.3,   11.6,   15.1,   18.0,   19.1,   18.7,   16.5,  13.9,   11.2,   10.9] .* 1e4 # to convert to kcal / m²
+tabulated_sensible  = [1.18,   0.76,   0.72,   0.29,  -0.45,  -0.39,  -0.30,  -0.40,  -0.17,   0.1,   0.56,   0.79] .* 1e4 # to convert to kcal / m²
+tabulated_latent    = [   0,  -0.02,  -0.03,  -0.46,  -0.70,  -0.64,  -0.66,  -0.39,  -0.19, -0.01,  -0.01,  -3.20] .* 1e4 # to convert to kcal / m²
 
 # Pretend every month is just 30 days
 Nmonths = 12
@@ -46,7 +45,7 @@ display(fig)
     times = parameters.times
     Q = parameters.flux
     Nt = length(times)
-    t = mod(clock.time, 360days)
+    t  = mod(clock.time, 360days)
     n₁, n₂ = index_binary_search(times, t, Nt)
 
     Q₁ = @inbounds Q[n₁]
@@ -67,18 +66,18 @@ Q_emission  = RadiativeEmission()
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 top_heat_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
-model = SlabSeaIceModel(grid; top_heat_flux)
-set!(model, h=1)
+model = SeaIceModel(grid; top_heat_flux)
+set!(model, h=0.3, ℵ=1) # We start from 300cm of ice and full concentration
 
-simulation = Simulation(model, Δt=8hours, stop_time=4 * 360days)
+simulation = Simulation(model, Δt=10minutes, stop_time=4 * 360days)
 
 # Accumulate data
-timeseries = []
+series = []
 
 function accumulate_timeseries(sim)
-    T = model.top_temperature
+    T = model.ice_thermodynamics.top_surface_temperature
     h = model.ice_thickness
-    push!(timeseries, (time(sim), first(h), first(T)))
+    push!(series, (time(sim), first(h), first(T)))
 end
 
 simulation.callbacks[:save] = Callback(accumulate_timeseries)
@@ -87,9 +86,9 @@ run!(simulation)
 
 # Extract and visualize data
 
-t = [datum[1] for datum in timeseries]
-h = [datum[2] for datum in timeseries]
-T = [datum[3] for datum in timeseries]
+t = [datum[1] for datum in series]
+h = [datum[2] for datum in series]
+T = [datum[3] for datum in series]
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 
