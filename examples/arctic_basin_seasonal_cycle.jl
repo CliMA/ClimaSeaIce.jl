@@ -51,7 +51,11 @@ display(fig)
     Q₁ = @inbounds Q[n₁]
     Q₂ = @inbounds Q[n₂]
 
-    ñ = @inbounds (t - times[n₁]) * (n₂ - n₁) / (times[n₂] - times[n₁])
+    ñ = if n₁ == n₂
+        n₁
+    else
+        @inbounds (t - times[n₁]) * (n₂ - n₁) / (times[n₂] - times[n₁])
+    end
 
     return Q₁ * (ñ - n₁) + Q₂ * (n₂ - ñ)
 end
@@ -69,7 +73,7 @@ top_heat_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
 model = SeaIceModel(grid; top_heat_flux)
 set!(model, h=0.3, ℵ=1) # We start from 300cm of ice and full concentration
 
-simulation = Simulation(model, Δt=10minutes, stop_time=4 * 360days)
+simulation = Simulation(model, Δt=8hours, stop_time=4 * 360days)
 
 # Accumulate data
 series = []
