@@ -11,10 +11,10 @@ using ClimaSeaIce
 # Note: these are in kcal, which was deprecated in the ninth General Conference on Weights and
 # Measures in 1948. We convert these to Joules (and then to Watts) below.
 # Month:        Jan    Feb    Mar    Apr    May    Jun    Jul    Aug    Sep   Oct    Nov    Dec
-tabulated_shortwave = [   0,      0,    1.9,    9.9,   17.7,   19.2,   13.6,    9.0,    3.7,   0.4,      0,      0] # .* 1e4 # to convert to kcal / m²
-tabulated_longwave  = [10.4,   10.3,   10.3,   11.6,   15.1,   18.0,   19.1,   18.7,   16.5,  13.9,   11.2,   10.9] # .* 1e4 # to convert to kcal / m²
-tabulated_sensible  = [1.18,   0.76,   0.72,   0.29,  -0.45,  -0.39,  -0.30,  -0.40,  -0.17,   0.1,   0.56,   0.79] # .* 1e4 # to convert to kcal / m²
-tabulated_latent    = [   0,  -0.02,  -0.03,  -0.46,  -0.70,  -0.64,  -0.66,  -0.39,  -0.19, -0.01,  -0.01,  -3.20] # .* 1e4 # to convert to kcal / m²
+tabulated_shortwave = - [   0,      0,    1.9,    9.9,   17.7,   19.2,   13.6,    9.0,    3.7,   0.4,      0,      0] # .* 1e4 # to convert to kcal / m²
+tabulated_longwave  = - [10.4,   10.3,   10.3,   11.6,   15.1,   18.0,   19.1,   18.7,   16.5,  13.9,   11.2,   10.9] # .* 1e4 # to convert to kcal / m²
+tabulated_sensible  = - [1.18,   0.76,   0.72,   0.29,  -0.45,  -0.39,  -0.30,  -0.40,  -0.17,   0.1,   0.56,   0.79] # .* 1e4 # to convert to kcal / m²
+tabulated_latent    = - [   0,  -0.02,  -0.03,  -0.46,  -0.70,  -0.64,  -0.66,  -0.39,  -0.19, -0.01,  -0.01,  -3.20] # .* 1e4 # to convert to kcal / m²
 
 # Pretend every month is just 30 days
 Nmonths = 12
