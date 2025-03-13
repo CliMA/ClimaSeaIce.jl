@@ -14,7 +14,7 @@ using ClimaSeaIce
 tabulated_shortwave = - [   0,      0,    1.9,    9.9,   17.7,   19.2,   13.6,    9.0,    3.7,   0.4,      0,      0] .* 1e4 # to convert to kcal / m²
 tabulated_longwave  = - [10.4,   10.3,   10.3,   11.6,   15.1,   18.0,   19.1,   18.7,   16.5,  13.9,   11.2,   10.9] .* 1e4 # to convert to kcal / m²
 tabulated_sensible  = - [1.18,   0.76,   0.72,   0.29,  -0.45,  -0.39,  -0.30,  -0.40,  -0.17,   0.1,   0.56,   0.79] .* 1e4 # to convert to kcal / m²
-tabulated_latent    = - [   0,  -0.02,  -0.03,  -0.46,  -0.70,  -0.64,  -0.66,  -0.39,  -0.19, -0.01,  -0.01,  -3.20] .* 1e4 # to convert to kcal / m²
+tabulated_latent    = - [   0,  -0.02,  -0.03,   -0.09, -0.46,  -0.70,  -0.64,  -0.66,  -0.39,  -0.19, -0.01,  -0.01] .* 1e4 # to convert to kcal / m²
 
 # Pretend every month is just 30 days
 Nmonths = 12
@@ -23,9 +23,11 @@ year_days = month_days * Nmonths
 times_days = 15:30:(year_days - 15)
 times = times_days .* day # times in seconds
 
+albedo = 0.8 # Almost like in Semtner (1976)
+
 # Convert fluxes to the right units
 kcal_to_joules = 4184
-tabulated_shortwave .*= kcal_to_joules / (month_days * days) 
+tabulated_shortwave .*= kcal_to_joules / (month_days * days) .* (1 - albedo)
 tabulated_longwave  .*= kcal_to_joules / (month_days * days)
 tabulated_sensible  .*= kcal_to_joules / (month_days * days)
 tabulated_latent    .*= kcal_to_joules / (month_days * days)
