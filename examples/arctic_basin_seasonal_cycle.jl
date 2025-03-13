@@ -27,10 +27,13 @@ year_days = month_days * Nmonths
 times_days = 15:30:(year_days - 15)
 times = times_days .* day # times in seconds
 
+# Sea ice emissivity
+ϵ = 1
+
 # Convert fluxes to the right units
 kcal_to_joules = 4184
 tabulated_shortwave .*= kcal_to_joules / (month_days * days) 
-tabulated_longwave  .*= kcal_to_joules / (month_days * days)
+tabulated_longwave  .*= kcal_to_joules / (month_days * days) .* ϵ
 tabulated_sensible  .*= kcal_to_joules / (month_days * days)
 tabulated_latent    .*= kcal_to_joules / (month_days * days)
 
@@ -74,14 +77,14 @@ Q_shortwave = FluxFunction(linearly_interpolate_solar_flux, parameters=Rs)
 Q_longwave  = FluxFunction(linearly_interpolate_flux,       parameters=Rl)
 Q_sensible  = FluxFunction(linearly_interpolate_flux,       parameters=Qs)
 Q_latent    = FluxFunction(linearly_interpolate_flux,       parameters=Ql)
-Q_emission  = RadiativeEmission()
+Q_emission  = RadiativeEmission(emissivity=ϵ)
 
 top_heat_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
 
 model = SeaIceModel(grid; top_heat_flux)
 set!(model, h=0.3, ℵ=1) # We start from 300cm of ice and full concentration
 
-simulation = Simulation(model, Δt=1hours, stop_time=2* 360days)
+simulation = Simulation(model, Δt=8hours, stop_time= 30 * 360days)
 
 # Accumulate data
 series = []
