@@ -145,7 +145,7 @@ function accumulate_energy(sim)
     PT = sim.model.ice_thermodynamics.phase_transitions
     Tb = 0
 
-    ℰ = latent_heat.(Ref(PT), (T .+ Tb) / 2)
+    ℰ = latent_heat.(Ref(PT), T)
 
     push!(Ei, deepcopy(@. h * ℵ * ℰ))
     push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
@@ -236,7 +236,7 @@ pEt1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
 pEt2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
 pEt3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
 pEt4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
-thalf = t[2:end] 
+tpE  = t[2:end] 
 
 lines!(axE, t / day, Ei1)
 lines!(axA, t / day, Qa1)
@@ -254,8 +254,8 @@ lines!(axE, t / day, Ei4)
 lines!(axA, t / day, Qa4)
 lines!(axL, t / day, Ql4)
 
-lines!(axB, thalf / day, pEt1)
-lines!(axB, t / day, Qa1 - Ql1)
+lines!(axB, tpE / day, pEt1)
+lines!(axB, t   / day, Qa1 - Ql1)
 
 save("energy_budget.png", fig)
 nothing # hide
