@@ -37,7 +37,7 @@ tabulated_longwave  .*= kcal_to_joules / (month_days * days) .* ϵ
 tabulated_sensible  .*= kcal_to_joules / (month_days * days)
 tabulated_latent    .*= kcal_to_joules / (month_days * days)
 
-using GLMakie
+using CairoMakie
 
 fig = Figure()
 ax = Axis(fig[1, 1])
