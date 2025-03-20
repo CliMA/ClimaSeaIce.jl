@@ -142,13 +142,12 @@ function accumulate_energy(sim)
     T  = sim.model.ice_thermodynamics.top_surface_temperature
     h  = sim.model.ice_thickness
     ℵ  = sim.model.ice_concentration
-    ρ  = sim.model.ice_density[1, 1, 1]
-    c  = sim.model.ice_thermodynamics.phase_transitions.ice_heat_capacity
     PT = sim.model.ice_thermodynamics.phase_transitions
-    
-    ℰ = latent_heat.(Ref(PT), T)
+    Tb = 0
 
-    push!(Ei, deepcopy(@. h * ℵ * ρ * c * (T + 273.15) - ℰ))
+    ℰ = latent_heat.(Ref(PT), (T .+ Tb) / 2)
+
+    push!(Ei, deepcopy(@. h * ℵ * ℰ))
     push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
     push!(Ql, deepcopy(lake.lake_ice_flux))
 end
@@ -231,13 +230,13 @@ fig = Figure(size=(1000, 900))
 axE = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Sea Ice energy (J)")
 axA = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Atmosphere HF")
 axL = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Lake HF")
-axB = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Heat budget", yscale=log10)
+axB = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Heat budget")
 
 pEt1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
 pEt2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
 pEt3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
 pEt4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
-thalf = (t[2:end] .+ t[1:end-1]) ./ 2
+thalf = t[2:end] 
 
 lines!(axE, t / day, Ei1)
 lines!(axA, t / day, Qa1)
@@ -256,7 +255,7 @@ lines!(axA, t / day, Qa4)
 lines!(axL, t / day, Ql4)
 
 lines!(axB, thalf / day, pEt1)
-lines!(axB, t / day, 2 .* (Qa1 - Ql1))
+lines!(axB, t / day, Qa1 - Ql1)
 
-save("freezing_in_winter.png", fig)
+save("energy_budget.png", fig)
 nothing # hide
