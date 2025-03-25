@@ -3,7 +3,7 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators: Δzᶜᶜᶠ
 using Oceananigans.Grids: znode
-using GLMakie
+using CairoMakie
 
 #####
 ##### Set up a EnthalpyMethodSeaIceModel
