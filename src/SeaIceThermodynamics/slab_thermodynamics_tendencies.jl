@@ -40,7 +40,7 @@ using Oceananigans
         if consolidated_ice # slab is consolidated and has an independent surface temperature
             Tu⁻ = @inbounds Tu[i, j, k]
             Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
-            # We ca the temperature with the melting temperature
+            # We cap by melting temperature
             Tuₘ = melting_temperature(liquidus, Sᵢ)
             Tuⁿ = min(Tuⁿ, Tuₘ)
         else # slab is unconsolidated and does not have an independent surface temperature
