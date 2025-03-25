@@ -86,6 +86,7 @@ end
     # No volume change
     ℵ⁺ = ifelse(∂t_V == 0, ℵⁿ, ℵ⁺)
     h⁺ = ifelse(∂t_V == 0, hⁿ, h⁺)
+    ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺)
 
     # Ridging caused by the thermodynamic step
     @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
