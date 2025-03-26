@@ -9,7 +9,7 @@ using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, IS, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
@@ -20,6 +20,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: 
     ice_thickness :: IT
     ice_concentration :: IC
     ice_density :: ID
+    ice_salinity :: IS
     ice_consolidation_thickness :: CT
     # Thermodynamics
     thermodynamics :: TD
@@ -129,8 +130,8 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
-                       ice_salinity,
                        ice_density,
+                       ice_salinity,
                        ice_consolidation_thickness,
                        ice_thermodynamics,
                        dynamics,
