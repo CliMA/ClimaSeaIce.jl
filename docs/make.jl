@@ -18,6 +18,7 @@ example_scripts = [
     "freezing_of_a_lake.jl",
     "ice_advected_by_anticyclone.jl",
     "ice_advected_on_coastline.jl",
+    "arctic_basin_seasonal_cycle.jl"
 ]
 
 for filename in example_scripts
@@ -31,6 +32,7 @@ example_pages = [
     "Freezing of a Lake" => "literated/freezing_of_a_lake.md",
     "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
     "Ice advected on coastline" => "literated/ice_advected_on_coastline.md",
+    "Arctic basin seasonal cycle" => "literated/arctic_basin_seasonal_cycle.md"
 ]
 
 #####

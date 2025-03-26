@@ -6,7 +6,7 @@ using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
 using SeawaterPolynomials: TEOS10EquationOfState
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
-using GLMakie
+using CairoMakie
 
 import Oceananigans.Simulations: time_step!, time
 
