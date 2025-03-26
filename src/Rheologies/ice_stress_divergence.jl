@@ -29,17 +29,17 @@ const f = Face()
 #####
 
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶠᶠᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, _ice_stress_ux, rheology, clock, fields) +
-                                       δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, _ice_stress_uy, rheology, clock, fields))
+    return 1 / Azᶠᶠᶜ(i, j, k, grid) * (δxᶠᶠᶜ(i, j, k, grid, Δy_qᶜᶠᶜ, _ice_stress_ux, rheology, clock, fields) +
+                                       δyᶠᶠᶜ(i, j, k, grid, Δx_qᶠᶜᶜ, _ice_stress_uy, rheology, clock, fields))
 end
 
 @inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶠᶠᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, _ice_stress_vx, rheology, clock, fields) +
-                                       δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, _ice_stress_vy, rheology, clock, fields))
+    return 1 / Azᶠᶠᶜ(i, j, k, grid) * (δxᶠᶠᶜ(i, j, k, grid, Δy_qᶜᶠᶜ, _ice_stress_vx, rheology, clock, fields) +
+                                       δyᶠᶠᶜ(i, j, k, grid, Δx_qᶠᶜᶜ, _ice_stress_vy, rheology, clock, fields))
 end
 
 #####
-##### Immersed Stress divergence
+##### Immersed Stress divergence (Nothing on B-grid!)
 #####
 
 @inline immersed_∂ⱼ_σ₁ⱼ(i, j, k, grid, args...) = zero(grid)
