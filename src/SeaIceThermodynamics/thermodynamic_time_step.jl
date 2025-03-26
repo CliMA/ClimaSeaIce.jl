@@ -71,6 +71,24 @@ end
     # volume adjustment (the ice cannot produce more melt than its actual volume!)
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
 
+    # We parameterize the evolution of ice thickness and concentration
+    # (i.e. lateral vs vertical growth) following Hibler (1979)
+    ∂t_ℵᶠ = (1 - ℵⁿ) * ∂t_V / hᶜ * freezing
+    ∂t_ℵᵐ = ℵⁿ * min(∂t_V, zero(ℵⁿ)) / 2hⁿ * !(freezing)
+    
+    # Update ice thickness and concentration
+    ℵ⁺ = ℵⁿ + Δt * (∂t_ℵᶠ + ∂t_ℵᵐ)
+    h⁺ = Vⁿ⁺¹ / ℵ⁺
+
+    # Treat pathological cases
+    ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
+    h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
+
+    # No volume change
+    ℵ⁺ = ifelse(∂t_V == 0, ℵⁿ, ℵ⁺)
+    h⁺ = ifelse(∂t_V == 0, hⁿ, h⁺)
+    ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺) # reset the concentration if there is no sea-ice
+
     # Ridging caused by the thermodynamic step
     @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
     @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
