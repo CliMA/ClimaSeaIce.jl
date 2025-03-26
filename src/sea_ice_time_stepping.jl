@@ -83,9 +83,15 @@ advance_tracers!(::EmptyTuples, args...) = nothing
 function advance_tracers!(tracers, i, j, k, G, Δt)
     # Assumption! The tracer tendencies are the first ones
     for n in eachindex(tracers)
-        @inbounds tracers[n][i, j, 1] += Δt * G[n][i, j, k]
+        _advance_tracer!(tracers[n], i, j, k, G[n], Δt)
     end
 end
+
+_advance_tracer!(tracer, i, j, k, G, Δt) = @inbounds tracer[i, j, 1] += Δt * G[i, j, k]
+_advance_tracer!(::ConstantField, i, j, k, G, Δt) = nothing
+_advance_tracer!(::ZeroField, i, j, k, G, Δt) = nothing
+_advance_tracer!(::OneField, i, j, k, G, Δt) = nothing
+_advance_tracer!(::Nothing, i, j, k, G, Δt) = nothing
 
 function update_state!(model::SIM)
     

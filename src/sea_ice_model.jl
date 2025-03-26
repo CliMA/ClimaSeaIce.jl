@@ -20,7 +20,6 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, IS, CT, STF, A, F, Arch}
     ice_thickness :: IT
     ice_concentration :: IC
     ice_density :: ID
-    ice_salinity :: IS
     ice_consolidation_thickness :: CT
     # Thermodynamics
     ice_thermodynamics :: TD
@@ -83,6 +82,7 @@ function SeaIceModel(grid;
     # Wrap ice_salinity in a field 
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
     ice_density  = field((Center, Center, Nothing), ice_density, grid)
+    tracers      = merge(tracers, (; S = ice_salinity))
 
     # Construct prognostic fields if not provided
     ice_thickness     = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
@@ -131,7 +131,6 @@ function SeaIceModel(grid;
                        ice_thickness,
                        ice_concentration,
                        ice_density,
-                       ice_salinity,
                        ice_consolidation_thickness,
                        ice_thermodynamics,
                        dynamics,
