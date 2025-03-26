@@ -9,7 +9,7 @@ using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, IS, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
