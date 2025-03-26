@@ -15,6 +15,7 @@ function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
             grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
+            model.ice_salinity,
             model.ice_thermodynamics,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
@@ -40,6 +41,7 @@ end
                                                 Δt,
                                                 clock,
                                                 ice_consolidation_thickness,
+                                                ice_salinity,
                                                 ice_thermodynamics,
                                                 top_external_heat_flux,
                                                 bottom_external_heat_flux,
@@ -57,6 +59,7 @@ end
                                   ice_thickness,
                                   ice_concentration,
                                   ice_consolidation_thickness,
+                                  ice_salinity,
                                   top_external_heat_flux,
                                   bottom_external_heat_flux,
                                   clock, model_fields)

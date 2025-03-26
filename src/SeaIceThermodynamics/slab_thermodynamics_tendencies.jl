@@ -7,6 +7,7 @@ using Oceananigans
                                         ice_thickness,
                                         ice_concentration,
                                         ice_consolidation_thickness,
+                                        ice_salinity,
                                         top_external_heat_flux,
                                         bottom_external_heat_flux,
                                         clock, model_fields)
@@ -26,7 +27,7 @@ using Oceananigans
         hᵢ = ice_thickness[i, j, k]
         hc = ice_consolidation_thickness[i, j, k]
         ℵᵢ = ice_concentration[i, j, k]
-        Sᵢ = model_fields.S[i, j, k]
+        Sᵢ = ice_salinity[i, j, k]
     end
 
     @inbounds Tuᵢ = Tu[i, j, k]
