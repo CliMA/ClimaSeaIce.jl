@@ -71,7 +71,7 @@ model = SeaIceModel(grid; ice_thermodynamics, bottom_heat_flux)
 # Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics` is
 # `IceWaterThermalEquilibrium` with freshwater. That's what we want!
 
-model.thermodynamics.heat_boundary_conditions.bottom
+model.ice_thermodynamics.heat_boundary_conditions.bottom
 
 # Ok, we're ready to freeze the bucket for 10 straight days.
 # The ice will start forming suddenly due to the frazil ice heat flux and then eventually

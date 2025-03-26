@@ -23,7 +23,7 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, IS, CT, STF, A, F, Arch}
     ice_salinity :: IS
     ice_consolidation_thickness :: CT
     # Thermodynamics
-    thermodynamics :: TD
+    ice_thermodynamics :: TD
     # Dynamics
     dynamics :: D
     # External boundary conditions
