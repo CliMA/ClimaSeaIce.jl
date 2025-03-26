@@ -74,20 +74,10 @@ end
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
 
-        advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
+        # TODO: BBM rheology needs this!
+        # advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
     end 
 end
-
-advance_tracers!(::EmptyTuples, args...) = nothing
-
-function advance_tracers!(tracers, i, j, k, G, Δt)
-    # Assumption! The tracer tendencies are the first ones
-    for n in eachindex(G)
-        _advance_tracer!(tracers[n], i, j, k, G[n], Δt)
-    end
-end
-
-_advance_tracer!(tracer, i, j, k, G, Δt) = @inbounds tracer[i, j, 1] += Δt * G[i, j, k]
 
 function update_state!(model::SIM)
     
