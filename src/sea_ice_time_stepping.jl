@@ -44,7 +44,6 @@ function dynamic_time_step!(model::SIM, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
     launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
 
     return nothing
