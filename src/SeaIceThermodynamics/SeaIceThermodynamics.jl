@@ -11,7 +11,7 @@ export SlabSeaIceThermodynamics,
 using Adapt
 
 #####
-##### A bit of thermodynamics to start the day
+##### A bit of ice_thermodynamics to start the day
 #####
 
 struct LinearLiquidus{FT}
@@ -120,7 +120,7 @@ end
     return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
 end
 
-# Fallback for no thermodynamics
+# Fallback for no ice_thermodynamics
 @inline thermodynamic_tendency(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")

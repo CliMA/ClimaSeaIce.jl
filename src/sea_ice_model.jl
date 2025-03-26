@@ -1,3 +1,4 @@
+using Oceananigans.Architectures: architecture
 using Oceananigans.Fields: TracerFields
 using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
@@ -8,7 +9,8 @@ using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 using ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, IS, ID, CT, STF, A, F} <: AbstractModel{TS}
+struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+    architecture :: Arch
     grid :: GR
     clock :: CL
     forcing :: F
@@ -46,7 +48,7 @@ function SeaIceModel(grid;
                      advection                   = nothing,
                      tracers                     = (),
                      boundary_conditions         = NamedTuple(),
-                     thermodynamics              = SlabSeaIceThermodynamics(grid),
+                     ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
                      dynamics                    = nothing,
                      forcing                     = NamedTuple())
 
@@ -60,8 +62,9 @@ function SeaIceModel(grid;
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
 
-    default_boundary_conditions = NamedTuple{field_names}(Tuple(FieldBoundaryConditions(grid, assumed_sea_ice_field_location(name)) 
-                                                         for name in field_names))
+    bc_tuple = Tuple(FieldBoundaryConditions(grid, assumed_sea_ice_field_location(name))
+                     for name in field_names)
+    default_boundary_conditions = NamedTuple{field_names}(bc_tuple)
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
     # have precedence, followed by embedded, followed by default.
@@ -99,11 +102,11 @@ function SeaIceModel(grid;
     # just additional fields of the sea ice model?
     timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
 
-    if !isnothing(thermodynamics)
+    if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
-            if thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
+            if ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
                 # Default: external top flux is in equilibrium with internal fluxes
-                top_heat_flux = thermodynamics.internal_heat_flux
+                top_heat_flux = ice_thermodynamics.internal_heat_flux
             else
                 # Default: no external top surface flux
                 top_heat_flux = 0
@@ -117,7 +120,10 @@ function SeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,    
                             bottom = bottom_heat_flux) 
 
-    return SeaIceModel(grid,
+    arch = architecture(grid)
+
+    return SeaIceModel(arch,
+                       grid,
                        clock,
                        forcing, 
                        velocities,
@@ -127,7 +133,7 @@ function SeaIceModel(grid;
                        ice_salinity,
                        ice_density,
                        ice_consolidation_thickness,
-                       thermodynamics,
+                       ice_thermodynamics,
                        dynamics,
                        external_heat_fluxes,
                        timestepper,
@@ -156,7 +162,7 @@ function Base.show(io::IO, model::SIM)
 
     print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
-    print(io, "├── thermodynamics: ", summary(model.thermodynamics), '\n')
+    print(io, "├── ice_thermodynamics: ", summary(model.ice_thermodynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
@@ -174,7 +180,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                               ℵ  = model.ice_concentration),
                            model.tracers,
                            model.velocities,
-                           fields(model.thermodynamics),
+                           fields(model.ice_thermodynamics),
                            fields(model.dynamics))
 
 # TODO: make this correct

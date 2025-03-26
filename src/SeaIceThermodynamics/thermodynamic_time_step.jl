@@ -2,24 +2,23 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.Utils
 using KernelAbstractions: @kernel, @index
 
-thermodynamic_step!(model, ::Nothing, Δt) = nothing
+thermodynamic_time_step!(model, ::Nothing, Δt) = nothing
 
-function thermodynamic_step!(model, ::SlabSeaIceThermodynamics, Δt)
+function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
     grid = model.grid
     arch = architecture(grid)
     
     launch!(arch, grid, :xy,
-            _slab_thermodynamic_step!,
+            _slab_thermodynamic_time_step!,
             model.ice_thickness,
             model.ice_concentration,
             grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
-            model.thermodynamics,
+            model.ice_thermodynamics,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
             fields(model))
-
 
     return nothing
 end
@@ -35,16 +34,16 @@ end
 #                             Δt               
 #      
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
-@kernel function _slab_thermodynamic_step!(ice_thickness,
-                                           ice_concentration,
-                                           grid,
-                                           Δt,
-                                           clock,
-                                           ice_consolidation_thickness,
-                                           thermodynamics,
-                                           top_external_heat_flux,
-                                           bottom_external_heat_flux,
-                                           model_fields)
+@kernel function _slab_thermodynamic_time_step!(ice_thickness,
+                                                ice_concentration,
+                                                grid,
+                                                Δt,
+                                                clock,
+                                                ice_consolidation_thickness,
+                                                ice_thermodynamics,
+                                                top_external_heat_flux,
+                                                bottom_external_heat_flux,
+                                                model_fields)
 
     i, j = @index(Global, NTuple)
     
@@ -54,7 +53,7 @@ end
 
     # Total volume tendency
     ∂t_V = thermodynamic_tendency(i, j, 1, grid,
-                                  thermodynamics,
+                                  ice_thermodynamics,
                                   ice_thickness,
                                   ice_concentration,
                                   ice_consolidation_thickness,
@@ -84,7 +83,7 @@ end
     # └── h ≤ hᶜ  -> unconsolidated ice is melting (we only decrease ℵⁿ)
 
     freezing     = ∂t_V > 0  
-    consolidated = hⁿ > hᶜ
+    consolidated = hⁿ ≥ hᶜ
     open_ocean   = ℵⁿ == 0
 
     # Freezing and melting cases:

@@ -65,7 +65,7 @@ simulation = Simulation(model, Δt=10minute, stop_time=30days)
 timeseries = []
 
 function accumulate_timeseries(sim)
-    T = model.thermodynamics.top_surface_temperature
+    T = model.ice_thermodynamics.top_surface_temperature
     h = model.ice_thickness
     ℵ = model.ice_concentration
     push!(timeseries, (time(sim),

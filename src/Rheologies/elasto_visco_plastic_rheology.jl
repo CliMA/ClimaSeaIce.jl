@@ -1,4 +1,3 @@
-using Oceananigans.TimeSteppers: store_field_tendencies!
 using Oceananigans.Operators
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!

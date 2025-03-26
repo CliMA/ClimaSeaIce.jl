@@ -107,7 +107,7 @@ simulation = Simulation(model, Δt=lake.Δt, stop_time=10days)
 timeseries = []
 
 function accumulate_timeseries(sim)
-    T  = model.thermodynamics.top_surface_temperature
+    T  = model.ice_thermodynamics.top_surface_temperature
     h  = model.ice_thickness
     ℵ  = model.ice_concentration
     To = lake.lake_temperature

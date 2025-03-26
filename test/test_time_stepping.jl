@@ -26,13 +26,13 @@ end
         coriolises = (nothing, FPlane(latitude=45), BetaPlane(latitude=45))
         solvers = (ExplicitSolver(), SplitExplicitSolver())
 
-        for coriolis in coriolises, advection in advections, rheology in rheologies, thermodynamics in thermodynamics, solver in solvers
+        for coriolis in coriolises, advection in advections, rheology in rheologies, ice_thermodynamics in ice_thermodynamics, solver in solvers
             dynamics = SeaIceMomentumEquation(grid; coriolis, rheology, solver)
 
             @test time_step_sea_ice_model_works(grid;
                                                 dynamics,
-                                                thermodynamics=thermodynamics,
-                                                advection=advection)
+                                                ice_thermodynamics,
+                                                advection)
         end
     end
 end
