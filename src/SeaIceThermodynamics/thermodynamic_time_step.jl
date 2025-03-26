@@ -73,8 +73,11 @@ end
 
     # We parameterize the evolution of ice thickness and concentration
     # (i.e. lateral vs vertical growth) following Hibler (1979)
-    ∂t_ℵᶠ = (1 - ℵⁿ) * ∂t_V / hᶜ * freezing
-    ∂t_ℵᵐ = ℵⁿ * min(∂t_V, zero(ℵⁿ)) / 2hⁿ * !(freezing)
+    ∂t_V_freezing = max(∂t_V, zero(ℵⁿ))
+    ∂t_V_melting  = min(∂t_V, zero(ℵⁿ))
+
+    ∂t_ℵᶠ = (1 - ℵⁿ) /  hᶜ * ∂t_V_freezing
+    ∂t_ℵᵐ =      ℵⁿ  / 2hⁿ * ∂t_V_melting
     
     # Update ice thickness and concentration
     ℵ⁺ = ℵⁿ + Δt * (∂t_ℵᶠ + ∂t_ℵᵐ)
