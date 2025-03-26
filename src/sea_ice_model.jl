@@ -19,7 +19,6 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: 
     tracers :: T
     ice_thickness :: IT
     ice_concentration :: IC
-    ice_salinity :: IS
     ice_density :: ID
     ice_consolidation_thickness :: CT
     # Thermodynamics
