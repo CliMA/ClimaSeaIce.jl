@@ -82,7 +82,6 @@ function SeaIceModel(grid;
     # Wrap ice_salinity in a field 
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
     ice_density  = field((Center, Center, Nothing), ice_density, grid)
-    tracers      = merge(tracers, (; S = ice_salinity))
 
     # Construct prognostic fields if not provided
     ice_thickness     = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
@@ -90,7 +89,7 @@ function SeaIceModel(grid;
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
-    prognostic_fields = if ice_salinity isa ConstantField 
+    prognostic_fields = if ice_salinity isa ConstantField
         prognostic_fields 
     else
         merge(prognostic_fields, (; S = ice_salinity))
@@ -101,6 +100,7 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
+    tracers     = merge(tracers, (; S = ice_salinity))
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
