@@ -1,5 +1,5 @@
 using Oceananigans.Utils: Time
-using Oceananigans.Fields: flattened_unique_values
+using Oceananigans.Fields: flattened_unique_values, ConstantField, ZeroField
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
@@ -82,16 +82,12 @@ advance_tracers!(::EmptyTuples, args...) = nothing
 
 function advance_tracers!(tracers, i, j, k, G, Δt)
     # Assumption! The tracer tendencies are the first ones
-    for n in eachindex(tracers)
+    for n in eachindex(G)
         _advance_tracer!(tracers[n], i, j, k, G[n], Δt)
     end
 end
 
 _advance_tracer!(tracer, i, j, k, G, Δt) = @inbounds tracer[i, j, 1] += Δt * G[i, j, k]
-_advance_tracer!(::ConstantField, i, j, k, G, Δt) = nothing
-_advance_tracer!(::ZeroField, i, j, k, G, Δt) = nothing
-_advance_tracer!(::OneField, i, j, k, G, Δt) = nothing
-_advance_tracer!(::Nothing, i, j, k, G, Δt) = nothing
 
 function update_state!(model::SIM)
     

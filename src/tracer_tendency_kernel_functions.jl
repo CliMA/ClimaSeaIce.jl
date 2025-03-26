@@ -48,7 +48,7 @@ compute_tracer_tendencies!(G, i, j, grid, advection, velocities, ::EmptyTuples) 
 
 function compute_tracer_tendencies!(G, i, j, grid, advection, velocities, tracers)
     # Assumption! The tracer tendencies are the first ones
-    for n in eachindex(tracers)
+    for n in eachindex(G)
         @inbounds G[n][i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, tracers[n])
     end
 end
