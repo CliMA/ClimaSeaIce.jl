@@ -80,7 +80,7 @@ end
     ℵ⁺ = ℵⁿ + Δt * (∂t_ℵᶠ + ∂t_ℵᵐ)
     h⁺ = Vⁿ⁺¹ / ℵ⁺
 
-    # Treat patological cases
+    # Treat pathological cases
     ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
     h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
 
