@@ -73,7 +73,7 @@ end
 
     # We parameterize the evolution of ice thickness and concentration
     # (i.e. lateral vs vertical growth) following Hibler (1979)
-    ℵ⁺ = thermodynamic_step_ℵ(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
+    ℵ⁺ = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
     
     # Treat pathological cases
     h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
@@ -86,7 +86,7 @@ end
     @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
 end
 
-@inline function concentration_thermodynamic_timestep(::ProportionalEvolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
+@inline function concentration_thermodynamic_step(::ProportionalEvolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
     ∂t_V_freezing = max(∂t_V, zero(ℵⁿ))
     ∂t_V_melting  = min(∂t_V, zero(ℵⁿ))
 
