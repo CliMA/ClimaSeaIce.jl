@@ -2,7 +2,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission
-using GLMakie
+using CairoMakie
 
 # Generate a zero-dimensional grid for a single column slab model 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))

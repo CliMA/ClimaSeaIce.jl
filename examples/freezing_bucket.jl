@@ -53,9 +53,9 @@ top_heat_boundary_condition = PrescribedTemperature(-10)
 # slab sea ice representation of ice_thermodynamics
 
 ice_thermodynamics = SlabSeaIceThermodynamics(grid;
-                                          internal_heat_flux,
-                                          phase_transitions,
-                                          top_heat_boundary_condition)
+                                              internal_heat_flux,
+                                              phase_transitions,
+                                              top_heat_boundary_condition)
 
 # We also prescribe a frazil ice heat flux that stops when the ice has reached a concentration of 1.
 # This heat flux represents the initial ice formation from a liquid bucket.

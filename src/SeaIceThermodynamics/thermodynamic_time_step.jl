@@ -15,6 +15,7 @@ function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
             grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
+            model.tracers.S,
             model.ice_thermodynamics,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
@@ -35,15 +36,16 @@ end
 #      
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
 @kernel function _slab_thermodynamic_time_step!(ice_thickness,
-                                           ice_concentration,
-                                           grid,
-                                           Δt,
-                                           clock,
-                                           ice_consolidation_thickness,
-                                           ice_thermodynamics,
-                                           top_external_heat_flux,
-                                           bottom_external_heat_flux,
-                                           model_fields)
+                                                ice_concentration,
+                                                grid,
+                                                Δt,
+                                                clock,
+                                                ice_consolidation_thickness,
+                                                ice_salinity,
+                                                ice_thermodynamics,
+                                                top_external_heat_flux,
+                                                bottom_external_heat_flux,
+                                                model_fields)
 
     i, j = @index(Global, NTuple)
     
@@ -57,6 +59,7 @@ end
                                   ice_thickness,
                                   ice_concentration,
                                   ice_consolidation_thickness,
+                                  ice_salinity,
                                   top_external_heat_flux,
                                   bottom_external_heat_flux,
                                   clock, model_fields)
@@ -70,36 +73,23 @@ end
     # We recalculate the actual volume derivative, after accounting for the
     # volume adjustment (the ice cannot produce more melt than its actual volume!)
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
+    freezing = ∂t_V ≥ 0
 
-    # There are 6 typical cases depending on the sign of ∂t_V, ℵⁿ and hⁿ
-    #
-    # - ∂t_V ≥ 0 : the ice is growing * easy case to handle *
-    # ├── ℵⁿ == 0 -> new ice is forming (we only increase ℵⁿ, post increase ridging will adjust h)
-    # └── ℵⁿ > 0  -> ice is growing (we increase both ℵ and h based on ℵⁿ)
-    #
-    # - ∂t_V < 0 : the ice is melting * tricky case to handle *
-    # ├── ℵⁿ == 0 -> not possible! (there is no ice to begin with)
-    # ├── h > hᶜ  -> ice is melting (we decrease both ℵ and h based on ℵⁿ)
-    # └── h ≤ hᶜ  -> unconsolidated ice is melting (we only decrease ℵⁿ)
-
-    freezing     = ∂t_V > 0  
-    consolidated = hⁿ ≥ hᶜ
-    open_ocean   = ℵⁿ == 0
+    # The lateral vs vertical growth is parameterized as in Hibler 1979.
+    ∂t_ℵᶠ = (1 - ℵⁿ) * ∂t_V / hᶜ * freezing
+    ∂t_ℵᵐ = ℵⁿ * min(∂t_V, zero(ℵⁿ)) / 2hⁿ * !(freezing)
 
     # Freezing and melting cases:
-    hᶠ = hⁿ + Δt * ∂t_V * ℵⁿ * !open_ocean
-    hᵐ = hⁿ + Δt * ∂t_V * ℵⁿ * consolidated
-    hᵐ = max(hᵐ, zero(hᵐ))
-    h⁺ = ifelse(freezing, hᶠ, hᵐ)
+    ℵ⁺ = ℵⁿ + Δt * (∂t_ℵᶠ + ∂t_ℵᵐ)
+    h⁺ = Vⁿ⁺¹ / ℵ⁺
 
-    # There is also a very particular case when the ice is nucleating corresponding
-    # h⁺ == 0 and freezing. In this case, we set h = hᶜ and advance ℵ accordingly
-    h⁺ = ifelse(freezing & (h⁺ == 0), hᶜ, h⁺)
-    ℵ⁺ = Vⁿ⁺¹ / h⁺
-    
+    ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
+    h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
+
     # No volume change
     ℵ⁺ = ifelse(∂t_V == 0, ℵⁿ, ℵ⁺)
     h⁺ = ifelse(∂t_V == 0, hⁿ, h⁺)
+    ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺)
 
     # Ridging caused by the thermodynamic step
     @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)

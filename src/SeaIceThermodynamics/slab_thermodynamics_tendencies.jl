@@ -1,4 +1,5 @@
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
+using Oceananigans
 
 # Frazil ice formation
 @inline function thermodynamic_tendency(i, j, k, grid,
@@ -6,6 +7,7 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
                                         ice_thickness,
                                         ice_concentration,
                                         ice_consolidation_thickness,
+                                        ice_salinity,
                                         top_external_heat_flux,
                                         bottom_external_heat_flux,
                                         clock, model_fields)
@@ -25,6 +27,7 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
         hᵢ = ice_thickness[i, j, k]
         hc = ice_consolidation_thickness[i, j, k]
         ℵᵢ = ice_concentration[i, j, k]
+        Sᵢ = ice_salinity[i, j, k]
     end
 
     @inbounds Tuᵢ = Tu[i, j, k]
@@ -38,6 +41,9 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
         if consolidated_ice # slab is consolidated and has an independent surface temperature
             Tu⁻ = @inbounds Tu[i, j, k]
             Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
+            # We cap by melting temperature
+            Tuₘ = melting_temperature(liquidus, Sᵢ)
+            Tuⁿ = min(Tuⁿ, Tuₘ)
         else # slab is unconsolidated and does not have an independent surface temperature
             Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
         end
