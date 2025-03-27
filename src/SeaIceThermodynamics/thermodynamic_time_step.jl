@@ -70,10 +70,7 @@ end
     # We recalculate the actual volume derivative, after accounting for the
     # volume adjustment (the ice cannot produce more melt than its actual volume!)
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
-
-    # We parameterize the evolution of ice thickness and concentration
-    # (i.e. lateral vs vertical growth) following Hibler (1979)
-    ℵ⁺ = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
+    ℵ⁺   = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
     
     # Treat pathological cases
     h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
@@ -86,6 +83,8 @@ end
     @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
 end
 
+# We parameterize the evolution of ice thickness and concentration
+# (i.e. lateral vs vertical growth) following Hibler (1979)
 @inline function concentration_thermodynamic_step(::ProportionalEvolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
     ∂t_V_freezing = max(∂t_V, zero(ℵⁿ))
     ∂t_V_melting  = min(∂t_V, zero(ℵⁿ))
