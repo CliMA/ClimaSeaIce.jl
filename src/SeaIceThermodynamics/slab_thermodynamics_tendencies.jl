@@ -24,7 +24,6 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperatur
     @inbounds begin
         hᵢ = ice_thickness[i, j, k]
         hc = ice_consolidation_thickness[i, j, k]
-        ℵᵢ = ice_concentration[i, j, k]
     end
 
     @inbounds Tuᵢ = Tu[i, j, k]

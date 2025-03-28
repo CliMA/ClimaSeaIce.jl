@@ -1,19 +1,24 @@
 import Oceananigans: fields
 
-struct SlabSeaIceThermodynamics{ST, HBC, CF, P}
+struct ProportionalEvolution end
+
+struct SlabSeaIceThermodynamics{ST, HBC, CF, P, CE}
     top_surface_temperature :: ST
     heat_boundary_conditions :: HBC
     # Internal flux
     internal_heat_flux :: CF
     # Melting and freezing stuff
     phase_transitions :: P
+    # Rules to evolve concentration
+    concentration_evolution :: CE
 end
 
 Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) = 
     SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
                              Adapt.adapt(to, t.heat_boundary_conditions),
                              Adapt.adapt(to, t.internal_heat_flux),
-                             Adapt.adapt(to, t.phase_transitions))
+                             Adapt.adapt(to, t.phase_transitions),
+                             Adapt.adapt(to, t.concentration_evolution))
 
 const SSIT = SlabSeaIceThermodynamics
 
@@ -37,7 +42,8 @@ function SlabSeaIceThermodynamics(grid;
                                   bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
                                   # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
                                   internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
-                                  phase_transitions              = PhaseTransitions(eltype(grid)))
+                                  phase_transitions              = PhaseTransitions(eltype(grid)),
+                                  concentration_evolution        = ProportionalEvolution())
 
     # Construct an internal heat flux function that captures the liquidus and
     # bottom boundary condition.
@@ -69,6 +75,7 @@ function SlabSeaIceThermodynamics(grid;
     return SlabSeaIceThermodynamics(top_surface_temperature,
                                     heat_boundary_conditions,
                                     internal_heat_flux_function,
-                                    phase_transitions)
+                                    phase_transitions,
+                                    concentration_evolution)
 end
 
