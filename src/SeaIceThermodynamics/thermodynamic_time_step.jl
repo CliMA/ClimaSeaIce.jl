@@ -71,6 +71,7 @@ end
     # volume adjustment (the ice cannot produce more melt than its actual volume!)
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
     ℵ⁺   = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
+    h⁺   = Vⁿ⁺¹ / ℵ⁺
     
     # Treat pathological cases
     h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
