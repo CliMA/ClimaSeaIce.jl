@@ -175,14 +175,13 @@ function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology
     return nothing
 end
 
-@inline strain_rate_xx(i, j, k, grid, u, v) = δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, u, v) = δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xx(i, j, k, grid, u, v) =  δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, u, v) =  δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
 @inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
 
 @kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v)
     i, j = @index(Global, NTuple)
-
-    P = fields.P
+    kᴺ   = size(grid, 3)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
@@ -191,11 +190,11 @@ end
     P = fields.P
 
     # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
+    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v) 
 
     # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, 1, grid, strain_rate_xy, u, v)
+    ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, kᴺ, grid, strain_rate_xy, u, v)
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -218,6 +217,7 @@ end
 # following the αEVP formulation of Kimmritz et al (2016).
 @kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
+    kᴺ   = size(grid, 3)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
@@ -230,9 +230,9 @@ end
     α   = fields.α
     
     # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
+    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v) 
+    ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
 
     Pᶜᶜᶜ = @inbounds fields.P[i, j, 1]
     ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
