@@ -33,6 +33,7 @@ end
                                minimum_plastic_stress = 2e-9,
                                min_relaxation_parameter = 50,
                                max_relaxation_parameter = 300,
+                               relaxation_strength = π^2 / 2,
                                replacement_pressure = false)
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
@@ -49,8 +50,9 @@ parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))`` where ``P★`` is the `ice
 The stresses are substepped using a dynamic substepping coefficient ``α`` that is
 spatially varying and computed dynamically as in Kimmritz et al (2016)
 In particular: α = sqrt(γ²) 
-where γ² = ζ * π² * (Δt / mᵢ) / Az is a stability parameter with ``Az`` is the area of the grid cell, 
-``mᵢ`` the ice mass, and ``Δt`` the time step.
+where γ² = ζ * cα * (Δt / mᵢ) / Az is a stability parameter with ``Az`` is the area of the grid cell, 
+``mᵢ`` the ice mass, ``Δt`` the time step, and ``cα`` a numerical stability parameter which controls the 
+stregth of ``γ²``.
 
 The stresses are substepped with:
 ```math
