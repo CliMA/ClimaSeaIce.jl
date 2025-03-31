@@ -33,10 +33,11 @@ end
                                                      tracers)
 
     i, j = @index(Global, NTuple)
-    
+    kᴺ   = size(grid, 3) # Assumption! The sea ice is located at the _top_ of the grid
+ 
     @inbounds begin
-        Gⁿ.h[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_thickness)
-        Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_concentration)
+        Gⁿ.h[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_thickness)
+        Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
 
         # for (n, θ) in enumerate(tracers)
         #     @inbounds Gⁿ[n] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, θ)
