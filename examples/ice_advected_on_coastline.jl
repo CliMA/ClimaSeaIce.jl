@@ -40,7 +40,7 @@ grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
 
 # Atmosphere - sea ice stress
 Ua = XFaceField(grid)
-τᵤ = Field(ρₐ * Cᴰ * Ua^2)
+τᵤ = Field(- ρₐ * Cᴰ * Ua^2)
 set!(Ua, 𝓋ₐ)
 compute!(τᵤ)
 Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
