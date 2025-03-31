@@ -87,12 +87,12 @@ end
 # We parameterize the evolution of ice thickness and concentration
 # (i.e. lateral vs vertical growth) following Hibler (1979)
 @inline function concentration_thermodynamic_step(::ProportionalEvolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
-    ∂t_V_freezing = max(∂t_V, zero(ℵⁿ))
-    ∂t_V_melting  = min(∂t_V, zero(ℵⁿ))
+    freezing = (∂t_V ≥ 0) # Freezing
+    melting  = (∂t_V < 0) # Melting
 
-    ∂t_ℵᶠ = (1 - ℵⁿ) /  hᶜ * ∂t_V_freezing
-    ∂t_ℵᵐ =      ℵⁿ  / 2hⁿ * ∂t_V_melting
-    
+    ∂t_ℵᶠ = (1 - ℵⁿ) /  hᶜ * ∂t_V * freezing
+    ∂t_ℵᵐ =      ℵⁿ  / 2hⁿ * ∂t_V * melting
+
     # Update concentration accordingly
     ℵ⁺ = ℵⁿ + Δt * (∂t_ℵᶠ + ∂t_ℵᵐ)
     ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
