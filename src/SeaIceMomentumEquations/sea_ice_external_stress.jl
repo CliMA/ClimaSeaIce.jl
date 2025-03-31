@@ -26,10 +26,10 @@ using Oceananigans.Fields: ZeroField
 ##### Utility for computing the total stress
 #####
 
-@inline momentum_stress_x(i, j, k, grid, stress, clock, fields) = 
+@inline x_momentum_stress(i, j, k, grid, stress, clock, fields) = 
     @inbounds explicit_τx(i, j, k, grid, stress, clock, fields) - implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) * fields.u[i, j, k]
 
-@inline momentum_stress_y(i, j, k, grid, stress, clock, fields) =
+@inline y_momentum_stress(i, j, k, grid, stress, clock, fields) =
     @inbounds explicit_τy(i, j, k, grid, stress, clock, fields) - implicit_τy_coefficient(i, j, k, grid, stress, clock, fields) * fields.v[i, j, k]
 
 #####
