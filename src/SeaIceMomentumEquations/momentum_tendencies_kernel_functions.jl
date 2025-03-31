@@ -12,11 +12,10 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
                                      u_forcing)
 
      kᴺ = size(grid, 3)
-
-     h = model_fields.h
-     ℵ = model_fields.ℵ
-     ρ = model_fields.ρ
-     U = (u = model_fields.u, v = model_fields.v)
+     h  = model_fields.h
+     ℵ  = model_fields.ℵ
+     ρ  = model_fields.ρ
+     U  = (u = model_fields.u, v = model_fields.v)
 
      # Ice mass (per unit area) interpolated on u points
      ℵᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ℵ)
@@ -45,6 +44,7 @@ end
                                      v_bottom_stress,
                                      v_forcing)
 
+     kᴺ = size(grid, 3)
      h = model_fields.h
      ℵ = model_fields.ℵ
      ρ = model_fields.ρ
