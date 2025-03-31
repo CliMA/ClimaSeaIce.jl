@@ -87,7 +87,7 @@ fill_halo_regions!((Uₐ, Vₐ))
 # for advection of h and ℵ
 
 momentum_equations = SeaIceMomentumEquation(grid; 
-                                            top_momentum_stress = (u=τₐ, v=τₐ),
+                                            top_momentum_stress = (u=τₐu, v=τₐv),
                                             bottom_momentum_stress = τₒ,
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
