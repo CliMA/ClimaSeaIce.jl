@@ -126,7 +126,7 @@ end
           - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, model_fields)) / mᵢ * ℵᵢ 
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
-    uᴰ  = @inbounds (u[i, j, kᴺ] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
+    uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
     uᶠ  = free_drift_u(i, j, kᴺ, grid, ocean_velocities) # free drift velocity
 
     # If the ice mass or the ice concentration are below a certain threshold, 
@@ -158,7 +158,7 @@ end
 
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 
-    vᴰ = @inbounds (v[i, j, kᴺ] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
+    vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
     vᶠ = free_drift_v(i, j, kᴺ, grid, ocean_velocities) # free drift velocity
 
     # If the ice mass or the ice concentration are below a certain threshold, 
