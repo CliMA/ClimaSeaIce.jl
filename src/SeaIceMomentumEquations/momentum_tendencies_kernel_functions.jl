@@ -21,7 +21,7 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
      mᵢ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
      Gᵁ = ( - x_f_cross_U(i, j, 1, grid, coriolis, U) 
-            + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+            - explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ
             + immersed_∂ⱼ_σ₁ⱼ(i, j, 1, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
@@ -53,7 +53,7 @@ end
      mᵢ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
 
      Gⱽ = ( - y_f_cross_U(i, j, 1, grid, coriolis, U)
-            + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+            - explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
             + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
             + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ 
             + immersed_∂ⱼ_σ₂ⱼ(i, j, 1, grid, v_immersed_bc, rheology, clock, model_fields) / mᵢ
