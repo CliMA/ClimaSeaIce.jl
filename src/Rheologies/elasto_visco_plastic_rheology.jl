@@ -22,7 +22,7 @@ struct ElastoViscoPlasticRheology{RP, FT}
     relaxation_strength :: FT # strength of the relaxation parameter
 
     ElastoViscoPlasticRheology{RP}(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT) where {RP, FT}  = 
-        new{PT, FT}(P, C, e, Δ_min, α⁻, α⁺, c)
+        new{RP, FT}(P, C, e, Δ_min, α⁻, α⁺, c)
 end
 
 """
