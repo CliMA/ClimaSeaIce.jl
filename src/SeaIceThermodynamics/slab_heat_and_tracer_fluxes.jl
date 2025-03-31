@@ -14,7 +14,7 @@ ConductiveFlux(FT::DataType=Float64; conductivity) = ConductiveFlux(convert(FT, 
     Tb = bottom_temperature
     h = ice_thickness
 
-    return ifelse(h <= 0, zero(h), - k * (Tu - Tb) / h)
+    return ifelse(h ≤ 0, zero(h), - k * (Tu - Tb) / h)
 end
 
 @inline function slab_internal_heat_flux(i, j, grid,
