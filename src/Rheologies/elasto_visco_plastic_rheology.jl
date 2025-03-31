@@ -247,6 +247,7 @@ end
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     α⁺  = rheology.max_relaxation_parameter
     α⁻  = rheology.min_relaxation_parameter
+    cα  = rheology.relaxation_strength
 
     σ₁₁ = fields.σ₁₁
     σ₂₂ = fields.σ₂₂
@@ -279,11 +280,11 @@ end
 
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as in Kimmritz et al (2016)
-    γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
+    γ²ᶜᶜᶜ = ζᶜᶜᶜ * cα * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
     γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), α⁺^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
     γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), α⁻, α⁺)
 
-    γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
+    γ²ᶠᶠᶜ = ζᶠᶠᶜ * cα * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
     γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), α⁺^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), α⁻, α⁺)
 
