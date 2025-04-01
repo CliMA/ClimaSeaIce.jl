@@ -72,16 +72,16 @@ Arguments
 Keyword Arguments
 =================
     
-- `ice_compressive_strength`: parameter expressing compressive strength (in Nm²). Default `27500`.
-- `ice_compaction_hardening`: exponent coefficient for compaction hardening. Default `20`.
-- `yield_curve_eccentricity`: eccentricity of the elliptic yield curve. Default `2`.
+- `ice_compressive_strength`: parameter expressing compressive strength (in Nm²). Default: `27500`.
+- `ice_compaction_hardening`: exponent coefficient for compaction hardening. Default: `20`.
+- `yield_curve_eccentricity`: eccentricity of the elliptic yield curve. Default: `2`.
 - `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice, 
-           transitioning the ice from a plastic to a viscous behaviour. Default value is `1e-10`.
-- `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`. Default value is `30`.
-- `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default value is `500`.
-- `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`, see Kimmritz et al (2016). Default value is `π² / 2`.
+           transitioning the ice from a plastic to a viscous behaviour. Default: `1e-10`.
+- `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`. Default: `30`.
+- `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default: `500`.
+- `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`, see Kimmritz et al (2016). Default: `π² / 2`.
 - `use_replacement_pressure`: if `true` use a ``replacement pressure'' instead of the ice stregth for computing the pressure.
-                              The replacement pressure is formulated to avoid ice motion in the absence of forcing. Default value is `false`.
+                              The replacement pressure is formulated to avoid ice motion in the absence of forcing. Default: `false`.
 """
 function ElastoViscoPlasticRheology(FT::DataType = Float64; 
                                     ice_compressive_strength = 27500, 
