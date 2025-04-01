@@ -34,7 +34,7 @@ end
                                min_relaxation_parameter = 50,
                                max_relaxation_parameter = 300,
                                relaxation_strength = π^2 / 2,
-                               replacement_pressure = false)
+                               replacement_pressure = true)
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
 rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al (2016).
@@ -91,7 +91,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     min_relaxation_parameter = 50,
                                     max_relaxation_parameter = 300,
                                     relaxation_strength = π^2 / 2,
-                                    use_replacement_pressure = false)
+                                    use_replacement_pressure = true)
 
     RP = use_replacement_pressure
 
