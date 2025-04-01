@@ -46,7 +46,7 @@ end
                                                 model_fields)
 
     i, j = @index(Global, NTuple)
-    
+     
     @inbounds hⁿ = ice_thickness[i, j, 1]
     @inbounds ℵⁿ = ice_concentration[i, j, 1]
     @inbounds hᶜ = ice_consolidation_thickness[i, j, 1]

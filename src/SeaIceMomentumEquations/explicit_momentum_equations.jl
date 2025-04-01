@@ -38,25 +38,26 @@ end
                                    ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
 
     i, j = @index(Global, NTuple)
-    
-    ℵᶠᶜ = ℑxᶠᵃᵃ(i, j, 1, grid, fields.ℵ)
-    ℵᶜᶠ = ℑyᵃᶠᵃ(i, j, 1, grid, fields.ℵ)
-    mᶠᶜ = ℑxᶠᵃᵃ(i, j, 1, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
-    mᶜᶠ = ℑyᵃᶠᵃ(i, j, 1, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
+    kᴺ   = size(grid, 3)
+
+    ℵᶠᶜ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, fields.ℵ)
+    ℵᶜᶠ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, fields.ℵ)
+    mᶠᶜ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
+    mᶜᶠ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
    # Implicit part of the stress that depends linearly on the velocity
-   τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
-         + implicit_τx_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
+   τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
+         - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
    
-   τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
-         + implicit_τy_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
+   τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
+         - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
 
     @inbounds begin
         uᴰ = (u[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
         vᴰ = (v[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
 
-        uᶠ = free_drift_u(i, j, 1, grid, ocean_velocities)
-        vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities)
+        uᶠ = free_drift_u(i, j, kᴺ, grid, ocean_velocities)
+        vᶠ = free_drift_v(i, j, kᴺ, grid, ocean_velocities)
 
         sea_ice = (mᶠᶜ ≥ minimum_mass) & (ℵᶠᶜ ≥ minimum_concentration)
         u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
