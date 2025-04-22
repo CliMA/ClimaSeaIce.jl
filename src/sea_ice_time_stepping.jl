@@ -73,6 +73,9 @@ end
         
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
+
+        # Minimum concentration is 1e-4
+        ℵ[i, j, k] = max(ℵ[i, j, k], 1e-4)
     end 
 end
 
