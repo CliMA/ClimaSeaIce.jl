@@ -87,10 +87,24 @@ for file in files
     rm(file)
 end
 
-withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
-    deploydocs(repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
-           versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
-           forcepush = true,
-           push_preview = true,
-           devbranch = "main")
+# Replace with below once https://github.com/JuliaDocs/Documenter.jl/pull/2692 is merged and available.
+#  deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
+#    deploy_repo = "github.com/CliMA/ClimaSeaIceDocumentation",
+#    devbranch = "main",
+#    push_preview = true)
+if get(ENV, "GITHUB_EVENT_NAME", "") == "pull_request"
+    deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
+               repo_previews = "github.com/CliMA/ClimaSeaIceDocumentation",
+               devbranch = "main",
+               forcepush = true,
+               push_preview = true,
+               versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"])
+else
+    repo = "github.com/CliMA/ClimaSeaIceDocumentation"
+    withenv("GITHUB_REPOSITORY" => repo) do
+        deploydocs(repo = repo,
+                   devbranch = "main",
+                   forcepush = true,
+                   versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"])
+    end
 end
