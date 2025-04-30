@@ -35,18 +35,18 @@ end
 #      
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
 @kernel function _slab_thermodynamic_time_step!(ice_thickness,
-                                           ice_concentration,
-                                           grid,
-                                           Δt,
-                                           clock,
-                                           ice_consolidation_thickness,
-                                           ice_thermodynamics,
-                                           top_external_heat_flux,
-                                           bottom_external_heat_flux,
-                                           model_fields)
+                                                ice_concentration,
+                                                grid,
+                                                Δt,
+                                                clock,
+                                                ice_consolidation_thickness,
+                                                ice_thermodynamics,
+                                                top_external_heat_flux,
+                                                bottom_external_heat_flux,
+                                                model_fields)
 
     i, j = @index(Global, NTuple)
-    
+     
     @inbounds hⁿ = ice_thickness[i, j, 1]
     @inbounds ℵⁿ = ice_concentration[i, j, 1]
     @inbounds hᶜ = ice_consolidation_thickness[i, j, 1]
@@ -70,25 +70,32 @@ end
     # We recalculate the actual volume derivative, after accounting for the
     # volume adjustment (the ice cannot produce more melt than its actual volume!)
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
-    freezing = ∂t_V ≥ 0
-
-    # The lateral vs vertical growth is parameterized as in Hibler 1979.
-    ∂t_ℵᶠ = (1 - ℵⁿ) * ∂t_V / hᶜ * freezing
-    ∂t_ℵᵐ = ℵⁿ * min(∂t_V, zero(ℵⁿ)) / 2hⁿ * !(freezing)
-
-    # Freezing and melting cases:
-    ℵ⁺ = ℵⁿ + Δt * (∂t_ℵᶠ + ∂t_ℵᵐ)
-    h⁺ = Vⁿ⁺¹ / ℵ⁺
-
-    ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
+    ℵ⁺   = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
+    h⁺   = Vⁿ⁺¹ / ℵ⁺
+    
+    # Treat pathological cases
     h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
-
-    # No volume change
-    ℵ⁺ = ifelse(∂t_V == 0, ℵⁿ, ℵ⁺)
-    h⁺ = ifelse(∂t_V == 0, hⁿ, h⁺)
-    ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺)
+    ℵ⁺ = ifelse(∂t_V == 0, ℵⁿ, ℵ⁺)     # No volume change
+    h⁺ = ifelse(∂t_V == 0, hⁿ, h⁺)     # No volume change
+    ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺) # reset the concentration if there is no sea-ice
 
     # Ridging caused by the thermodynamic step
     @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
     @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
+end
+
+# We parameterize the evolution of ice thickness and concentration
+# (i.e. lateral vs vertical growth) following Hibler (1979)
+@inline function concentration_thermodynamic_step(::ProportionalEvolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
+    freezing = (∂t_V ≥ 0) # Freezing
+    melting  = (∂t_V < 0) # Melting
+
+    ∂t_ℵᶠ = (1 - ℵⁿ) /  hᶜ * ∂t_V * freezing
+    ∂t_ℵᵐ =      ℵⁿ  / 2hⁿ * ∂t_V * melting
+
+    # Update concentration accordingly
+    ℵ⁺ = ℵⁿ + Δt * (∂t_ℵᶠ + ∂t_ℵᵐ)
+    ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
+
+    return ℵ⁺
 end

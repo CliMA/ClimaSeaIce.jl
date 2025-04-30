@@ -62,8 +62,6 @@ fill_halo_regions!((Uₒ, Vₒ))
 Uₐ = XFaceField(grid)
 Vₐ = YFaceField(grid)
 
-τₐ = SemiImplicitStress(; uₑ=Uₐ, vₑ=Vₐ, ρₑ=1.3, Cᴰ=1.2e-3)
-
 # Atmospheric velocities corresponding to an anticyclonic eddy moving north-east
 @inline center(t) = 256kilometers + 51.2kilometers * t / 86400
 @inline radius(x, y, t)  = sqrt((x - center(t))^2 + (y - center(t))^2)
@@ -78,6 +76,9 @@ set!(Vₐ, (x, y) -> va_time(x, y, 0))
 
 fill_halo_regions!((Uₐ, Vₐ))
 
+τₐu = - Uₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3
+τₐv = - Vₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3
+
 #####
 ##### Numerical details
 #####
@@ -86,7 +87,7 @@ fill_halo_regions!((Uₐ, Vₐ))
 # for advection of h and ℵ
 
 momentum_equations = SeaIceMomentumEquation(grid; 
-                                            top_momentum_stress = τₐ,
+                                            top_momentum_stress = (u=τₐu, v=τₐv),
                                             bottom_momentum_stress = τₒ,
                                             coriolis = FPlane(f=1e-4),
                                             ocean_velocities = (u = Uₒ, v = Vₒ),
