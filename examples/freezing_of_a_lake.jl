@@ -259,3 +259,5 @@ lines!(axB, t   / day, Qa1 - Ql1)
 
 save("energy_budget.png", fig)
 nothing # hide
+
+# ![](energy_budget.png)
