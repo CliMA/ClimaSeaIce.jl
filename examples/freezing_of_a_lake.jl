@@ -41,7 +41,7 @@ atmosphere = (
     ℵ  = fields.ℵ[i, j, 1]
     Qₐ = atmosphere.atmosphere_ice_flux
 
-    Qₐ[i] =  Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ
+    Qₐ[i] =  ifelse(ℵ == 0, zero(grid), Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ))
 
     return Qₐ[i] 
 end
