@@ -140,13 +140,10 @@ Qa = []
 Ql = []
 
 function accumulate_energy(sim)
-    T  = sim.model.ice_thermodynamics.top_surface_temperature
     h  = sim.model.ice_thickness
     ℵ  = sim.model.ice_concentration
     PT = sim.model.ice_thermodynamics.phase_transitions
-    Tb = 0
-
-    ℰ = latent_heat.(Ref(PT), Tb)
+    ℰ  = latent_heat(PT, 0) # ice is at 0ᵒC
 
     push!(Ei, deepcopy(@. h * ℵ * ℰ))
     push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
