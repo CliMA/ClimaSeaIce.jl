@@ -233,10 +233,10 @@ axA = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Atmosphere HF")
 axL = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Lake HF")
 axB = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Heat budget")
 
-pEt1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
-pEt2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
-pEt3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
-pEt4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
+dEi1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
+dEi2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
+dEi3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
+dEi4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
 tpE  = t[2:end] 
 
 lines!(axE, t / day, Ei1)
@@ -255,9 +255,9 @@ lines!(axE, t / day, Ei4)
 lines!(axA, t / day, Qa4)
 lines!(axL, t / day, Ql4)
 
-lines!(axB, tpE / day, pEt1 .- (Qa1 .- Ql1)[2:end])
-lines!(axB, tpE / day, pEt2 .- (Qa2 .- Ql2)[2:end])
-lines!(axB, tpE / day, pEt3 .- (Qa3 .- Ql3)[2:end])
+lines!(axB, tpE / day, dEi1 .- (Qa1 .- Ql1)[2:end])
+lines!(axB, tpE / day, dEi2 .- (Qa2 .- Ql2)[2:end])
+lines!(axB, tpE / day, dEi3 .- (Qa3 .- Ql3)[2:end])
 
 save("energy_budget.png", fig)
 nothing # hide
