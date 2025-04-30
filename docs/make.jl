@@ -16,8 +16,8 @@ example_scripts = [
     "freezing_bucket.jl",
     "melting_in_spring.jl",
     "freezing_of_a_lake.jl",
-    "ice_advected_by_anticyclone.jl",
-    "ice_advected_on_coastline.jl",
+    # "ice_advected_by_anticyclone.jl",
+    # "ice_advected_on_coastline.jl",
     "arctic_basin_seasonal_cycle.jl"
 ]
 
