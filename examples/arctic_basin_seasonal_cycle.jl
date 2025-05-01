@@ -130,3 +130,7 @@ lines!(axQ, t / day, Q)
 
 display(fig)
 
+save("ice_timeseries.png", fig)
+nothing # hide
+
+# ![](ice_timeseries.png)

@@ -41,7 +41,7 @@ atmosphere = (
     ℵ  = fields.ℵ[i, j, 1]
     Qₐ = atmosphere.atmosphere_ice_flux
 
-    Qₐ[i] =  Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ
+    Qₐ[i] =  ifelse(ℵ == 0, zero(grid), Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ))
 
     return Qₐ[i] 
 end
@@ -112,7 +112,7 @@ model = SeaIceModel(grid;
 
 set!(model, h=0, ℵ=0)
 
-simulation = Simulation(model, Δt=lake.Δt, stop_time=10days)
+simulation = Simulation(model, Δt=lake.Δt, stop_time=20days)
 
 # The data is accumulated in a timeseries for visualization.
 
@@ -139,15 +139,12 @@ Qa = []
 Ql = []
 
 function accumulate_energy(sim)
-    T  = sim.model.ice_thermodynamics.top_surface_temperature
     h  = sim.model.ice_thickness
     ℵ  = sim.model.ice_concentration
     PT = sim.model.ice_thermodynamics.phase_transitions
-    Tb = 0
+    ℰ  = latent_heat(PT, 0) # ice is at 0ᵒC
 
-    ℰ = latent_heat.(Ref(PT), T)
-
-    push!(Ei, deepcopy(@. h * ℵ * ℰ))
+    push!(Ei, deepcopy(@. - h * ℵ * ℰ))
     push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
     push!(Ql, deepcopy(lake.lake_ice_flux))
 end
@@ -232,10 +229,10 @@ axA = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Atmosphere HF")
 axL = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Lake HF")
 axB = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Heat budget")
 
-pEt1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
-pEt2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
-pEt3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
-pEt4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
+dEi1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
+dEi2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
+dEi3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
+dEi4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
 tpE  = t[2:end] 
 
 lines!(axE, t / day, Ei1)
@@ -254,8 +251,11 @@ lines!(axE, t / day, Ei4)
 lines!(axA, t / day, Qa4)
 lines!(axL, t / day, Ql4)
 
-lines!(axB, tpE / day, pEt1)
-lines!(axB, t   / day, Qa1 - Ql1)
+lines!(axB, tpE / day, dEi1 .- (.- Qa1 .+ Ql1)[2:end])
+lines!(axB, tpE / day, dEi2 .- (.- Qa2 .+ Ql2)[2:end])
+lines!(axB, tpE / day, dEi3 .- (.- Qa3 .+ Ql3)[2:end])
 
 save("energy_budget.png", fig)
 nothing # hide
+
+# ![](energy_budget.png)
