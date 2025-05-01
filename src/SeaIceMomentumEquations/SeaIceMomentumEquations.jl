@@ -16,8 +16,6 @@ using Oceananigans.Grids: architecture
 using ClimaSeaIce: ice_mass
 using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ, 
                               ∂ⱼ_σ₂ⱼ, 
-                              immersed_∂ⱼ_σ₁ⱼ,
-                              immersed_∂ⱼ_σ₂ⱼ,
                               rheology_auxiliary_fields, 
                               compute_stresses!,
                               initialize_rheology!,
