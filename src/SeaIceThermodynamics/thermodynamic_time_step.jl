@@ -41,6 +41,7 @@ end
                                                 Δt,
                                                 clock,
                                                 ice_consolidation_thickness,
+                                                ice_salinity,
                                                 ice_thermodynamics,
                                                 top_external_heat_flux,
                                                 bottom_external_heat_flux,
