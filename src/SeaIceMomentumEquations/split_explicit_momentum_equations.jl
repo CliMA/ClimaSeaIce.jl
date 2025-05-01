@@ -55,8 +55,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
 
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
+    active_cells_map = Oceananigans.Grids.get_active_column_map(grid)
+
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
     substeps = dynamics.solver.substeps
     
@@ -127,7 +129,7 @@ end
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
     uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
-    uᶠ  = free_drift_u(i, j, kᴺ, grid, ocean_velocities) # free drift velocity
+    uᶠ  = free_drift_u(i, j, kᴺ, grid, ocean_velocities, clock, model_fields) # free drift velocity
 
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
@@ -159,7 +161,7 @@ end
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 
     vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
-    vᶠ = free_drift_v(i, j, kᴺ, grid, ocean_velocities) # free drift velocity
+    vᶠ = free_drift_v(i, j, kᴺ, grid, ocean_velocities, clock, model_fields)  # free drift velocity
 
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity

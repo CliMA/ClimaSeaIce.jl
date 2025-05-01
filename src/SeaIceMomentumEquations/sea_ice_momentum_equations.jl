@@ -1,12 +1,12 @@
 using ClimaSeaIce.Rheologies
 using Adapt
 
-struct SeaIceMomentumEquation{S, C, R, V, A, ES, FT}
+struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C
     rheology :: R
     auxiliary_fields :: A
     solver :: S
-    ocean_velocities :: V
+    free_drift :: F
     external_momentum_stresses :: ES
     minimum_concentration :: FT
     minimum_mass :: FT
@@ -27,6 +27,7 @@ struct ExplicitSolver end
 
 Constructs a `SeaIceMomentumEquation` object that controls the dynamical evolution of sea-ice momentum.
 The sea-ice momentum obey the following evolution equation:
+
 ```math
     ∂u                   τₒ    τₐ
     -- + f x u = ∇ ⋅ σ + --  + -- 
@@ -56,9 +57,9 @@ function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 auxiliary_fields = NamedTuple(),
-                                ocean_velocities = nothing,
                                 top_momentum_stress    = (u = nothing, v = nothing),
                                 bottom_momentum_stress = (u = nothing, v = nothing),
+                                free_drift = FluxBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress),
                                 solver = ExplicitSolver(),
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
@@ -73,7 +74,7 @@ function SeaIceMomentumEquation(grid;
                                   rheology, 
                                   auxiliary_fields, 
                                   solver,
-                                  ocean_velocities,
+                                  free_drift,
                                   external_momentum_stresses,
                                   convert(FT, minimum_concentration),
                                   convert(FT, minimum_mass))
@@ -82,9 +83,9 @@ end
 fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
 
 # Just passing ocean velocities without mitigation
-@inline free_drift_u(i, j, k, grid, f) = @inbounds f.u[i, j, k] 
-@inline free_drift_v(i, j, k, grid, f) = @inbounds f.v[i, j, k] 
+@inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.u[i, j, k] 
+@inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.v[i, j, k] 
 
 # Passing no velocities
-@inline free_drift_u(i, j, k, grid, ::Nothing) = zero(grid)
-@inline free_drift_v(i, j, k, grid, ::Nothing) = zero(grid)
+@inline free_drift_u(i, j, k, grid, ::Nothing, clock, model_fields)  = zero(grid)
+@inline free_drift_v(i, j, k, grid, ::Nothing, clock, model_fields)  = zero(grid)
