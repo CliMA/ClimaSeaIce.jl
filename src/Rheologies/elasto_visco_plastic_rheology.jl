@@ -230,12 +230,12 @@ end
     @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
 end
 
-@inline ice_pressure(i, j, k, r, P) = @inbounds P[i, j, k]
+@inline ice_pressure(i, j, k, grid, rheology, fields) = @inbounds fields.P[i, j, k]
 
-@inline function ice_pressure(i, j, k, r::RPEVP, P)
-    Pᶜᶜᶜ = @inbounds P[i, j, k]
-    Δᶜᶜᶜ = @inbounds r.Δ[i, j, k]
-    Δm   = r..minimum_plastic_stress
+@inline function ice_pressure(i, j, k, grid, rheology::RPEVP, fields)
+    Pᶜᶜᶜ = @inbounds fields.P[i, j, k]
+    Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
+    Δm   = rheology.minimum_plastic_stress
     return Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
 end
 
@@ -262,11 +262,10 @@ end
     ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
 
     ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
-    # Δᶜᶜᶜ = @inbounds fields.Δ[i, j, 1]
     ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, fields.ζ)
 
     # replacement pressure?
-    Pᵣ = ice_pressure(i, j, 1, rheology, fields.P)
+    Pᵣ = ice_pressure(i, j, 1, grid, rheology, fields)
 
     ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
     ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
