@@ -181,8 +181,7 @@ end
 
 @kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
-
-    P = fields.P
+    kᴺ   = size(grid, 3)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress

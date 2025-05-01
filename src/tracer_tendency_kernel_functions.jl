@@ -33,10 +33,11 @@ end
                                                      tracers)
 
     i, j = @index(Global, NTuple)
-    
+    kᴺ   = size(grid, 3) # Assumption! The sea ice is located at the _top_ of the grid
+ 
     @inbounds begin
-        Gⁿ.h[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_thickness)
-        Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, ice_concentration)
+        Gⁿ.h[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_thickness)
+        Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
 
         # TODO: BBM rheology needs this!
         # compute_tracer_tendencies!(Gⁿ, i, j, grid, advection, velocities, tracers)

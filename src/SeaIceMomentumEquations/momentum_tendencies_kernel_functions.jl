@@ -11,20 +11,21 @@ using Oceananigans.Coriolis: fᶠᶠᵃ
                                      u_bottom_stress,
                                      u_forcing)
 
+     kᴺ = size(grid, 3)
      h = model_fields.h
      ℵ = model_fields.ℵ
      ρ = model_fields.ρ
 
      # Ice mass (per unit area) interpolated on u points
-     ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
-     mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
+     ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ℵ)
+     mᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ) 
 
-     @inbounds Gᵁ = ( + fᶠᶠᵃ(i, j, 1, grid, coriolis) * model_fields.v[i, j, 1]
-                      + explicit_τx(i, j, 1, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
-                      + explicit_τx(i, j, 1, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-                      + ∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ
-                      + immersed_∂ⱼ_σ₁ⱼ(i, j, 1, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
-                      + sum_of_forcing_u(i, j, 1, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
+     @inbounds Gᵁ = ( + fᶠᶠᵃ(i, j, kᴺ, grid, coriolis) * model_fields.v[i, j, kᴺ]
+                      + explicit_τx(i, j, kᴺ, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+                      + explicit_τx(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+                      + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
+                      + immersed_∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
+                      + sum_of_forcing_u(i, j, kᴺ, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
 
      Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
 
@@ -42,20 +43,21 @@ end
                                      v_bottom_stress,
                                      v_forcing)
 
+     kᴺ = size(grid, 3)
      h = model_fields.h
      ℵ = model_fields.ℵ
      ρ = model_fields.ρ
 
      # Ice mass (per unit area) interpolated on v points
-     ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ℵ)
-     mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρ) 
+     ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ℵ)
+     mᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ) 
 
-     Gⱽ = ( - fᶠᶠᵃ(i, j, 1, grid, coriolis) * model_fields.u[i, j, 1]
-            + explicit_τy(i, j, 1, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + explicit_τy(i, j, 1, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, clock, model_fields) / mᵢ 
-            + immersed_∂ⱼ_σ₂ⱼ(i, j, 1, grid, v_immersed_bc, rheology, clock, model_fields) / mᵢ
-            + sum_of_forcing_v(i, j, 1, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
+     Gⱽ = ( - fᶠᶠᵃ(i, j, kᴺ, grid, coriolis) * model_fields.u[i, j, kᴺ]
+            + explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+            + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+            + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ 
+            + immersed_∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, v_immersed_bc, rheology, clock, model_fields) / mᵢ
+            + sum_of_forcing_v(i, j, kᴺ, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
 
      Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
 

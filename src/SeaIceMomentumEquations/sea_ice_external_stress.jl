@@ -31,6 +31,16 @@ using Oceananigans.Fields: ZeroField
     @inbounds explicit_τy(i, j, k, grid, τ, clock, fields) - implicit_τy_coefficient(i, j, k, grid, τ, clock, fields) * fields.v[i, j, k]
 
 #####
+##### Utility for computing the total stress
+#####
+
+@inline x_momentum_stress(i, j, k, grid, stress, clock, fields) = 
+    @inbounds explicit_τx(i, j, k, grid, stress, clock, fields) - implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) * fields.u[i, j, k]
+
+@inline y_momentum_stress(i, j, k, grid, stress, clock, fields) =
+    @inbounds explicit_τy(i, j, k, grid, stress, clock, fields) - implicit_τy_coefficient(i, j, k, grid, stress, clock, fields) * fields.v[i, j, k]
+
+#####
 ##### SemiImplicitStress
 #####
 

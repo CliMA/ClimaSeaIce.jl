@@ -43,18 +43,18 @@ end
     mᶠᶠ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
     
    # Implicit part of the stress that depends linearly on the velocity
-   τuᵢ = ( implicit_τx_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
-         + implicit_τx_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
+   τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
+         - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
    
-   τvᵢ = ( implicit_τy_coefficient(i, j, 1, grid, bottom_stress, clock, fields) 
-         + implicit_τy_coefficient(i, j, 1, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
+   τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
+         - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
 
     @inbounds begin
         uᴰ = (u[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
         vᴰ = (v[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
 
-        uᶠ = free_drift_u(i, j, 1, grid, ocean_velocities)
-        vᶠ = free_drift_v(i, j, 1, grid, ocean_velocities)
+        uᶠ = free_drift_u(i, j, kᴺ, grid, ocean_velocities)
+        vᶠ = free_drift_v(i, j, kᴺ, grid, ocean_velocities)
 
         sea_ice = (mᶠᶠ ≥ minimum_mass) & (ℵᶠᶠ ≥ minimum_concentration)
         

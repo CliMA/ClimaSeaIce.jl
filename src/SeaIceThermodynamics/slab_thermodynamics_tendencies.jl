@@ -26,8 +26,6 @@ using Oceananigans
     @inbounds begin
         hᵢ = ice_thickness[i, j, k]
         hc = ice_consolidation_thickness[i, j, k]
-        ℵᵢ = ice_concentration[i, j, k]
-        Sᵢ = ice_salinity[i, j, k]
     end
 
     @inbounds Tuᵢ = Tu[i, j, k]
