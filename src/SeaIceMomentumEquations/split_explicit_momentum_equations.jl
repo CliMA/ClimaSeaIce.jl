@@ -145,7 +145,8 @@ end
                                    v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     i, j = @index(Global, NTuple)
-    
+    kᴺ   = size(grid, 3) 
+
     mᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, model_fields.ℵ)
     
