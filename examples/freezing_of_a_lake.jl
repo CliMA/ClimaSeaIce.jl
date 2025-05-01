@@ -112,7 +112,7 @@ model = SeaIceModel(grid;
 
 set!(model, h=0, ℵ=0)
 
-simulation = Simulation(model, Δt=lake.Δt, stop_time=100days)
+simulation = Simulation(model, Δt=lake.Δt, stop_time=20days)
 
 # The data is accumulated in a timeseries for visualization.
 
