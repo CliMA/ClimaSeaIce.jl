@@ -108,7 +108,7 @@ end
     ϵ = emission.emissivity
     σ = emission.stefan_boltzmann_constant
     Tᵣ = emission.reference_temperature
-    return ϵ * σ * (T + Tᵣ)^4
+    return ϵ * σ * (T + Tᵣ)^4 
 end
 
 function Base.summary(flux::RadiativeEmission)

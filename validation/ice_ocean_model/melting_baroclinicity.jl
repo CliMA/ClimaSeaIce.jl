@@ -12,7 +12,7 @@ using ClimaSeaIce: melting_temperature
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 
 using Printf
-using GLMakie
+using CairoMakie
 using Statistics
 
 include("ice_ocean_model.jl")

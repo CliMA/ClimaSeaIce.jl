@@ -17,7 +17,8 @@ example_scripts = [
     "melting_in_spring.jl",
     "freezing_of_a_lake.jl",
     "ice_advected_by_anticyclone.jl",
-    "ice_advected_on_coastline.jl",
+    # "ice_advected_on_coastline.jl",
+    "arctic_basin_seasonal_cycle.jl"
 ]
 
 for filename in example_scripts
@@ -30,7 +31,8 @@ example_pages = [
     "Melting in Spring" => "literated/melting_in_spring.md",
     "Freezing of a Lake" => "literated/freezing_of_a_lake.md",
     "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
-    "Ice advected on coastline" => "literated/ice_advected_on_coastline.md",
+    # "Ice advected on coastline" => "literated/ice_advected_on_coastline.md",
+    "Arctic basin seasonal cycle" => "literated/arctic_basin_seasonal_cycle.md"
 ]
 
 #####
@@ -87,10 +89,24 @@ for file in files
     rm(file)
 end
 
-withenv("GITHUB_REPOSITORY" => "CliMA/ClimaSeaIceDocumentation") do
-    deploydocs(repo = "github.com/CliMA/ClimaSeaIceDocumentation.git",
-           versions = ["stable" => "v^", "dev" => "dev", "v#.#.#"],
-           forcepush = true,
-           push_preview = true,
-           devbranch = "main")
+# Replace with below once https://github.com/JuliaDocs/Documenter.jl/pull/2692 is merged and available.
+#  deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
+#    deploy_repo = "github.com/CliMA/ClimaSeaIceDocumentation",
+#    devbranch = "main",
+#    push_preview = true)
+if get(ENV, "GITHUB_EVENT_NAME", "") == "pull_request"
+    deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
+               repo_previews = "github.com/CliMA/ClimaSeaIceDocumentation",
+               devbranch = "main",
+               forcepush = true,
+               push_preview = true,
+               versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"])
+else
+    repo = "github.com/CliMA/ClimaSeaIceDocumentation"
+    withenv("GITHUB_REPOSITORY" => repo) do
+        deploydocs(repo = repo,
+                   devbranch = "main",
+                   forcepush = true,
+                   versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"])
+    end
 end

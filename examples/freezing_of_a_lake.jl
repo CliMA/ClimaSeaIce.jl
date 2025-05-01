@@ -11,6 +11,7 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: latent_heat
 using CairoMakie
 
 # Generate a 1D grid for difference ice columns subject to different solar insolation
@@ -19,25 +20,30 @@ grid = RectilinearGrid(size=4, x=(0, 1), topology=(Periodic, Flat, Flat))
 
 # The sensible heat flux from the atmosphere is represented by a `FluxFunction`.
 
-parameters = (
+atmosphere = (
     transfer_coefficient     = 1e-3,  # Unitless
     atmosphere_density       = 1.225, # kg m⁻³
     atmosphere_heat_capacity = 1004,  # 
     atmosphere_temperature   = [-20, -10, -5, 0],    # ᵒC
-    atmosphere_wind_speed    = 5      # m s⁻¹
+    atmosphere_wind_speed    = 5,     # m s⁻¹
+    atmosphere_ice_flux      = [0.0, 0.0, 0.0, 0.0], # W m⁻²
 )
     
 # Flux is positive (cooling by fluxing heat up away from upper surface)
 # when Tₐ < Tᵤ:
 
-@inline function sensible_heat_flux(i, j, grid, Tᵤ, clock, fields, parameters)
-    Cₛ = parameters.transfer_coefficient
-    ρₐ = parameters.atmosphere_density
-    cₐ = parameters.atmosphere_heat_capacity
-    Tₐ = parameters.atmosphere_temperature[i]
-    uₐ = parameters.atmosphere_wind_speed
+@inline function sensible_heat_flux(i, j, grid, Tᵤ, clock, fields, atmosphere)
+    Cₛ = atmosphere.transfer_coefficient
+    ρₐ = atmosphere.atmosphere_density
+    cₐ = atmosphere.atmosphere_heat_capacity
+    Tₐ = atmosphere.atmosphere_temperature[i]
+    uₐ = atmosphere.atmosphere_wind_speed
+    ℵ  = fields.ℵ[i, j, 1]
+    Qₐ = atmosphere.atmosphere_ice_flux
 
-    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ)
+    Qₐ[i] =  ifelse(ℵ == 0, zero(grid), Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ))
+
+    return Qₐ[i] 
 end
 
 # We also evolve a bucket freshwater lake that cools down and freezes from below
@@ -50,7 +56,8 @@ lake = (
     lake_heat_capacity   = 4000,  # 
     lake_temperature     = [1.0, 1.0, 1.0, 1.0], # ᵒC
     lake_depth           = 10, # m
-    atmosphere           = parameters,
+    lake_ice_flux        = [0.0, 0.0, 0.0, 0.0], # W m⁻²
+    atmosphere_lake_flux = [0.0, 0.0, 0.0, 0.0], # W m⁻²
     Δt                   = 10minutes
 )
 
@@ -61,9 +68,9 @@ lake = (
 
 @inline function advance_lake_and_frazil_flux(i, j, grid, Tuᵢ, clock, fields, parameters)
     atmos = parameters.atmosphere
-    lake  = parameters
+    lake  = parameters.lake
 
-    Cₛ  = atmos.transfer_coefficient
+    Cₛ = atmos.transfer_coefficient
     ρₐ = atmos.atmosphere_density
     cₐ = atmos.atmosphere_heat_capacity
     Tₐ = atmos.atmosphere_temperature[i]
@@ -72,9 +79,12 @@ lake = (
     cₒ = lake.lake_heat_capacity
     ρₒ = lake.lake_density
     Δ  = lake.lake_depth
-    ℵ  = fields.ℵ[i, j, 1]
     Δt = lake.Δt
-
+    ℵ  = fields.ℵ[i, j, 1]
+    
+    Qᵗ = lake.atmosphere_lake_flux
+    Qᵇ = lake.lake_ice_flux
+    
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
 
     Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
@@ -84,12 +94,14 @@ lake = (
 
     Tₒ[i] = ifelse(Qᵢ == 0, Tₒ[i], zero(Qᵢ))
 
+    Qᵗ[i] = Qₐ
+    Qᵇ[i] = Qᵢ
+
     return Qᵢ
 end
 
-aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)
-top_heat_flux = (aerodynamic_flux)
-bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux; parameters=lake)
+top_heat_flux    = FluxFunction(sensible_heat_flux; parameters=atmosphere)
+bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux; parameters=(; lake, atmosphere))
 
 model = SeaIceModel(grid;
                     ice_consolidation_thickness = 0.05, # m
@@ -100,7 +112,7 @@ model = SeaIceModel(grid;
 
 set!(model, h=0, ℵ=0)
 
-simulation = Simulation(model, Δt=lake.Δt, stop_time=10days)
+simulation = Simulation(model, Δt=lake.Δt, stop_time=20days)
 
 # The data is accumulated in a timeseries for visualization.
 
@@ -120,6 +132,25 @@ function accumulate_timeseries(sim)
 end
 
 simulation.callbacks[:save] = Callback(accumulate_timeseries)
+
+# accumulate energy
+Ei = []
+Qa = []
+Ql = []
+
+function accumulate_energy(sim)
+    h  = sim.model.ice_thickness
+    ℵ  = sim.model.ice_concentration
+    PT = sim.model.ice_thermodynamics.phase_transitions
+    ℰ  = latent_heat(PT, 0) # ice is at 0ᵒC
+
+    push!(Ei, deepcopy(@. - h * ℵ * ℰ))
+    push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
+    push!(Ql, deepcopy(lake.lake_ice_flux))
+end
+
+simulation.callbacks[:save]   = Callback(accumulate_timeseries)
+simulation.callbacks[:energy] = Callback(accumulate_energy)
 
 run!(simulation)
 
@@ -177,3 +208,54 @@ nothing # hide
 
 # ![](freezing_in_winter.png)
 
+# Extract and visualize energy
+Ei1 = [datum[1]  for datum in Ei]
+Qa1 = [datum[1]  for datum in Qa]
+Ql1 = [datum[1]  for datum in Ql]
+Ei2 = [datum[2]  for datum in Ei]
+Qa2 = [datum[2]  for datum in Qa]
+Ql2 = [datum[2]  for datum in Ql]
+Ei3 = [datum[3]  for datum in Ei]
+Qa3 = [datum[3]  for datum in Qa]
+Ql3 = [datum[3]  for datum in Ql]
+Ei4 = [datum[4]  for datum in Ei]
+Qa4 = [datum[4]  for datum in Qa]
+Ql4 = [datum[4]  for datum in Ql]
+
+fig = Figure(size=(1000, 900))
+
+axE = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Sea Ice energy (J)")
+axA = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Atmosphere HF")
+axL = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Lake HF")
+axB = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Heat budget")
+
+dEi1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
+dEi2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
+dEi3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
+dEi4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
+tpE  = t[2:end] 
+
+lines!(axE, t / day, Ei1)
+lines!(axA, t / day, Qa1)
+lines!(axL, t / day, Ql1)
+
+lines!(axE, t / day, Ei2)
+lines!(axA, t / day, Qa2)
+lines!(axL, t / day, Ql2)
+
+lines!(axE, t / day, Ei3)
+lines!(axA, t / day, Qa3)
+lines!(axL, t / day, Ql3)
+
+lines!(axE, t / day, Ei4)
+lines!(axA, t / day, Qa4)
+lines!(axL, t / day, Ql4)
+
+lines!(axB, tpE / day, dEi1 .- (.- Qa1 .+ Ql1)[2:end])
+lines!(axB, tpE / day, dEi2 .- (.- Qa2 .+ Ql2)[2:end])
+lines!(axB, tpE / day, dEi3 .- (.- Qa3 .+ Ql3)[2:end])
+
+save("energy_budget.png", fig)
+nothing # hide
+
+# ![](energy_budget.png)

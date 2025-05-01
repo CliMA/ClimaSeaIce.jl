@@ -141,9 +141,9 @@ u, v = model.velocities
 outputs = (; h, u, v, ℵ)
 
 simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
-                                                       filename = "sea_ice_advected_by_anticyclone.jld2", 
-                                                       schedule = IterationInterval(5),
-                                                       overwrite_existing = true)
+                                                 filename = "sea_ice_advected_by_anticyclone.jld2", 
+                                                 schedule = IterationInterval(5),
+                                                 overwrite_existing = true)
 
 wall_time = [time_ns()]
 
