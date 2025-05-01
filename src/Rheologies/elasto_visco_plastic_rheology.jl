@@ -190,9 +190,9 @@ end
     P = fields.P
 
     # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, 1, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, 1, grid, u, v) 
-    ϵ̇₁₂ = strain_rate_xy(i, j, 1, grid, u, v)
+    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v) 
+    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v) 
+    ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
@@ -204,11 +204,11 @@ end
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
     Δ = max(sqrt(δ^2 + s^2 * e⁻²), Δm)
-    P = @inbounds P[i, j, 1]
+    P = @inbounds P[i, j, kᴺ]
     ζ = P / 2Δ
 
-    @inbounds fields.ζ[i, j, 1] = ζ
-    @inbounds fields.Δ[i, j, 1] = Δ
+    @inbounds fields.ζ[i, j, kᴺ] = ζ
+    @inbounds fields.Δ[i, j, kᴺ] = Δ
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
@@ -234,22 +234,22 @@ end
     
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as in Kimmritz et al (2016)
-    γ = ζ * π^2 * Δt / mᵢ / Azᶜᶜᶜ(i, j, 1, grid)
+    γ = ζ * π^2 * Δt / mᵢ / Azᶜᶜᶜ(i, j, kᴺ, grid)
     α = clamp(sqrt(γ), α⁻, α⁺)
     α = ifelse(isnan(α), α⁺, α)
 
     @inbounds begin
         # Compute the new stresses and store the value of the 
         # dynamic substepping coefficient α
-        σ₁₁★ = (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / α
-        σ₂₂★ = (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / α
-        σ₁₂★ = (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / α
+        σ₁₁★ = (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, kᴺ]) / α
+        σ₂₂★ = (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, kᴺ]) / α
+        σ₁₂★ = (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, kᴺ]) / α
 
-        σ₁₁[i, j, 1] += ifelse(mᵢ > 0, σ₁₁★, zero(grid))
-        σ₂₂[i, j, 1] += ifelse(mᵢ > 0, σ₂₂★, zero(grid))
-        σ₁₂[i, j, 1] += ifelse(mᵢ > 0, σ₁₂★, zero(grid))
+        σ₁₁[i, j, kᴺ] += ifelse(mᵢ > 0, σ₁₁★, zero(grid))
+        σ₂₂[i, j, kᴺ] += ifelse(mᵢ > 0, σ₂₂★, zero(grid))
+        σ₁₂[i, j, kᴺ] += ifelse(mᵢ > 0, σ₁₂★, zero(grid))
         
-        fields.α[i, j, 1] = α 
+        fields.α[i, j, kᴺ] = α 
     end
 end
 
