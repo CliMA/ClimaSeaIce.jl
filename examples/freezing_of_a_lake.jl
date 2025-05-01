@@ -12,8 +12,7 @@ using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: latent_heat
-using GLMakie
-GLMakie.activate!()
+using CairoMakie
 
 # Generate a 1D grid for difference ice columns subject to different solar insolation
 
@@ -113,7 +112,7 @@ model = SeaIceModel(grid;
 
 set!(model, h=0, ℵ=0)
 
-simulation = Simulation(model, Δt=lake.Δt, stop_time=10days)
+simulation = Simulation(model, Δt=lake.Δt, stop_time=100days)
 
 # The data is accumulated in a timeseries for visualization.
 
@@ -145,7 +144,7 @@ function accumulate_energy(sim)
     PT = sim.model.ice_thermodynamics.phase_transitions
     ℰ  = latent_heat(PT, 0) # ice is at 0ᵒC
 
-    push!(Ei, deepcopy(@. h * ℵ * ℰ))
+    push!(Ei, deepcopy(@. - h * ℵ * ℰ))
     push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
     push!(Ql, deepcopy(lake.lake_ice_flux))
 end
@@ -252,9 +251,9 @@ lines!(axE, t / day, Ei4)
 lines!(axA, t / day, Qa4)
 lines!(axL, t / day, Ql4)
 
-lines!(axB, tpE / day, dEi1 .- (Qa1 .- Ql1)[2:end])
-lines!(axB, tpE / day, dEi2 .- (Qa2 .- Ql2)[2:end])
-lines!(axB, tpE / day, dEi3 .- (Qa3 .- Ql3)[2:end])
+lines!(axB, tpE / day, dEi1 .- (.- Qa1 .+ Ql1)[2:end])
+lines!(axB, tpE / day, dEi2 .- (.- Qa2 .+ Ql2)[2:end])
+lines!(axB, tpE / day, dEi3 .- (.- Qa3 .+ Ql3)[2:end])
 
 save("energy_budget.png", fig)
 nothing # hide
