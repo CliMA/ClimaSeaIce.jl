@@ -19,11 +19,6 @@ const f = Face()
 @inline _ice_stress_vx(args...) = ice_stress_vx(args...)
 @inline _ice_stress_vy(args...) = ice_stress_vy(args...)
 
-@inline _ice_stress_ux(i, j, k, ibg::IBG, args...) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), ice_stress_ux(i, j, k, ibg, args...))
-@inline _ice_stress_uy(i, j, k, ibg::IBG, args...) = conditional_flux_fcc(i, j, k, ibg, zero(ibg), ice_stress_uy(i, j, k, ibg, args...))
-@inline _ice_stress_vx(i, j, k, ibg::IBG, args...) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), ice_stress_vx(i, j, k, ibg, args...))
-@inline _ice_stress_vy(i, j, k, ibg::IBG, args...) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), ice_stress_vy(i, j, k, ibg, args...))
-
 #####
 ##### Stress divergence
 #####

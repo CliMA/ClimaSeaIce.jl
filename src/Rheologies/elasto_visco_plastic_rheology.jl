@@ -230,7 +230,7 @@ end
     σ₂₂ᵖ⁺¹ = 2 * η * ϵ̇₂₂ + ((ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
     σ₁₂ᵖ⁺¹ = 2 * η * ϵ̇₁₂
 
-    mᵢ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
+    mᵢ = ice_mass(i, j, kᴺ, grid, h, ℵ, ρᵢ) 
     
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as in Kimmritz et al (2016)
@@ -258,10 +258,10 @@ end
 #####
 
 # Here we extend all the functions that a rheology model needs to support:
-@inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, 1, grid, fields.σ₁₁)
-@inline ice_stress_uy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, 1, grid, fields.σ₁₂)
-@inline ice_stress_vx(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, 1, grid, fields.σ₁₂)
-@inline ice_stress_vy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, 1, grid, fields.σ₂₂)
+@inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, k, grid, fields.σ₁₁)
+@inline ice_stress_uy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, k, grid, fields.σ₁₂)
+@inline ice_stress_vx(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, k, grid, fields.σ₁₂)
+@inline ice_stress_vy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, k, grid, fields.σ₂₂)
 
 # To help convergence to the right velocities
 @inline compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = @inbounds Δt / ℑxyᶠᶠᵃ(i, j, 1, grid, fields.α)
@@ -272,12 +272,12 @@ end
 
 @inline function sum_of_forcing_u(i, j, k, grid, ::ElastoViscoPlasticRheology, u_forcing, fields, Δt) 
     user_forcing = u_forcing(i, j, k, grid, fields)
-    rheology_forcing = @inbounds (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / Δt / ℑxyᶠᶠᵃ(i, j, 1, grid, fields.α)
+    rheology_forcing = @inbounds (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / Δt / ℑxyᶠᶠᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
 end
 
 @inline function sum_of_forcing_v(i, j, k, grid, ::ElastoViscoPlasticRheology, v_forcing, fields, Δt) 
     user_forcing = v_forcing(i, j, k, grid, fields)
-    rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑxyᶠᶠᵃ(i, j, 1, grid, fields.α)
+    rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑxyᶠᶠᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
 end
