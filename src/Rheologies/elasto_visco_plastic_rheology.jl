@@ -203,7 +203,7 @@ end
     # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
-    Δ = max(sqrt(δ^2 + s^2 * e⁻²), Δm)
+    Δ = sqrt(δ^2 + s^2 * e⁻²)
     P = @inbounds P[i, j, kᴺ]
     ζ = P / 2Δ
 
@@ -234,7 +234,7 @@ end
     
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as in Kimmritz et al (2016)
-    γ = ζ * π^2 * Δt / mᵢ / Azᶜᶜᶜ(i, j, kᴺ, grid)
+    γ = ζ * π^2 * Δt / mᵢ * Az⁻¹ᶜᶜᶜ(i, j, kᴺ, grid)
     α = clamp(sqrt(γ), α⁻, α⁺)
     α = ifelse(isnan(α), α⁺, α)
 
