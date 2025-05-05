@@ -44,10 +44,10 @@ end
     
    # Implicit part of the stress that depends linearly on the velocity
    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
-         - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
+         - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶠ * ℵᶠᶠ 
    
    τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
-         - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
+         - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶠ * ℵᶠᶠ 
 
     @inbounds begin
         uᴰ = (u[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
