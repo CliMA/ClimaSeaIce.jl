@@ -203,7 +203,7 @@ end
     # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
-    Δ = sqrt(δ^2 + s^2 * e⁻²)
+    Δ = max(sqrt(δ^2 + s^2 * e⁻²), Δm) # (at Centers)
     P = @inbounds P[i, j, kᴺ]
     ζ = P / 2Δ
 
