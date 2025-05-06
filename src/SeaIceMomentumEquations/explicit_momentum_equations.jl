@@ -38,7 +38,8 @@ end
                                    ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
 
     i, j = @index(Global, NTuple)
-    
+    kᴺ   = size(grid, 3)
+
     ℵᶠᶠ = ℑxyᶠᶠᵃ(i, j, 1, grid, fields.ℵ)
     mᶠᶠ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
     
