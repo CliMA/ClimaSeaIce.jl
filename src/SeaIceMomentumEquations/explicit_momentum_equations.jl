@@ -81,15 +81,11 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
-    u_immersed_bc = model_fields.u.boundary_conditions.immersed
-    v_immersed_bc = model_fields.v.boundary_conditions.immersed
-
     Gu = model.timestepper.Gⁿ.u
     Gv = model.timestepper.Gⁿ.v
 
     launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, Δt,
             rheology, model_fields, clock, coriolis,
-            u_immersed_bc, v_immersed_bc,
             top_stress, bottom_stress, model.forcing)
 
     return nothing
@@ -97,14 +93,13 @@ end
 
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt,
                                                rheology, model_fields, clock, coriolis,
-                                               u_immersed_bc, v_immersed_bc,
                                                top_stress, bottom_stress, forcing)
     i, j = @index(Global, NTuple)
     @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt,
                                                 rheology, model_fields, clock, coriolis,
-                                                u_immersed_bc, top_stress, bottom_stress, forcing.u)
+                                                top_stress, bottom_stress, forcing.u)
 
     @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt,
                                                 rheology, model_fields, clock, coriolis,
-                                                v_immersed_bc, top_stress, bottom_stress, forcing.v)
+                                                top_stress, bottom_stress, forcing.v)
 end
