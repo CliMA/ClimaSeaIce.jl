@@ -30,13 +30,13 @@ end
 
 @inline function advective_sea_ice_tracer_flux_x(i, j, k, grid, scheme::CenteredScheme, u, c)
     ũ  = ℑyᵃᶜᵃ(i, j, k, grid, Ax_qᶠᶠᶜ, u)
-    cᴿ = _symmetric_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, bias(ũ), c)
+    cᴿ = _symmetric_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, c)
     return ũ * cᴿ
 end
 
 @inline function advective_sea_ice_tracer_flux_y(i, j, k, grid, scheme::CenteredScheme, v, c)
     ṽ  = ℑxᶜᵃᵃ(i, j, k, grid, Ay_qᶠᶠᶜ, v)
-    cᴿ = _symmetric_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, bias(ṽ), c)
+    cᴿ = _symmetric_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, c)
     return ṽ * cᴿ
 end
 
