@@ -47,8 +47,6 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     u_forcing = model.forcing.u
     v_forcing = model.forcing.v
-    u_immersed_bc = u.boundary_conditions.immersed
-    v_immersed_bc = v.boundary_conditions.immersed
 
     model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
                       (; h = model.ice_thickness, 
@@ -76,24 +74,24 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+                               top_stress, bottom_stress, u_forcing)
 
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
+                               top_stress, bottom_stress, v_forcing)
 
         else
             v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis, 
                                minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
+                               top_stress, bottom_stress, v_forcing)
             
 
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
                                ocean_velocities, clock, coriolis,
                                minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+                               top_stress, bottom_stress, u_forcing)
         end
 
         # TODO: This needs to be removed in some way!
@@ -111,7 +109,7 @@ end
                                    model_fields, ocean_velocities, 
                                    clock, coriolis, 
                                    minimum_mass, minimum_concentration,
-                                   u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
+                                   u_top_stress, u_bottom_stress, u_forcing)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3) 
@@ -120,7 +118,7 @@ end
     ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, model_fields.ℵ)
 
     Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
-    Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
+    Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_top_stress, u_bottom_stress, u_forcing)
    
     # Implicit part of the stress that depends linearly on the velocity
     τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) 
@@ -142,7 +140,7 @@ end
                                    model_fields, ocean_velocities, 
                                    clock, coriolis, 
                                    minimum_mass, minimum_concentration,
-                                   v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
+                                   v_top_stress, v_bottom_stress, v_forcing)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3) 
@@ -151,7 +149,7 @@ end
     ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, model_fields.ℵ)
     
     Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
-    Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
+    Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity
     τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields)

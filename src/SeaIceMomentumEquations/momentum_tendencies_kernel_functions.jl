@@ -6,7 +6,6 @@ using Oceananigans.Coriolis: fᶠᶠᵃ
                                      model_fields,
                                      clock,
                                      coriolis,
-                                     u_immersed_bc,
                                      u_top_stress,
                                      u_bottom_stress,
                                      u_forcing)
@@ -37,7 +36,6 @@ end
                                      model_fields,
                                      clock,
                                      coriolis,
-                                     v_immersed_bc,
                                      v_top_stress,
                                      v_bottom_stress,
                                      v_forcing)
@@ -51,11 +49,11 @@ end
      ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ℵ)
      mᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ) 
 
-     Gⱽ = ( - fᶠᶠᵃ(i, j, kᴺ, grid, coriolis) * model_fields.u[i, j, kᴺ]
-            + explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ 
-            + sum_of_forcing_v(i, j, kᴺ, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
+     @inbounds Gⱽ = ( - fᶠᶠᵃ(i, j, kᴺ, grid, coriolis) * model_fields.u[i, j, kᴺ]
+                      + explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+                      + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+                      + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ 
+                      + sum_of_forcing_v(i, j, kᴺ, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent 
 
      Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
 

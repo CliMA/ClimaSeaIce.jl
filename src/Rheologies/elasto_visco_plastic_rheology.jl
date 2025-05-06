@@ -99,8 +99,8 @@ function rheology_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     P  = Field{Center, Center, Nothing}(grid)
     ζ  = Field{Center, Center, Nothing}(grid)
     Δ  = Field{Center, Center, Nothing}(grid)
-
-    α  = Field{Face, Face, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+    
     uⁿ = Field{Face, Face, Nothing}(grid)
     vⁿ = Field{Face, Face, Nothing}(grid)
 
@@ -203,10 +203,11 @@ end
     # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
-    Δ = max(sqrt(δ^2 + s^2 * e⁻²), Δm) # (at Centers)
+    Δ = max(sqrt(δ^2 + s^2 * e⁻²), Δm) 
     P = @inbounds P[i, j, kᴺ]
     ζ = P / 2Δ
 
+    # Store viscosity and the deformation for analysis purposes
     @inbounds fields.ζ[i, j, kᴺ] = ζ
     @inbounds fields.Δ[i, j, kᴺ] = Δ
 
