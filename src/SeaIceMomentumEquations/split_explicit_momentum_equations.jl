@@ -114,8 +114,8 @@ end
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3) 
 
-    mᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, model_fields.ℵ)
+    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
 
     Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_top_stress, u_bottom_stress, u_forcing)
@@ -125,14 +125,14 @@ end
           - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, model_fields)) / mᵢ * ℵᵢ 
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
-    uᴰ  = @inbounds (u[i, j, kᴺ] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
+    uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
     uᶠ  = free_drift_u(i, j, kᴺ, grid, ocean_velocities) # free drift velocity
 
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
 
-    @inbounds u[i, j, kᴺ] = ifelse(sea_ice, uᴰ, uᶠ)
+    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, 
@@ -145,8 +145,8 @@ end
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3) 
 
-    mᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
-    ℵᵢ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, model_fields.ℵ)
+    mᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
+    ℵᵢ = ℑxyᶠᶠᵃ(i, j, 1, grid, model_fields.ℵ)
     
     Δτ = compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
     Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_top_stress, v_bottom_stress, v_forcing)
@@ -157,12 +157,12 @@ end
 
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 
-    vᴰ = @inbounds (v[i, j, kᴺ] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
+    vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
     vᶠ = free_drift_v(i, j, kᴺ, grid, ocean_velocities) # free drift velocity
 
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
 
-    @inbounds v[i, j, kᴺ] = ifelse(sea_ice, vᴰ, vᶠ)
+    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
 end
