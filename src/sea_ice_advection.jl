@@ -13,8 +13,8 @@ using Oceananigans.Advection: _biased_interpolate_xᶠᵃᵃ, _biased_interpolat
 @inline _advective_sea_ice_tracer_flux_x(i, j, k, grid, scheme, u, c) = advective_sea_ice_tracer_flux_x(i, j, k, grid, scheme, u, c)
 @inline _advective_sea_ice_tracer_flux_y(i, j, k, grid, scheme, v, c) = advective_sea_ice_tracer_flux_y(i, j, k, grid, scheme, v, c)
 
-@inline _advective_sea_ice_tracer_flux_x(i, j, k, ibg::IBG, scheme, u, c) = conditional_flux_fcc(i, j, k, ibg, zero(ibg), advective_sea_ice_tracer_flux_x(i, j, k, grid, scheme, u, c))
-@inline _advective_sea_ice_tracer_flux_y(i, j, k, ibg::IBG, scheme, v, c) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), advective_sea_ice_tracer_flux_y(i, j, k, grid, scheme, v, c))
+@inline _advective_sea_ice_tracer_flux_x(i, j, k, ibg::IBG, scheme, u, c) = conditional_flux_fcc(i, j, k, ibg, zero(ibg), advective_sea_ice_tracer_flux_x(i, j, k, ibg, scheme, u, c))
+@inline _advective_sea_ice_tracer_flux_y(i, j, k, ibg::IBG, scheme, v, c) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), advective_sea_ice_tracer_flux_y(i, j, k, ibg, scheme, v, c))
 
 @inline function advective_sea_ice_tracer_flux_x(i, j, k, grid, scheme::UpwindScheme, u, c)
     ũ  = ℑyᵃᶜᵃ(i, j, k, grid, Ax_qᶠᶠᶜ, u)
