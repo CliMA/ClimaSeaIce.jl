@@ -10,7 +10,7 @@ const c = Center()
 const f = Face()
 
 @inline νᶠᶜᶜ(i, j, k, grid, loc, ν::Number, args...) = ν
-@inline νᶜᶠᶠ(i, j, k, grid, loc, ν::Number, args...) = ν
+@inline νᶜᶠᶜ(i, j, k, grid, loc, ν::Number, args...) = ν
 
 # Array / Field at `Center, Center, Center`
 const Lᶜᶜᵃ = Tuple{Center, Center, <:Any}
