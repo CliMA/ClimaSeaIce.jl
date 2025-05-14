@@ -50,6 +50,9 @@ using .SeaIceThermodynamics
 using .SeaIceMomentumEquations
 using .Rheologies
 
+# Advection timescale for a `SeaIceModel`. Sea ice dynamics are two-dimensional so 
+# we reuse the `cell_advection_timescale` function defined in Oceananigans by passing 
+# `w = ZeroField()`.
 function cell_advection_timescale(model::SeaIceModel)
     velocities = merge(model.velocities, (; w = ZeroField()))
     return cell_advection_timescale(model.grid, velocities)
