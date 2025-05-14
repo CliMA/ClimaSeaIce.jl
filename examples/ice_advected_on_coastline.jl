@@ -61,7 +61,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 dynamics = SeaIceMomentumEquation(grid; 
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = τₒ, 
-                                  rheology = ElastoViscoPlasticRheology(),
+                                  rheology = BrittleBinghamMaxwellRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 
 #Define the model! 
