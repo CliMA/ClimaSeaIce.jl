@@ -147,8 +147,8 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, :xyz, _compute_stress_predictors!, fields,  grid, rheology, tracers, u, v, ρᵢ, Δτ)
-    fill_halo_regions!(tracers)
+    launch!(arch, grid, :xyz, _compute_stress_predictors!, fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
+    fill_halo_regions!((fields.σ¹, fields.σ²))
     launch!(arch, grid, :xyz, _advance_stresses_and_damage!, tracers, grid, rheology, fields,  ρᵢ, Δτ)
     fill_halo_regions!(tracers)
 
@@ -270,37 +270,37 @@ end
 #
 # Dcrit needs to be reconstructed
 #
-@inline function reconstruction_2d(i, j, k, grid, f, args...)
-    fij = f(i,   j,   k, grid, args...)
-    fmj = f(i-1, j,   k, grid, args...)
-    fpj = f(i+1, j,   k, grid, args...)
-    fim = f(i,   j-1, k, grid, args...)
-    fip = f(i,   j+1, k, grid, args...)
-    fmm = f(i-1, j-1, k, grid, args...)
-    fmp = f(i-1, j+1, k, grid, args...)
-    fpm = f(i+1, j-1, k, grid, args...)
-    fpp = f(i+1, j+1, k, grid, args...)
+@inline reconstruction_2d(i, j, k, grid, f, args...) = ℑxyᶜᶜᵃ(i, j, k, grid, ℑxyᶠᶠᵃ, f, args...)
+#     fij = f(i,   j,   k, grid, args...)
+#     fmj = f(i-1, j,   k, grid, args...)
+#     fpj = f(i+1, j,   k, grid, args...)
+#     fim = f(i,   j-1, k, grid, args...)
+#     fip = f(i,   j+1, k, grid, args...)
+#     fmm = f(i-1, j-1, k, grid, args...)
+#     fmp = f(i-1, j+1, k, grid, args...)
+#     fpm = f(i+1, j-1, k, grid, args...)
+#     fpp = f(i+1, j+1, k, grid, args...)
 
-    # remove NaNs
-    isnanij = isnan(fij)
-    isnanmj = isnan(fmj)
-    isnanpj = isnan(fpj)
-    isnanim = isnan(fim)
-    isnanip = isnan(fip)
-    isnanmm = isnan(fmm)
-    isnanmp = isnan(fmp)
-    isnanpm = isnan(fpm)
-    isnanpp = isnan(fpp)
+#     # remove NaNs
+#     isnanij = isnan(fij)
+#     isnanmj = isnan(fmj)
+#     isnanpj = isnan(fpj)
+#     isnanim = isnan(fim)
+#     isnanip = isnan(fip)
+#     isnanmm = isnan(fmm)
+#     isnanmp = isnan(fmp)
+#     isnanpm = isnan(fpm)
+#     isnanpp = isnan(fpp)
 
-    fij = ifelse(isnanij, zero(grid), fij) / 4
-    fmj = ifelse(isnanmj, zero(grid), fmj) / 8
-    fpj = ifelse(isnanpj, zero(grid), fpj) / 8
-    fim = ifelse(isnanim, zero(grid), fim) / 8
-    fip = ifelse(isnanip, zero(grid), fip) / 8
-    fmm = ifelse(isnanmm, zero(grid), fmm) / 16
-    fmp = ifelse(isnanmp, zero(grid), fmp) / 16
-    fpm = ifelse(isnanpm, zero(grid), fpm) / 16
-    fpp = ifelse(isnanpp, zero(grid), fpp) / 16
+#     fij = ifelse(isnanij, zero(grid), fij) / 4
+#     fmj = ifelse(isnanmj, zero(grid), fmj) / 8
+#     fpj = ifelse(isnanpj, zero(grid), fpj) / 8
+#     fim = ifelse(isnanim, zero(grid), fim) / 8
+#     fip = ifelse(isnanip, zero(grid), fip) / 8
+#     fmm = ifelse(isnanmm, zero(grid), fmm) / 16
+#     fmp = ifelse(isnanmp, zero(grid), fmp) / 16
+#     fpm = ifelse(isnanpm, zero(grid), fpm) / 16
+#     fpp = ifelse(isnanpp, zero(grid), fpp) / 16
 
-    return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
-end
+#     return (fij + fmj + fpj + fim + fip + fmm + fmp + fpm + fpp)
+# end
