@@ -21,6 +21,7 @@ import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
+import Oceananigans.Advection: cell_advection_timescale
 
 export SeaIceModel, 
        MeltingConstrainedFluxBalance,
@@ -48,5 +49,10 @@ include("EnthalpyMethodSeaIceModel.jl")
 using .SeaIceThermodynamics
 using .SeaIceMomentumEquations
 using .Rheologies
+
+function cell_advection_timescale(model::SeaIceModel)
+    velocities = merge(model.velocities, (; w = ZeroField()))
+    return cell_advection_timescale(model.grid, velocities)
+end
 
 end # module
