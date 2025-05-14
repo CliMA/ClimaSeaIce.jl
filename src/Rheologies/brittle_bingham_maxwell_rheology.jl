@@ -25,7 +25,7 @@ function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
                                        poisson_ratio = 1 / 3,
                                        friction_coefficient = 0.7,
                                        maximum_compressive_strength = 2.9e7,
-                                       healing_constant = 26, # Ks
+                                       healing_constant = 28days * 40 / 1000, # Ks * 40 K  / 1000
                                        damage_parameter = 5)
 
     return BrittleBinghamMaxwellRheology(convert(FT, ice_ridging_strength),
@@ -79,20 +79,42 @@ function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
     ℵ = model.ice_concentration
 
     fields = model.dynamics.auxiliary_fields
+    grid   = model.grid
 
     P★ = rheology.ice_ridging_strength
     E★ = rheology.undamaged_elastic_modulus
     λ★ = rheology.undamaged_viscous_relaxation_time
     h★ = rheology.ridging_ice_thickness
+    Kh = rheology.healing_constant
     α  = rheology.damage_parameter
     C  = rheology.ice_compaction_hardening
     d  = model.tracers.d
+    Δt = model.clock.last_Δt
+
+    ice_thermodynamics = model.ice_thermodynamics
+
+    launch!(architecture(model.grid), model.grid, :xyz, _heal_outstanding_damage!, d, grid, ice_thermodynamics, Kh, Δt)
+    fill_halo_regions!(d)
 
     # compute on the whole grid including halos
-    parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
-    launch!(architecture(model.grid), model.grid, parameters, _initialize_bbm_rheology!, fields, d, model.grid, P★, E★, λ★, h★, α, C, h, ℵ)
+    params = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
+    launch!(architecture(model.grid), model.grid, params, _initialize_bbm_rheology!, fields, d, grid, P★, E★, λ★, h★, α, C, h, ℵ)
 
     return nothing
+end
+
+@kernel function _heal_outstanding_damage!(d, grid, ice_thermodynamics, Kh, Δt)
+    i, j = @index(Global, NTuple)
+
+    phase_transitions = ice_thermodynamics.phase_transitions
+    bottom_heat_bc = ice_thermodynamics.heat_boundary_conditions.bottom
+    liquidus = phase_transitions.liquidus
+
+    Tu = @inbounds ice_thermodynamics.top_surface_temperature[i, j, 1]
+    Tb = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+    Tc = max((Tb - Tu) / Kh, 0) # restoring temperature
+
+    @inbounds d[i, j, 1] -= Tc * Δt
 end
 
 @kernel function _initialize_bbm_rheology!(fields, d, grid, P★, E★, λ★, h★, α, C, h, ℵ)
