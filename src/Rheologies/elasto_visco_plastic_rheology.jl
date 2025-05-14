@@ -234,7 +234,7 @@ end
 
 @inline ice_pressure(i, j, k, grid, ::IceStrength, r, fields) = @inbounds fields.P[i, j, k]
 
-@inline function ice_pressure(i, j, k, grid, ::ReplacementPressurem, r, fields)
+@inline function ice_pressure(i, j, k, grid, ::ReplacementPressure, r, fields)
     Pᶜᶜᶜ = @inbounds fields.P[i, j, k]
     Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
     Δm   = r.minimum_plastic_stress
