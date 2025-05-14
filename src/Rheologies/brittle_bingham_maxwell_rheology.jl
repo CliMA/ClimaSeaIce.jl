@@ -12,7 +12,6 @@ struct BrittleBinghamMaxwellRheology{FT, A}
     maximum_compressive_strength :: FT
     healing_constant :: FT
     damage_parameter :: FT
-    interpolation_scheme :: A # Interpolation of cc variables to faces
 end
 
 function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
@@ -38,8 +37,7 @@ function BrittleBinghamMaxwellRheology(FT::DataType = Float64;
                                          convert(FT, friction_coefficient),
                                          convert(FT, maximum_compressive_strength),
                                          convert(FT, healing_constant),
-                                         convert(FT, damage_parameter),
-                                         nothing)
+                                         convert(FT, damage_parameter))
 end
 
 rheology_prognostic_tracers(::BrittleBinghamMaxwellRheology) =  (:d, :σ₁₁, :σ₁₂, :σ₂₂)
@@ -67,8 +65,7 @@ Adapt.adapt_structure(to, r::BrittleBinghamMaxwellRheology) =
                                   Adapt.adapt(to, r.friction_coefficient),
                                   Adapt.adapt(to, r.maximum_compressive_strength),
                                   Adapt.adapt(to, r.healing_constant),
-                                  Adapt.adapt(to, r.damage_parameter),
-                                  Adapt.adapt(to, r.interpolation_scheme))
+                                  Adapt.adapt(to, r.damage_parameter))
 
 #####
 ##### Computation of the stresses
