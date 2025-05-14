@@ -91,8 +91,10 @@ function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
 
     ice_thermodynamics = model.ice_thermodynamics
 
-    launch!(architecture(model.grid), model.grid, :xyz, _heal_outstanding_damage!, d, grid, ice_thermodynamics, Kh, Δt)
-    fill_halo_regions!(d)
+    if !isnothing(ice_thermodynamics)
+        launch!(architecture(model.grid), model.grid, :xyz, _heal_outstanding_damage!, d, grid, ice_thermodynamics, Kh, Δt)
+        fill_halo_regions!(d)
+    end
 
     # compute on the whole grid including halos
     params = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
@@ -100,7 +102,7 @@ function initialize_rheology!(model, rheology::BrittleBinghamMaxwellRheology)
 
     return nothing
 end
-
+    
 @kernel function _heal_outstanding_damage!(d, grid, ice_thermodynamics, Kh, Δt)
     i, j = @index(Global, NTuple)
 
