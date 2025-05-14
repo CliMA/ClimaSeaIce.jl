@@ -73,10 +73,18 @@ end
         
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
-
+        
         # TODO: BBM rheology needs this!
         # advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
     end 
+end
+
+@inline function advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
+    for tracer_idx in keys(tracers)
+        if (tracer_idx ∈ keys(Gⁿ)) & !(tracers[tracer_idx] isa ConstantField) 
+            tracers[tracer_idx][i, j, k] += Δt * Gⁿ[tracer_idx][i, j, k]
+        end
+    end
 end
 
 function update_state!(model::SIM)

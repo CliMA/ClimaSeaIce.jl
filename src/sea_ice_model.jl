@@ -59,10 +59,11 @@ function SeaIceModel(grid;
     tracers = (tracers..., rheology_prognostic_tracers(dynamics)...) # add prognostic tracers
 
     # Next, we form a list of default boundary conditions:
-    field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
+    field_names = tuple(unique((:u, :v, :h, :ℵ, :S, tracernames(tracers)...))...)
 
     bc_tuple = Tuple(FieldBoundaryConditions(grid, assumed_sea_ice_field_location(name))
                      for name in field_names)
+                     
     default_boundary_conditions = NamedTuple{field_names}(bc_tuple)
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions

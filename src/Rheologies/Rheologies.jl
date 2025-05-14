@@ -1,6 +1,6 @@
 module Rheologies
 
-export ViscousRheology, ElastoViscoPlasticRheology
+export ViscousRheology, ElastoViscoPlasticRheology, BrittleBinghamMaxwellRheology
 export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, rheology_auxiliary_fields
 
 using Oceananigans
@@ -27,5 +27,6 @@ rheology_auxiliary_fields(rheology, grid) = NamedTuple()
 include("ice_stress_divergence.jl")
 include("viscous_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")
+include("brittle_bingham_maxwell_rheology.jl")
 
 end

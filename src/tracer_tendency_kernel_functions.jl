@@ -44,13 +44,15 @@ end
     end
 end
 
-# const EmptyTuples = Union{NamedTuple{(), Tuple{}}, Tuple{}}
+const EmptyTuples = Union{NamedTuple{(), Tuple{}}, Tuple{}}
 
-# compute_tracer_tendencies!(G, i, j, grid, advection, velocities, ::EmptyTuples) = nothing
+compute_tracer_tendencies!(G, i, j, grid, advection, velocities, ::EmptyTuples) = nothing
 
-# function compute_tracer_tendencies!(G, i, j, grid, advection, velocities, tracers)
-#     # Assumption! The tracer tendencies are the first ones
-#     for n in eachindex(G)
-#         @inbounds G[n][i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, tracers[n])
-#     end
-# end
+function compute_tracer_tendencies!(G, i, j, grid, advection, velocities, tracers)
+    # Assumption! The tracer tendencies are the first ones
+    for n in keys(tracers)
+        if n ∈ keys(G)
+            @inbounds G[n][i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, tracers[n])
+        end
+    end
+end
