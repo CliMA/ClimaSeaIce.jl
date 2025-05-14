@@ -75,7 +75,7 @@ end
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
         
         # TODO: BBM rheology needs this!
-        # advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
+        advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
     end 
 end
 

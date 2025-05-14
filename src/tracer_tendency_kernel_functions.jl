@@ -40,7 +40,7 @@ end
         Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
 
         # TODO: BBM rheology needs this!
-        # compute_tracer_tendencies!(Gⁿ, i, j, grid, advection, velocities, tracers)
+        compute_tracer_tendencies!(Gⁿ, i, j, grid, advection, velocities, tracers)
     end
 end
 
