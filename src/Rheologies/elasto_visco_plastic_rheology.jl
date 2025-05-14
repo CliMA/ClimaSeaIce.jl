@@ -21,8 +21,8 @@ struct ElastoViscoPlasticRheology{FT, IP}
     max_relaxation_parameter :: FT # maximum number of substeps expressed as the dynamic coefficient
     relaxation_strength :: FT # strength of the relaxation parameter
     pressure_formulation :: IP # formulation of ice pressure
-    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, ip::P) where {FT, RP}  = 
-        new{FT, RP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
+    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, ip::IP) where {FT, IP}  = 
+        new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
 end
 
 struct ReplacementPressure end
