@@ -177,7 +177,7 @@ end
 
 @inline strain_rate_xx(i, j, k, grid, u, v) =  ℑyᵃᶜᵃ(i, j, k, grid, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, u) * Az⁻¹ᶜᶜᶜ(i, j, k, grid)
 @inline strain_rate_yy(i, j, k, grid, u, v) =  ℑxᶜᵃᵃ(i, j, k, grid, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, v) * Az⁻¹ᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_xy(i, j, k, grid, u, v) = (ℑyᵃᶜᵃ(i, j, k, grid, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, v) + ℑxᶜᵃᵃ(i, j, k, grid, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, u)) * Az⁻¹ᶜᶜᶜ(i, j, k, grid) / 2
+@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, ℑyᵃᶜᵃ, Δy_qᶠᶠᶜ, v) + δyᵃᶜᵃ(i, j, k, grid, ℑxᶜᵃᵃ, Δx_qᶠᶠᶜ, u)) * Az⁻¹ᶜᶜᶜ(i, j, k, grid) / 2
 
 @kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
