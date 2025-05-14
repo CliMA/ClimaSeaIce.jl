@@ -1,4 +1,5 @@
 using Oceananigans.Grids: halo_size
+using Oceananigans.Units
 
 struct BrittleBinghamMaxwellRheology{FT, A}
     ice_ridging_strength :: FT # compressive strength
