@@ -79,7 +79,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 10 day
-simulation = Simulation(model, Δt = 2minutes, stop_time=2days) 
+simulation = Simulation(model, Δt=2minutes, stop_time=2days) 
 
 # Container to hold the data
 htimeseries = []

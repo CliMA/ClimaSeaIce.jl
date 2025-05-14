@@ -144,16 +144,13 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     fields = dynamics.auxiliary_fields
     tracers = model.tracers
 
-    Nx, Ny, _ = size(grid)
-    Hx, Hy, _ = halo_size(grid)
-
-    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
-
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, parameters, _compute_stress_predictors!,   fields,  grid, rheology, tracers, u, v, ρᵢ, Δτ)
-    launch!(arch, grid, parameters, _advance_stresses_and_damage!, tracers, grid, rheology, fields,  ρᵢ, Δτ)
+    launch!(arch, grid, :xyz, _compute_stress_predictors!, fields,  grid, rheology, tracers, u, v, ρᵢ, Δτ)
+    fill_halo_regions!(tracers)
+    launch!(arch, grid, :xyz, _advance_stresses_and_damage!, tracers, grid, rheology, fields,  ρᵢ, Δτ)
+    fill_halo_regions!(tracers)
 
     return nothing
 end
