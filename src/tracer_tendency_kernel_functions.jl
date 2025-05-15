@@ -12,25 +12,51 @@ function compute_tracer_tendencies!(model::SIM)
     arch = architecture(grid)
    
     launch!(arch, grid, :xy,
-            _compute_dynamic_tracer_tendencies!,
+            _compute_dynamic_ice_variables_tendencies!,
             model.timestepper.Gⁿ,
             grid,
             model.velocities,
             model.advection,
             model.ice_thickness,
-            model.ice_concentration,
-            model.tracers)
+            model.ice_concentration)
+
+    # Advance tracers
+    for tracer_idx in keys(tracers)
+        tracer = @inbounds tracers[tracer_idx]
+
+        if (tracer_idx ∈ keys(Gⁿ))
+            tendency = @inbounds Gⁿ[tracer_idx]
+            launch!(arch, grid, :xy,
+                    _compute_dynamic_tracer_tendency!,
+                    tendency,
+                    grid,
+                    model.velocities,
+                    model.advection,
+                    tracer)
+        end
+
+    end
 
     return nothing
 end
 
 @kernel function _compute_dynamic_tracer_tendencies!(Gⁿ, 
-                                                     grid,
-                                                     velocities,
-                                                     advection,
-                                                     ice_thickness,
-                                                     ice_concentration,
-                                                     tracers)
+                                                      grid,
+                                                      velocities,
+                                                      advection,
+                                                      tracer)
+    i, j = @index(Global, NTuple)
+    kᴺ   = size(grid, 3) # Assumption! The sea ice is located at the _top_ of the grid
+
+    @inbounds Gⁿ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, tracer)
+end
+
+@kernel function _compute_dynamic_ice_variables_tendencies!(Gⁿ, 
+                                                            grid,
+                                                            velocities,
+                                                            advection,
+                                                            ice_thickness,
+                                                            ice_concentration)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3) # Assumption! The sea ice is located at the _top_ of the grid
@@ -40,7 +66,7 @@ end
         Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
 
         # TODO: BBM rheology needs this!
-        compute_tracer_tendencies!(Gⁿ, i, j, grid, advection, velocities, tracers)
+        # compute_tracer_tendencies!(Gⁿ, i, j, grid, advection, velocities, tracers)
     end
 end
 

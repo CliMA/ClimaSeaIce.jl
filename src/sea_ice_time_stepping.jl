@@ -44,7 +44,16 @@ function dynamic_time_step!(model::SIM, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_ice_variables!, h, ℵ, tracers, Gⁿ, Δt)
+
+    # Advance tracers
+    for tracer_idx in keys(tracers)
+        tracer   = @inbounds tracers[tracer_idx]
+        if (tracer_idx ∈ keys(Gⁿ))
+            tendency = @inbounds Gⁿ[tracer_idx]
+            interior(tracer) .+= Δt .* interior(tendency)
+        end
+    end
 
     return nothing
 end
@@ -53,7 +62,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _dynamic_step_tracers!(h, ℵ, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_ice_variables!(h, ℵ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
     
@@ -73,18 +82,7 @@ end
         
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
-        
-        # TODO: BBM rheology needs this!
-        advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
     end 
-end
-
-@inline function advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
-    for tracer_idx in keys(tracers)
-        if (tracer_idx ∈ keys(Gⁿ)) & !(tracers[tracer_idx] isa ConstantField) 
-            tracers[tracer_idx][i, j, k] += Δt * Gⁿ[tracer_idx][i, j, k]
-        end
-    end
 end
 
 function update_state!(model::SIM)
