@@ -89,19 +89,20 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       convert(FT, max_relaxation_parameter))
 end
 
-function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
+function rheology_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
-    σ₁₂ = Field{Face, Face, Nothing}(grid)
+    σ₁₂ = Field{Center, Center, Nothing}(grid)
 
-    uⁿ = Field{Face,   Center, Nothing}(grid)
-    vⁿ = Field{Center, Face,   Nothing}(grid)
     P  = Field{Center, Center, Nothing}(grid)
-    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
     ζ  = Field{Center, Center, Nothing}(grid)
     Δ  = Field{Center, Center, Nothing}(grid)
+    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+    
+    uⁿ = Field{Face, Face, Nothing}(grid)
+    vⁿ = Field{Face, Face, Nothing}(grid)
 
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
@@ -152,7 +153,7 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology, Δt) 
+function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology, Δt, Ns) 
 
     grid = model.grid
     arch = architecture(grid)
@@ -169,17 +170,16 @@ function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology
 
     parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
 
-    launch!(arch, grid, parameters, _compute_evp_viscosities!, fields, grid, rheology, u, v)
-    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+    launch!(arch, grid, parameters, _compute_evp_viscosities!, fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end
 
-@inline strain_rate_xx(i, j, k, grid, u, v) =  δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, u, v) =  δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
+@inline strain_rate_xx(i, j, k, grid, u, v) =  ℑyᵃᶜᵃ(i, j, k, grid, δxᶜᵃᵃ, Δy_qᶠᶠᶜ, u) * Az⁻¹ᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, u, v) =  ℑxᶜᵃᵃ(i, j, k, grid, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, v) * Az⁻¹ᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, ℑyᵃᶜᵃ, Δy_qᶠᶠᶜ, v) + δyᵃᶜᵃ(i, j, k, grid, ℑxᶜᵃᵃ, Δx_qᶠᶠᶜ, u)) * Az⁻¹ᶜᶜᶜ(i, j, k, grid) / 2
 
-@kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v)
+@kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
 
@@ -192,32 +192,24 @@ end
     # Strain rates
     ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v) 
     ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v) 
-
-    # Center - Center variables:
-    ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, kᴺ, grid, strain_rate_xy, u, v)
+    ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
 
     # Ice divergence 
     δ = ϵ̇₁₁ + ϵ̇₂₂
 
     # Ice shear (at Centers)
-    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
+    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂^2)
 
     # Visco - Plastic parameter 
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
-    Δᶜᶜᶜ = max(sqrt(δ^2 + s^2 * e⁻²), Δm)
-    Pᶜᶜᶜ = @inbounds P[i, j, 1]
+    Δ = max(sqrt(δ^2 + s^2 * e⁻²), Δm) 
+    P = @inbounds P[i, j, kᴺ]
+    ζ = P / 2Δ
 
-    @inbounds fields.ζ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
-    @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
-end
-
-# Compute the visco-plastic stresses for a slab sea ice model.
-# The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
-# following the αEVP formulation of Kimmritz et al (2016).
-@kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
-    i, j = @index(Global, NTuple)
-    kᴺ   = size(grid, 3)
+    # Store viscosity and the deformation for analysis purposes
+    @inbounds fields.ζ[i, j, kᴺ] = ζ
+    @inbounds fields.Δ[i, j, kᴺ] = Δ
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
@@ -229,52 +221,36 @@ end
     σ₁₂ = fields.σ₁₂
     α   = fields.α
     
-    # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v) 
-    ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
-
-    Pᶜᶜᶜ = @inbounds fields.P[i, j, 1]
-    ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
-    Δᶜᶜᶜ = @inbounds fields.Δ[i, j, 1]
-    ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, fields.ζ)
-
     # replacement pressure?
-    Pᵣ = Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
-
-    ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
-    ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
+    Pᵣ = P * Δ / (Δ + Δm)
+    η  = ζ * e⁻²
 
     # σ(uᵖ): the tangential stress depends only shear viscosity 
     # while the compressive stresses depend on the bulk viscosity and the ice strength
-    σ₁₁ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₁ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2) 
-    σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
-    σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
+    σ₁₁ᵖ⁺¹ = 2 * η * ϵ̇₁₁ + ((ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2) 
+    σ₂₂ᵖ⁺¹ = 2 * η * ϵ̇₂₂ + ((ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
+    σ₁₂ᵖ⁺¹ = 2 * η * ϵ̇₁₂
 
-    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
-
+    mᵢ = ice_mass(i, j, kᴺ, grid, h, ℵ, ρᵢ) 
+    
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as in Kimmritz et al (2016)
-    γ²ᶜᶜᶜ = ζᶜᶜᶜ * π^2 * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
-    γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), α⁺^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
-    γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), α⁻, α⁺)
-
-    γ²ᶠᶠᶜ = ζᶠᶠᶜ * π^2 * Δt / mᵢᶠᶠᶜ / Azᶠᶠᶜ(i, j, 1, grid)
-    γ²ᶠᶠᶜ = ifelse(isnan(γ²ᶠᶠᶜ), α⁺^2, γ²ᶠᶠᶜ) # In case both ζᶠᶠᶜ and mᵢᶠᶠᶜ are zero
-    γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), α⁻, α⁺)
+    γ = ζ * π^2 * Δt / mᵢ * Az⁻¹ᶜᶜᶜ(i, j, kᴺ, grid)
+    α = clamp(sqrt(γ), α⁻, α⁺)
+    α = ifelse(isnan(α), α⁺, α)
 
     @inbounds begin
         # Compute the new stresses and store the value of the 
         # dynamic substepping coefficient α
-        σ₁₁★ = (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ
-        σ₂₂★ = (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ
-        σ₁₂★ = (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ
+        σ₁₁★ = (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, kᴺ]) / α
+        σ₂₂★ = (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, kᴺ]) / α
+        σ₁₂★ = (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, kᴺ]) / α
 
-        σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, σ₁₁★, zero(grid))
-        σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, σ₂₂★, zero(grid))
-        σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, σ₁₂★, zero(grid))
-          α[i, j, 1]  = γᶜᶜᶜ
+        σ₁₁[i, j, kᴺ] += ifelse(mᵢ > 0, σ₁₁★, zero(grid))
+        σ₂₂[i, j, kᴺ] += ifelse(mᵢ > 0, σ₂₂★, zero(grid))
+        σ₁₂[i, j, kᴺ] += ifelse(mᵢ > 0, σ₁₂★, zero(grid))
+        
+        fields.α[i, j, kᴺ] = α 
     end
 end
 
@@ -283,14 +259,13 @@ end
 #####
 
 # Here we extend all the functions that a rheology model needs to support:
-@inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₁₁[i, j, k]
-@inline ice_stress_vx(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₁₂[i, j, k]
-@inline ice_stress_uy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₁₂[i, j, k]
-@inline ice_stress_vy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₂₂[i, j, k]
+@inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, k, grid, fields.σ₁₁)
+@inline ice_stress_uy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, k, grid, fields.σ₁₂)
+@inline ice_stress_vx(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑyᵃᶠᵃ(i, j, k, grid, fields.σ₁₂)
+@inline ice_stress_vy(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = ℑxᶠᵃᵃ(i, j, k, grid, fields.σ₂₂)
 
 # To help convergence to the right velocities
-@inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑxᶠᵃᵃ(i, j, 1, grid, fields.α)
-@inline compute_substep_Δtᶜᶠᶜ(i, j, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = Δt / ℑyᵃᶠᵃ(i, j, 1, grid, fields.α)
+@inline compute_substep_Δtᶠᶠᶜ(i, j, grid, Δt, ::ElastoViscoPlasticRheology, substeps, fields) = @inbounds Δt / ℑxyᶠᶠᵃ(i, j, 1, grid, fields.α)
 
 #####
 ##### Numerical forcing to help convergence
@@ -298,12 +273,12 @@ end
 
 @inline function sum_of_forcing_u(i, j, k, grid, ::ElastoViscoPlasticRheology, u_forcing, fields, Δt) 
     user_forcing = u_forcing(i, j, k, grid, fields)
-    rheology_forcing = @inbounds (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / Δt / ℑxᶠᵃᵃ(i, j, k, grid, fields.α)
+    rheology_forcing = @inbounds (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / Δt / ℑxyᶠᶠᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
 end
 
 @inline function sum_of_forcing_v(i, j, k, grid, ::ElastoViscoPlasticRheology, v_forcing, fields, Δt) 
     user_forcing = v_forcing(i, j, k, grid, fields)
-    rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑyᵃᶠᵃ(i, j, k, grid, fields.α)
+    rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑxyᶠᶠᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
 end

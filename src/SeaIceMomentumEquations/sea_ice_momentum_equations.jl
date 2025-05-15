@@ -63,7 +63,7 @@ function SeaIceMomentumEquation(grid;
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
 
-    auxiliary_fields = merge(auxiliary_fields, required_auxiliary_fields(rheology, grid))
+    auxiliary_fields = merge(auxiliary_fields, rheology_auxiliary_fields(rheology, grid))
     external_momentum_stresses = (top = top_momentum_stress,
                                   bottom = bottom_momentum_stress)
 
@@ -88,3 +88,5 @@ fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
 # Passing no velocities
 @inline free_drift_u(i, j, k, grid, ::Nothing) = zero(grid)
 @inline free_drift_v(i, j, k, grid, ::Nothing) = zero(grid)
+
+rheology_prognostic_tracers(m::SeaIceMomentumEquation) = rheology_prognostic_tracers(m.rheology)
