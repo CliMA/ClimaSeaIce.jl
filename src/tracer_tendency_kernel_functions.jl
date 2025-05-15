@@ -21,11 +21,11 @@ function compute_tracer_tendencies!(model::SIM)
             model.ice_concentration)
 
     # Advance tracers
-    for tracer_idx in keys(tracers)
-        tracer = @inbounds tracers[tracer_idx]
+    for tracer_idx in keys(model.tracers)
+        tracer = @inbounds model.tracers[tracer_idx]
 
-        if (tracer_idx ∈ keys(Gⁿ))
-            tendency = @inbounds Gⁿ[tracer_idx]
+        if (tracer_idx ∈ keys(model.timestepper.Gⁿ))
+            tendency = @inbounds model.timestepper.Gⁿ[tracer_idx]
             launch!(arch, grid, :xy,
                     _compute_dynamic_tracer_tendency!,
                     tendency,
@@ -40,11 +40,11 @@ function compute_tracer_tendencies!(model::SIM)
     return nothing
 end
 
-@kernel function _compute_dynamic_tracer_tendencies!(Gⁿ, 
-                                                      grid,
-                                                      velocities,
-                                                      advection,
-                                                      tracer)
+@kernel function _compute_dynamic_tracer_tendency!(Gⁿ, 
+                                                   grid,
+                                                   velocities,
+                                                   advection,
+                                                   tracer)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3) # Assumption! The sea ice is located at the _top_ of the grid
 
