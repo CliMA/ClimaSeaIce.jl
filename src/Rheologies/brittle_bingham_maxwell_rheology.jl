@@ -133,6 +133,13 @@ end
     end
 end
 
+function stress_params(grid)
+    TX, TY, _ = Oceananigans.Grids.topology(grid)
+    Fx = ifelse(TX == Flat, 1:1, 0:size(grid, 1)+1)
+    Fy = ifelse(TY == Flat, 1:1, 0:size(grid, 2)+1)
+    return KernelParameters(Fx, Fy)
+end
+
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheology, Δt, Ns)
 
@@ -144,13 +151,13 @@ function compute_stresses!(model, dynamics, rheology::BrittleBinghamMaxwellRheol
     fields = dynamics.auxiliary_fields
     tracers = model.tracers
 
+    params = stress_params(grid)
+
     # Pretty simple timestepping
     Δτ = Δt / Ns
 
-    launch!(arch, grid, :xyz, _compute_stress_predictors!, fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
-    fill_halo_regions!((fields.σ¹, fields.σ²))
-    launch!(arch, grid, :xyz, _advance_stresses_and_damage!, tracers, grid, rheology, fields,  ρᵢ, Δτ)
-    fill_halo_regions!(tracers)
+    launch!(arch, grid, params, _compute_stress_predictors!, fields, grid, rheology, tracers, u, v, ρᵢ, Δτ)
+    launch!(arch, grid, params, _advance_stresses_and_damage!, tracers, grid, rheology, fields,  ρᵢ, Δτ)
 
     return nothing
 end
