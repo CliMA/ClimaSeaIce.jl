@@ -126,8 +126,6 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
 end
 
-const RPEVP = ElastoViscoPlasticRheology{true}
-
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
 Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
     ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
