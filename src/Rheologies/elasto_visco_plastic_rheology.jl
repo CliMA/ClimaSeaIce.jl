@@ -25,6 +25,7 @@ struct ElastoViscoPlasticRheology{FT, IP}
         new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
 end
 
+struct ModifiedReplacementPressure end
 struct ReplacementPressure end
 struct IceStrength end
 
@@ -36,7 +37,7 @@ struct IceStrength end
                                minimum_plastic_stress = 2e-9,
                                min_relaxation_parameter = 50,
                                max_relaxation_parameter = 300,
-                               relaxation_strength = π^2 / 2,
+                               relaxation_strength = π^2,
                                pressure_formulation = ReplacementPressure())
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
@@ -92,7 +93,7 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                     minimum_plastic_stress = 2e-9,
                                     min_relaxation_parameter = 50,
                                     max_relaxation_parameter = 300,
-                                    relaxation_strength = π^2 / 2,
+                                    relaxation_strength = π^2,
                                     pressure_formulation = ReplacementPressure())
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
@@ -239,6 +240,13 @@ end
     Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
     Δm   = r.minimum_plastic_stress
     return Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
+end
+
+@inline function ice_pressure(i, j, k, grid, ::ModifiedReplacementPressure, r, fields)
+    Pᶜᶜᶜ = @inbounds fields.P[i, j, k]
+    Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
+    Δm   = r.minimum_plastic_stress
+    return Pᶜᶜᶜ * Δᶜᶜᶜ / max(Δᶜᶜᶜ, Δm)
 end
 
 # Compute the visco-plastic stresses for a slab sea ice model.
