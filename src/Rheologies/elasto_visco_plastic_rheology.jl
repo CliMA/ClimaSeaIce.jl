@@ -25,7 +25,6 @@ struct ElastoViscoPlasticRheology{FT, IP}
         new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
 end
 
-struct ModifiedReplacementPressure end
 struct ReplacementPressure end
 struct IceStrength end
 
@@ -238,13 +237,6 @@ end
     Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
     Δm   = r.minimum_plastic_stress
     return Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
-end
-
-@inline function ice_pressure(i, j, k, grid, ::ModifiedReplacementPressure, r, fields)
-    Pᶜᶜᶜ = @inbounds fields.P[i, j, k]
-    Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
-    Δm   = r.minimum_plastic_stress
-    return Pᶜᶜᶜ * Δᶜᶜᶜ / max(Δᶜᶜᶜ, Δm)
 end
 
 # Compute the visco-plastic stresses for a slab sea ice model.
