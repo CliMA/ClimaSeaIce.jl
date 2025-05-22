@@ -51,7 +51,7 @@ end
     return ifelse(τe == 0, zero(grid), τi / τe)
 end
 
-# Just passing ocean velocities without mitigation
+# Just passing velocities without mitigation
 @inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.u[i, j, k] 
 @inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.v[i, j, k] 
 
