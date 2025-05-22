@@ -53,7 +53,7 @@ end
     return ifelse(τe == 0, zero(grid), τi / τe)
 end
 
-# What if we want to use _only_ the free drift velocities (not advised)?
+# What if we want to use _only_ the free drift velocities? (not advised)
 function time_step_momentum!(model, dynamics::FreeDriftModel, args...)
     
     model_fields = fields(model)
