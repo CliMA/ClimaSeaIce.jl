@@ -25,7 +25,6 @@ using Oceananigans
     @inbounds begin
         hᵢ = ice_thickness[i, j, k]
         hc = ice_consolidation_thickness[i, j, k]
-        ℵᵢ = ice_concentration[i, j, k]
         Sᵢ = model_fields.S[i, j, k]
     end
 
@@ -44,7 +43,7 @@ using Oceananigans
             Tuₘ = melting_temperature(liquidus, Sᵢ)
             Tuⁿ = min(Tuⁿ, Tuₘ)
         else # slab is unconsolidated and does not have an independent surface temperature
-            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+            Tuⁿ = bottom_temperature(i, j, k, grid, bottom_heat_bc, liquidus)
         end
 
         @inbounds Tu[i, j, k] = Tuⁿ
@@ -52,7 +51,7 @@ using Oceananigans
 
     @inbounds Tuᵢ = Tu[i, j, k]
 
-    Tbᵢ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+    Tbᵢ = bottom_temperature(i, j, k, grid, bottom_heat_bc, liquidus)
     ℰb = latent_heat(phase_transitions, Tbᵢ)
     ℰu = latent_heat(phase_transitions, Tuᵢ)
 

@@ -30,11 +30,11 @@ is related to the sum of `fluxes` into the ice-water interface,
 """
 IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
 
-@inline bottom_temperature(i, j, grid, bc::PrescribedTemperature, args...) = @inbounds bc.temperature[i, j]
-@inline bottom_temperature(i, j, grid, bc::PrescribedTemperature{<:Number}, args...) = bc.temperature
+@inline bottom_temperature(i, j, k, grid, bc::PrescribedTemperature, args...) = @inbounds bc.temperature[i, j]
+@inline bottom_temperature(i, j, k, grid, bc::PrescribedTemperature{<:Number}, args...) = bc.temperature
 
-@inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, liquidus)
-    Sₒ = get_tracer(i, j, 1, grid, bc.salinity)
+@inline function bottom_temperature(i, j, k, grid, bc::IceWaterThermalEquilibrium, liquidus)
+    Sₒ = get_tracer(i, j, k, grid, bc.salinity)
     return melting_temperature(liquidus, Sₒ)
 end
 
