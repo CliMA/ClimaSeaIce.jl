@@ -10,7 +10,7 @@ uᶠ = (τoˣₑ - τaˣₑ) / (τoˣᵢ - τaˣᵢ)
 vᶠ = (τoʸₑ - τaʸₑ) / (τoʸᵢ - τaʸᵢ)
 ```
 """
-struct StressBalanceFreeDrift{T, B, C}
+struct StressBalanceFreeDrift{T, B}
     top_momentum_stess :: T
     bottom_momentum_stress :: B
 end
