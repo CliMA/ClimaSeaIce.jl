@@ -95,10 +95,10 @@ fill_halo_regions!((Uₐ, Vₐ))
 #                                             solver   = SplitExplicitSolver(substeps=150))
 
 # Define the model!
-dynamics = ClimaSeaice.SeaIceDynamics.StressBalanceFreeDrift((; u=τₐu, v=τₐv), τₒ)
+dynamics = ClimaSeaIce.SeaIceDynamics.StressBalanceFreeDrift((; u=τₐu, v=τₐv), τₒ)
 
 model = SeaIceModel(grid; 
-                    dynamics = momentum_equations,
+                    dynamics,
                     ice_thermodynamics = nothing, # No ice_thermodynamics here
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs))
