@@ -18,7 +18,7 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
                          ρ = model.ice_density))
 
 
-    ocean_velocities = dynamics.ocean_velocities
+    free_drift = dynamics.free_drift
     clock = model.clock
     minimum_mass = dynamics.minimum_mass
     minimum_concentration = dynamics.minimum_concentration
@@ -27,7 +27,7 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
     launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, Δt, 
-            top_stress, bottom_stress, ocean_velocities, 
+            top_stress, bottom_stress, free_drift, 
             minimum_mass, minimum_concentration, clock, model_fields)
 
     return nothing
@@ -35,7 +35,7 @@ end
 
 @kernel function _step_velocities!(u, v, grid, Gⁿ, Δt, 
                                    top_stress, bottom_stress, 
-                                   ocean_velocities, minimum_mass, minimum_concentration, clock, fields)
+                                   free_drift, minimum_mass, minimum_concentration, clock, fields)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
@@ -56,8 +56,8 @@ end
         uᴰ = (u[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
         vᴰ = (v[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
 
-        uᶠ = free_drift_u(i, j, kᴺ, grid, ocean_velocities)
-        vᶠ = free_drift_v(i, j, kᴺ, grid, ocean_velocities)
+        uᶠ = free_drift_u(i, j, kᴺ, grid, free_drift, clock, fields)
+        vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, fields)
 
         sea_ice = (mᶠᶜ ≥ minimum_mass) & (ℵᶠᶜ ≥ minimum_concentration)
         u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
