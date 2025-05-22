@@ -1,4 +1,4 @@
-abstract type FreeDriftModel end
+abstract type AbstractFreeDriftDynamics end
 
 """
     StressBalanceFreeDrift{T, B, C}
@@ -14,7 +14,7 @@ vᶠ = (τoʸₑ - τaʸₑ) / (τoʸᵢ - τaʸᵢ)
 Can be used to limit the sea ice velocity when the mass or the concentration are below a certain threshold, or
 as a `dynamics` model itself that substitutes the sea ice momentum equation calculation everywhere.
 """
-struct StressBalanceFreeDrift{T, B} <: FreeDriftModel
+struct StressBalanceFreeDrift{T, B} <: AbstractFreeDriftDynamics
     top_momentum_stess :: T
     bottom_momentum_stress :: B
 end
@@ -37,7 +37,7 @@ end
 end
 
 # Just passing ocean velocities without mitigation
-@inline function free_drift_v(i, j, k, grid, f::StressBalanceFreeDrift, clock, fields) 
+@inline function free_drift_v(i, j, k, grid, f::AbstractFreeDriftDynamics, clock, fields) 
     τib = implicit_τy_coefficient(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τit = implicit_τy_coefficient(i, j, k, grid, f.top_momentum_stress, clock, fields)
 
