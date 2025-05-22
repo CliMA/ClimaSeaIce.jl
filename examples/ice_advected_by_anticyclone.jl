@@ -89,10 +89,7 @@ fill_halo_regions!((Uₐ, Vₐ))
 dynamics = SeaIceMomentumEquation(grid; 
                                   top_momentum_stress = (u=τₐu, v=τₐv),
                                   bottom_momentum_stress = τₒ,
-                                  coriolis     = FPlane(f=1e-4),
-                                  rheology     = nothing, 
-                                  solver       = SplitExplicitSolver(substeps=150),
-                                  minimum_mass = 1e10)
+                                  coriolis     = FPlane(f=1e-4))
 
 model = SeaIceModel(grid; 
                     dynamics,
