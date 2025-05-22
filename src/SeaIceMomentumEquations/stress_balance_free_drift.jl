@@ -63,26 +63,22 @@ end
 function time_step_momentum!(model, dynamics::FreeDriftModel, args...)
     
     model_fields = fields(model)
-    grid = model.grid
-    arch = architecture(grid)
-    u, v = model.velocities
+    clock = model.clock
+    grid  = model.grid
+    arch  = architecture(grid)
+    u, v  = model.velocities
 
-    launch!(arch, grid, :xy, _free_drift_velocity_step!, u, v, grid, dynamics, model_fields)
+    launch!(arch, grid, :xy, _free_drift_velocity_step!, u, v, grid, dynamics, clock, model_fields)
 
     return nothing
 end
 
-@kernel function _free_drift_velocity_step!(u, v, grid, dynamics, model_fields)
+@kernel function _free_drift_velocity_step!(u, v, grid, dynamics, clock, fields)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
 
-    uᶠ = free_drift_u(i, j, kᴺ, grid, dynamics, model_fields.clock, model_fields)
-    vᶠ = free_drift_v(i, j, kᴺ, grid, dynamics, model_fields.clock, model_fields)
-
-    @inbounds begin
-        u[i, j, 1] = uᶠ
-        v[i, j, 1] = vᶠ
-    end
+    @inbounds u[i, j, 1] = free_drift_u(i, j, kᴺ, grid, dynamics, clock, fields)
+    @inbounds v[i, j, 1] = free_drift_v(i, j, kᴺ, grid, dynamics, clock, fields)
 
     return nothing
 end
