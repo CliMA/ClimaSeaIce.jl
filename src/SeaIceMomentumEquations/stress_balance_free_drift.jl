@@ -1,3 +1,4 @@
+abstract type FreeDriftModel end
 
 """
     StressBalanceFreeDrift{T, B, C}
@@ -10,7 +11,7 @@ uᶠ = (τoˣₑ - τaˣₑ) / (τoˣᵢ - τaˣᵢ)
 vᶠ = (τoʸₑ - τaʸₑ) / (τoʸᵢ - τaʸᵢ)
 ```
 """
-struct StressBalanceFreeDrift{T, B}
+struct StressBalanceFreeDrift{T, B} <: FreeDriftModel
     top_momentum_stess :: T
     bottom_momentum_stress :: B
 end
@@ -48,4 +49,34 @@ end
 
     return ifelse(τe == 0, zero(grid), τi / τe)
 end
+
+# What if we want to use _only_ the free drift velocities (not advised)?
+function time_step_momentum!(model, dynamics::FreeDriftModel, args...)
     
+    model_fields = fields(model)
+    grid = model.grid
+    arch = architecture(grid)
+
+    launch!(arch, grid, :xy, _free_drift_velocities_step!, model, dynamics, model_fields)
+
+    fill_halo_regions!(model.velocities)
+    mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
+    mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
+    
+    return nothing
+end
+
+@kernel function _step_free_drift!(u, v, grid, dynamics, model_fields)
+    i, j = @index(Global, NTuple)
+    kᴺ   = size(grid, 3)
+
+    uᶠ = free_drift_u(i, j, kᴺ, grid, dynamics, model_fields.clock, model_fields)
+    vᶠ = free_drift_v(i, j, kᴺ, grid, dynamics, model_fields.clock, model_fields)
+
+    @inbounds begin
+        u[i, j, 1] = uᶠ
+        v[i, j, 1] = vᶠ
+    end
+
+    return nothing
+end
