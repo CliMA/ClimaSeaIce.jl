@@ -38,7 +38,7 @@ fields(::StressBalanceFreeDrift) = NamedTuple()
     # Implicit stress component 
     τi = τib - τit
 
-    return ifelse(τe == 0, zero(grid), τi / τe)
+    return ifelse(τi == 0, zero(grid), τe / τi)
 end
 
 @inline function free_drift_v(i, j, k, grid, f::AbstractFreeDriftDynamics, clock, fields) 
@@ -54,7 +54,7 @@ end
     # Implicit stress component 
     τi = τib - τit
 
-    return ifelse(τe == 0, zero(grid), τi / τe)
+    return ifelse(τi == 0, zero(grid), τe / τi)
 end
 
 # Just passing velocities without mitigation
