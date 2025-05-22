@@ -10,6 +10,9 @@ and an explicit part  ``τaˣ = τaˣₑ + u * τaˣᵢ`` and ``τoˣ = τoˣₑ
 uᶠ = (τoˣₑ - τaˣₑ) / (τoˣᵢ - τaˣᵢ)
 vᶠ = (τoʸₑ - τaʸₑ) / (τoʸᵢ - τaʸᵢ)
 ```
+
+Can be used to limit the sea ice velocity when the mass or the concentration are below a certain threshold, or
+as a `dynamics` model itself that substitutes the sea ice momentum equation calculation everywhere.
 """
 struct StressBalanceFreeDrift{T, B} <: FreeDriftModel
     top_momentum_stess :: T
@@ -62,7 +65,7 @@ function time_step_momentum!(model, dynamics::FreeDriftModel, args...)
     fill_halo_regions!(model.velocities)
     mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
     mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
-    
+
     return nothing
 end
 
