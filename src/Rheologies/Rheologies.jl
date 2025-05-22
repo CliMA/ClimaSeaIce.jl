@@ -20,6 +20,11 @@ compute_stresses!(model, dynamics, rheology, Δt) = nothing
 @inline sum_of_forcing_u(i, j, k, grid, rheology, u_forcing, fields, Δt) = u_forcing(i, j, k, grid, fields)
 @inline sum_of_forcing_v(i, j, k, grid, rheology, v_forcing, fields, Δt) = v_forcing(i, j, k, grid, fields)
 
+@inline ice_stress_ux(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline ice_stress_uy(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline ice_stress_vx(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline ice_stress_vy(i, j, k, grid, ::Nothing, args...) = zero(grid)
+
 include("ice_stress_divergence.jl")
 include("viscous_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")
