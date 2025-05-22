@@ -19,7 +19,6 @@ struct StressBalanceFreeDrift{T, B} <: AbstractFreeDriftDynamics
     bottom_momentum_stress :: B
 end
 
-# Just passing ocean velocities without mitigation
 @inline function free_drift_u(i, j, k, grid, f::StressBalanceFreeDrift, clock, fields)
     τib = implicit_τx_coefficient(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τit = implicit_τx_coefficient(i, j, k, grid, f.top_momentum_stress, clock, fields)
@@ -36,7 +35,6 @@ end
     return ifelse(τe == 0, zero(grid), τi / τe)
 end
 
-# Just passing ocean velocities without mitigation
 @inline function free_drift_v(i, j, k, grid, f::AbstractFreeDriftDynamics, clock, fields) 
     τib = implicit_τy_coefficient(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τit = implicit_τy_coefficient(i, j, k, grid, f.top_momentum_stress, clock, fields)
@@ -52,6 +50,14 @@ end
 
     return ifelse(τe == 0, zero(grid), τi / τe)
 end
+
+# Just passing ocean velocities without mitigation
+@inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.u[i, j, k] 
+@inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.v[i, j, k] 
+
+# Passing no velocities
+@inline free_drift_u(i, j, k, grid, ::Nothing, clock, model_fields) = zero(grid)
+@inline free_drift_v(i, j, k, grid, ::Nothing, clock, model_fields) = zero(grid)
 
 # What if we want to use _only_ the free drift velocities? (not advised)
 function time_step_momentum!(model, dynamics::FreeDriftModel, args...)
