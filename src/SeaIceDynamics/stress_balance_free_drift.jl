@@ -19,6 +19,12 @@ struct StressBalanceFreeDrift{T, B} <: AbstractFreeDriftDynamics
     bottom_momentum_stress :: B
 end
 
+Adapt.adapt_structure(to, s::StressBalanceFreeDrift) = 
+    StressBalanceFreeDrift(Adapt.adapt(to, s.top_momentum_stess),
+                           Adapt.adapt(to, s.bottom_momentum_stress))
+                           
+fields(::StressBalanceFreeDrift) = NamedTuple()
+
 @inline function free_drift_u(i, j, k, grid, f::StressBalanceFreeDrift, clock, fields)
     τib = implicit_τx_coefficient(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τit = implicit_τx_coefficient(i, j, k, grid, f.top_momentum_stress, clock, fields)
