@@ -60,7 +60,7 @@ end
 @inline free_drift_v(i, j, k, grid, ::Nothing, clock, model_fields) = zero(grid)
 
 # What if we want to use _only_ the free drift velocities? (not advised)
-function time_step_momentum!(model, dynamics::FreeDriftModel, args...)
+function time_step_momentum!(model, dynamics::AbstractFreeDriftDynamics, args...)
     
     model_fields = fields(model)
     clock = model.clock
