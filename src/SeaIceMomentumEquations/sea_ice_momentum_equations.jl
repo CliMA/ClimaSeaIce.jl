@@ -57,10 +57,10 @@ function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 auxiliary_fields = NamedTuple(),
-                                top_momentum_stress    = (u = nothing, v = nothing),
-                                bottom_momentum_stress = (u = nothing, v = nothing),
-                                free_drift = FluxBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress),
-                                solver = ExplicitSolver(),
+                                top_momentum_stress    = (u=nothing, v=nothing),
+                                bottom_momentum_stress = (u=nothing, v=nothing),
+                                free_drift = StressBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress),
+                                solver = SplitExplicitSolver(150),
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
 
