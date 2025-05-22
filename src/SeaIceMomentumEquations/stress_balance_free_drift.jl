@@ -65,17 +65,14 @@ function time_step_momentum!(model, dynamics::FreeDriftModel, args...)
     model_fields = fields(model)
     grid = model.grid
     arch = architecture(grid)
+    u, v = model.velocities
 
-    launch!(arch, grid, :xy, _free_drift_velocities_step!, model, dynamics, model_fields)
-
-    fill_halo_regions!(model.velocities)
-    mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
-    mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
+    launch!(arch, grid, :xy, _free_drift_velocity_step!, u, v, grid, dynamics, model_fields)
 
     return nothing
 end
 
-@kernel function _step_free_drift!(u, v, grid, dynamics, model_fields)
+@kernel function _free_drift_velocity_step!(u, v, grid, dynamics, model_fields)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
 
