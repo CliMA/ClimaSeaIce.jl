@@ -1,8 +1,8 @@
-module SeaIceMomentumEquations
+module SeaIceDynamics
 
 # The only functions provided by the module
 export compute_momentum_tendencies!, time_step_momentum!
-export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress
+export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
 
 using ClimaSeaIce
 
