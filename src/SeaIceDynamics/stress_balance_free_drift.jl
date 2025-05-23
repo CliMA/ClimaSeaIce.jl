@@ -28,8 +28,8 @@ fields(::StressBalanceFreeDrift) = NamedTuple()
 # Otherwise, to avoid a nonlinear solve, we assume the stress is only lineary dependent on the velocity at time-step
 # n+1 and use the ice velocities at time-step n to compute the nonlinear term. 
 # Note that this is the same formulation we use to solve for stresses in the `SeaIceMomentumEquation` dynamics.
-const TISB = StressBalanceFreeDrift{<:Union{AbstractArray, NamedTuple}, <:SemiImplicitStress}
-const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Union{AbstractArray, NamedTuple}}
+const TISB = StressBalanceFreeDrift{<:Any, <:SemiImplicitStress}
+const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Any}
 
 # Stress balance when only the bottom stress is ice-velocity dependent:
 # Then: 𝒰ᵢ = 𝒰ᴮ - τᵀ / sqrt(Cᴮ * ||τᵀ||)
