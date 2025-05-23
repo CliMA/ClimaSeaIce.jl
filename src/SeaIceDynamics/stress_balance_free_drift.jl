@@ -44,7 +44,7 @@ const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Union{AbstractArray,
     uᴮ = @inbounds τᴮ.u[i, j, k]
     Cᴮ = τᴮ.ρₑ * τᴮ.Cᴰ
 
-    return uᴮ - τxᵀ / sqrt(Cᴮ * τᵀ)
+    return uᴮ - ifelse(τᵀ == 0, τᵀ, τxᵀ / sqrt(Cᴮ * τᵀ))
 end
 
 @inline function free_drift_v(i, j, k, grid, f::TISB, clock, fields) 
@@ -56,7 +56,7 @@ end
     vᴮ = @inbounds τᴮ.v[i, j, k]
     Cᴮ = τᴮ.ρₑ * τᴮ.Cᴰ
 
-    return vᴮ - τyᵀ / sqrt(Cᴮ * τᵀ)
+    return vᴮ - ifelse(τᵀ == 0, τᵀ, τyᵀ / sqrt(Cᴮ * τᵀ))
 end
 
 # Stress balance when only the bottom stress is ice-velocity dependent:
@@ -70,7 +70,7 @@ end
     uᵀ = @inbounds τᵀ.u[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
-    return uᵀ - τxᴮ / sqrt(Cᵀ * τᴮ)
+    return uᵀ - ifelse(τᴮ == 0, τᴮ, τxᴮ / sqrt(Cᵀ * τᴮ))
 end
 
 @inline function free_drift_v(i, j, k, grid, f::BISB, clock, fields) 
@@ -82,7 +82,7 @@ end
     vᵀ = @inbounds τᵀ.v[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
-    return vᵀ - τyᴮ / sqrt(Cᵀ * τᴮ)
+    return vᵀ - ifelse(τᴮ == 0, τᴮ, τyᴮ / sqrt(Cᵀ * τᴮ))
 end
 
 @inline function free_drift_u(i, j, k, grid, f::StressBalanceFreeDrift, clock, fields)
