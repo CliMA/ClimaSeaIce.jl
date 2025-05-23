@@ -116,7 +116,8 @@ end
 
     return ifelse(τi == 0, zero(grid), τe / τi)
 end
-# Just passing velocities without mitigation
+
+# Fallbacks for a given velocity field.
 @inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.u[i, j, k] 
 @inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.v[i, j, k] 
 
