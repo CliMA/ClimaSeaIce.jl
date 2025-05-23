@@ -34,24 +34,24 @@ const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Union{AbstractArray,
 # Stress balance when only the bottom stress is ice-velocity dependent:
 # Then: 𝒰ᵢ = 𝒰ᴮ - τᵀ / sqrt(Cᴮ * ||τᵀ||)
 @inline function free_drift_u(i, j, k, grid, f::TISB, clock, fields) 
-    τxᵀ = explicit_τx(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τyᵀ = explicit_τy(i, j, k, grid, f.top_momentum_stress, clock, fields)
+    τxᵀ = x_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
+    τyᵀ = y_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
     τᵀ  = sqrt(τxᵀ^2 + τyᵀ^2)
 
     τᴮ = f.bottom_momentum_stress
-    uᴮ = @inbounds τᴮ.u[i, j, k]
+    uᴮ = @inbounds τᴮ.uₑ[i, j, k]
     Cᴮ = τᴮ.ρₑ * τᴮ.Cᴰ
 
     return uᴮ - ifelse(τᵀ == 0, τᵀ, τxᵀ / sqrt(Cᴮ * τᵀ))
 end
 
 @inline function free_drift_v(i, j, k, grid, f::TISB, clock, fields) 
-    τxᵀ = explicit_τx(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τyᵀ = explicit_τy(i, j, k, grid, f.top_momentum_stress, clock, fields)
+    τxᵀ = x_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
+    τyᵀ = y_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
     τᵀ  = sqrt(τxᵀ^2 + τyᵀ^2)
 
     τᴮ = f.bottom_momentum_stress
-    vᴮ = @inbounds τᴮ.v[i, j, k]
+    vᴮ = @inbounds τᴮ.vₑ[i, j, k]
     Cᴮ = τᴮ.ρₑ * τᴮ.Cᴰ
 
     return vᴮ - ifelse(τᵀ == 0, τᵀ, τyᵀ / sqrt(Cᴮ * τᵀ))
@@ -60,24 +60,24 @@ end
 # Stress balance when only the top stress is ice-velocity dependent:
 # Then: 𝒰ᵢ = 𝒰ᵀ - τᴮ / sqrt(Cᵀ * ||τᴮ||)
 @inline function free_drift_u(i, j, k, grid, f::BISB, clock, fields) 
-    τxᴮ = explicit_τx(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-    τyᴮ = explicit_τy(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
+    τxᴮ = x_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
+    τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
     τᵀ = f.bottom_momentum_stress
-    uᵀ = @inbounds τᵀ.u[i, j, k]
+    uᵀ = @inbounds τᵀ.uₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
     return uᵀ - ifelse(τᴮ == 0, τᴮ, τxᴮ / sqrt(Cᵀ * τᴮ))
 end
 
 @inline function free_drift_v(i, j, k, grid, f::BISB, clock, fields) 
-    τxᴮ = explicit_τx(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-    τyᴮ = explicit_τy(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
+    τxᴮ = x_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
+    τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
     τᵀ = f.bottom_momentum_stress
-    vᵀ = @inbounds τᵀ.v[i, j, k]
+    vᵀ = @inbounds τᵀ.vₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
     return vᵀ - ifelse(τᴮ == 0, τᴮ, τyᴮ / sqrt(Cᵀ * τᴮ))
