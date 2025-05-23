@@ -64,7 +64,7 @@ end
     τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
-    τᵀ = f.bottom_momentum_stress
+    τᵀ = f.top_momentum_stess
     uᵀ = @inbounds τᵀ.uₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
@@ -76,7 +76,7 @@ end
     τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
-    τᵀ = f.bottom_momentum_stress
+    τᵀ = f.top_momentum_stess
     vᵀ = @inbounds τᵀ.vₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
