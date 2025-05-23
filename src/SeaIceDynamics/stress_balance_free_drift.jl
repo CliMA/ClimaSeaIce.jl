@@ -59,7 +59,7 @@ end
     return vᴮ - ifelse(τᵀ == 0, τᵀ, τyᵀ / sqrt(Cᴮ * τᵀ))
 end
 
-# Stress balance when only the bottom stress is ice-velocity dependent:
+# Stress balance when only the top stress is ice-velocity dependent:
 # Then: 𝒰ᵢ = 𝒰ᵀ - τᴮ / sqrt(Cᵀ * ||τᴮ||)
 @inline function free_drift_u(i, j, k, grid, f::BISB, clock, fields) 
     τxᴮ = explicit_τx(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
