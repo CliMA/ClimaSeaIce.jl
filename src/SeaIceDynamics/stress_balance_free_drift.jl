@@ -6,8 +6,8 @@ abstract type AbstractFreeDriftDynamics end
 A free drift parameterization that computes the free drift velocities as a balance between top and bottom stresses ``τa ≈ τo``.
 
 In case the only one of the stresses is a `SemiImplicitStress`, the model will compute the free drift velocity exactly 
-assuming that the other stress does not depend on the sea ice velocity. Otherwise, the model will compute the free drift 
-velocity approximately using the previous time step velocities to compute the nonlinear terms.
+assuming that the other stress does not depend on the sea ice velocity. Stresses other than `SemiImplicitStress` 
+are assumed to be ice-velocity independent.
 
 Can be used to limit the sea ice velocity when the mass or the concentration are below a certain threshold, or
 as a `dynamics` model itself that substitutes the sea ice momentum equation calculation everywhere.
@@ -35,7 +35,7 @@ const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Any}
 # Then: 𝒰ᵢ = 𝒰ᴮ - τᵀ / sqrt(Cᴮ * ||τᵀ||)
 @inline function free_drift_u(i, j, k, grid, f::TISB, clock, fields) 
     τxᵀ = x_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τyᵀ = y_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
+    τyᵀ = ℑxyᶠᶜᵃ(i, j, k, grid, y_momentum_stress, f.top_momentum_stress, clock, fields)
     τᵀ  = sqrt(τxᵀ^2 + τyᵀ^2)
 
     τᴮ = f.bottom_momentum_stress
@@ -46,7 +46,7 @@ const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Any}
 end
 
 @inline function free_drift_v(i, j, k, grid, f::TISB, clock, fields) 
-    τxᵀ = x_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
+    τxᵀ = ℑxyᶜᶠᵃ(i, j, k, grid, x_momentum_stress, f.top_momentum_stress, clock, fields)
     τyᵀ = y_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
     τᵀ  = sqrt(τxᵀ^2 + τyᵀ^2)
 
@@ -61,7 +61,7 @@ end
 # Then: 𝒰ᵢ = 𝒰ᵀ - τᴮ / sqrt(Cᵀ * ||τᴮ||)
 @inline function free_drift_u(i, j, k, grid, f::BISB, clock, fields) 
     τxᴮ = x_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-    τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
+    τyᴮ = ℑxyᶠᶜᵃ(i, j, k, grid, y_momentum_stress, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
     τᵀ = f.top_momentum_stess
@@ -72,7 +72,7 @@ end
 end
 
 @inline function free_drift_v(i, j, k, grid, f::BISB, clock, fields) 
-    τxᴮ = x_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
+    τxᴮ = ℑxyᶜᶠᵃ(i, j, k, grid, x_momentum_stress, f.bottom_momentum_stress, clock, fields)
     τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
