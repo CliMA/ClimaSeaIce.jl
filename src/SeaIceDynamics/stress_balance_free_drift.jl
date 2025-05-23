@@ -83,38 +83,6 @@ end
     return vᵀ - ifelse(τᴮ == 0, τᴮ, τyᴮ / sqrt(Cᵀ * τᴮ))
 end
 
-@inline function free_drift_u(i, j, k, grid, f::StressBalanceFreeDrift, clock, fields)
-    τit = implicit_τx_coefficient(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τib = implicit_τx_coefficient(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-
-    τet = explicit_τx(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τeb = explicit_τx(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-
-    # Explicit stress
-    τe = τeb - τet
-
-    # Implicit stress component 
-    τi = τib - τit
-
-    return ifelse(τi == 0, zero(grid), τe / τi)
-end
-
-@inline function free_drift_v(i, j, k, grid, f::StressBalanceFreeDrift, clock, fields) 
-    τit = implicit_τy_coefficient(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τib = implicit_τy_coefficient(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-
-    τet = explicit_τy(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τeb = explicit_τy(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-
-    # Explicit stress
-    τe = τeb - τet
-
-    # Implicit stress component 
-    τi = τib - τit
-
-    return ifelse(τi == 0, zero(grid), τe / τi)
-end
-
 # Fallbacks for a given velocity field.
 @inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.u[i, j, k] 
 @inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.v[i, j, k] 
