@@ -47,6 +47,7 @@ end
 
     i, j = @index(Global, NTuple)
      
+    Gⁿ = ice_thermodynamics.thermodynamic_tendency
     @inbounds hⁿ = ice_thickness[i, j, 1]
     @inbounds ℵⁿ = ice_concentration[i, j, 1]
     @inbounds hᶜ = ice_consolidation_thickness[i, j, 1]
@@ -72,6 +73,9 @@ end
     ∂t_V = (Vⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
     ℵ⁺   = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
     h⁺   = Vⁿ⁺¹ / ℵ⁺
+
+    # Save thermodynamic tendency for possible later use
+    @inbounds Gⁿ[i, j, 1] = ∂t_V
     
     # Treat pathological cases
     h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
