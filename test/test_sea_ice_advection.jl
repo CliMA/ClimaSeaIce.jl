@@ -1,5 +1,5 @@
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.SeaIceDynamics
 using ClimaSeaIce.Rheologies
 using Oceananigans
 

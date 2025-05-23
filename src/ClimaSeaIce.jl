@@ -39,7 +39,7 @@ include("forward_euler_timestepper.jl")
 
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
 include("Rheologies/Rheologies.jl")
-include("SeaIceMomentumEquations/SeaIceMomentumEquations.jl")
+include("SeaIceDynamics/SeaIceDynamics.jl")
 include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
 include("tracer_tendency_kernel_functions.jl")
@@ -47,7 +47,7 @@ include("sea_ice_time_stepping.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
-using .SeaIceMomentumEquations
+using .SeaIceDynamics
 using .Rheologies
 
 # Advection timescale for a `SeaIceModel`. Sea ice dynamics are two-dimensional so 

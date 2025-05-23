@@ -3,7 +3,7 @@ using Oceananigans.Fields: flattened_unique_values
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
-using ClimaSeaIce.SeaIceMomentumEquations: time_step_momentum!
+using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
 using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
 
 import Oceananigans.Models: update_model_field_time_series!

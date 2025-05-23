@@ -39,9 +39,9 @@ Modules = [ClimaSeaIce.Rheologies]
 Private = false
 ```
 
-## ClimaSeaIce.SeaIceMomentumEquations
+## ClimaSeaIce.SeaIceDynamics
 
 ```@autodocs
-Modules = [ClimaSeaIce.SeaIceMomentumEquations]
+Modules = [ClimaSeaIce.SeaIceDynamics]
 Private = false
 ```
