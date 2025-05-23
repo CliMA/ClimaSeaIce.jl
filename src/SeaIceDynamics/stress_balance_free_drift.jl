@@ -118,12 +118,12 @@ end
 end
 
 # Fallbacks for a given velocity field.
-@inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.u[i, j, k] 
-@inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, model_fields)  = @inbounds f.v[i, j, k] 
+@inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.u[i, j, k] 
+@inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.v[i, j, k] 
 
 # Passing no velocities
-@inline free_drift_u(i, j, k, grid, ::Nothing, clock, model_fields) = zero(grid)
-@inline free_drift_v(i, j, k, grid, ::Nothing, clock, model_fields) = zero(grid)
+@inline free_drift_u(i, j, k, grid, ::Nothing, clock, fields) = zero(grid)
+@inline free_drift_v(i, j, k, grid, ::Nothing, clock, fields) = zero(grid)
 
 # What if we want to use _only_ the free drift velocities? (not advised)
 function time_step_momentum!(model, dynamics::AbstractFreeDriftDynamics, args...)
