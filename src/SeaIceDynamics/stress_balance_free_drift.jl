@@ -3,13 +3,13 @@ abstract type AbstractFreeDriftDynamics end
 """
     StressBalanceFreeDrift{T, B}
 
-A free drift parameterization that computes the free drift velocities as a balance between
-top and bottom stresses ``τa ≈ τo``. The `StressBalanceFreeDrift` model yields a sea ice velocity only if
-either the top or the bottom stress is a `SemiImplicitStress`. 
+A free drift parameterization that computes the free drift velocities as a balance between top and bottom stresses ``τa ≈ τo``.
+The `StressBalanceFreeDrift` model yields a sea ice velocity only if either the top or the bottom stress is a `SemiImplicitStress`. 
+All other stress types are assumed to be ice-velocity independent.
 
-In case the only one of the stresses is a `SemiImplicitStress`, the model will compute the free drift velocity
-exactly. If both stresses are `SemiImplicitStress`, the model will compute the free drift velocity approximately
-using the previous time step velocities to compute the nonlinear terms.
+In case the only one of the stresses is a `SemiImplicitStress`, the model will compute the free drift velocity exactly. 
+If both stresses are `SemiImplicitStress`, the model will compute the free drift velocity approximately using the 
+previous time step velocities to compute the nonlinear terms.
 
 Can be used to limit the sea ice velocity when the mass or the concentration are below a certain threshold, or
 as a `dynamics` model itself that substitutes the sea ice momentum equation calculation everywhere.
