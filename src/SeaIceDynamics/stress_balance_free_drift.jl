@@ -83,6 +83,11 @@ end
     return vᵀ - ifelse(τᴮ == 0, τᴮ, τyᴮ / sqrt(Cᵀ * τᴮ))
 end
 
+const NoFreeDrift = StressBalanceFreeDrift{<:Nothing, <:Nothing}
+
+@inline free_drift_u(i, j, k, grid, ::NoFreeDrift, clock, fields) = zero(grid)
+@inline free_drift_v(i, j, k, grid, ::NoFreeDrift, clock, fields) = zero(grid)
+
 # Fallbacks for a given velocity field.
 @inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.u[i, j, k] 
 @inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.v[i, j, k] 
