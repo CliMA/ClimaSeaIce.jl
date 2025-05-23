@@ -1,7 +1,7 @@
 abstract type AbstractFreeDriftDynamics end
 
 """
-    StressBalanceFreeDrift{T, B, C}
+    StressBalanceFreeDrift{T, B}
 
 A free drift parameterization that computes the free drift velocities as a balance between
 top and bottom stresses ``τa ≈ τo``. The `StressBalanceFreeDrift` model yields a sea ice velocity only if
