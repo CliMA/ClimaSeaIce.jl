@@ -18,7 +18,7 @@ struct StressBalanceFreeDrift{T, B} <: AbstractFreeDriftDynamics
 end
 
 Adapt.adapt_structure(to, s::StressBalanceFreeDrift) = 
-    StressBalanceFreeDrift(Adapt.adapt(to, s.top_momentum_stess),
+    StressBalanceFreeDrift(Adapt.adapt(to, s.top_momentum_stress),
                            Adapt.adapt(to, s.bottom_momentum_stress))
 
 fields(::StressBalanceFreeDrift) = NamedTuple()
