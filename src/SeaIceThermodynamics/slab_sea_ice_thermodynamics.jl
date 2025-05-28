@@ -2,11 +2,12 @@ import Oceananigans: fields
 
 struct ProportionalEvolution end
 
-struct SlabSeaIceThermodynamics{ST, HBC, CF, P, CE}
+struct SlabSeaIceThermodynamics{ST, HBC, CF, GT, P, CE}
     top_surface_temperature :: ST
     heat_boundary_conditions :: HBC
     # Internal flux
     internal_heat_flux :: CF
+    thermodynamic_tendency :: GT
     # Melting and freezing stuff
     phase_transitions :: P
     # Rules to evolve concentration
@@ -17,6 +18,7 @@ Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) =
     SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
                              Adapt.adapt(to, t.heat_boundary_conditions),
                              Adapt.adapt(to, t.internal_heat_flux),
+                             Adapt.adapt(to, t.thermodynamic_tendency),
                              Adapt.adapt(to, t.phase_transitions),
                              Adapt.adapt(to, t.concentration_evolution))
 
@@ -69,12 +71,14 @@ function SlabSeaIceThermodynamics(grid;
         top_surface_temperature = Field{Center, Center, Nothing}(grid)
     end
 
+    thermodynamic_tendency = Field{Center, Center, Nothing}(grid)
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                 bottom = bottom_heat_boundary_condition)
 
     return SlabSeaIceThermodynamics(top_surface_temperature,
                                     heat_boundary_conditions,
                                     internal_heat_flux_function,
+                                    thermodynamic_tendency,
                                     phase_transitions,
                                     concentration_evolution)
 end
