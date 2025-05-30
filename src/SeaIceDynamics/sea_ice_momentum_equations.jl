@@ -22,7 +22,7 @@ struct ExplicitSolver end
                            auxiliary_fields = NamedTuple(),
                            top_momentum_stress    = (u=nothing, v=nothing),
                            bottom_momentum_stress = (u=nothing, v=nothing),
-                           free_drift = StressBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress),
+                           free_drift = StressBalanceFreeDrift(; top_momentum_stress, bottom_momentum_stress),
                            solver = SplitExplicitSolver(150),
                            minimum_concentration = 1e-3,
                            minimum_mass = 1.0)
@@ -61,7 +61,7 @@ function SeaIceMomentumEquation(grid;
                                 auxiliary_fields = NamedTuple(),
                                 top_momentum_stress    = nothing,
                                 bottom_momentum_stress = nothing,
-                                free_drift = StressBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress),
+                                free_drift = StressBalanceFreeDrift(; top_momentum_stress, bottom_momentum_stress),
                                 solver = SplitExplicitSolver(150),
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
