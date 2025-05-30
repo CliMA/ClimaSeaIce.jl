@@ -50,7 +50,7 @@ Keyword Arguments
 - `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
 - `auxiliary_fields`: A named tuple of auxiliary fields, default is an empty `NamedTuple()`.
 - `free_drift`: The free drift velocities used to limit sea ice momentum when the mass or the concentration are
-                below a certain threshold. default is `nothing` (indicating that the free drift velocities are zero).
+                below a certain threshold. Default is `nothing` (indicating that the free drift velocities are zero).
 - `solver`: The momentum solver to be used.
 - `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
 - `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
