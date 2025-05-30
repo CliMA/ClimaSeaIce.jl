@@ -22,7 +22,7 @@ function StressBalanceFreeDrift(; top_momentum_stress = nothing,
 
     if top_momentum_stress isa SemiImplicitStress
         if bottom_momentum_stress isa SemiImplicitStress
-            throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for either the `top_momentum_stess` or `bottom_momentum_stress`, not both"))
+            throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for the `top_momentum_stess` or the `bottom_momentum_stress`, not both"))
         end
     else
         if !(bottom_momentum_stress isa SemiImplicitStress)
