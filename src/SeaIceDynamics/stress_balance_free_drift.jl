@@ -17,10 +17,10 @@ not depend on the sea ice velocity.
 Can be used to limit the sea ice velocity when the mass or the concentration are below a certain threshold, or
 as a `dynamics` model itself that substitutes the sea ice momentum equation calculation everywhere.
 """
-function StressBalanceFreeDrift(; top_momentum_stess = nothing,
+function StressBalanceFreeDrift(; top_momentum_stress = nothing,
                                   bottom_momentum_stress = nothing)
 
-    if top_momentum_stess isa SemiImplicitStress
+    if top_momentum_stress isa SemiImplicitStress
         if bottom_momentum_stress isa SemiImplicitStress
             throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for either the `top_momentum_stess` or `bottom_momentum_stress`, not both"))
         end
@@ -30,7 +30,7 @@ function StressBalanceFreeDrift(; top_momentum_stess = nothing,
         end
     end
 
-    return StressBalanceFreeDrift(top_momentum_stess, bottom_momentum_stress)
+    return StressBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress)
 end
 
 Adapt.adapt_structure(to, s::StressBalanceFreeDrift) = 
