@@ -1,20 +1,36 @@
 abstract type AbstractFreeDriftDynamics end
 
+struct StressBalanceFreeDrift{T, B} <: AbstractFreeDriftDynamics
+    top_momentum_stress :: T
+    bottom_momentum_stress :: B
+end
+
 """
     StressBalanceFreeDrift{T, B}
 
 A free drift parameterization that computes the free drift velocities as a balance between top and bottom stresses ``τa ≈ τo``.
 
-In case the only one of the stresses is a `SemiImplicitStress`, the model will compute the free drift velocity exactly 
-assuming that the other stress does not depend on the sea ice velocity. Stresses other than `SemiImplicitStress` 
-are assumed to be ice-velocity independent.
+The only supported configuration is when either the `top_momentum_stess` or the `bottom_momentum_stress` are a 
+`SemiImplicitStress`. The model will compute the free drift velocity exactly assuming that the other stress does 
+not depend on the sea ice velocity. 
 
 Can be used to limit the sea ice velocity when the mass or the concentration are below a certain threshold, or
 as a `dynamics` model itself that substitutes the sea ice momentum equation calculation everywhere.
 """
-struct StressBalanceFreeDrift{T, B} <: AbstractFreeDriftDynamics
-    top_momentum_stress :: T
-    bottom_momentum_stress :: B
+function StressBalanceFreeDrift(; top_momentum_stess = nothing,
+                                  bottom_momentum_stress = nothing)
+
+    if top_momentum_stess isa SemiImplicitStress
+        if bottom_momentum_stress isa SemiImplicitStress
+            throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for either the `top_momentum_stess` or `bottom_momentum_stress`, not both"))
+        end
+    else
+        if !(bottom_momentum_stress isa SemiImplicitStress)
+            throw(ArgumentError("`StressBalanceFreeDrift` requires using a `SemiImplicitStress` for either the `top_momentum_stess` or the `bottom_momentum_stress`"))
+        end
+    end
+
+    return StressBalanceFreeDrift(top_momentum_stess, bottom_momentum_stress)
 end
 
 Adapt.adapt_structure(to, s::StressBalanceFreeDrift) = 
@@ -24,10 +40,10 @@ Adapt.adapt_structure(to, s::StressBalanceFreeDrift) =
 fields(::StressBalanceFreeDrift) = NamedTuple()
 
 # Stress balance when either the top or the bottom stresses do not depend on ice velocity
-# In this case we have a simplified form of the free drift velocity
-# Otherwise, to avoid a nonlinear solve, we assume the stress is only lineary dependent on the velocity at time-step
-# n+1 and use the ice velocities at time-step n to compute the nonlinear term. 
-# Note that this is the same formulation we use to solve for stresses in the `SeaIceMomentumEquation` dynamics.
+# In this case we have a simplified form of the free drift velocity. 
+# All other formulations are not supported at the moment and would require
+# (1) knowing which stress is velocity-dependent
+# (2) A nonlinear solve in case both stresses are velocity-dependent
 const TISB = StressBalanceFreeDrift{<:Any, <:SemiImplicitStress}
 const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Any}
 
