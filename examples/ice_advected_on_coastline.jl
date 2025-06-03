@@ -61,6 +61,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 dynamics = SeaIceMomentumEquation(grid; 
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = τₒ, 
+                                  free_drift = StressBalanceFreeDrift((u=τₐu, v=τₐv), τₒ),
                                   rheology = BrittleBinghamMaxwellRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 

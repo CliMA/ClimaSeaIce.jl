@@ -94,7 +94,7 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             top_momentum_stress = (u=τₐu, v=τₐv),
                                             bottom_momentum_stress = τₒ,
                                             coriolis = FPlane(f=1e-4),
-                                            ocean_velocities = (u = Uₒ, v = Vₒ),
+                                            free_drift = StressBalanceFreeDrift((u=τₐu, v=τₐv), τₒ),
                                             rheology = BrittleBinghamMaxwellRheology(),
                                             solver   = SplitExplicitSolver(substeps=150))
 
