@@ -1,8 +1,8 @@
-module SeaIceMomentumEquations
+module SeaIceDynamics
 
 # The only functions provided by the module
 export compute_momentum_tendencies!, time_step_momentum!
-export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress
+export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
 
 using ClimaSeaIce
 
@@ -44,8 +44,9 @@ import ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 time_step_momentum!(model, dynamics, Δt) = nothing
 compute_momentum_tendencies!(model, dynamics, Δt) = nothing
 
-include("sea_ice_momentum_equations.jl")
 include("sea_ice_external_stress.jl")
+include("stress_balance_free_drift.jl")
+include("sea_ice_momentum_equations.jl")
 include("momentum_tendencies_kernel_functions.jl")
 include("explicit_momentum_equations.jl")
 include("split_explicit_momentum_equations.jl")
