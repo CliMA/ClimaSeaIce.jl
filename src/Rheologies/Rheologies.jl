@@ -24,6 +24,11 @@ rheology_prognostic_tracers(rheology) = ()
 # No needed auxiliary fields
 rheology_auxiliary_fields(rheology, grid) = NamedTuple()
 
+@inline ice_stress_ux(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline ice_stress_uy(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline ice_stress_vx(i, j, k, grid, ::Nothing, args...) = zero(grid)
+@inline ice_stress_vy(i, j, k, grid, ::Nothing, args...) = zero(grid)
+
 include("ice_stress_divergence.jl")
 include("viscous_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")

@@ -206,6 +206,15 @@ end
 @inline strain_rate_yy(i, j, k, grid, u, v) =  ℑxᶜᵃᵃ(i, j, k, grid, δyᵃᶜᵃ, Δx_qᶠᶠᶜ, v) * Az⁻¹ᶜᶜᶜ(i, j, k, grid)
 @inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, ℑyᵃᶜᵃ, Δy_qᶠᶠᶜ, v) + δyᵃᶜᵃ(i, j, k, grid, ℑxᶜᵃᵃ, Δx_qᶠᶠᶜ, u)) * Az⁻¹ᶜᶜᶜ(i, j, k, grid) / 2
 
+@inline ice_pressure(i, j, k, grid, ::IceStrength, r, fields) = @inbounds fields.P[i, j, k]
+
+@inline function ice_pressure(i, j, k, grid, ::ReplacementPressure, r, fields)
+    Pᶜᶜᶜ = @inbounds fields.P[i, j, k]
+    Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
+    Δm   = r.minimum_plastic_stress
+    return Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
+end
+
 @kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
@@ -238,7 +247,6 @@ end
     @inbounds fields.ζ[i, j, kᴺ] = ζ
     @inbounds fields.Δ[i, j, kᴺ] = Δ
 
-
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     α⁺  = rheology.max_relaxation_parameter
     α⁻  = rheology.min_relaxation_parameter
@@ -250,7 +258,7 @@ end
     σ₁₂ = fields.σ₁₂
     α   = fields.α
     
-    # replacement pressure and shear viscosity
+    # replacement pressure?
     Pᵣ = ice_pressure(i, j, 1, grid, ip, rheology, fields)
     η  = ζ * e⁻²
 
@@ -264,7 +272,7 @@ end
     
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as in Kimmritz et al (2016)
-    γ = ζ * π^2 * Δt / mᵢ * Az⁻¹ᶜᶜᶜ(i, j, kᴺ, grid)
+    γ = ζ * cα * Δt / mᵢ * Az⁻¹ᶜᶜᶜ(i, j, kᴺ, grid)
     α = clamp(sqrt(γ), α⁻, α⁺)
     α = ifelse(isnan(α), α⁺, α)
 

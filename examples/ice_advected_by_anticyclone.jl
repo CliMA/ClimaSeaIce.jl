@@ -4,7 +4,7 @@
 #
 #
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceMomentumEquations
+using ClimaSeaIce.SeaIceDynamics
 using ClimaSeaIce.Rheologies
 using Oceananigans
 using Oceananigans.Units
@@ -99,9 +99,8 @@ momentum_equations = SeaIceMomentumEquation(grid;
                                             solver   = SplitExplicitSolver(substeps=150))
 
 # Define the model!
-
 model = SeaIceModel(grid; 
-                    dynamics = momentum_equations,
+                    dynamics,
                     ice_thermodynamics = nothing, # No ice_thermodynamics here
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs),
