@@ -74,18 +74,22 @@ end
     ℵ⁺   = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_V, ℵⁿ, hⁿ, hᶜ, Δt)
     h⁺   = Vⁿ⁺¹ / ℵ⁺
 
-    # Save thermodynamic tendency for possible later use
-    @inbounds Gⁿ[i, j, 1] = ∂t_V
-    
     # Treat pathological cases
     h⁺ = ifelse(ℵ⁺ ≤ 0, zero(h⁺), h⁺)
     ℵ⁺ = ifelse(∂t_V == 0, ℵⁿ, ℵ⁺)     # No volume change
     h⁺ = ifelse(∂t_V == 0, hⁿ, h⁺)     # No volume change
     ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺) # reset the concentration if there is no sea-ice
-
+    
     # Ridging caused by the thermodynamic step
-    @inbounds ice_concentration[i, j, 1] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
-    @inbounds ice_thickness[i, j, 1]     = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
+    ℵⁿ⁺¹ = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
+    hⁿ⁺¹ = ifelse(ℵ⁺ > 1,  h⁺ * ℵ⁺, h⁺)
+    
+    # Update thermodynamic variables
+    @inbounds ice_concentration[i, j, 1] = ℵⁿ⁺¹
+    @inbounds ice_thickness[i, j, 1]     = hⁿ⁺¹ 
+    
+    # Recompute new thermodynamic tendency, excluding pathological case,s and save for possible later use
+    @inbounds Gⁿ[i, j, 1] = (hⁿ⁺¹ * ℵⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
 end
 
 # We parameterize the evolution of ice thickness and concentration
