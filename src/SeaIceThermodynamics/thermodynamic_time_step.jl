@@ -88,7 +88,7 @@ end
     @inbounds ice_concentration[i, j, 1] = ℵⁿ⁺¹
     @inbounds ice_thickness[i, j, 1]     = hⁿ⁺¹ 
     
-    # Recompute new thermodynamic tendency, excluding pathological case,s and save for possible later use
+    # Recompute new thermodynamic tendency, excluding pathological cases and save for possible later use
     @inbounds Gⁿ[i, j, 1] = (hⁿ⁺¹ * ℵⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
 end
 
