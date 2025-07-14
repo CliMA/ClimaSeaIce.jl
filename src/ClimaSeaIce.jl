@@ -22,6 +22,7 @@ import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 import Oceananigans.Advection: cell_advection_timescale
+import Oceananigans.OutputWriters: checkpointer_address
 
 export SeaIceModel, 
        MeltingConstrainedFluxBalance,
