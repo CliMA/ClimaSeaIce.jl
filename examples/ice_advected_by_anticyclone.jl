@@ -90,13 +90,13 @@ fill_halo_regions!((Uₐ, Vₐ))
 # We use an elasto-visco-plastic rheology and WENO seventh order 
 # for advection of h and ℵ
 
-momentum_equations = SeaIceMomentumEquation(grid; 
-                                            top_momentum_stress = (u=τₐu, v=τₐv),
-                                            bottom_momentum_stress = τₒ,
-                                            coriolis = FPlane(f=1e-4),
-                                            free_drift = StressBalanceFreeDrift((u=τₐu, v=τₐv), τₒ),
-                                            rheology = BrittleBinghamMaxwellRheology(),
-                                            solver   = SplitExplicitSolver(substeps=150))
+dynamics = SeaIceMomentumEquation(grid; 
+                                  top_momentum_stress = (u=τₐu, v=τₐv),
+                                  bottom_momentum_stress = τₒ,
+                                  coriolis = FPlane(f=1e-4),
+                                  free_drift = StressBalanceFreeDrift((u=τₐu, v=τₐv), τₒ),
+                                  rheology = BrittleBinghamMaxwellRheology(),
+                                  solver   = SplitExplicitSolver(substeps=150))
 
 # Define the model!
 model = SeaIceModel(grid; 
