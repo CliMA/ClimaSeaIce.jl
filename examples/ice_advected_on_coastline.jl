@@ -61,18 +61,14 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 dynamics = SeaIceMomentumEquation(grid; 
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
                                   bottom_momentum_stress = τₒ, 
-                                  rheology = ElastoViscoPlasticRheology(),
+                                  free_drift = StressBalanceFreeDrift((u=τᵤ, v=τᵥ), τₒ),
+                                  rheology = BrittleBinghamMaxwellRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
-
-u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
-                                north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
 
 #Define the model! 
 model = SeaIceModel(grid; 
                     advection = WENO(order=7),
                     dynamics = dynamics,
-                    boundary_conditions = (; u=u_bcs),
                     ice_thermodynamics = nothing)
 
 # We start with a concentration of ℵ = 1 everywhere
@@ -84,7 +80,7 @@ set!(model, ℵ = 1)
 #####
 
 # run the model for 10 day
-simulation = Simulation(model, Δt = 2minutes, stop_time=2days) 
+simulation = Simulation(model, Δt=2minutes, stop_time=2days) 
 
 # Container to hold the data
 htimeseries = []

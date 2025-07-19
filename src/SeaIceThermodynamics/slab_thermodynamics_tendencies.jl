@@ -7,6 +7,7 @@ using Oceananigans
                                         ice_thickness,
                                         ice_concentration,
                                         ice_consolidation_thickness,
+                                        ice_salinity,
                                         top_external_heat_flux,
                                         bottom_external_heat_flux,
                                         clock, model_fields)

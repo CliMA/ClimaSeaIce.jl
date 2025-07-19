@@ -7,6 +7,7 @@ using Oceananigans: tupleit, tracernames
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+using ClimaSeaIce.Rheologies: rheology_prognostic_tracers
 
 struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
@@ -31,8 +32,8 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: 
     advection :: A
 end
 
-assumed_sea_ice_field_location(name) = name === :u  ? (Face, Center, Nothing) :
-                                       name === :v  ? (Center, Face, Nothing) :
+assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Face,   Nothing) :
+                                       name === :v  ? (Face,   Face,   Nothing) :
                                                       (Center, Center, Nothing)
 
 function SeaIceModel(grid;
@@ -55,12 +56,14 @@ function SeaIceModel(grid;
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
+    tracers = (tracers..., rheology_prognostic_tracers(dynamics)...) # add prognostic tracers
 
     # Next, we form a list of default boundary conditions:
-    field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
+    field_names = tuple(unique((:u, :v, :h, :ℵ, :S, tracernames(tracers)...))...)
 
     bc_tuple = Tuple(FieldBoundaryConditions(grid, assumed_sea_ice_field_location(name))
                      for name in field_names)
+                     
     default_boundary_conditions = NamedTuple{field_names}(bc_tuple)
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
@@ -69,8 +72,8 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
     
     if isnothing(velocities) 
-        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
+        u = Field{Face, Face, Nothing}(grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Face, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 
@@ -82,12 +85,12 @@ function SeaIceModel(grid;
     ice_density  = field((Center, Center, Nothing), ice_density, grid)
 
     # Construct prognostic fields if not provided
-    ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
+    ice_thickness     = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
     ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) 
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
-    prognostic_fields = if ice_salinity isa ConstantField 
+    prognostic_fields = if ice_salinity isa ConstantField
         prognostic_fields 
     else
         merge(prognostic_fields, (; S = ice_salinity))
@@ -97,8 +100,8 @@ function SeaIceModel(grid;
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
-    tracers = merge(tracers, (; S = ice_salinity))
     timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
+    tracers     = merge(tracers, (; S = ice_salinity))
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
@@ -140,8 +143,6 @@ end
 const SIM = SeaIceModel
 
 function set!(model::SIM; h=nothing, ℵ=nothing)
-    grid = model.grid
-    arch = architecture(model)
 
     !isnothing(h) && set!(model.ice_thickness, h)
     !isnothing(ℵ) && set!(model.ice_concentration, ℵ)

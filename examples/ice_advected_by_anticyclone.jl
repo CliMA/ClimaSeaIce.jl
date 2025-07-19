@@ -25,7 +25,7 @@ L  = 512kilometers
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
+                       size = (256, 256), 
                           x = (0, L), 
                           y = (0, L), 
                        halo = (7, 7),
@@ -35,19 +35,23 @@ grid = RectilinearGrid(arch;
 ##### Value boundary conditions for velocities
 #####
 
-u_bcs = FieldBoundaryConditions(north=ValueBoundaryCondition(0),
-                                south=ValueBoundaryCondition(0))
+u_bcs = FieldBoundaryConditions(north=OpenBoundaryCondition(0),
+                                south=OpenBoundaryCondition(0),
+                                west=OpenBoundaryCondition(0),
+                                east=OpenBoundaryCondition(0))
 
-v_bcs = FieldBoundaryConditions(west=ValueBoundaryCondition(0),
-                                east=ValueBoundaryCondition(0))
+v_bcs = FieldBoundaryConditions(north=OpenBoundaryCondition(0),
+                                south=OpenBoundaryCondition(0),
+                                west=OpenBoundaryCondition(0),
+                                east=OpenBoundaryCondition(0))
 
 #####
 ##### Ocean sea-ice stress
 #####
 
 # Constant ocean velocities corresponding to a cyclonic eddy
-Uₒ = XFaceField(grid)
-Vₒ = YFaceField(grid)
+Uₒ = Field{Face, Face, Nothing}(grid)
+Vₒ = Field{Face, Face, Nothing}(grid)
 
 set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
 set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
@@ -59,8 +63,8 @@ fill_halo_regions!((Uₒ, Vₒ))
 #### Atmosphere - sea ice stress 
 ####
 
-Uₐ = XFaceField(grid)
-Vₐ = YFaceField(grid)
+Uₐ = Field{Face, Face, Nothing}(grid)
+Vₐ = Field{Face, Face, Nothing}(grid)
 
 # Atmospheric velocities corresponding to an anticyclonic eddy moving north-east
 @inline center(t) = 256kilometers + 51.2kilometers * t / 86400
@@ -89,13 +93,18 @@ fill_halo_regions!((Uₐ, Vₐ))
 dynamics = SeaIceMomentumEquation(grid; 
                                   top_momentum_stress = (u=τₐu, v=τₐv),
                                   bottom_momentum_stress = τₒ,
-                                  coriolis     = FPlane(f=1e-4))
+                                  coriolis = FPlane(f=1e-4),
+                                  free_drift = StressBalanceFreeDrift((u=τₐu, v=τₐv), τₒ),
+                                  rheology = BrittleBinghamMaxwellRheology(),
+                                  solver   = SplitExplicitSolver(substeps=150))
 
+# Define the model!
 model = SeaIceModel(grid; 
                     dynamics,
                     ice_thermodynamics = nothing, # No ice_thermodynamics here
                     advection = WENO(order=7),
-                    boundary_conditions = (u=u_bcs, v=v_bcs))
+                    boundary_conditions = (u=u_bcs, v=v_bcs),
+                    tracers = :d)
 
 # We start with a concentration of ℵ = 1 and an 
 # initial height field with perturbations around 0.3 m
@@ -132,8 +141,9 @@ simulation.callbacks[:top_stress] = Callback(compute_wind_stress, IterationInter
 h = model.ice_thickness
 ℵ = model.ice_concentration
 u, v = model.velocities
+d = model.tracers.d
 
-outputs = (; h, u, v, ℵ)
+outputs = (; h, u, v, ℵ, d)
 
 simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
                                                  filename = "sea_ice_advected_by_anticyclone.jld2", 
@@ -172,13 +182,14 @@ htimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "h")
 utimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "u")
 vtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "v")
 ℵtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "ℵ")
+dtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "d")
 
 # Visualize!
 Nt = length(htimeseries)
 iter = Observable(1)
 
 hi = @lift(htimeseries[$iter])
-ℵi = @lift(ℵtimeseries[$iter])
+di = @lift(dtimeseries[$iter])
 ui = @lift(utimeseries[$iter])
 vi = @lift(vtimeseries[$iter])
 
@@ -187,7 +198,7 @@ ax = Axis(fig[1, 1], title = "sea ice thickness")
 heatmap!(ax, hi, colormap = :magma, colorrange = (0.23, 0.37))
 
 ax = Axis(fig[1, 2], title = "sea ice concentration")
-heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.9, 1))
+heatmap!(ax, di, colormap = Reverse(:deep), colorrange = (0.9, 1))
 
 ax = Axis(fig[2, 1], title = "zonal velocity")
 heatmap!(ax, ui, colorrange = (-0.1, 0.1))

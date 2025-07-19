@@ -1,5 +1,5 @@
 using Oceananigans.Utils: Time
-using Oceananigans.Fields: flattened_unique_values
+using Oceananigans.Fields: flattened_unique_values, ConstantField, ZeroField
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
@@ -44,7 +44,16 @@ function dynamic_time_step!(model::SIM, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_ice_variables!, h, ℵ, tracers, Gⁿ, Δt)
+
+    # Advance tracers
+    for tracer_idx in keys(tracers)
+        tracer   = @inbounds tracers[tracer_idx]
+        if (tracer_idx ∈ keys(Gⁿ))
+            tendency = @inbounds Gⁿ[tracer_idx]
+            interior(tracer) .+= Δt .* interior(tendency)
+        end
+    end
 
     return nothing
 end
@@ -53,13 +62,13 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _dynamic_step_tracers!(h, ℵ, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_ice_variables!(h, ℵ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
     
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
-    
+
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁺ = h[i, j, k] + Δt * Ghⁿ[i, j, k]
