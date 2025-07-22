@@ -105,18 +105,5 @@ function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
     return nothing
 end
 
-function cell_advection_timescale(model::SeaIceModel) 
-    if isnothing(model.dynamics)
-        return Inf
-    end
-
-    grid = model.grid
-    u, v = model.velocities
-    w    = ZeroField()
-
-    τ = KernelFunctionOperation{Center, Center, Center}(cell_advection_timescaleᶜᶜᶜ, grid, u, v, w)
-    return minimum(τ)
-end
-
 # No diffusion timescale for sea ice for now
 cell_diffusion_timescale(model::SeaIceModel) = Inf
