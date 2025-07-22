@@ -1,12 +1,14 @@
 using Oceananigans.Utils: Time
-using Oceananigans.Fields: flattened_unique_values
+using Oceananigans.Fields: flattened_unique_values, ZeroField
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
 using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
 using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
+using Oceananigans.Advection: cell_advection_timescaleᶜᶜᶜ
 
 import Oceananigans.Models: update_model_field_time_series!
+import Oceananigans.Advection: cell_advection_timescale
 
 const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEulerTimeStepper}
 
@@ -102,3 +104,19 @@ function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
 
     return nothing
 end
+
+function cell_advection_timescale(model::SeaIceModel) 
+    if isnothing(model.dynamics)
+        return Inf
+    end
+
+    grid = model.grid
+    u, v = model.velocities
+    w    = ZeroField()
+
+    τ = KernelFunctionOperation{Center, Center, Center}(cell_advection_timescaleᶜᶜᶜ, grid, u, v, w)
+    return minimum(τ)
+end
+
+# No diffusion timescale for sea ice for now
+cell_diffusion_timescale(model::SeaIceModel) = Inf
