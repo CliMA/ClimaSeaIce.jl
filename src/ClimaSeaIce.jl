@@ -22,6 +22,7 @@ import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 import Oceananigans.Advection: cell_advection_timescale
+import Oceananigans.TurbulenceClosures: cell_diffusion_timescale
 import Oceananigans.OutputWriters: checkpointer_address
 
 export SeaIceModel, 
@@ -58,5 +59,8 @@ function cell_advection_timescale(model::SeaIceModel)
     velocities = merge(model.velocities, (; w = ZeroField()))
     return cell_advection_timescale(model.grid, velocities)
 end
+
+# No diffusion timescale for sea ice for now
+cell_diffusion_timescale(model::SeaIceModel) = Inf
 
 end # module

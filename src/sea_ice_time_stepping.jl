@@ -5,10 +5,8 @@ using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
 using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
 using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
-using Oceananigans.Advection: cell_advection_timescaleᶜᶜᶜ
 
 import Oceananigans.Models: update_model_field_time_series!
-import Oceananigans.Advection: cell_advection_timescale
 
 const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEulerTimeStepper}
 
@@ -104,6 +102,3 @@ function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
 
     return nothing
 end
-
-# No diffusion timescale for sea ice for now
-cell_diffusion_timescale(model::SeaIceModel) = Inf
