@@ -70,15 +70,20 @@ dynamics = SeaIceMomentumEquation(grid;
 immersed_u_bc = FluxBoundaryCondition(immersed_u_drag, discrete_form=true, parameters=3e-1)
 immersed_v_bc = FluxBoundaryCondition(immersed_v_drag, discrete_form=true, parameters=3e-1)
 
-u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
+immersed_u_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, west=nothing, east=nothing, 
+                                          south=immersed_u_bc, north=immersed_u_bc)
+
+immersed_v_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, south=nothing, north=nothing,
+                                          west=immersed_v_bc, east=immersed_v_bc)
+
+u_bcs = FieldBoundaryConditions(grid, (Face, Center, Nothing); 
                                 north = ValueBoundaryCondition(0),
                                 south = ValueBoundaryCondition(0),
                                 immersed = immersed_u_bc)
 
-v_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
-                                north = OpenBoundaryCondition(nothing),
-                                south = OpenBoundaryCondition(nothing),
+v_bcs = FieldBoundaryConditions(grid, (Center, Face, Nothing); 
                                 immersed = immersed_v_bc)
+
 #Define the model! 
 model = SeaIceModel(grid; 
                     advection = WENO(order=7),
