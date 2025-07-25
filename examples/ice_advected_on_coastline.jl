@@ -64,15 +64,26 @@ dynamics = SeaIceMomentumEquation(grid;
                                   rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 
+@inline immersed_u_drag(i, j, k, grid, clock, fields, D) = @inbounds - D * fields.u[i, j, k]
+@inline immersed_v_drag(i, j, k, grid, clock, fields, D) = @inbounds - D * fields.u[i, j, k]
+
+immersed_u_bc = FluxBoundaryCondition(immersed_u_drag, discrete_form=true, parameters=3e-1)
+immersed_v_bc = FluxBoundaryCondition(immersed_v_drag, discrete_form=true, parameters=3e-1)
+
 u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
                                 north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
+                                south = ValueBoundaryCondition(0),
+                                immersed = immersed_u_bc)
 
+v_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
+                                north = OpenBoundaryCondition(nothing),
+                                south = OpenBoundaryCondition(nothing),
+                                immersed = immersed_v_bc)
 #Define the model! 
 model = SeaIceModel(grid; 
                     advection = WENO(order=7),
                     dynamics = dynamics,
-                    boundary_conditions = (; u=u_bcs),
+                    boundary_conditions = (; u=u_bcs, v=v_bcs),
                     ice_thermodynamics = nothing)
 
 # We start with a concentration of ℵ = 1 everywhere
