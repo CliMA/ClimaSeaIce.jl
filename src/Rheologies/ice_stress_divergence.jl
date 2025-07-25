@@ -1,6 +1,7 @@
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, 
                                        ImmersedBoundaryCondition
 
+using Oceananigans.BoundaryConditions: FBC, getbc
 using Oceananigans.Advection:conditional_flux_ccc, conditional_flux_ffc
 using Oceananigans.Operators: index_left, index_right
 
