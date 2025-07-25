@@ -61,11 +61,11 @@ end
     iᵂ, jˢ, _ = map(index_left,  (i, j, k), (c, c, c)) # Broadcast instead of map causes inference failure
     iᴱ, jᴺ, _ = map(index_right, (i, j, k), (f, f, c))
 
-    # Impose i) immersed fluxes if we're on an immersed boundary or ii) zero otherwise.
-    qᵂ = conditional_flux_ccc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Axᶜᶜᶜ(iᵂ, j, k, grid)
-    qᴱ = conditional_flux_ccc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Axᶜᶜᶜ(iᴱ, j, k, grid)
-    qˢ = conditional_flux_ffc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Ayᶠᶠᶜ(i, jˢ, k, grid)
-    qᴺ = conditional_flux_ffc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Ayᶠᶠᶜ(i, jᴺ, k, grid)
+    # Impose i) immersed fluxes if we're on an immersed boundary or ii) zero oibgwise.
+    qᵂ = conditional_flux_ccc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Axᶜᶜᶜ(iᵂ, j, k, ibg)
+    qᴱ = conditional_flux_ccc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Axᶜᶜᶜ(iᴱ, j, k, ibg)
+    qˢ = conditional_flux_ffc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Ayᶠᶠᶜ(i, jˢ, k, ibg)
+    qᴺ = conditional_flux_ffc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Ayᶠᶠᶜ(i, jᴺ, k, ibg)
 
     return (qᴱ - qᵂ + qᴺ - qˢ) / Vᶠᶜᶜ(i, j, k, grid)
 end
@@ -81,10 +81,10 @@ end
     iᴱ, jᴺ, _ = map(index_right, (i, j, k), (c, c, c))
 
     # Impose i) immersed fluxes if we're on an immersed boundary or ii) zero otherwise.
-    qᵂ = conditional_flux_ffc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Axᶠᶠᶜ(iᵂ, j, k, grid)
-    qᴱ = conditional_flux_ffc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Axᶠᶠᶜ(iᴱ, j, k, grid)
-    qˢ = conditional_flux_ccc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Ayᶜᶜᶜ(i, jˢ, k, grid)
-    qᴺ = conditional_flux_ccc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Ayᶜᶜᶜ(i, jᴺ, k, grid)
+    qᵂ = conditional_flux_ffc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Axᶠᶠᶜ(iᵂ, j, k, ibg)
+    qᴱ = conditional_flux_ffc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Axᶠᶠᶜ(iᴱ, j, k, ibg)
+    qˢ = conditional_flux_ccc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Ayᶜᶜᶜ(i, jˢ, k, ibg)
+    qᴺ = conditional_flux_ccc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Ayᶜᶜᶜ(i, jᴺ, k, ibg)
 
     return (qᴱ - qᵂ + qᴺ - qˢ) / Vᶜᶠᶜ(i, j, k, grid)
 end
