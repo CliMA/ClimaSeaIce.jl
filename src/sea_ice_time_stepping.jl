@@ -1,5 +1,5 @@
 using Oceananigans.Utils: Time
-using Oceananigans.Fields: flattened_unique_values, ZeroField
+using Oceananigans.Fields: flattened_unique_values, ConstantField, ZeroField
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
@@ -59,7 +59,7 @@ end
     
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
-    
+
     # Update ice thickness, clipping negative values
     @inbounds begin
         h⁺ = h[i, j, k] + Δt * Ghⁿ[i, j, k]
@@ -73,6 +73,9 @@ end
         
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
+
+        # TODO: BBM rheology needs this!
+        # advance_tracers!(tracers, i, j, k, Gⁿ, Δt)
     end 
 end
 

@@ -51,7 +51,7 @@ const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Any}
 # Then: 𝒰ᵢ = 𝒰ᴮ - τᵀ / sqrt(Cᴮ * ||τᵀ||)
 @inline function free_drift_u(i, j, k, grid, f::TISB, clock, fields) 
     τxᵀ = x_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
-    τyᵀ = ℑxyᶠᶜᵃ(i, j, k, grid, y_momentum_stress, f.top_momentum_stress, clock, fields)
+    τyᵀ = y_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
     τᵀ  = sqrt(τxᵀ^2 + τyᵀ^2)
 
     τᴮ = f.bottom_momentum_stress
@@ -62,7 +62,7 @@ const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Any}
 end
 
 @inline function free_drift_v(i, j, k, grid, f::TISB, clock, fields) 
-    τxᵀ = ℑxyᶜᶠᵃ(i, j, k, grid, x_momentum_stress, f.top_momentum_stress, clock, fields)
+    τxᵀ = x_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
     τyᵀ = y_momentum_stress(i, j, k, grid, f.top_momentum_stress, clock, fields)
     τᵀ  = sqrt(τxᵀ^2 + τyᵀ^2)
 
@@ -77,7 +77,7 @@ end
 # Then: 𝒰ᵢ = 𝒰ᵀ - τᴮ / sqrt(Cᵀ * ||τᴮ||)
 @inline function free_drift_u(i, j, k, grid, f::BISB, clock, fields) 
     τxᴮ = x_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
-    τyᴮ = ℑxyᶠᶜᵃ(i, j, k, grid, y_momentum_stress, f.bottom_momentum_stress, clock, fields)
+    τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
     τᵀ = f.top_momentum_stess
@@ -88,7 +88,7 @@ end
 end
 
 @inline function free_drift_v(i, j, k, grid, f::BISB, clock, fields) 
-    τxᴮ = ℑxyᶜᶠᵃ(i, j, k, grid, x_momentum_stress, f.bottom_momentum_stress, clock, fields)
+    τxᴮ = x_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 

@@ -64,15 +64,10 @@ dynamics = SeaIceMomentumEquation(grid;
                                   rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 
-u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
-                                north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
-
 #Define the model! 
 model = SeaIceModel(grid; 
                     advection = WENO(order=7),
                     dynamics = dynamics,
-                    boundary_conditions = (; u=u_bcs),
                     ice_thermodynamics = nothing)
 
 # We start with a concentration of ℵ = 1 everywhere

@@ -11,7 +11,7 @@ end
 """
         ForwardEulerTimeStepper(grid, prognostic_fields;
                                 implicit_solver = nothing,
-                                Gⁿ = map(similar, prognostic_fields))
+                                Gⁿ = map(deepcopy, prognostic_fields))
 
 Return a 1st-order Forward-Euler (FE) time stepper (`ForwardEulerTimeStepper`)
 on `grid`, with `tracers`. The tendency fields `Gⁿ`, usually equal to
@@ -27,7 +27,7 @@ at the ``n``-th timestep.
 """
 function ForwardEulerTimeStepper(grid, prognostic_fields;
                                  implicit_solver::IT = nothing,
-                                 Gⁿ = map(similar, prognostic_fields)) where IT
+                                 Gⁿ = map(deepcopy, prognostic_fields)) where IT
 
     FT = eltype(grid)
     GT = typeof(Gⁿ)

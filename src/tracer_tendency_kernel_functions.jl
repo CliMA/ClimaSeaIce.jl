@@ -39,10 +39,18 @@ end
         Gⁿ.h[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_thickness)
         Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
 
-        # for (n, θ) in enumerate(tracers)
-        #     @inbounds Gⁿ[n] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, θ)
-        # end
+        # TODO: BBM rheology needs this!
+        # compute_tracer_tendencies!(Gⁿ, i, j, grid, advection, velocities, tracers)
     end
 end
 
+# const EmptyTuples = Union{NamedTuple{(), Tuple{}}, Tuple{}}
 
+# compute_tracer_tendencies!(G, i, j, grid, advection, velocities, ::EmptyTuples) = nothing
+
+# function compute_tracer_tendencies!(G, i, j, grid, advection, velocities, tracers)
+#     # Assumption! The tracer tendencies are the first ones
+#     for n in eachindex(G)
+#         @inbounds G[n][i, j, 1] = - horizontal_div_Uc(i, j, 1, grid, advection, velocities, tracers[n])
+#     end
+# end
