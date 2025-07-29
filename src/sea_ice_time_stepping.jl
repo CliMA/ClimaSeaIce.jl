@@ -68,6 +68,9 @@ end
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
         h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
 
+        ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺) # reset the concentration if there is no sea-ice
+        h⁺ = ifelse(ℵ⁺ == 0, zero(h⁺), h⁺) # reset the thickness if there is no sea-ice
+
         # Ridging and rafting caused by the advection step
         V⁺ = h⁺ * ℵ⁺
         
