@@ -34,8 +34,8 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: 
     advection :: A
 end
 
-assumed_sea_ice_field_location(name) = name === :u  ? (Face, Center, Nothing) :
-                                       name === :v  ? (Center, Face, Nothing) :
+assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Center, Nothing) :
+                                       name === :v  ? (Center, Face,   Nothing) :
                                                       (Center, Center, Nothing)
 
 function SeaIceModel(grid;
