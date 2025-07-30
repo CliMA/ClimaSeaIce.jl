@@ -2,11 +2,14 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.Fields: TracerFields
 using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
-using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using Oceananigans: tupleit, tracernames
-using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Forcings: model_forcing
+
+using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+
+@inline instantiate(T::DataType) = T()
+@inline instantiate(T) = T
 
 struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
@@ -31,8 +34,8 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: 
     advection :: A
 end
 
-assumed_sea_ice_field_location(name) = name === :u  ? (Face, Center, Nothing) :
-                                       name === :v  ? (Center, Face, Nothing) :
+assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Center, Nothing) :
+                                       name === :v  ? (Center, Face,   Nothing) :
                                                       (Center, Center, Nothing)
 
 function SeaIceModel(grid;
@@ -59,7 +62,7 @@ function SeaIceModel(grid;
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
 
-    bc_tuple = Tuple(FieldBoundaryConditions(grid, assumed_sea_ice_field_location(name))
+    bc_tuple = Tuple(FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
                      for name in field_names)
     default_boundary_conditions = NamedTuple{field_names}(bc_tuple)
 
@@ -67,8 +70,8 @@ function SeaIceModel(grid;
     # have precedence, followed by embedded, followed by default.
     boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
-    
-    if isnothing(velocities) 
+
+    if isnothing(velocities)
         u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
         v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
@@ -77,22 +80,22 @@ function SeaIceModel(grid;
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field 
+    # Wrap ice_salinity in a field
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
     ice_density  = field((Center, Center, Nothing), ice_density, grid)
 
     # Construct prognostic fields if not provided
     ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
-    ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ) 
+    ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ)
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
-    prognostic_fields = if ice_salinity isa ConstantField 
-        prognostic_fields 
+    prognostic_fields = if ice_salinity isa ConstantField
+        prognostic_fields
     else
         merge(prognostic_fields, (; S = ice_salinity))
     end
-    
+
     prognostic_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, velocities)
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
@@ -113,17 +116,17 @@ function SeaIceModel(grid;
     end
 
     forcing = model_forcing(prognostic_fields; forcing...)
-    
+
     # Package the external fluxes and boundary conditions
-    external_heat_fluxes = (top = top_heat_flux,    
-                            bottom = bottom_heat_flux) 
+    external_heat_fluxes = (top = top_heat_flux,
+                            bottom = bottom_heat_flux)
 
     arch = architecture(grid)
 
     return SeaIceModel(arch,
                        grid,
                        clock,
-                       forcing, 
+                       forcing,
                        velocities,
                        tracers,
                        ice_thickness,
@@ -167,7 +170,7 @@ function Base.show(io::IO, model::SIM)
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
     print(io, "    └── bottom: ", flux_summary(model.external_heat_fluxes.bottom, "     "))
 end
-         
+
 reset!(::SIM) = nothing
 initialize!(::SIM) = nothing
 default_included_properties(::SIM) = tuple(:grid)
