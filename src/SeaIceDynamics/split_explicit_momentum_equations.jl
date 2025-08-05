@@ -62,7 +62,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     substeps = dynamics.solver.substeps
     
-    fill_halo_regions!(model.velocities)
+    fill_halo_regions!(u)
+    fill_halo_regions!(v)
     initialize_rheology!(model, dynamics.rheology)
 
     for substep in 1 : substeps
@@ -98,7 +99,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         end
 
         # TODO: This needs to be removed in some way!
-        fill_halo_regions!(model.velocities)
+        fill_halo_regions!(u)
+        fill_halo_regions!(v)
 
         mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
         mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
