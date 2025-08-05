@@ -57,8 +57,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     active_cells_map = Oceananigans.Grids.get_active_column_map(grid)
 
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!)
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
     substeps = dynamics.solver.substeps
     
