@@ -3,6 +3,12 @@ using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
+using Oceananigans.BoundaryConditions: PeriodicBoundaryCondition, 
+                                       _fill_periodic_south_and_north_halo!,
+                                       _fill_periodic_west_and_east_halo!,
+                                       _fill_west_and_east_halo!
+                                       _fill_south_and_north_halo!
+
 struct SplitExplicitSolver 
     substeps :: Int
 end
@@ -118,15 +124,14 @@ end
     if bcs.west isa PeriodicBoundaryCondition
         launch!(arch, grid, params_x, _fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
     else
-        launch!(arch, grid, params_x, _fill_halo_west_and_east!, field.data, bcs.west, bcs.east, loc, grid)
+        launch!(arch, grid, params_x, _fill_west_and_east_halo!, field.data, bcs.west, bcs.east, loc, grid)
     end
 
     if bcs.south isa PeriodicBoundaryCondition
         launch!(arch, grid, params_y, _fill_periodic_south_and_north_halo!, parent(field), Val(grid.Hy), grid.Ny)
     else
-        launch!(arch, grid, params_y, _fill_halo_south_and_north!, field.data, bcs.south, bcs.north, loc, grid)
+        launch!(arch, grid, params_y, _fill_south_and_north_halo!, field.data, bcs.south, bcs.north, loc, grid)
     end
-
 end
 
 @kernel function _u_velocity_step!(u, grid, Δt, 
