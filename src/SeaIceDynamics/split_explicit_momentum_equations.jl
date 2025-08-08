@@ -1,6 +1,7 @@
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
+using Oceananigans.Fields: instantiated_location, boundary_conditions
 using Oceananigans.ImmersedBoundaries: peripheral_node
 
 using Oceananigans.BoundaryConditions: PeriodicBoundaryCondition, 
@@ -109,28 +110,28 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                                u_immersed_bc, top_stress, bottom_stress, u_forcing)
         end
 
-        fill_velocity_halo_regions!(u, grid, params_x, params_y, u_bcs_x, u_bcs_y)
-        fill_velocity_halo_regions!(v, grid, params_x, params_y, v_bcs_x, v_bcs_y)
+        fill_velocity_halo_regions!(u, grid, params_x, params_y)
+        fill_velocity_halo_regions!(v, grid, params_x, params_y)
     end
 
     return nothing
 end
 
-@inline function fill_velocity_halo_regions!(field, grid, params_x, params_y, bcs_x, bcs_y)
+@inline function fill_velocity_halo_regions!(field, grid, params_x, params_y)
     arch = architecture(grid)
     loc  = instantiated_location(field)
     bcs  = boundary_conditions(field)
 
-    if bcs.west isa PeriodicBoundaryCondition
+    if bcs.west.condition isa Oceananigans.BoundaryConditions.Periodic
         launch!(arch, grid, params_x, fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
     else
-        launch!(arch, grid, params_x, _fill_west_and_east_halo!, field.data, bcs.west, bcs.east, loc, grid)
+        launch!(arch, grid, params_x, _fill_west_and_east_halo!, field.data, bcs.west, bcs.east, loc, grid, ())
     end
 
-    if bcs.south isa PeriodicBoundaryCondition
+    if bcs.south.condition isa Oceananigans.BoundaryConditions.Periodic
         launch!(arch, grid, params_y, fill_periodic_south_and_north_halo!, parent(field), Val(grid.Hy), grid.Ny)
     else
-        launch!(arch, grid, params_y, _fill_south_and_north_halo!, field.data, bcs.south, bcs.north, loc, grid)
+        launch!(arch, grid, params_y, _fill_south_and_north_halo!, field.data, bcs.south, bcs.north, loc, grid, ())
     end
 end
 
