@@ -3,8 +3,9 @@ using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
-struct SplitExplicitSolver 
-    substeps :: Int
+struct SplitExplicitSolver{I, K}
+    substeps :: I
+    kernel_parameters :: K
 end
 
 """
@@ -15,9 +16,21 @@ by subcycling `substeps` times in between each ice_thermodynamics / tracer advec
 
 The default number of substeps is 120.
 """
-SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
+function SplitExplicitSolver(grid; substeps=120, extend_halos=true) 
+    if extend_halos 
+        Nx, Ny, _ = size(grid)
+        Hx, Hy, _ = halo_size(grid)
+        TX, TY, _ = topology(grid)
+        kernel_sizes = map(split_explicit_kernel_size, (TX, TY), (Nx, Ny), (Hx, Hy))
+    else
+        kernel_sizes = :xy
+    end
+
+    return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
+end
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
+const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver{<:Any, <:KernelParameters}}
 
 """
     time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
@@ -55,18 +68,22 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
 
-    active_cells_map = Oceananigans.Grids.get_active_column_map(grid)
+    params = dynamics.solver.kernel_parameters
 
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
     
-    fill_halo_regions!(u)
-    fill_halo_regions!(v)
     initialize_rheology!(model, dynamics.rheology)
 
     for substep in 1 : substeps
+        if params == :xy
+            # Fill the halo regions for u and v before each substep
+            fill_halo_regions!(u)
+            fill_halo_regions!(v)
+        end
+
         # Compute stresses! depending on the particular rheology implementation
         compute_stresses!(model, dynamics, rheology, Δt)
 
@@ -91,19 +108,11 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                                minimum_mass, minimum_concentration,
                                v_immersed_bc, top_stress, bottom_stress, v_forcing)
             
-
             u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
                                free_drift, clock, coriolis,
                                minimum_mass, minimum_concentration, 
                                u_immersed_bc, top_stress, bottom_stress, u_forcing)
         end
-
-        # TODO: This needs to be removed in some way!
-        fill_halo_regions!(u)
-        fill_halo_regions!(v)
-
-        mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
-        mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
     end
 
     return nothing
@@ -136,8 +145,9 @@ end
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
+    active  = !peripheral_node(i, j, kᴺ, grid, Face(), Center(), Center())
 
-    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
+    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ) * active
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, 
@@ -168,6 +178,7 @@ end
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
+    active  = !peripheral_node(i, j, kᴺ, grid, Center(), Face(), Center())
 
-    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
+    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ) * active
 end
