@@ -1,7 +1,7 @@
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
-using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
+using Oceananigans.ImmersedBoundaries: peripheral_node
 
 using Oceananigans.BoundaryConditions: PeriodicBoundaryCondition, 
                                        _fill_periodic_south_and_north_halo!,
