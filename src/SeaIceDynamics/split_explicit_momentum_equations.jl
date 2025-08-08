@@ -74,8 +74,6 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
     substeps = dynamics.solver.substeps
-    
-    fill_halo_regions!(model.velocities)
     initialize_rheology!(model, dynamics.rheology)
 
     for substep in 1 : substeps
