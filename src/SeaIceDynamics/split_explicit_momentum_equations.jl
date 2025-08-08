@@ -6,7 +6,7 @@ using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 using Oceananigans.BoundaryConditions: PeriodicBoundaryCondition, 
                                        _fill_periodic_south_and_north_halo!,
                                        _fill_periodic_west_and_east_halo!,
-                                       _fill_west_and_east_halo!
+                                       _fill_west_and_east_halo!,
                                        _fill_south_and_north_halo!
 
 struct SplitExplicitSolver 
