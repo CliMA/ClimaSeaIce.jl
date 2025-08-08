@@ -1,5 +1,5 @@
-using Oceananigans.Grids: AbstractGrid, architecture
-using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.Grids: AbstractGrid, architecture, halo_size
+using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 
@@ -32,7 +32,13 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     grid = model.grid
     arch = architecture(grid)
     rheology = dynamics.rheology
+    Nx, Ny, Nz = size(grid)
+    Hx, Hy, _  = halo_size(grid)
 
+    # Params for filling halo regions
+    params_x = KernelParameters(-Hy:Ny+Hy, Nz:Nz)
+    params_y = KernelParameters(-Hx:Nx+Hx, Nz:Nz)
+    
     u, v = model.velocities
   
     free_drift = dynamics.free_drift
@@ -97,14 +103,30 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                                u_immersed_bc, top_stress, bottom_stress, u_forcing)
         end
 
-        # TODO: This needs to be removed in some way!
-        fill_halo_regions!(model.velocities)
-
-        mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
-        mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
+        fill_velocity_halo_regions!(u, grid, params_x, params_y, u_bcs_x, u_bcs_y)
+        fill_velocity_halo_regions!(v, grid, params_x, params_y, v_bcs_x, v_bcs_y)
     end
 
     return nothing
+end
+
+@inline function fill_velocity_halo_regions!(field, grid, params_x, params_y, bcs_x, bcs_y)
+    arch = architecture(grid)
+    loc  = instantiated_location(field)
+    bcs  = boundary_conditions(field)
+
+    if bcs.west isa PeriodicBoundaryCondition
+        launch!(arch, grid, params_x, _fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
+    else
+        launch!(arch, grid, params_x, _fill_halo_west_and_east!, field.data, bcs.west, bcs.east, loc, grid)
+    end
+
+    if bcs.south isa PeriodicBoundaryCondition
+        launch!(arch, grid, params_y, _fill_periodic_south_and_north_halo!, parent(field), Val(grid.Hy), grid.Ny)
+    else
+        launch!(arch, grid, params_y, _fill_halo_south_and_north!, field.data, bcs.south, bcs.north, loc, grid)
+    end
+
 end
 
 @kernel function _u_velocity_step!(u, grid, Δt, 
@@ -134,8 +156,9 @@ end
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
+    active  = !peripheral_node(i, j, kᴺ, grid, Face(), Center(), Center())
 
-    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
+    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ) * active
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, 
@@ -166,6 +189,7 @@ end
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
+    active  = !peripheral_node(i, j, kᴺ, grid, Center(), Face(), Center())
 
-    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
+    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ) * active
 end
