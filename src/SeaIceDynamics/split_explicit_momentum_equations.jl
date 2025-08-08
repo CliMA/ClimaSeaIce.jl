@@ -122,16 +122,20 @@ end
     loc  = instantiated_location(field)
     bcs  = boundary_conditions(field)
 
-    if bcs.west.condition isa Oceananigans.BoundaryConditions.Periodic
-        launch!(arch, grid, params_x, fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
-    else
-        launch!(arch, grid, params_x, _fill_west_and_east_halo!, field.data, bcs.west, bcs.east, loc, grid, ())
+    if (bcs.west isa Oceananigans.BoundaryConditions.BoundaryCondition)
+        if bcs.west.condition isa Oceananigans.BoundaryConditions.Periodic
+            launch!(arch, grid, params_x, fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
+        else
+            launch!(arch, grid, params_x, _fill_west_and_east_halo!, field.data, bcs.west, bcs.east, loc, grid, ())
+        end
     end
 
-    if bcs.south.condition isa Oceananigans.BoundaryConditions.Periodic
-        launch!(arch, grid, params_y, fill_periodic_south_and_north_halo!, parent(field), Val(grid.Hy), grid.Ny)
-    else
-        launch!(arch, grid, params_y, _fill_south_and_north_halo!, field.data, bcs.south, bcs.north, loc, grid, ())
+    if (bcs.south isa Oceananigans.BoundaryConditions.BoundaryCondition)
+        if bcs.south.condition isa Oceananigans.BoundaryConditions.Periodic
+            launch!(arch, grid, params_y, fill_periodic_south_and_north_halo!, parent(field), Val(grid.Hy), grid.Ny)
+        else
+            launch!(arch, grid, params_y, _fill_south_and_north_halo!, field.data, bcs.south, bcs.north, loc, grid, ())
+        end
     end
 end
 
