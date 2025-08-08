@@ -57,17 +57,17 @@ using Oceananigans
 
     # Retrieve fluxes
     Quᵢ = getflux(Qu, i, j, grid, Tuᵢ, clock, model_fields)
-    Qiᵢ = getflux(Qi, i, j, grid, Tuᵢ, clock, model_fields)
     Qbᵢ = getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
 
+    if consolidated_ice # If the ice is consolidated, we use the internal heat flux
+        Qiᵢ = getflux(Qi, i, j, grid, Tuᵢ, clock, model_fields)
+    else # Slab is unconsolidated, there is no internal heat flux (Qi -> ∞)
+        Qiᵢ = zero(grid)
+    end
+    
     # Upper (top) and bottom interface velocities
     wu = (Quᵢ - Qiᵢ) / ℰu # < 0 => melting
-    wb =      + Qiᵢ  / ℰb # < 0 => freezing
-
-    # Ice forming at the bottom.
-    # it applies to the whole area, so it need 
-    # not be multiplied by the concentration
-    wf = - Qbᵢ / ℰb
-
-    return wu + wb + wf
+    wb = (Qiᵢ - Qbᵢ) / ℰb # < 0 => freezing
+    
+    return wu + wb 
 end

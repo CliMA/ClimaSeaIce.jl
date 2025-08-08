@@ -72,8 +72,25 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
 
     if isnothing(velocities)
-        u = Field{Face, Center, Nothing}(grid, boundary_conditions=boundary_conditions.u)
-        v = Field{Center, Face, Nothing}(grid, boundary_conditions=boundary_conditions.v)
+
+        # Extend the halos for the velocity fields if the dynamics is
+        # an extended split explicit momentum equation
+        if dynamics isa ExtendedSplitExplicitMomentumEquation
+            old_halos = halo_size(grid)
+            Nsubsteps = length(dynamics.solver.substeps)
+            step_halo = Nsubsteps + 1
+            TX, TY    = topology(grid)
+            Hx = TX() isa ConnectedTopology ? max(step_halo, old_halos[1]) : old_halos[1]
+            Hy = TY() isa ConnectedTopology ? max(step_halo, old_halos[2]) : old_halos[2]
+
+            new_halos = (Hx, Hy, old_halos[3])
+            velocity_grid = with_halo(grid, new_halos)
+        else
+            velocity_grid = grid
+        end
+
+        u = Field{Face, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.u)
+        v = Field{Center, Face, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
     end
 

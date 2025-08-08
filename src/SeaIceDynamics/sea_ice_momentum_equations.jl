@@ -62,7 +62,7 @@ function SeaIceMomentumEquation(grid;
                                 top_momentum_stress    = nothing,
                                 bottom_momentum_stress = nothing,
                                 free_drift = nothing,
-                                solver = SplitExplicitSolver(150),
+                                solver = SplitExplicitSolver(grid; substeps=150),
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
 
