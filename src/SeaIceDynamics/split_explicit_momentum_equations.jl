@@ -122,13 +122,13 @@ end
     bcs  = boundary_conditions(field)
 
     if bcs.west isa PeriodicBoundaryCondition
-        launch!(arch, grid, params_x, _fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
+        launch!(arch, grid, params_x, fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
     else
         launch!(arch, grid, params_x, _fill_west_and_east_halo!, field.data, bcs.west, bcs.east, loc, grid)
     end
 
     if bcs.south isa PeriodicBoundaryCondition
-        launch!(arch, grid, params_y, _fill_periodic_south_and_north_halo!, parent(field), Val(grid.Hy), grid.Ny)
+        launch!(arch, grid, params_y, fill_periodic_south_and_north_halo!, parent(field), Val(grid.Hy), grid.Ny)
     else
         launch!(arch, grid, params_y, _fill_south_and_north_halo!, field.data, bcs.south, bcs.north, loc, grid)
     end
