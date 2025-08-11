@@ -5,8 +5,8 @@ using Oceananigans.Fields: instantiated_location, boundary_conditions
 using Oceananigans.ImmersedBoundaries: peripheral_node
 
 using Oceananigans.BoundaryConditions: PeriodicBoundaryCondition, 
-                                       _fill_periodic_south_and_north_halo!,
-                                       _fill_periodic_west_and_east_halo!,
+                                       fill_periodic_south_and_north_halo!,
+                                       fill_periodic_west_and_east_halo!,
                                        _fill_west_and_east_halo!,
                                        _fill_south_and_north_halo!
 
@@ -121,7 +121,7 @@ end
     bcs  = boundary_conditions(field)
 
     if (bcs.west isa Oceananigans.BoundaryConditions.BoundaryCondition)
-        if bcs.west.condition isa Oceananigans.BoundaryConditions.Periodic
+        if bcs.west.classification isa Oceananigans.BoundaryConditions.Periodic
             launch!(arch, grid, params_x, fill_periodic_west_and_east_halo!, parent(field), Val(grid.Hx), grid.Nx)
         else
             launch!(arch, grid, params_x, _fill_west_and_east_halo!, field.data, bcs.west, bcs.east, loc, grid, ())
