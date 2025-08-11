@@ -76,40 +76,43 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     substeps = dynamics.solver.substeps
     initialize_rheology!(model, dynamics.rheology)
 
-    for substep in 1 : substeps
-        # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, dynamics, rheology, Δt)
+    u_args = (u, grid, Δt, substeps, rheology, model_fields, 
+              free_drift, clock, coriolis,
+              minimum_mass, minimum_concentration, 
+              u_immersed_bc, top_stress, bottom_stress, u_forcing)
 
-        # The momentum equations are solved using an alternating leap-frog algorithm
-        # for u and v (used for the ocean - ice stresses and the coriolis term)
-        # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
-        # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
-        if iseven(substep) 
-            u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis,
-                               minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+    v_args = (v, grid, Δt, substeps, rheology, model_fields, 
+              free_drift, clock, coriolis, 
+              minimum_mass, minimum_concentration,
+              v_immersed_bc, top_stress, bottom_stress, v_forcing)
 
-            v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis, 
-                               minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
+    GC.@preserve v_args u_args begin
+        # We need to perform ~150 time-steps which means
+        # launching ~300 very small kernels: we are limited by
+        # latency of argument conversion to GPU-compatible values.
+        # To alleviate this penalty we convert first and then we substep!
+        converted_u_args = Oceananigans.Architectures.convert_to_device(arch, u_args)
+        converted_v_args = Oceananigans.Architectures.convert_to_device(arch, v_args)
 
-        else
-            v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis, 
-                               minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
-            
+        for substep in 1 : substeps
+            # Compute stresses! depending on the particular rheology implementation
+            compute_stresses!(model, dynamics, rheology, Δt)
 
-            u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis,
-                               minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+            # The momentum equations are solved using an alternating leap-frog algorithm
+            # for u and v (used for the ocean - ice stresses and the coriolis term)
+            # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
+            # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
+            if iseven(substep) 
+                u_velocity_kernel!(u_args...)
+                v_velocity_kernel!(v_args...)
+            else
+                v_velocity_kernel!(v_args...)
+                u_velocity_kernel!(u_args...)
+            end
+
+            fill_velocity_halo_regions!(u, grid, params_x, params_y)
+            fill_velocity_halo_regions!(v, grid, params_x, params_y)
         end
-
-        fill_velocity_halo_regions!(u, grid, params_x, params_y)
-        fill_velocity_halo_regions!(v, grid, params_x, params_y)
     end
 
     return nothing
