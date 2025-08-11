@@ -92,7 +92,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         # latency of argument conversion to GPU-compatible values.
         # To alleviate this penalty we convert first and then we substep!
         converted_u_args = Oceananigans.Architectures.convert_to_device(arch, u_args)
-         = Oceananigans.Architectures.convert_to_device(arch, v_args)
+        converted_v_args = Oceananigans.Architectures.convert_to_device(arch, v_args)
 
         for substep in 1 : substeps
             # Compute stresses! depending on the particular rheology implementation
