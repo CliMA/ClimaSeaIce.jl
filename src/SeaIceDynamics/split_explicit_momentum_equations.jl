@@ -82,7 +82,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, (Face(), Center(), nothing), grid)
     v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, (Center(), Face(), nothing), grid)
-    stresses_args    = (model_fields, dynamics, grid, rheology, Δt)
+    stresses_args    = (model_fields, grid, rheology, Δt)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
         # We need to perform ~150 time-steps which means

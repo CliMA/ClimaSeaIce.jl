@@ -105,8 +105,14 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       pressure_formulation)
 end
 
-function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
-    
+function required_auxiliaries(r::ElastoViscoPlasticRheology, grid)
+
+    arch.     = architecture(grid)
+    Nx, Ny, _ = size(grid)
+    Hx, Hy, _ = halo_size(grid)
+
+    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
+
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
@@ -122,7 +128,10 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
 
-    return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
+    _viscosity_kernel!, _ = configure_kernel(arch, grid, parameters, _compute_evp_viscosities!)
+    _stresses_kernel!, _  = configure_kernel(arch, grid, parameters, _compute_evp_stresses!)
+
+    return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P, _viscosity_kernel!, _stresses_kernel!)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
@@ -170,9 +179,7 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(fields, dynamics, grid, rheology::ElastoViscoPlasticRheology, Δt)
-
-    arch = architecture(grid)
+function compute_stresses!(fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
     
     h  = fields.h
     ρᵢ = fields.ρ
@@ -180,15 +187,8 @@ function compute_stresses!(fields, dynamics, grid, rheology::ElastoViscoPlasticR
     u  = fields.u
     v  = fields.v
 
-    auxiliary_fields = dynamics.auxiliary_fields
-
-    Nx, Ny, _ = size(grid)
-    Hx, Hy, _ = halo_size(grid)
-
-    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
-
-    launch!(arch, grid, parameters, _compute_evp_viscosities!, fields, grid, rheology, u, v)
-    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+    dynamics.auxiliary_fields._viscosity_kernel!(fields, grid, rheology, u, v)
+    dynamics.auxiliary_fields._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end

@@ -1,16 +1,16 @@
 module Rheologies
 
 export ViscousRheology, ElastoViscoPlasticRheology
-export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliary_fields
+export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliaries
 
 using Oceananigans
 using Oceananigans.Operators
 using ClimaSeaIce: ice_mass
 
 # Nothing rheology
-required_auxiliary_fields(rheology, grid) = NamedTuple()
+required_auxiliaries(rheology, grid) = NamedTuple()
 initialize_rheology!(model, rheology) = nothing
-compute_stresses!(fields, dynamics, rheology, Δt) = nothing
+compute_stresses!(fields, grid, rheology, Δt) = nothing
 
 # Nothing rheology or viscous rheology
 @inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
