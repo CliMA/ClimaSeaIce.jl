@@ -8,7 +8,7 @@ using Oceananigans.Operators
 using ClimaSeaIce: ice_mass
 
 # Nothing rheology
-required_auxiliaries(rheology, grid) = NamedTuple()
+required_auxiliaries(rheology, grid) = (; fields = NamedTuple())
 initialize_rheology!(model, rheology) = nothing
 compute_stresses!(dynamics, fields, grid, rheology, Δt) = nothing
 

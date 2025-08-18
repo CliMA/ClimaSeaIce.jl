@@ -4,7 +4,7 @@ using Adapt
 struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C
     rheology :: R
-    auxiliary_fields :: A
+    auxiliaries :: A
     solver :: S
     free_drift :: F
     external_momentum_stresses :: ES
@@ -19,7 +19,6 @@ struct ExplicitSolver end
     SeaIceMomentumEquation(grid; 
                            coriolis = nothing,
                            rheology = ElastoViscoPlasticRheology(eltype(grid)),
-                           auxiliary_fields = NamedTuple(),
                            top_momentum_stress    = nothing,
                            bottom_momentum_stress = nothing,
                            free_drift = nothing,
@@ -48,7 +47,6 @@ Keyword Arguments
 
 - `coriolis`: Parameters for the background rotation rate of the model.
 - `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
-- `auxiliary_fields`: A named tuple of auxiliary fields, default is an empty `NamedTuple()`.
 - `free_drift`: The free drift velocities used to limit sea ice momentum when the mass or the concentration are
                 below a certain threshold. Default is `nothing` (indicating that the free drift velocities are zero).
 - `solver`: The momentum solver to be used.
@@ -58,7 +56,6 @@ Keyword Arguments
 function SeaIceMomentumEquation(grid; 
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
-                                auxiliary_fields = NamedTuple(),
                                 top_momentum_stress    = nothing,
                                 bottom_momentum_stress = nothing,
                                 free_drift = nothing,
@@ -66,7 +63,7 @@ function SeaIceMomentumEquation(grid;
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
 
-    auxiliary_fields = merge(auxiliary_fields, required_auxiliaries(rheology, grid))
+    auxiliaries = required_auxiliaries(rheology, grid)
     external_momentum_stresses = (top = top_momentum_stress,
                                   bottom = bottom_momentum_stress)
 
@@ -74,7 +71,7 @@ function SeaIceMomentumEquation(grid;
 
     return SeaIceMomentumEquation(coriolis, 
                                   rheology, 
-                                  auxiliary_fields, 
+                                  auxiliaries, 
                                   solver,
                                   free_drift,
                                   external_momentum_stresses,
@@ -82,4 +79,4 @@ function SeaIceMomentumEquation(grid;
                                   convert(FT, minimum_mass))
 end
 
-fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
+fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields

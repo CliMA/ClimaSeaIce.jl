@@ -12,7 +12,7 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
 
     dynamics = model.dynamics
 
-    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+    model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
@@ -77,7 +77,7 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     coriolis = dynamics.coriolis
     rheology = dynamics.rheology
 
-    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+    model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
             (; h = model.ice_thickness, 
                ℵ = model.ice_concentration, 
                ρ = model.ice_density))

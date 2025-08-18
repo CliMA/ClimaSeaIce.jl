@@ -166,7 +166,7 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     C  = rheology.ice_compaction_hardening
     
     u, v   = model.velocities
-    fields = model.dynamics.auxiliary_fields
+    fields = model.dynamics.auxiliary.fields
 
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
@@ -194,8 +194,8 @@ function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticR
     u  = fields.u
     v  = fields.v
 
-    dynamics.auxiliary_fields.kernels._viscosity_kernel!(fields, grid, rheology, u, v)
-    dynamics.auxiliary_fields.kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+    dynamics.auxiliaries.kernels._viscosity_kernel!(fields, grid, rheology, u, v)
+    dynamics.auxiliaries.kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end
