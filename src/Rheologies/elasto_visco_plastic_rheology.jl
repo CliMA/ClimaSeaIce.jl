@@ -166,7 +166,7 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     C  = rheology.ice_compaction_hardening
     
     u, v   = model.velocities
-    fields = model.dynamics.auxiliary.fields
+    fields = model.dynamics.auxiliaries.fields
 
     # compute on the whole grid including halos
     parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
