@@ -32,15 +32,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     grid = model.grid
     arch = architecture(grid)
-    rheology = dynamics.rheology
+    rheology   = dynamics.rheology
     Nx, Ny, Nz = size(grid)
     Hx, Hy, _  = halo_size(grid)
-
-    # Params for filling halo regions
-    params_x = KernelParameters(-Hy:Ny+Hy, Nz:Nz)
-    params_y = KernelParameters(-Hx:Nx+Hx, Nz:Nz)
-    
-    u, v = model.velocities
+    u, v       = model.velocities
   
     free_drift = dynamics.free_drift
     clock = model.clock
