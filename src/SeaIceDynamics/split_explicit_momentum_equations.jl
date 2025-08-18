@@ -80,17 +80,24 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
               minimum_mass, minimum_concentration,
               v_immersed_bc, top_stress, bottom_stress, v_forcing)
 
-    GC.@preserve v_args u_args begin
+    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, (Face(), Center(), nothing), grid)
+    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, (Center(), Face(), nothing), grid)
+    stresses_args    = (model_fields, dynamics, grid, rheology, Δt)
+
+    GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
         # We need to perform ~150 time-steps which means
         # launching ~300 very small kernels: we are limited by
         # latency of argument conversion to GPU-compatible values.
         # To alleviate this penalty we convert first and then we substep!
         converted_u_args = Oceananigans.Architectures.convert_to_device(arch, u_args)
         converted_v_args = Oceananigans.Architectures.convert_to_device(arch, v_args)
+        converted_u_halo = Oceananigans.Architectures.convert_to_device(arch, u_fill_halo_args)
+        converted_v_halo = Oceananigans.Architectures.convert_to_device(arch, v_fill_halo_args)
+        converted_stresses_args = Oceananigans.Architectures.convert_to_device(arch, stresses_args)
 
         for substep in 1 : substeps
             # Compute stresses! depending on the particular rheology implementation
-            compute_stresses!(model, dynamics, rheology, Δt)
+            compute_stresses!(converted_stresses_args...)
 
             # The momentum equations are solved using an alternating leap-frog algorithm
             # for u and v (used for the ocean - ice stresses and the coriolis term)
@@ -104,8 +111,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                 u_velocity_kernel!(converted_u_args...)
             end
 
-            fill_halo_regions!(u)
-            fill_halo_regions!(v)
+            fill_halo_regions!(converted_u_halo...)
+            fill_halo_regions!(converted_v_halo...)
         end
     end
 
