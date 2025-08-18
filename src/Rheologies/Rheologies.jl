@@ -10,7 +10,7 @@ using ClimaSeaIce: ice_mass
 # Nothing rheology
 required_auxiliaries(rheology, grid) = NamedTuple()
 initialize_rheology!(model, rheology) = nothing
-compute_stresses!(fields, grid, rheology, Δt) = nothing
+compute_stresses!(dynamics, fields, grid, rheology, Δt) = nothing
 
 # Nothing rheology or viscous rheology
 @inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
