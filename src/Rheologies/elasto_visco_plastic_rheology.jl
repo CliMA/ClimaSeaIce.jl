@@ -105,9 +105,16 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       pressure_formulation)
 end
 
+struct ElastoViscoPlasticAuxiliaries{F, K}
+    fields :: F
+    kernels :: K
+end
+
+Adapt.adapt_structure(to, a::ElastoViscoPlasticAuxiliaries) = Adapt.adapt(to, a.fields)
+
 function required_auxiliaries(r::ElastoViscoPlasticRheology, grid)
 
-    arch.     = architecture(grid)
+    arch      = architecture(grid)
     Nx, Ny, _ = size(grid)
     Hx, Hy, _ = halo_size(grid)
 
@@ -131,7 +138,7 @@ function required_auxiliaries(r::ElastoViscoPlasticRheology, grid)
     _viscosity_kernel!, _ = configure_kernel(arch, grid, parameters, _compute_evp_viscosities!)
     _stresses_kernel!, _  = configure_kernel(arch, grid, parameters, _compute_evp_stresses!)
 
-    return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P, _viscosity_kernel!, _stresses_kernel!)
+    return ElastoViscoPlasticAuxiliaries((; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P), (; _viscosity_kernel!, _stresses_kernel!))
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
@@ -179,7 +186,7 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
+function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
     
     h  = fields.h
     ρᵢ = fields.ρ
@@ -187,8 +194,8 @@ function compute_stresses!(fields, grid, rheology::ElastoViscoPlasticRheology, �
     u  = fields.u
     v  = fields.v
 
-    dynamics.auxiliary_fields._viscosity_kernel!(fields, grid, rheology, u, v)
-    dynamics.auxiliary_fields._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+    dynamics.auxiliary_fields.kernels._viscosity_kernel!(fields, grid, rheology, u, v)
+    dynamics.auxiliary_fields.kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end
