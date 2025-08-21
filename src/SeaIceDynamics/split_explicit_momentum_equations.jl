@@ -80,7 +80,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     stresses_args    = (model_fields, grid, rheology, Δt)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
-        # We need to perform ~150 time-steps which means
+        # We need to timestep ~150 substeps, which means
         # launching ~300 very small kernels: we are limited by
         # latency of argument conversion to GPU-compatible values.
         # To alleviate this penalty we convert first and then we substep!
@@ -95,7 +95,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
             compute_stresses!(dynamics, converted_stresses_args...)
 
             # The momentum equations are solved using an alternating leap-frog algorithm
-            # for u and v (used for the ocean - ice stresses and the coriolis term)
+            # for u and v (used for the ocean-ice stresses and the Coriolis term)
             # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
             # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
             if iseven(substep) 
