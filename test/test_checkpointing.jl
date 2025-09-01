@@ -146,3 +146,7 @@ function test_sea_ice_checkpointer_output(arch)
         end
     end
 end
+
+@testset "Checkpointing Tests" begin
+    test_sea_ice_checkpointer_output(CPU())
+end

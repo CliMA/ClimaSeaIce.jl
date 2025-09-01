@@ -126,9 +126,9 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
 end
 
 prognostic_fields(mom, ::ElastoViscoPlasticRheology) =
-    (σ₁₁ = mom.fields.σ₁₁,
-     σ₂₂ = mom.fields.σ₂₂,
-     σ₁₂ = mom.fields.σ₁₂)
+    (σ₁₁ = mom.auxiliary_fields.σ₁₁,
+     σ₂₂ = mom.auxiliary_fields.σ₂₂,
+     σ₁₂ = mom.auxiliary_fields.σ₁₂)
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
 Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
