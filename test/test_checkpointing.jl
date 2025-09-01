@@ -21,25 +21,8 @@ function test_model_equality(test_model, true_model)
     return nothing
 end
 
-# function initialization_test_simulation(arch, stop_time, Δt=1, δt=2)
-#     grid = RectilinearGrid(arch, size=(), topology=(Flat, Flat, Flat))
-#     model = SeaIceModel(grid)
-#     simulation = Simulation(model; Δt, stop_time)
-
-#     progress_message(sim) = @info string("Iter: ", iteration(sim), ", time: ", prettytime(sim))
-#     simulation.callbacks[:progress] = Callback(progress_message, TimeInterval(δt))
-
-#     checkpointer = Checkpointer(model,
-#                                 schedule = TimeInterval(stop_time),
-#                                 prefix = "initialization_test",
-#                                 cleanup = false)
-
-#     simulation.output_writers[:checkpointer] = checkpointer
-
-#     return simulation
-# end
-
-# Same test as in Oceananigans
+# Test copied from Oceananigans.jl, code credit: 
+# https://github.com/CliMA/Oceananigans.jl/blob/main/test/test_checkpointer.jl#L94-L174
 function run_checkpointer_tests(true_model, test_model, Δt)
     true_simulation = Simulation(true_model, Δt=Δt, stop_iteration=5)
 
