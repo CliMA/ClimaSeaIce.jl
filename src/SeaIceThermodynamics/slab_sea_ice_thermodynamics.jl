@@ -1,4 +1,4 @@
-import Oceananigans: fields
+import Oceananigans: fields, prognostic_fields
 
 struct ProportionalEvolution end
 
@@ -32,6 +32,7 @@ function Base.show(io::IO, therm::SSIT)
 end
        
 fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
+prognostic_fields(therm::SSIT) = (; Gʰ = therm.thermodynamic_tendency)
 
 """
     SlabSeaIceThermodynamics(grid; kw...)

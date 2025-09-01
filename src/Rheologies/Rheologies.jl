@@ -7,10 +7,13 @@ using Oceananigans
 using Oceananigans.Operators
 using ClimaSeaIce: ice_mass
 
+import Oceananigans: prognostic_fields
+
 # Nothing rheology
 required_auxiliary_fields(rheology, grid) = NamedTuple()
 initialize_rheology!(model, rheology) = nothing
 compute_stresses!(model, dynamics, rheology, Δt) = nothing
+prognostic_fields(mom, rheology) = NamedTuple()
 
 # Nothing rheology or viscous rheology
 @inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps

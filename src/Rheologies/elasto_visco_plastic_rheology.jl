@@ -125,6 +125,11 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
 end
 
+prognostic_fields(mom, ::ElastoViscoPlasticRheology) =
+    (σ₁₁ = mom.auxiliary_fields.σ₁₁,
+     σ₂₂ = mom.auxiliary_fields.σ₂₂,
+     σ₁₂ = mom.auxiliary_fields.σ₁₂)
+
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
 Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
     ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
