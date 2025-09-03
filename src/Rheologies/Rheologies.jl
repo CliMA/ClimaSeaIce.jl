@@ -1,7 +1,7 @@
 module Rheologies
 
 export ViscousRheology, ElastoViscoPlasticRheology
-export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliaries
+export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, Auxiliaries
 
 using Oceananigans
 using Oceananigans.Operators
@@ -28,7 +28,6 @@ sea ice stresses.
 Auxiliaries(rheology, grid::AbstractGrid) = Auxiliaries(NamedTuple(), nothing)
 
 # Nothing rheology
-required_auxiliaries(rheology, grid) = (; fields = NamedTuple())
 initialize_rheology!(model, rheology) = nothing
 compute_stresses!(dynamics, fields, grid, rheology, Δt) = nothing
 
