@@ -131,7 +131,10 @@ function required_auxiliaries(r::ElastoViscoPlasticRheology, grid)
     _viscosity_kernel!, _ = configure_kernel(arch, grid, parameters, _compute_evp_viscosities!)
     _stresses_kernel!, _  = configure_kernel(arch, grid, parameters, _compute_evp_stresses!)
 
-    return RheologyAuxiliaries((; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P), (; _viscosity_kernel!, _stresses_kernel!))
+    fields  = (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
+    kernels = (; _viscosity_kernel!, _stresses_kernel!)
+
+    return RheologyAuxiliaries(fields, kernels)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
