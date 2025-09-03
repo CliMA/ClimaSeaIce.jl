@@ -1,16 +1,35 @@
 module Rheologies
 
 export ViscousRheology, ElastoViscoPlasticRheology
-export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliary_fields
+export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, Auxiliaries
 
 using Oceananigans
 using Oceananigans.Operators
+using Oceananigans.Grids: AbstractGrid
 using ClimaSeaIce: ice_mass
+using Adapt 
+
+struct Auxiliaries{F, K}
+    fields :: F
+    kernels :: K
+end
+
+# When adapted, only the fields need to be passed to the GPU.
+# kernels operate only on the CPU.
+Adapt.adapt_structure(to, a::Auxiliaries) = 
+    Auxiliaries(Adapt.adapt(to, a.fields), nothing)
+
+""" 
+    Auxiliaries(rheology, grid)
+
+A struct holding any auxiliary fields and kernels needed for the computation of 
+sea ice stresses.
+"""
+Auxiliaries(rheology, grid::AbstractGrid) = Auxiliaries(NamedTuple(), nothing)
 
 # Nothing rheology
-required_auxiliary_fields(rheology, grid) = NamedTuple()
 initialize_rheology!(model, rheology) = nothing
-compute_stresses!(model, dynamics, rheology, Δt) = nothing
+compute_stresses!(dynamics, fields, grid, rheology, Δt) = nothing
 
 # Nothing rheology or viscous rheology
 @inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
