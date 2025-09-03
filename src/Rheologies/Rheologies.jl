@@ -6,6 +6,7 @@ export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, required_auxiliaries
 using Oceananigans
 using Oceananigans.Operators
 using ClimaSeaIce: ice_mass
+using Adapt 
 
 struct RheologyAuxiliaries{F, K}
     fields :: F
