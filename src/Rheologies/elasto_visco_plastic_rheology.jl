@@ -132,7 +132,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     _viscosity_kernel! = configure_kernel(arch, grid, parameters, _compute_evp_viscosities!)[1]
     _stresses_kernel!  = configure_kernel(arch, grid, parameters, _compute_evp_stresses!)[1]
 
-    parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
+    parameters = KernelParameters(size(P.data)[1:2], P.data.offsets[1:2])
     _initialize_rhology! = configure_kernel(arch, grid, parameters, _initialize_evp_rhology!)[1]
     
     fields  = (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
