@@ -105,7 +105,8 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       pressure_formulation)
 end
 
-function required_auxiliaries(r::ElastoViscoPlasticRheology, grid)
+# Extend Auxiliaries to hold auxiliaries for the ElastoViscoPlasticRheology
+function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 
     arch      = architecture(grid)
     Nx, Ny, _ = size(grid)
