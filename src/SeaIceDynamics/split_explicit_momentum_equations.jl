@@ -1,6 +1,7 @@
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
+using Oceananigans.Architectures: convert_to_device
 using Oceananigans.Fields: instantiated_location, boundary_conditions
 using Oceananigans.ImmersedBoundaries: peripheral_node
 
@@ -75,20 +76,20 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
               minimum_mass, minimum_concentration,
               v_immersed_bc, top_stress, bottom_stress, v_forcing)
 
-    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, (Face(), Center(), nothing), grid)
-    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, (Center(), Face(), nothing), grid)
+    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid)
+    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid)
     stresses_args    = (model_fields, grid, rheology, Δt)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
         # We need to timestep ~150 substeps, which means
-        # launching ~300 very small kernels: we are limited by
+        # launching ~1000 very small kernels: we are limited by
         # latency of argument conversion to GPU-compatible values.
         # To alleviate this penalty we convert first and then we substep!
-        converted_u_args = Oceananigans.Architectures.convert_to_device(arch, u_args)
-        converted_v_args = Oceananigans.Architectures.convert_to_device(arch, v_args)
-        converted_u_halo = Oceananigans.Architectures.convert_to_device(arch, u_fill_halo_args)
-        converted_v_halo = Oceananigans.Architectures.convert_to_device(arch, v_fill_halo_args)
-        converted_stresses_args = Oceananigans.Architectures.convert_to_device(arch, stresses_args)
+        converted_u_args = convert_to_device(arch, u_args)
+        converted_v_args = convert_to_device(arch, v_args)
+        converted_u_halo = convert_to_device(arch, u_fill_halo_args)
+        converted_v_halo = convert_to_device(arch, v_fill_halo_args)
+        converted_stresses_args = convert_to_device(arch, stresses_args)
 
         for substep in 1 : substeps
             # Compute stresses! depending on the particular rheology implementation
