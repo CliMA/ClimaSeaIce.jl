@@ -63,7 +63,7 @@ function SeaIceMomentumEquation(grid;
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
 
-    auxiliaries = required_auxiliaries(rheology, grid)
+    auxiliaries = RheologyAuxiliaries(rheology, grid)
     external_momentum_stresses = (top = top_momentum_stress,
                                   bottom = bottom_momentum_stress)
 

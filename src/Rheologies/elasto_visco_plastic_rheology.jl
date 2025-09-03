@@ -105,13 +105,6 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       pressure_formulation)
 end
 
-struct ElastoViscoPlasticAuxiliaries{F, K}
-    fields :: F
-    kernels :: K
-end
-
-Adapt.adapt_structure(to, a::ElastoViscoPlasticAuxiliaries) = Adapt.adapt(to, a.fields)
-
 function required_auxiliaries(r::ElastoViscoPlasticRheology, grid)
 
     arch      = architecture(grid)
@@ -138,7 +131,7 @@ function required_auxiliaries(r::ElastoViscoPlasticRheology, grid)
     _viscosity_kernel!, _ = configure_kernel(arch, grid, parameters, _compute_evp_viscosities!)
     _stresses_kernel!, _  = configure_kernel(arch, grid, parameters, _compute_evp_stresses!)
 
-    return ElastoViscoPlasticAuxiliaries((; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P), (; _viscosity_kernel!, _stresses_kernel!))
+    return RheologyAuxiliaries((; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P), (; _viscosity_kernel!, _stresses_kernel!))
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology

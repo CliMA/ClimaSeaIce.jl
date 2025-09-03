@@ -7,6 +7,24 @@ using Oceananigans
 using Oceananigans.Operators
 using ClimaSeaIce: ice_mass
 
+struct RheologyAuxiliaries{F, K}
+    fields :: F
+    kernels :: K
+end
+
+# When adapted, only the fields need to be passed to the GPU.
+# kernels operate only on the CPU.
+Adapt.adapt_structure(to, a::RheologyAuxiliaries) = 
+    RheologyAuxiliaries(Adapt.adapt(to, a.fields), nothing)
+
+""" 
+    RheologyAuxiliaries(rheology, grid)
+
+A struct holding any auxiliary fields and kernels needed for the computation of 
+sea ice stresses.
+"""
+RheologyAuxiliaries(rheology, grid) = RheologyAuxiliaries(NamedTuple(), nothing)
+
 # Nothing rheology
 required_auxiliaries(rheology, grid) = (; fields = NamedTuple())
 initialize_rheology!(model, rheology) = nothing

@@ -24,7 +24,8 @@ using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
                               compute_substep_Δtᶠᶜᶜ,
                               compute_substep_Δtᶜᶠᶜ,
                               sum_of_forcing_u,
-                              sum_of_forcing_v
+                              sum_of_forcing_v,
+                              RheologyAuxiliaries
 
 import Oceananigans: fields
 
