@@ -79,5 +79,5 @@ function SeaIceMomentumEquation(grid;
                                   convert(FT, minimum_mass))
 end
 
-fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
+fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
 prognostic_fields(mom::SeaIceMomentumEquation) = prognostic_fields(mom, mom.rheology)
