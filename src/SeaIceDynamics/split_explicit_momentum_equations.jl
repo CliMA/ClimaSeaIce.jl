@@ -1,7 +1,9 @@
-using Oceananigans.Grids: AbstractGrid, architecture
-using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.Grids: AbstractGrid, architecture, halo_size
+using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
-using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
+using Oceananigans.Architectures: convert_to_device
+using Oceananigans.Fields: instantiated_location, boundary_conditions
+using Oceananigans.ImmersedBoundaries: peripheral_node
 
 struct SplitExplicitSolver 
     substeps :: Int
@@ -31,9 +33,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     grid = model.grid
     arch = architecture(grid)
-    rheology = dynamics.rheology
-
-    u, v = model.velocities
+    rheology   = dynamics.rheology
+    Nx, Ny, Nz = size(grid)
+    Hx, Hy, _  = halo_size(grid)
+    u, v       = model.velocities
   
     free_drift = dynamics.free_drift
     clock = model.clock
@@ -50,7 +53,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     u_immersed_bc = u.boundary_conditions.immersed
     v_immersed_bc = v.boundary_conditions.immersed
 
-    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+    model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
@@ -61,47 +64,52 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
 
     substeps = dynamics.solver.substeps
-    
-    fill_halo_regions!(model.velocities)
     initialize_rheology!(model, dynamics.rheology)
 
-    for substep in 1 : substeps
-        # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, dynamics, rheology, Δt)
+    u_args = (u, grid, Δt, substeps, rheology, model_fields, 
+              free_drift, clock, coriolis,
+              minimum_mass, minimum_concentration, 
+              u_immersed_bc, top_stress, bottom_stress, u_forcing)
 
-        # The momentum equations are solved using an alternating leap-frog algorithm
-        # for u and v (used for the ocean - ice stresses and the coriolis term)
-        # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
-        # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
-        if iseven(substep) 
-            u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis,
-                               minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+    v_args = (v, grid, Δt, substeps, rheology, model_fields, 
+              free_drift, clock, coriolis, 
+              minimum_mass, minimum_concentration,
+              v_immersed_bc, top_stress, bottom_stress, v_forcing)
 
-            v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis, 
-                               minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
+    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid)
+    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid)
+    stresses_args    = (model_fields, grid, rheology, Δt)
 
-        else
-            v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis, 
-                               minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
-            
+    GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
+        # We need to timestep ~150 substeps, which means
+        # launching ~1000 very small kernels: we are limited by
+        # latency of argument conversion to GPU-compatible values.
+        # To alleviate this penalty we convert first and then we substep!
+        converted_u_args = convert_to_device(arch, u_args)
+        converted_v_args = convert_to_device(arch, v_args)
+        converted_u_halo = convert_to_device(arch, u_fill_halo_args)
+        converted_v_halo = convert_to_device(arch, v_fill_halo_args)
+        converted_stresses_args = convert_to_device(arch, stresses_args)
 
-            u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis,
-                               minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+        for substep in 1 : substeps
+            # Compute stresses! depending on the particular rheology implementation
+            compute_stresses!(dynamics, converted_stresses_args...)
+
+            # The momentum equations are solved using an alternating leap-frog algorithm
+            # for u and v (used for the ocean-ice stresses and the Coriolis term)
+            # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
+            # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
+            if iseven(substep) 
+                u_velocity_kernel!(converted_u_args...)
+                v_velocity_kernel!(converted_v_args...)
+            else
+                v_velocity_kernel!(converted_v_args...)
+                u_velocity_kernel!(converted_u_args...)
+            end
+
+            fill_halo_regions!(converted_u_halo...)
+            fill_halo_regions!(converted_v_halo...)
         end
-
-        # TODO: This needs to be removed in some way!
-        fill_halo_regions!(model.velocities)
-
-        mask_immersed_field_xy!(model.velocities.u, k=size(grid, 3))
-        mask_immersed_field_xy!(model.velocities.v, k=size(grid, 3))
     end
 
     return nothing
@@ -134,8 +142,9 @@ end
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
+    active  = !peripheral_node(i, j, kᴺ, grid, Face(), Center(), Center())
 
-    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
+    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ) * active
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt, 
@@ -166,6 +175,7 @@ end
     # If the ice mass or the ice concentration are below a certain threshold, 
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
+    active  = !peripheral_node(i, j, kᴺ, grid, Center(), Face(), Center())
 
-    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
+    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ) * active
 end
