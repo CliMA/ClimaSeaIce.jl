@@ -25,3 +25,4 @@ end
 
 include("test_sea_ice_advection.jl")
 include("test_time_stepping.jl")
+include("test_checkpointing.jl")
