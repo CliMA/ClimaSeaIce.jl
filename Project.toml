@@ -14,7 +14,7 @@ SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
 [compat]
 Adapt = "3, 4"
 KernelAbstractions = "0.9"
-Oceananigans = "0.98.0"
+Oceananigans = "0.99"
 Roots = "2"
 RootSolvers = "0.3, 0.4"
 SeawaterPolynomials = "0.3.4"
