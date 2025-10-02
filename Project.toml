@@ -1,7 +1,7 @@
 name = "ClimaSeaIce"
 uuid = "6ba0ff68-24e6-4315-936c-2e99227c95a4"
 authors = ["Climate Modeling Alliance and contributors"]
-version = "0.3.7"
+version = "0.3.8"
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
@@ -14,7 +14,7 @@ SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
 [compat]
 Adapt = "3, 4"
 KernelAbstractions = "0.9"
-Oceananigans = "0.99"
+Oceananigans = "0.99, 0.100, 0.101, 0.102, 0.103, 0.104"
 Roots = "2"
 RootSolvers = "0.3, 0.4"
 SeawaterPolynomials = "0.3.4"
