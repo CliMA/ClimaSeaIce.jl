@@ -152,6 +152,8 @@ function set!(model::SIM; h=nothing, ℵ=nothing)
     return nothing
 end
 
+set!(model::SIM, new_clock::Clock) = set!(model.clock, new_clock)
+
 Base.summary(model::SIM) = "SeaIceModel"
 prettytime(model::SIM) = prettytime(model.clock.time)
 iteration(model::SIM) = model.clock.iteration
@@ -186,8 +188,11 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            fields(model.ice_thermodynamics),
                            fields(model.dynamics))
 
+prognostic_fields(::Nothing) = NamedTuple()
+                           
 # TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
-                                      model.tracers,
-                                      model.velocities)
+                                      model.velocities,
+                                      prognostic_fields(model.dynamics),
+                                      prognostic_fields(model.ice_thermodynamics))

@@ -27,9 +27,13 @@ sea ice stresses.
 """
 Auxiliaries(rheology, grid::AbstractGrid) = Auxiliaries(NamedTuple(), nothing)
 
+import Oceananigans: prognostic_fields
+
 # Nothing rheology
 initialize_rheology!(model, rheology) = nothing
+
 compute_stresses!(dynamics, fields, grid, rheology, Δt) = nothing
+prognostic_fields(mom, rheology) = NamedTuple()
 
 # Nothing rheology or viscous rheology
 @inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
