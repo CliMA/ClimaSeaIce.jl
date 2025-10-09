@@ -76,8 +76,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
               minimum_mass, minimum_concentration,
               v_immersed_bc, top_stress, bottom_stress, v_forcing)
 
-    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
-    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
+    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid)
+    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid)
     stresses_args    = (model_fields, grid, rheology, Δt)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
@@ -87,17 +87,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         # To alleviate this penalty we convert first and then we substep!
         converted_u_args = convert_to_device(arch, u_args)
         converted_v_args = convert_to_device(arch, v_args)
-
-        # Do not convert args for fill halo regions if we are in a distributed scenario
-        # (We need to know that we are passing a `DistributedGrid`)
-        if arch isa Distributed
-            converted_u_halo = u_fill_halo_args
-            converted_v_halo = v_fill_halo_args
-        else
-            converted_u_halo = convert_to_device(arch, u_fill_halo_args)
-            converted_v_halo = convert_to_device(arch, v_fill_halo_args)
-        end
-
+        converted_u_halo = convert_to_device(arch, u_fill_halo_args)
+        converted_v_halo = convert_to_device(arch, v_fill_halo_args)
         converted_stresses_args = convert_to_device(arch, stresses_args)
 
         for substep in 1 : substeps
