@@ -32,7 +32,14 @@ export SeaIceModel,
        PhaseTransitions,
        ConductiveFlux,
        FluxFunction,
-       SlabSeaIceThermodynamics
+       SlabSeaIceThermodynamics,
+       SeaIceMomentumEquation, 
+       ExplicitSolver, 
+       SplitExplicitSolver, 
+       SemiImplicitStress, 
+       StressBalanceFreeDrift,
+       ViscousRheology, 
+       ElastoViscoPlasticRheology
 
 # TODO: Move this to Oceananigans.jl
 include("forward_euler_timestepper.jl")
