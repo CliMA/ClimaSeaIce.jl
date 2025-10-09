@@ -51,7 +51,9 @@ distributed_sea_ice = """
 
     @info "Checking that all cores ran all configurations up to 1 iteration..."
     @test isfile("iterations.jld2")
-    data = jldopen("iterations.jld2")["iterations"]
+    file = jldopen("iterations.jld2")
+    data = file["iterations"]
     @test all(data .== 4)
+    close(file)
     rm("iterations.jld2")
 end
