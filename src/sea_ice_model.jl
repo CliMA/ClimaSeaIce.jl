@@ -152,6 +152,8 @@ function set!(model::SIM; h=nothing, ℵ=nothing)
     return nothing
 end
 
+set!(model::SIM, new_clock::Clock) = set!(model.clock, new_clock)
+
 Base.summary(model::SIM) = "SeaIceModel"
 prettytime(model::SIM) = prettytime(model.clock.time)
 iteration(model::SIM) = model.clock.iteration
