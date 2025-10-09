@@ -4,8 +4,6 @@
 #
 #
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceDynamics
-using ClimaSeaIce.Rheologies
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators
