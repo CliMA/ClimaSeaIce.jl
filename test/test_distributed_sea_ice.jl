@@ -3,9 +3,6 @@ using JLD2
 
 distributed_sea_ice = """
     using ClimaSeaIce
-    using ClimaSeaIce.SeaIceThermodynamics
-    using ClimaSeaIce.SeaIceDynamics
-    using ClimaSeaIce.Rheologies
     using Oceananigans
     using Oceananigans.DistributedComputations
     using JLD2
