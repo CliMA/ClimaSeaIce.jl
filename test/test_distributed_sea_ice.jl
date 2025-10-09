@@ -1,3 +1,5 @@
+using MPI
+
 distributed_sea_ice = """
     using ClimaSeaIce
     using ClimaSeaIce.SeaIceThermodynamics
