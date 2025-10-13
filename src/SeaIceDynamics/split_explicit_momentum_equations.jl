@@ -1,7 +1,9 @@
-using Oceananigans.Grids: AbstractGrid, architecture
-using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.Grids: AbstractGrid, architecture, halo_size
+using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
-using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
+using Oceananigans.Architectures: convert_to_device
+using Oceananigans.Fields: instantiated_location, boundary_conditions
+using Oceananigans.ImmersedBoundaries: peripheral_node
 
 struct SplitExplicitSolver{I, K}
     substeps :: I
@@ -44,9 +46,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     grid = model.grid
     arch = architecture(grid)
-    rheology = dynamics.rheology
-
-    u, v = model.velocities
+    rheology   = dynamics.rheology
+    Nx, Ny, Nz = size(grid)
+    Hx, Hy, _  = halo_size(grid)
+    u, v       = model.velocities
   
     free_drift = dynamics.free_drift
     clock = model.clock
@@ -63,7 +66,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     u_immersed_bc = u.boundary_conditions.immersed
     v_immersed_bc = v.boundary_conditions.immersed
 
-    model_fields = merge(dynamics.auxiliary_fields, model.velocities, 
+    model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
@@ -74,44 +77,62 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
-    
     initialize_rheology!(model, dynamics.rheology)
 
-    for substep in 1 : substeps
-        if params == :xy
-            # Fill the halo regions for u and v before each substep
-            fill_halo_regions!(u)
-            fill_halo_regions!(v)
+    u_args = (u, grid, Δt, substeps, rheology, model_fields, 
+              free_drift, clock, coriolis,
+              minimum_mass, minimum_concentration, 
+              u_immersed_bc, top_stress, bottom_stress, u_forcing)
+
+    v_args = (v, grid, Δt, substeps, rheology, model_fields, 
+              free_drift, clock, coriolis, 
+              minimum_mass, minimum_concentration,
+              v_immersed_bc, top_stress, bottom_stress, v_forcing)
+
+    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
+    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
+    stresses_args    = (model_fields, grid, rheology, Δt)
+
+    GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
+        # We need to timestep ~150 substeps, which means
+        # launching ~1000 very small kernels: we are limited by
+        # latency of argument conversion to GPU-compatible values.
+        # To alleviate this penalty we convert first and then we substep!
+        converted_u_args = convert_to_device(arch, u_args)
+        converted_v_args = convert_to_device(arch, v_args)
+
+        # Do not convert args for fill halo regions if we are in a distributed scenario
+        # (We need to know that we are passing a `DistributedGrid`)
+        if arch isa Distributed
+            converted_u_halo = u_fill_halo_args
+            converted_v_halo = v_fill_halo_args
+        else
+            converted_u_halo = convert_to_device(arch, u_fill_halo_args)
+            converted_v_halo = convert_to_device(arch, v_fill_halo_args)
         end
 
-        # Compute stresses! depending on the particular rheology implementation
-        compute_stresses!(model, dynamics, rheology, Δt)
+        converted_stresses_args = convert_to_device(arch, stresses_args)
 
-        # The momentum equations are solved using an alternating leap-frog algorithm
-        # for u and v (used for the ocean - ice stresses and the coriolis term)
-        # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
-        # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
-        if iseven(substep) 
-            u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis,
-                               minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+        for substep in 1 : substeps
+            if params == :xy
+                fill_halo_regions!(converted_u_halo...)
+                fill_halo_regions!(converted_v_halo...)
+            end
+          
+            # Compute stresses! depending on the particular rheology implementation
+            compute_stresses!(dynamics, converted_stresses_args...)
 
-            v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis, 
-                               minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
-
-        else
-            v_velocity_kernel!(v, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis, 
-                               minimum_mass, minimum_concentration,
-                               v_immersed_bc, top_stress, bottom_stress, v_forcing)
-            
-            u_velocity_kernel!(u, grid, Δt, substeps, rheology, model_fields, 
-                               free_drift, clock, coriolis,
-                               minimum_mass, minimum_concentration, 
-                               u_immersed_bc, top_stress, bottom_stress, u_forcing)
+            # The momentum equations are solved using an alternating leap-frog algorithm
+            # for u and v (used for the ocean-ice stresses and the Coriolis term)
+            # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
+            # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
+            if iseven(substep) 
+                u_velocity_kernel!(converted_u_args...)
+                v_velocity_kernel!(converted_v_args...)
+            else
+                v_velocity_kernel!(converted_v_args...)
+                u_velocity_kernel!(converted_u_args...)
+            end
         end
     end
 

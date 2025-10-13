@@ -105,8 +105,15 @@ function ElastoViscoPlasticRheology(FT::DataType = Float64;
                                       pressure_formulation)
 end
 
-function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
-    
+# Extend Auxiliaries to hold auxiliaries for the ElastoViscoPlasticRheology
+function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
+
+    arch      = architecture(grid)
+    Nx, Ny, _ = size(grid)
+    Hx, Hy, _ = halo_size(grid)
+
+    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
+
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
@@ -122,8 +129,22 @@ function required_auxiliary_fields(r::ElastoViscoPlasticRheology, grid)
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
 
-    return (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
+    _viscosity_kernel! = configure_kernel(arch, grid, parameters, _compute_evp_viscosities!)[1]
+    _stresses_kernel!  = configure_kernel(arch, grid, parameters, _compute_evp_stresses!)[1]
+
+    parameters = KernelParameters(size(P.data)[1:2], P.data.offsets[1:2])
+    _initialize_rhology! = configure_kernel(arch, grid, parameters, _initialize_evp_rhology!)[1]
+    
+    fields  = (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
+    kernels = (; _viscosity_kernel!, _stresses_kernel!, _initialize_rhology!)
+
+    return Auxiliaries(fields, kernels)
 end
+
+prognostic_fields(mom, ::ElastoViscoPlasticRheology) =
+    (σ₁₁ = mom.auxiliaries.fields.σ₁₁,
+     σ₂₂ = mom.auxiliaries.fields.σ₂₂,
+     σ₁₂ = mom.auxiliaries.fields.σ₁₂)
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
 Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
@@ -149,13 +170,11 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     P★ = rheology.ice_compressive_strength
     C  = rheology.ice_compaction_hardening
     
-    u, v   = model.velocities
-    fields = model.dynamics.auxiliary_fields
+    u, v    = model.velocities
+    fields  = model.dynamics.auxiliaries.fields
+    kernels = model.dynamics.auxiliaries.kernels
+    kernels._initialize_rhology!(fields, model.grid, P★, C, h, ℵ, u, v)
 
-    # compute on the whole grid including halos
-    parameters = KernelParameters(size(fields.P.data)[1:2], fields.P.data.offsets[1:2])
-    launch!(architecture(model.grid), model.grid, parameters, _initialize_evp_rhology!, fields, model.grid, P★, C, h, ℵ, u, v)
-    
     return nothing
 end
 
@@ -170,25 +189,16 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(model, dynamics, rheology::ElastoViscoPlasticRheology, Δt) 
+function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
+    
+    h  = fields.h
+    ρᵢ = fields.ρ
+    ℵ  = fields.ℵ
+    u  = fields.u
+    v  = fields.v
 
-    grid = model.grid
-    arch = architecture(grid)
-
-    h  = model.ice_thickness
-    ρᵢ = model.ice_density
-    ℵ  = model.ice_concentration
-
-    fields = dynamics.auxiliary_fields
-    u, v = model.velocities
-
-    Nx, Ny, _ = size(grid)
-    Hx, Hy, _ = halo_size(grid)
-
-    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
-
-    launch!(arch, grid, parameters, _compute_evp_viscosities!, fields, grid, rheology, u, v)
-    launch!(arch, grid, parameters, _compute_evp_stresses!, fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+    dynamics.auxiliaries.kernels._viscosity_kernel!(fields, grid, rheology, u, v)
+    dynamics.auxiliaries.kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
 
     return nothing
 end

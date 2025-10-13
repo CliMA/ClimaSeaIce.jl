@@ -18,7 +18,7 @@ using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
                               ∂ⱼ_σ₂ⱼ, 
                               immersed_∂ⱼ_σ₁ⱼ,
                               immersed_∂ⱼ_σ₂ⱼ,
-                              required_auxiliary_fields, 
+                              Auxiliaries,
                               compute_stresses!,
                               initialize_rheology!,
                               compute_substep_Δtᶠᶜᶜ,
@@ -26,7 +26,7 @@ using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
                               sum_of_forcing_u,
                               sum_of_forcing_v
 
-import Oceananigans: fields
+import Oceananigans: fields, prognostic_fields
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ## 

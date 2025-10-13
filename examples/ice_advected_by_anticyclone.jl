@@ -4,8 +4,6 @@
 #
 #
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceDynamics
-using ClimaSeaIce.Rheologies
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Operators
@@ -76,8 +74,8 @@ set!(Vₐ, (x, y) -> va_time(x, y, 0))
 
 fill_halo_regions!((Uₐ, Vₐ))
 
-τₐu = - Uₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3
-τₐv = - Vₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3
+τₐu = Field(- Uₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3)
+τₐv = Field(- Vₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3)
 
 #####
 ##### Numerical details
@@ -124,6 +122,9 @@ function compute_wind_stress(sim)
 
     fill_halo_regions!((Uₐ, Vₐ))
     
+    compute!(τₐu)
+    compute!(τₐv)
+
     return nothing
 end
 
@@ -177,10 +178,10 @@ vtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "v")
 Nt = length(htimeseries)
 iter = Observable(1)
 
-hi = @lift(htimeseries[$iter])
-ℵi = @lift(ℵtimeseries[$iter])
-ui = @lift(utimeseries[$iter])
-vi = @lift(vtimeseries[$iter])
+hi = @lift(interior(htimeseries[$iter], :, :, 1))
+ℵi = @lift(interior(ℵtimeseries[$iter], :, :, 1))
+ui = @lift(interior(utimeseries[$iter], :, :, 1))
+vi = @lift(interior(vtimeseries[$iter], :, :, 1))
 
 fig = Figure()
 ax = Axis(fig[1, 1], title = "sea ice thickness")
