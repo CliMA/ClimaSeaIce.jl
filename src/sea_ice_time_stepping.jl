@@ -86,7 +86,7 @@ function update_state!(model::SIM)
         fill_halo_regions!(field, model.clock, fields(model))
     end
 
-    # update_model_field_time_series!(model, model.clock)
+    update_model_field_time_series!(model, model.clock)
 
     return nothing
 end
