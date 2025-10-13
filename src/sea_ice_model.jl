@@ -5,6 +5,7 @@ using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Forcings: model_forcing
 
+using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
