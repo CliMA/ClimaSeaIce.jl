@@ -114,11 +114,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         converted_stresses_args = convert_to_device(arch, stresses_args)
 
         for substep in 1 : substeps
-            if params == :xy
-                fill_halo_regions!(converted_u_halo...)
-                fill_halo_regions!(converted_v_halo...)
-            end
-          
+            fill_halo_regions!(converted_u_halo...; only_local_halos = true)
+            fill_halo_regions!(converted_v_halo...; only_local_halos = true)
+            
             # Compute stresses! depending on the particular rheology implementation
             compute_stresses!(dynamics, converted_stresses_args...)
 
