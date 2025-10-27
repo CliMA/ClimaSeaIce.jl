@@ -1,9 +1,12 @@
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
-using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.Architectures: convert_to_device
 using Oceananigans.Fields: instantiated_location, boundary_conditions
+using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.ImmersedBoundaries: peripheral_node
+using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
+
+using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
 
 struct SplitExplicitSolver{I, K}
     substeps :: I
@@ -11,23 +14,20 @@ struct SplitExplicitSolver{I, K}
 end
 
 """
-    SplitExplicitSolver(; substeps=120)
+    SplitExplicitSolver(grid; substeps=120)
 
 Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
 by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
 """
-function SplitExplicitSolver(grid; substeps=120, extend_halos=true) 
-    if extend_halos 
-        Nx, Ny, _ = size(grid)
-        Hx, Hy, _ = halo_size(grid)
-        TX, TY, _ = topology(grid)
-        kernel_sizes = map(split_explicit_kernel_size, (TX, TY), (Nx, Ny), (Hx, Hy))
-    else
-        kernel_sizes = :xy
-    end
+SplitExplicitSolver(grid; substeps=120) = SplitExplicitSolver(substeps, :xy)
 
+function SplitExplicitSolver(grid::DistributedGrid; substeps=120) 
+    Nx, Ny, _ = size(grid)
+    Hx, Hy, _ = halo_size(grid)
+    TX, TY, _ = topology(grid)
+    kernel_sizes = map(split_explicit_kernel_size, (TX, TY), (Nx, Ny), (Hx, Hy))
     return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
 end
 
