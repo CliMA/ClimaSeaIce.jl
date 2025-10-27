@@ -23,7 +23,12 @@ simulation = Simulation(model; Δt = 0.1 / κ, stop_iteration=3)
     end
 end
 
+# TODO: 
+# - Split tests into testsets
+# - Add a distributed test for sea ice model
+
 include("test_sea_ice_advection.jl")
 include("test_time_stepping.jl")
 include("test_distributed_sea_ice.jl")
 include("test_checkpointing.jl")
+include("test_distributed.jl")
