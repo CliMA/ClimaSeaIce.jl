@@ -203,9 +203,9 @@ function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticR
     return nothing
 end
 
-@inline strain_rate_xx(i, j, k, grid, u, v) =  δxTᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, u, v) =  δyTᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_xy(i, j, k, grid, u, v) = (δxTᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyTᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
+@inline strain_rate_xx(i, j, k, grid, u, v) =  δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, u, v) =  δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
 
 @kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v)
     i, j = @index(Global, NTuple)
