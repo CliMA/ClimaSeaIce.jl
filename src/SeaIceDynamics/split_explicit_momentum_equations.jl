@@ -31,6 +31,9 @@ function SplitExplicitSolver(grid::DistributedGrid; substeps=120)
     return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
 end
 
+# When no grid is provided, we assume a serial grid with default kernel parameters
+SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
+
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver{<:Any, <:KernelParameters}}
 
