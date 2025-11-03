@@ -79,10 +79,9 @@ function SeaIceModel(grid;
         if dynamics isa ExtendedSplitExplicitMomentumEquation
             old_halos = halo_size(grid)
             Nsubsteps = length(dynamics.solver.substeps)
-            step_halo = Nsubsteps + 3
             TX, TY    = topology(grid)
-            Hx = TX() isa ConnectedTopology ? max(step_halo, old_halos[1]) : old_halos[1]
-            Hy = TY() isa ConnectedTopology ? max(step_halo, old_halos[2]) : old_halos[2]
+            Hx = TX() isa ConnectedTopology ? Nsubsteps + old_halos[1] : old_halos[1]
+            Hy = TY() isa ConnectedTopology ? Nsubsteps + old_halos[2] : old_halos[2]
 
             new_halos = (Hx, Hy, old_halos[3])
             velocity_grid = with_halo(grid, new_halos)
