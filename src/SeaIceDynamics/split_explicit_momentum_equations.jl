@@ -1,25 +1,41 @@
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
-using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.Architectures: convert_to_device
 using Oceananigans.Fields: instantiated_location, boundary_conditions
+using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.ImmersedBoundaries: peripheral_node
+using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 
-struct SplitExplicitSolver 
-    substeps :: Int
+using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
+
+struct SplitExplicitSolver{I, K}
+    substeps :: I
+    kernel_parameters :: K
 end
 
 """
-    SplitExplicitSolver(; substeps=120)
+    SplitExplicitSolver(grid; substeps=120)
 
 Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
 by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
 """
-SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps)
+SplitExplicitSolver(grid; substeps=120) = SplitExplicitSolver(substeps, :xy)
+
+function SplitExplicitSolver(grid::DistributedGrid; substeps=120) 
+    Nx, Ny, _ = size(grid)
+    Hx, Hy, _ = halo_size(grid)
+    TX, TY, _ = topology(grid)
+    kernel_sizes = map(split_explicit_kernel_size, (TX, TY), (Nx, Ny), (Hx, Hy))
+    return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
+end
+
+# When no grid is provided, we assume a serial grid with default kernel parameters
+SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
+const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver{<:Any, <:KernelParameters}}
 
 """
     time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
@@ -58,10 +74,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                          ℵ = model.ice_concentration, 
                          ρ = model.ice_density))
 
-    active_cells_map = Oceananigans.Grids.get_active_column_map(grid)
+    params = dynamics.solver.kernel_parameters
 
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _u_velocity_step!; active_cells_map)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, :xy, _v_velocity_step!; active_cells_map)
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
     initialize_rheology!(model, dynamics.rheology)
@@ -101,6 +117,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         converted_stresses_args = convert_to_device(arch, stresses_args)
 
         for substep in 1 : substeps
+            fill_halo_regions!(converted_u_halo...; only_local_halos = true)
+            fill_halo_regions!(converted_v_halo...; only_local_halos = true)
+            
             # Compute stresses! depending on the particular rheology implementation
             compute_stresses!(dynamics, converted_stresses_args...)
 
@@ -115,9 +134,6 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                 v_velocity_kernel!(converted_v_args...)
                 u_velocity_kernel!(converted_u_args...)
             end
-
-            fill_halo_regions!(converted_u_halo...)
-            fill_halo_regions!(converted_v_halo...)
         end
     end
 

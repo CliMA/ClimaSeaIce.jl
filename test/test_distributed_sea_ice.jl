@@ -1,56 +1,94 @@
-using MPI
-using JLD2 
+using Oceananigans
+using ClimaSeaIce
 
-distributed_sea_ice = """
-    using ClimaSeaIce
-    using Oceananigans
-    using Oceananigans.DistributedComputations
-    using JLD2
+include("distributed_tests_utils.jl")
 
-    arch = Distributed(CPU(); partition=Partition(x=2, y=2))
+run_slab_distributed_grid = """
+    using MPI
+    MPI.Init()
 
-    grid_2d = RectilinearGrid(arch, size=(10, 10),     x=(0, 1), y=(0, 1),            topology=(Bounded, Bounded, Flat))
-    grid_3d = RectilinearGrid(arch, size=(10, 10, 10), x=(0, 1), y=(0, 1), z=(-1, 0), topology=(Bounded, Bounded, Bounded))
-
-    iterations = Int[]
-
-    for grid in (grid_2d, grid_3d)
-        rheologies = (ElastoViscoPlasticRheology(), ViscousRheology(ν=1000))
-        advections = (WENO(), UpwindBiased(order=5))
-
-        ice_thermodynamics = (nothing, SlabSeaIceThermodynamics(grid))
-
-        coriolises = (nothing, FPlane(latitude=45), BetaPlane(latitude=45))
-        solvers = (ExplicitSolver(), SplitExplicitSolver())
-
-        for coriolis in coriolises, advection in advections, rheology in rheologies, ice_thermodynamics in ice_thermodynamics, solver in solvers
-            dynamics = SeaIceMomentumEquation(grid; coriolis, rheology, solver)
-
-            model = SeaIceModel(grid; dynamics, ice_thermodynamics, advection)
-            simulation = Simulation(model, Δt=1.0, stop_iteration=1)
-
-            run!(simulation)
-
-            push!(iterations, model.clock.iteration)
-        end
-    end
-
-    DistributedComputations.all_reduce!(+, iterations, arch)
-
-    @root jldsave("iterations.jld2"; iterations)
+    include("distributed_tests_utils.jl")
+    arch = Distributed(CPU(), partition = Partition(1, 4))
+    run_distributed_sea_ice(arch, "distributed_yslab_seaice.jld2")
 """
 
-@testset "Sea ice Models" begin
-    @info "Testing distributed sea ice models runs..."
-    write("distributed_sea_ice_tests.jl", distributed_sea_ice)
-    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 --check-bounds=yes distributed_sea_ice_tests.jl`)
-    rm("distributed_sea_ice_tests.jl")
+run_pencil_distributed_grid = """
+    using MPI
+    MPI.Init()
 
-    @info "Checking that all cores ran all configurations up to 1 iteration..."
-    @test isfile("iterations.jld2")
-    file = jldopen("iterations.jld2")
-    data = file["iterations"]
-    @test all(data .== 4)
-    close(file)
-    rm("iterations.jld2")
+    include("distributed_tests_utils.jl")
+    arch = Distributed(CPU(), partition = Partition(2, 2))
+    run_distributed_sea_ice(arch, "distributed_pencil_seaice.jld2")
+"""
+
+run_large_pencil_distributed_grid = """
+    using MPI
+    MPI.Init()
+
+    include("distributed_tests_utils.jl")
+    arch = Distributed(CPU(), partition = Partition(4, 2))
+    run_distributed_sea_ice(arch, "distributed_large_pencil_seaice.jld2")
+"""
+
+@testset "Test distributed seaiceGrid simulations..." begin
+    # Run the serial computation
+    grid = RectilinearGrid(CPU(); 
+                            size = (100, 100, 1), 
+                            x = (-10kilometers, 10kilometers), 
+                            y = (-10kilometers, 10kilometers), 
+                            z = (-1, 0), 
+                            halo = (5, 5, 5))
+
+    model = run_distributed_simulation(grid)
+
+    # Retrieve Serial quantities
+    us, vs = model.velocities
+
+    us = interior(us, :, :, 1)
+    vs = interior(vs, :, :, 1)
+
+    # Run the distributed grid simulation with a slab configuration
+    write("distributed_slab_tests.jl", run_slab_distributed_grid)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_slab_tests.jl`)
+    rm("distributed_slab_tests.jl")
+
+    # Retrieve Parallel quantities
+    up = jldopen("distributed_yslab_seaice.jld2")["u"]
+    vp = jldopen("distributed_yslab_seaice.jld2")["v"]
+
+    rm("distributed_yslab_seaice.jld2")
+
+    # Test slab partitioning
+    @test all(us .≈ up)
+    @test all(vs .≈ vp)
+
+    # Run the distributed grid simulation with a pencil configuration
+    write("distributed_tests.jl", run_pencil_distributed_grid)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_tests.jl`)
+    rm("distributed_tests.jl")
+
+    # Retrieve Parallel quantities
+    up = jldopen("distributed_pencil_seaice.jld2")["u"]
+    vp = jldopen("distributed_pencil_seaice.jld2")["v"]
+
+    rm("distributed_pencil_seaice.jld2")
+
+    @test all(us .≈ up)
+    @test all(vs .≈ vp)
+
+    # We try now with more ranks in the x-direction. This is not a trivial
+    # test as we are now splitting, not only where the singularities are, but
+    # also in the middle of the north fold. This is a more challenging test
+    write("distributed_large_pencil_tests.jl", run_large_pencil_distributed_grid)
+    run(`$(mpiexec()) -n 8 $(Base.julia_cmd()) --project -O0 distributed_large_pencil_tests.jl`)
+    rm("distributed_large_pencil_tests.jl")
+
+    # Retrieve Parallel quantities
+    up = jldopen("distributed_large_pencil_seaice.jld2")["u"]
+    vp = jldopen("distributed_large_pencil_seaice.jld2")["v"]
+
+    rm("distributed_large_pencil_seaice.jld2")
+
+    @test all(us .≈ up)
+    @test all(vs .≈ vp)
 end
