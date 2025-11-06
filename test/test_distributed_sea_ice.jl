@@ -39,7 +39,7 @@ run_large_pencil_distributed_grid = """
                             z = (-1, 0), 
                             halo = (5, 5, 5))
 
-    model = run_distributed_sea_ice(grid)
+    model = run_distributed_simulation(grid)
 
     # Retrieve Serial quantities
     us, vs = model.velocities
