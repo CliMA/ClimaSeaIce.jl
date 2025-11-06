@@ -88,7 +88,7 @@ function SeaIceModel(grid;
             Hy = TY() isa ConnectedTopology ? Nsubsteps + old_halos[2] : old_halos[2]
 
             new_halos = (Hx, Hy, old_halos[3])
-            velocity_grid = with_halo(grid, new_halos)
+            velocity_grid = with_halo(new_halos, grid)
         else
             velocity_grid = grid
         end
