@@ -44,7 +44,7 @@ function run_distributed_simulation(grid)
                                       rheology = ElastoViscoPlasticRheology(),
                                       solver = SplitExplicitSolver(grid, substeps=50))
 
-    model = SeaIceModel(; grid, ice_thermodyamics = nothing, dynamics, advection = WENO(order=7))
+    model = SeaIceModel(grid; ice_thermodyamics = nothing, dynamics, advection = WENO(order=7))
 
     for N in 1:100
         time_step!(model, 1minutes)
