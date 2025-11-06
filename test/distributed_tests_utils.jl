@@ -1,5 +1,6 @@
 using JLD2
 using MPI
+using Oceananigans
 using Oceananigans.DistributedComputations: reconstruct_global_field, reconstruct_global_grid
 using Oceananigans.Units
 using ClimaSeaIce
