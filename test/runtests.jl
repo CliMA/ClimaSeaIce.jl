@@ -23,6 +23,8 @@ simulation = Simulation(model; Δt = 0.1 / κ, stop_iteration=3)
     end
 end
 
+TEST_GROUP = get(ENV, "TEST_GROUP", "all")
+
 # TODO: Split tests into testsets
 if TEST_GROUP == "all" || TEST_GROUP == "advection"
     include("test_sea_ice_advection.jl")
