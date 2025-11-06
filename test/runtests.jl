@@ -24,8 +24,18 @@ simulation = Simulation(model; Δt = 0.1 / κ, stop_iteration=3)
 end
 
 # TODO: Split tests into testsets
-include("test_sea_ice_advection.jl")
-include("test_time_stepping.jl")
-include("test_distributed_sea_ice.jl")
-include("test_checkpointing.jl")
-include("test_distributed_sea_ice.jl")
+if TEST_GROUP == "all" || TEST_GROUP == "advection"
+    include("test_sea_ice_advection.jl")
+end
+
+if TEST_GROUP == "all" || TEST_GROUP == "timestepping"
+    include("test_time_stepping.jl")
+end
+
+if TEST_GROUP == "all" || TEST_GROUP == "checkpointing"
+    include("test_checkpointing.jl")
+end
+
+if TEST_GROUP == "all" || TEST_GROUP == "distributed"
+    include("test_distributed_sea_ice.jl")
+end
