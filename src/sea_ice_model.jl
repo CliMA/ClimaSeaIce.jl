@@ -4,7 +4,8 @@ using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Forcings: model_forcing
-using Oceananigans.Grids: halo_size
+using Oceananigans.Grids: halo_size, topology
+using Oceananigans.Grids: LeftConnected, RightConnected, FullyConnected
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
@@ -12,6 +13,8 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
+
+const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected}
 
 struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
