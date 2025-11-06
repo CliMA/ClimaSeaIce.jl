@@ -1,7 +1,7 @@
 using Oceananigans
 using ClimaSeaIce
 
-include("distributed_test_utils.jl")
+include("distributed_tests_utils.jl")
 
 run_slab_distributed_grid = """
     using MPI
