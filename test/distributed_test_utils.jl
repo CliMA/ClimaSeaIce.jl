@@ -2,6 +2,8 @@ using JLD2
 using MPI
 using Oceananigans.DistributedComputations: reconstruct_global_field, reconstruct_global_grid
 using Oceananigans.Units
+using ClimaSeaIce
+using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, ElastoViscoPlasticRheology, SemiImplicitStress
 
 # Run the distributed grid simulation and save down reconstructed results
 function run_distributed_sea_ice(arch, filename)
@@ -39,7 +41,8 @@ function run_distributed_simulation(grid)
     dynamics = SeaIceMomentumEquation(grid; 
                                       top_momentum_stress = (u=τᵤ, v=τᵥ),
                                       bottom_momentum_stress = τₒ, 
-                                      rheology = ElastoViscoPlasticRheology())
+                                      rheology = ElastoViscoPlasticRheology(),
+                                      solver = SplitExplicitSolver(grid, substeps=50))
 
     model = SeaIceModel(; grid, ice_thermodyamics = nothing, dynamics, advection = WENO(order=7))
 
