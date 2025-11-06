@@ -35,6 +35,7 @@ run_large_pencil_distributed_grid = """
     grid = RectilinearGrid(CPU(); 
                             size = (100, 100, 1), 
                             x = (-10kilometers, 10kilometers), 
+                            y = (-10kilometers, 10kilometers), 
                             z = (-1, 0), 
                             halo = (5, 5, 5))
 
