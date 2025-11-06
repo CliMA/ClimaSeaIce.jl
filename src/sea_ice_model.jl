@@ -4,6 +4,7 @@ using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Forcings: model_forcing
+using Oceananigans.Grids: halo_size
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
