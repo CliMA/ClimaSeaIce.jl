@@ -27,7 +27,7 @@ end
 # The thermodynamic step is column physics and is performed all at once.
 function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
     
-    fields = merge(model.velocities, (; h = model.ice_thickness, ℵ = model.ice_concentration))
+    fields = prognostic_fields(model)
 
     # Reset all prognostic fields for substep updates...
     for name in keys(fields)

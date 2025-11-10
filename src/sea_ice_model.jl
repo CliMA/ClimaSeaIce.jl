@@ -217,8 +217,7 @@ prognostic_fields(::Nothing) = NamedTuple()
 # TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
-                                      model.velocities,
-                                      prognostic_fields(model.dynamics),
+                                      prognostic_fields(model, model.dynamics),
                                       prognostic_fields(model.ice_thermodynamics))
 
 function update_state!(model::SIM, callbacks=[])

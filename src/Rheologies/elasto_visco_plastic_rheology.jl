@@ -141,8 +141,6 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     return Auxiliaries(fields, kernels)
 end
 
-prognostic_fields(mom, ::ElastoViscoPlasticRheology) = NamedTuple()
-
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
 Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
     ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
