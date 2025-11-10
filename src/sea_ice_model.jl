@@ -221,7 +221,7 @@ prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                       prognostic_fields(model.dynamics),
                                       prognostic_fields(model.ice_thermodynamics))
 
-function update_state!(model::SIM)
+function update_state!(model::SIM, callbacks=[])
     
     foreach(prognostic_fields(model)) do field
         mask_immersed_field_xy!(field, k=size(model.grid, 3))
