@@ -44,7 +44,7 @@ export SeaIceModel,
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
 
 # TODO: move this to Oceananigans
-include("forward_euler_time_stepper.jl")
+include("forward_euler_timestepper.jl")
 
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
 include("Rheologies/Rheologies.jl")
