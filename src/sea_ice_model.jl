@@ -11,6 +11,8 @@ using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
+import Oceananigans.Models: update_model_field_time_series!
+
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
 
@@ -217,3 +219,29 @@ prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                       model.velocities,
                                       prognostic_fields(model.dynamics),
                                       prognostic_fields(model.ice_thermodynamics))
+
+function update_state!(model::SIM)
+    
+    foreach(prognostic_fields(model)) do field
+        mask_immersed_field_xy!(field, k=size(model.grid, 3))
+        fill_halo_regions!(field, model.clock, fields(model))
+    end
+
+    update_model_field_time_series!(model, model.clock)
+
+    return nothing
+end
+
+function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
+    time = Time(clock.time)
+
+    possible_fts = (model.tracers, model.external_heat_fluxes, model.dynamics)
+    time_series_tuple = extract_field_time_series(possible_fts)
+    time_series_tuple = flattened_unique_values(time_series_tuple)
+
+    for fts in time_series_tuple
+        update_field_time_series!(fts, time)
+    end
+
+    return nothing
+end

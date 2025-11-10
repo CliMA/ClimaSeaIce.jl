@@ -6,8 +6,6 @@ using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
 using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
 
-import Oceananigans.Models: update_model_field_time_series!
-
 const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEulerTimeStepper}
 
 # We separate the thermodynamic step from the advection (dynamic) step.
@@ -77,30 +75,4 @@ end
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
     end 
-end
-
-function update_state!(model::SIM)
-    
-    foreach(prognostic_fields(model)) do field
-        mask_immersed_field_xy!(field, k=size(model.grid, 3))
-        fill_halo_regions!(field, model.clock, fields(model))
-    end
-
-    update_model_field_time_series!(model, model.clock)
-
-    return nothing
-end
-
-function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
-    time = Time(clock.time)
-
-    possible_fts = (model.tracers, model.external_heat_fluxes, model.dynamics)
-    time_series_tuple = extract_field_time_series(possible_fts)
-    time_series_tuple = flattened_unique_values(time_series_tuple)
-
-    for fts in time_series_tuple
-        update_field_time_series!(fts, time)
-    end
-
-    return nothing
 end

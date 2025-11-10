@@ -42,7 +42,8 @@ export SeaIceModel,
        ElastoViscoPlasticRheology
 
 # TODO: Move this to Oceananigans.jl
-include("forward_euler_timestepper.jl")
+include("sea_ice_fe_step.jl")
+include("sea_ice_rk_substep.jl")
    
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
 
