@@ -31,8 +31,8 @@ function Base.show(io::IO, therm::SSIT)
     print(io, "└── top_surface_temperature: ", summary(therm.top_surface_temperature))
 end
        
-fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
-prognostic_fields(therm::SSIT) = (; Gʰ = therm.thermodynamic_tendency)
+fields(therm::SSIT) = (; Tu = therm.top_surface_temperature, Gʰ = therm.thermodynamic_tendency)
+prognostic_fields(therm::SSIT) = NamedTuple()
 
 """
     SlabSeaIceThermodynamics(grid; kw...)
