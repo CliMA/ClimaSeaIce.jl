@@ -96,6 +96,14 @@ model = SeaIceModel(grid;
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs))
     
+# We start with a concentration of ℵ = 1 and an 
+# initial height field with perturbations around 0.3 m
+
+h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
+
+set!(model, h = h₀)
+set!(model, ℵ = 1)
+
 #####
 ##### Setup the simulation
 #####
