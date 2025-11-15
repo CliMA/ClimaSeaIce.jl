@@ -136,7 +136,8 @@ function SeaIceModel(grid;
         end
     end
 
-    forcing = model_forcing(prognostic_fields; forcing...)
+    model_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, fields(dynamics))
+    forcing = model_forcing(forcing, model_fields, prognostic_fields)
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,
