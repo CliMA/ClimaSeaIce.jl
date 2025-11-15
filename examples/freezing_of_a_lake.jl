@@ -171,8 +171,8 @@ function accumulate_energy(sim)
     ℵ  = sim.model.ice_concentration
     PT = sim.model.ice_thermodynamics.phase_transitions
     ℰ  = latent_heat(PT, 0) # ice is at 0°C
-
-    push!(Ei, deepcopy(@. - h * ℵ * ℰ))
+    En = - h .* ℵ .* ℰ
+    push!(Ei, deepcopy(En))
     push!(Qa, deepcopy(atmosphere.atmosphere_ice_flux))
     push!(Ql, deepcopy(lake.lake_ice_flux))
 end
