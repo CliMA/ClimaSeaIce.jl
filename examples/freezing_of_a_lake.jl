@@ -106,7 +106,7 @@ lake = (
     Qᵇ = lake.lake_ice_flux
     
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
-    Tⁿ = Tₒ + Qₐ / (ρₒ * cₒ) * Δt
+    Tⁿ = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
     Qᵢ = ρₒ * cₒ * (Tⁿ - 0) / Δt * Δ # W m⁻²
     Qᵢ = min(Qᵢ, zero(Qᵢ))
 
