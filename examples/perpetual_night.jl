@@ -24,7 +24,7 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
-using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission
 using CairoMakie
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))

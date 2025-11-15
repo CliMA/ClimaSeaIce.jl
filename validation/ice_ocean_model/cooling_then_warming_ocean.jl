@@ -5,7 +5,7 @@ using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
 using SeawaterPolynomials: TEOS10EquationOfState
-using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 using CairoMakie
 
 import Oceananigans.Simulations: time_step!, time

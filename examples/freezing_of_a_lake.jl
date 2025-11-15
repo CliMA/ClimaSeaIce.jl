@@ -105,19 +105,12 @@ lake = (
     Qᵗ = lake.atmosphere_lake_flux
     Qᵇ = lake.lake_ice_flux
     
-    # Atmospheric cooling of the lake (only when ice-free)
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
-
-    # Update lake temperature
-    Tₒ[i] = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
-
-    # Compute frazil ice formation flux (only freezing, not melting)
-    Qᵢ = ρₒ * cₒ * (Tₒ[i] - 0) / Δt * Δ # W m⁻²
+    Tⁿ = Tₒ + Qₐ / (ρₒ * cₒ) * Δt
+    Qᵢ = ρₒ * cₒ * (Tⁿ - 0) / Δt * Δ # W m⁻²
     Qᵢ = min(Qᵢ, zero(Qᵢ))
 
-    # Reset lake temperature to freezing point if ice is forming
-    Tₒ[i] = ifelse(Qᵢ == 0, Tₒ[i], zero(Qᵢ))
-
+    Tₒ[i] = ifelse(Qᵢ == 0, Tⁿ, zero(Qᵢ))
     Qᵗ[i] = Qₐ
     Qᵇ[i] = Qᵢ
 
