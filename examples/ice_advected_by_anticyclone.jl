@@ -9,7 +9,7 @@ using Oceananigans.Units
 using Oceananigans.Operators
 using Oceananigans.BoundaryConditions
 using Printf
-using CairoMakie
+# using CairoMakie
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
@@ -92,17 +92,10 @@ dynamics = SeaIceMomentumEquation(grid;
 model = SeaIceModel(grid; 
                     dynamics,
                     ice_thermodynamics = nothing, # No ice_thermodynamics here
+                    timestepper = :SplitRungeKutta3,
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs))
-
-# We start with a concentration of ℵ = 1 and an 
-# initial height field with perturbations around 0.3 m
-
-h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
-
-set!(model, h = h₀)
-set!(model, ℵ = 1)
-
+    
 #####
 ##### Setup the simulation
 #####
@@ -167,8 +160,6 @@ simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
 
 run!(simulation)
 
-using CairoMakie
-
 htimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "h")
 utimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "u")
 vtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "v")
@@ -185,15 +176,13 @@ vi = @lift(interior(vtimeseries[$iter], :, :, 1))
 
 fig = Figure()
 ax = Axis(fig[1, 1], title = "sea ice thickness")
-heatmap!(ax, hi, colormap = :magma, colorrange = (0.23, 0.37))
-
 ax = Axis(fig[1, 2], title = "sea ice concentration")
-heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.9, 1))
-
 ax = Axis(fig[2, 1], title = "zonal velocity")
-heatmap!(ax, ui, colorrange = (-0.1, 0.1))
-
 ax = Axis(fig[2, 2], title = "meridional velocity")
+
+heatmap!(ax, hi, colormap = :magma, colorrange = (0.23, 0.37))
+heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.9, 1))
+heatmap!(ax, ui, colorrange = (-0.1, 0.1))
 heatmap!(ax, vi, colorrange = (-0.1, 0.1))
 
 CairoMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
