@@ -7,7 +7,8 @@ using Oceananigans.BoundaryConditions:
     compute_z_bcs!,
     ValueBoundaryCondition
 
-using Oceananigans.Utils: prettysummary, prettytime, launch!
+using Oceananigans.Grids: prettysummary
+using Oceananigans.Utils: prettytime, launch!
 using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior, TracerFields
 using Oceananigans.Models: AbstractModel
 using Oceananigans.TimeSteppers: Clock, tick!

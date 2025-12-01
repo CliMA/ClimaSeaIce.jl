@@ -133,7 +133,7 @@ using .HeatBoundaryConditions:
     PrescribedTemperature,
     getflux
 
-using Oceananigans.Utils: prettysummary
+using Oceananigans.Grids: prettysummary
 using Oceananigans.TimeSteppers: Clock
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 

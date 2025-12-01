@@ -1,5 +1,5 @@
 using Oceananigans
-using Oceananigans.Utils: prettysummary
+using Oceananigans.Grids: prettysummary
 using Oceananigans.Units
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using ClimaSeaIce

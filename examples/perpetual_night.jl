@@ -35,7 +35,11 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 # and emits longwave radiation from its top surface. The `RadiativeEmission`
 # boundary condition implements the Stefan-Boltzmann law for blackbody radiation:
 
-model = SlabSeaIceModel(grid; top_heat_flux=RadiativeEmission())
+ice_thermodynamics = SlabSeaIceThermodynamics(grid; top_heat_boundary_condition=MeltingConstrainedFluxBalance())
+
+top_flux = Field{Nothing, Nothing, Nothing}(grid)
+interior(top_flux) .= - 200.0
+model = SeaIceModel(grid; top_heat_flux=(RadiativeEmission(), top_flux), ice_thermodynamics)
 
 # We initialize the ice with a small thickness:
 
@@ -55,7 +59,7 @@ simulation = Simulation(model, Δt=1hour, stop_time=40days)
 timeseries = []
 
 function accumulate_timeseries(sim)
-    T = model.top_surface_temperature
+    T = model.ice_thermodynamics.top_surface_temperature
     h = model.ice_thickness
     push!(timeseries, (time(sim), first(h), first(T)))
 end
