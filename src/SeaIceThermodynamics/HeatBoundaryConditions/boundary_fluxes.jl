@@ -44,7 +44,7 @@ end
 Base.summary(flux::FluxFunction{<:Nothing}) = string("FluxFunction of ", summary(flux.func, false))
 
 Base.summary(flux::FluxFunction) = string("FluxFunction of ",
-                                          summary(flux.func, false),
+                                          summary(flux.func),
                                           " with parameters ",
                                           summary(flux.parameters))
 
