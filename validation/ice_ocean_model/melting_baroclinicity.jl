@@ -3,13 +3,13 @@ using Oceananigans.Architectures: arch_array
 using Oceananigans.Fields: ZeroField, ConstantField
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using Oceananigans.Units
-using Oceananigans.Utils: prettysummary
+using Oceananigans.Grids: prettysummary
 
 using SeawaterPolynomials: TEOS10EquationOfState, heat_expansion, haline_contraction
 
 using ClimaSeaIce
 using ClimaSeaIce: melting_temperature
-using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 
 using Printf
 using CairoMakie
