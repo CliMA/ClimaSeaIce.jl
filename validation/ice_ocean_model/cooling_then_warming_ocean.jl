@@ -1,5 +1,4 @@
 using Oceananigans
-using Oceananigans.Utils: prettysummary
 using Oceananigans.Units
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using ClimaSeaIce
@@ -131,12 +130,12 @@ while (time(ocean_simulation) < 100days)
 
         @info string("Iter:  ", iteration(ocean_simulation),
                      ", t:   ", prettytime(ocean_simulation),
-                     ", Tₒ:  ", prettysummary(To[end][Nz]),
-                     ", Sₒ:  ", prettysummary(So[end][Nz]),
-                     ", h:   ", prettysummary(hi[end]),
-                     ", ℵ:   ", prettysummary(ℵi[end]),
-                     ", Tᵢ:  ", prettysummary(Tst[end]),
-                     ", ℵ h: ", prettysummary(ℵi[end] * hi[end]))
+                     ", Tₒ:  ", summary(To[end][Nz]),
+                     ", Sₒ:  ", summary(So[end][Nz]),
+                     ", h:   ", summary(hi[end]),
+                     ", ℵ:   ", summary(ℵi[end]),
+                     ", Tᵢ:  ", summary(Tst[end]),
+                     ", ℵ h: ", summary(ℵi[end] * hi[end]))
     end
 end
 

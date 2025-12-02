@@ -1,4 +1,3 @@
-using Oceananigans.Utils: prettysummary
 
 #####
 ##### Fluxes
@@ -42,12 +41,12 @@ function Adapt.adapt_structure(to, ff::FluxFunction{P, T}) where {P, T}
                            adapt(to, ff.parameters))
 end
 
-Base.summary(flux::FluxFunction{<:Nothing}) = string("FluxFunction of ", prettysummary(flux.func, false))
+Base.summary(flux::FluxFunction{<:Nothing}) = string("FluxFunction of ", summary(flux.func, false))
 
 Base.summary(flux::FluxFunction) = string("FluxFunction of ",
-                                          prettysummary(flux.func, false),
+                                          summary(flux.func, false),
                                           " with parameters ",
-                                          prettysummary(flux.parameters))
+                                          summary(flux.parameters))
 
 Base.show(io::IO, flux::FluxFunction) = print(io, summary(flux))
 
@@ -116,9 +115,9 @@ function Base.summary(flux::RadiativeEmission)
     ϵ = flux.emissivity
     Tᵣ = flux.reference_temperature
     return string("RadiativeEmission(",
-                  "emissivity = ", prettysummary(ϵ), ", ",
-                  "stefan_boltzmann_constant = ", prettysummary(σ), ", ",
-                  "reference_temperature = ", prettysummary(Tᵣ), ")")
+                  "emissivity = ", summary(ϵ), ", ",
+                  "stefan_boltzmann_constant = ", summary(σ), ", ",
+                  "reference_temperature = ", summary(Tᵣ), ")")
 end
 
 Base.show(io::IO, flux::RadiativeEmission) = print(io, summary(flux))
@@ -127,7 +126,7 @@ Base.show(io::IO, flux::RadiativeEmission) = print(io, summary(flux))
 ##### show
 #####
 
-flux_summary(flux, padchar=" ") = prettysummary(flux)
+flux_summary(flux, padchar=" ") = summary(flux)
 
 function flux_summary(fluxes::Tuple, padchar=" ")
     Nfluxes = length(fluxes)
