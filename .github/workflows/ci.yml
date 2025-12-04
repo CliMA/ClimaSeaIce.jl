@@ -33,6 +33,7 @@ jobs:
       matrix:
         version:
           - '1.10'
+          - '1.12'
         os:
           - ubuntu-latest
         arch:
@@ -58,6 +59,7 @@ jobs:
       matrix:
         version:
           - '1.10'
+          - '1.12'
         os:
           - ubuntu-latest
         arch:
@@ -83,6 +85,7 @@ jobs:
       matrix:
         version:
           - '1.10'
+          - '1.12'
         os:
           - ubuntu-latest
         arch:
@@ -108,6 +111,7 @@ jobs:
       matrix:
         version:
           - '1.10'
+          - '1.12'
         os:
           - ubuntu-latest
         arch:
@@ -133,6 +137,7 @@ jobs:
       matrix:
         version:
           - '1.10'
+          - '1.12'
         os:
           - ubuntu-latest
         arch:
