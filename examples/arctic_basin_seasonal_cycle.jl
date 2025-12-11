@@ -4,7 +4,7 @@
 
 using Oceananigans
 using Oceananigans.Units
-using Oceananigans.Utils: Time
+using Oceananigans.Units: Time
 using Oceananigans.OutputReaders
 using ClimaSeaIce
 
