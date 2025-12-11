@@ -80,7 +80,6 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
 
     if isnothing(velocities)
-
         # Extend the halos for the velocity fields if the dynamics is
         # an extended split explicit momentum equation
         if dynamics isa ExtendedSplitExplicitMomentumEquation

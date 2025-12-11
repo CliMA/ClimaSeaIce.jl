@@ -37,6 +37,16 @@ SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver{<:Any, <:KernelParameters}}
 
+# Reset the velocities to the previous time step
+# This does nothing for a FE model, but is necessary for an RK model.
+reset_velocities!(u, v, model) = nothing
+
+function reset_velocities!(u, v, model::RKSeaIceModel) 
+    parent(u) .= parent(model.timestepper.Ψ⁻.u)
+    parent(v) .= parent(model.timestepper.Ψ⁻.v)
+    return nothing
+end
+
 """
     time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
 
@@ -53,7 +63,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     Nx, Ny, Nz = size(grid)
     Hx, Hy, _  = halo_size(grid)
     u, v       = model.velocities
-  
+
+    reset_velocities!(u, v, model.timestepper)
+
     free_drift = dynamics.free_drift
     clock = model.clock
     coriolis = dynamics.coriolis

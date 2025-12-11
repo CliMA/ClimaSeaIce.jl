@@ -2,9 +2,11 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.Utils
 using KernelAbstractions: @kernel, @index
 
+using ClimaSeaIce: FESeaIceModel, RKSeaIceModel
+
 thermodynamic_time_step!(model, ::Nothing, Δt) = nothing
 
-function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
+function thermodynamic_time_step!(model::FESeaIceModel, ::SlabSeaIceThermodynamics, Δt)
     grid = model.grid
     arch = architecture(grid)
     
@@ -12,6 +14,29 @@ function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
             _slab_thermodynamic_time_step!,
             model.ice_thickness,
             model.ice_concentration,
+            model.ice_thickness,
+            model.ice_concentration,
+            grid, Δt,
+            model.clock,
+            model.ice_consolidation_thickness,
+            model.ice_thermodynamics,
+            model.external_heat_fluxes.top,
+            model.external_heat_fluxes.bottom,
+            fields(model))
+
+    return nothing
+end
+
+function thermodynamic_time_step!(model::RKSeaIceModel, ::SlabSeaIceThermodynamics, Δt)
+    grid = model.grid
+    arch = architecture(grid)
+    
+    launch!(arch, grid, :xy,
+            _slab_thermodynamic_time_step!,
+            model.ice_thickness,
+            model.ice_concentration,
+            model.timestepper.Ψ⁻.h,
+            model.timestepper.Ψ⁻.ℵ,
             grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
@@ -36,6 +61,8 @@ end
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
 @kernel function _slab_thermodynamic_time_step!(ice_thickness,
                                                 ice_concentration,
+                                                previous_ice_thickness,
+                                                previous_ice_concentration,
                                                 grid,
                                                 Δt,
                                                 clock,
@@ -48,8 +75,8 @@ end
     i, j = @index(Global, NTuple)
      
     Gⁿ = ice_thermodynamics.thermodynamic_tendency
-    @inbounds hⁿ = ice_thickness[i, j, 1]
-    @inbounds ℵⁿ = ice_concentration[i, j, 1]
+    @inbounds hⁿ = previous_ice_thickness[i, j, 1]
+    @inbounds ℵⁿ = previous_ice_concentration[i, j, 1]
     @inbounds hᶜ = ice_consolidation_thickness[i, j, 1]
 
     # Total volume tendency

@@ -26,13 +26,6 @@ end
 # We separate the thermodynamic step from the advection (dynamic) step.
 # The thermodynamic step is column physics and is performed all at once.
 function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
-    
-    fields = prognostic_fields(model)
-
-    # Reset all prognostic fields for substep updates...
-    for name in keys(fields)
-        parent(fields[name]) .= parent(model.timestepper.Ψ⁻[name])
-    end
 
     thermodynamic_time_step!(model, model.ice_thermodynamics, Δτ)
 
@@ -42,6 +35,23 @@ function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
 
     # This is an implicit (or split-explicit) step to advance momentum.
     time_step_momentum!(model, model.dynamics, Δτ)
+
+    return nothing
+end
+
+function dynamic_time_step!(model::RKSeaIceModel, Δt)
+    grid = model.grid
+    arch = architecture(grid)
+
+    h = model.ice_thickness
+    ℵ = model.ice_concentration
+    h⁻ = model.timestepper.Ψ⁻.h
+    ℵ⁻ = model.timestepper.Ψ⁻.ℵ
+    tracers = model.tracers
+
+    Gⁿ = model.timestepper.Gⁿ
+    
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h⁻, ℵ⁻, tracers, Gⁿ, Δt)
 
     return nothing
 end

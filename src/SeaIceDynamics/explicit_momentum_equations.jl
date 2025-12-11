@@ -2,12 +2,18 @@ using Oceananigans.Utils
 
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
+using ClimaSeaIce: FESeaIceModel, RKSeaIceModel
+
+previous_velocities(model::FESeaIceModel) = model.velocities
+previous_velocities(model::RKSeaIceModel) = (u = model.timestepper.Ψ⁻.u, v = model.timestepper.Ψ⁻.v)
+
 # Simple explicit stepping of the momentum equations
 function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     grid = model.grid
     arch = architecture(grid)
 
-    u, v = model.velocities
+    u,  v  = model.velocities
+    u⁻, v⁻ = previous_velocities(model)
     Gⁿ = model.timestepper.Gⁿ
 
     dynamics = model.dynamics
@@ -26,14 +32,14 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
-    launch!(arch, grid, :xy, _step_velocities!, u, v, grid, Gⁿ, Δt, 
+    launch!(arch, grid, :xy, _step_velocities!, u, v, u⁻, v⁻, grid, Gⁿ, Δt, 
             top_stress, bottom_stress, free_drift, 
             minimum_mass, minimum_concentration, clock, model_fields)
 
     return nothing
 end
 
-@kernel function _step_velocities!(u, v, grid, Gⁿ, Δt, 
+@kernel function _step_velocities!(u, v, u⁻, v⁻, grid, Gⁿ, Δt, 
                                    top_stress, bottom_stress, 
                                    free_drift, minimum_mass, minimum_concentration, clock, fields)
 
@@ -53,8 +59,8 @@ end
          - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
 
     @inbounds begin
-        uᴰ = (u[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
-        vᴰ = (v[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
+        uᴰ = (u⁻[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
+        vᴰ = (v⁻[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
 
         uᶠ = free_drift_u(i, j, kᴺ, grid, free_drift, clock, fields)
         vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, fields)

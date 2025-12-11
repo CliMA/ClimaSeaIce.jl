@@ -10,7 +10,7 @@ const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEulerTimeStepper
 
 # We separate the thermodynamic step from the advection (dynamic) step.
 # The thermodynamic step is column physics and is performed all at once.
-function time_step!(model::FESeaIceModel, Δt; callbacks = [])
+function time_step!(model::FESeaIceModel, Δt; kwargs...)
     
     # Be paranoid and update state at iteration 0
     model.clock.iteration == 0 && update_state!(model)
@@ -32,7 +32,7 @@ function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     return nothing
 end
 
-function dynamic_time_step!(model::SIM, Δt)
+function dynamic_time_step!(model::FESeaIceModel, Δt)
     grid = model.grid
     arch = architecture(grid)
 
@@ -42,7 +42,7 @@ function dynamic_time_step!(model::SIM, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, tracers, Gⁿ, Δt)
 
     return nothing
 end
@@ -51,7 +51,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _dynamic_step_tracers!(h, ℵ, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_tracers!(h, ℵ, h⁻, ℵ⁻, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
     
@@ -60,8 +60,8 @@ end
     
     # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = h[i, j, k] + Δt * Ghⁿ[i, j, k]
-        ℵ⁺ = ℵ[i, j, k] + Δt * Gℵⁿ[i, j, k]
+        h⁺ = h⁻[i, j, k] + Δt * Ghⁿ[i, j, k]
+        ℵ⁺ = ℵ⁻[i, j, k] + Δt * Gℵⁿ[i, j, k]
 
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
         h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
