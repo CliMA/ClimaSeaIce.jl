@@ -32,7 +32,7 @@ function time_step!(model::FESeaIceModel, Δt; kwargs...)
     return nothing
 end
 
-function dynamic_time_step!(model::FESeaIceModel, Δt)
+function dynamic_time_step!(model, Δt)
     grid = model.grid
     arch = architecture(grid)
 
@@ -42,7 +42,7 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
 
     return nothing
 end
@@ -51,7 +51,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _dynamic_step_tracers!(h, ℵ, h⁻, ℵ⁻, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_tracers!(h, ℵ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
     
@@ -60,8 +60,8 @@ end
     
     # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = h⁻[i, j, k] + Δt * Ghⁿ[i, j, k]
-        ℵ⁺ = ℵ⁻[i, j, k] + Δt * Gℵⁿ[i, j, k]
+        h⁺ = h[i, j, k] + Δt * Ghⁿ[i, j, k]
+        ℵ⁺ = ℵ[i, j, k] + Δt * Gℵⁿ[i, j, k]
 
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
         h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up

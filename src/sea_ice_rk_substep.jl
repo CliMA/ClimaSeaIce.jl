@@ -38,20 +38,3 @@ function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
 
     return nothing
 end
-
-function dynamic_time_step!(model::RKSeaIceModel, Δt)
-    grid = model.grid
-    arch = architecture(grid)
-
-    h = model.ice_thickness
-    ℵ = model.ice_concentration
-    h⁻ = model.timestepper.Ψ⁻.h
-    ℵ⁻ = model.timestepper.Ψ⁻.ℵ
-    tracers = model.tracers
-
-    Gⁿ = model.timestepper.Gⁿ
-    
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h⁻, ℵ⁻, tracers, Gⁿ, Δt)
-
-    return nothing
-end
