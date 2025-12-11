@@ -3,7 +3,6 @@ module ClimaSeaIce
 
 using Oceananigans
 using Oceananigans.Utils
-using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 using Oceananigans.TimeSteppers: tick!, QuasiAdamsBashforth2TimeStepper, RungeKutta3TimeStepper
