@@ -3,7 +3,6 @@ using Oceananigans.Architectures: arch_array
 using Oceananigans.Fields: ZeroField, ConstantField
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using Oceananigans.Units
-using Oceananigans.Grids: prettysummary
 
 using SeawaterPolynomials: TEOS10EquationOfState, heat_expansion, haline_contraction
 
