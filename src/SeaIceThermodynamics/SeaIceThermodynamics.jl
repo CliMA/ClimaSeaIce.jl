@@ -143,6 +143,9 @@ import Oceananigans.Models: AbstractModel
 import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
+using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
+using ClimaSeaIce: ForwardEulerTimeStepper
+
 import Oceananigans.Utils: prettytime
 
 # TODO: Fix this after this PR

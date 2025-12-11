@@ -12,8 +12,9 @@ using Oceananigans.Utils: launch!
 using Oceananigans.Operators
 using Oceananigans.Grids
 using Oceananigans.Grids: architecture
-
+using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 using ClimaSeaIce: ice_mass
+
 using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ, 
                               ∂ⱼ_σ₂ⱼ, 
                               immersed_∂ⱼ_σ₁ⱼ,

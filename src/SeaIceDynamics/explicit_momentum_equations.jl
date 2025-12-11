@@ -2,10 +2,8 @@ using Oceananigans.Utils
 
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
-using ClimaSeaIce: FESeaIceModel, RKSeaIceModel
-
-previous_velocities(model::FESeaIceModel) = model.velocities
-previous_velocities(model::RKSeaIceModel) = (u = model.timestepper.Ψ⁻.u, v = model.timestepper.Ψ⁻.v)
+previous_velocities(model, timestepper) = model.velocities
+previous_velocities(model, timestepper::SplitRungeKuttaTimeStepper) = (u = model.timestepper.Ψ⁻.u, v = model.timestepper.Ψ⁻.v)
 
 # Simple explicit stepping of the momentum equations
 function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
@@ -13,7 +11,7 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     arch = architecture(grid)
 
     u,  v  = model.velocities
-    u⁻, v⁻ = previous_velocities(model)
+    u⁻, v⁻ = previous_velocities(model, model.timestepper)
     Gⁿ = model.timestepper.Gⁿ
 
     dynamics = model.dynamics

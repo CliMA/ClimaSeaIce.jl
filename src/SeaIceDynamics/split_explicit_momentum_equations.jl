@@ -39,11 +39,11 @@ const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExpl
 
 # Reset the velocities to the previous time step
 # This does nothing for a FE model, but is necessary for an RK model.
-reset_velocities!(u, v, model) = nothing
+reset_velocities!(u, v, timestepper) = nothing
 
-function reset_velocities!(u, v, model::RKSeaIceModel) 
-    parent(u) .= parent(model.timestepper.Ψ⁻.u)
-    parent(v) .= parent(model.timestepper.Ψ⁻.v)
+function reset_velocities!(u, v, timestepper::SplitRungeKuttaTimeStepper) 
+    parent(u) .= parent(timestepper.Ψ⁻.u)
+    parent(v) .= parent(timestepper.Ψ⁻.v)
     return nothing
 end
 

@@ -2,11 +2,14 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.Utils
 using KernelAbstractions: @kernel, @index
 
-using ClimaSeaIce: FESeaIceModel, RKSeaIceModel
-
 thermodynamic_time_step!(model, ::Nothing, Δt) = nothing
 
-function thermodynamic_time_step!(model::FESeaIceModel, ::SlabSeaIceThermodynamics, Δt)
+previous_thickness(model, timestepper) = model.ice_thickness
+previous_concentration(model, timestepper) = model.ice_concentration
+previous_thickness(model, timestepper::SplitRungeKuttaTimeStepper) = timestepper.Ψ⁻.h
+previous_concentration(model, timestepper::SplitRungeKuttaTimeStepper) = timestepper.Ψ⁻.ℵ
+
+function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
     grid = model.grid
     arch = architecture(grid)
     
@@ -14,8 +17,8 @@ function thermodynamic_time_step!(model::FESeaIceModel, ::SlabSeaIceThermodynami
             _slab_thermodynamic_time_step!,
             model.ice_thickness,
             model.ice_concentration,
-            model.ice_thickness,
-            model.ice_concentration,
+            previous_thickness(model, model.timestepper),
+            previous_concentration(model, model.timestepper),
             grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
@@ -27,26 +30,6 @@ function thermodynamic_time_step!(model::FESeaIceModel, ::SlabSeaIceThermodynami
     return nothing
 end
 
-function thermodynamic_time_step!(model::RKSeaIceModel, ::SlabSeaIceThermodynamics, Δt)
-    grid = model.grid
-    arch = architecture(grid)
-    
-    launch!(arch, grid, :xy,
-            _slab_thermodynamic_time_step!,
-            model.ice_thickness,
-            model.ice_concentration,
-            model.timestepper.Ψ⁻.h,
-            model.timestepper.Ψ⁻.ℵ,
-            grid, Δt,
-            model.clock,
-            model.ice_consolidation_thickness,
-            model.ice_thermodynamics,
-            model.external_heat_fluxes.top,
-            model.external_heat_fluxes.bottom,
-            fields(model))
-
-    return nothing
-end
 
 # The thermodynamic step is computed in a single kernel following:
 #
