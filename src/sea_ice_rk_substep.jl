@@ -27,14 +27,31 @@ end
 # The thermodynamic step is column physics and is performed all at once.
 function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
 
-    thermodynamic_time_step!(model, model.ice_thermodynamics, Δτ)
-
     # Compute advective tendencies and update advected tracers
     compute_tendencies!(model, Δτ)
     dynamic_time_step!(model, Δτ)
 
+    thermodynamic_time_step!(model, model.ice_thermodynamics, Δτ)
+
     # This is an implicit (or split-explicit) step to advance momentum.
     time_step_momentum!(model, model.dynamics, Δτ)
+
+    return nothing
+end
+
+function dynamic_time_step!(model::FESeaIceModel, Δt)
+    grid = model.grid
+    arch = architecture(grid)
+
+    h = model.ice_thickness
+    ℵ = model.ice_concentration
+    hⁿ = model.timestepper.Ψ⁻.h
+    ℵⁿ = model.timestepper.Ψ⁻.ℵ
+    tracers = model.tracers
+
+    Gⁿ = model.timestepper.Gⁿ
+    
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, tracers, Gⁿ, Δt)
 
     return nothing
 end

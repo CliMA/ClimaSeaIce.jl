@@ -4,11 +4,6 @@ using KernelAbstractions: @kernel, @index
 
 thermodynamic_time_step!(model, ::Nothing, Δt) = nothing
 
-previous_thickness(model, timestepper) = model.ice_thickness
-previous_concentration(model, timestepper) = model.ice_concentration
-previous_thickness(model, timestepper::SplitRungeKuttaTimeStepper) = timestepper.Ψ⁻.h
-previous_concentration(model, timestepper::SplitRungeKuttaTimeStepper) = timestepper.Ψ⁻.ℵ
-
 function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
     grid = model.grid
     arch = architecture(grid)
@@ -17,8 +12,6 @@ function thermodynamic_time_step!(model, ::SlabSeaIceThermodynamics, Δt)
             _slab_thermodynamic_time_step!,
             model.ice_thickness,
             model.ice_concentration,
-            previous_thickness(model, model.timestepper),
-            previous_concentration(model, model.timestepper),
             grid, Δt,
             model.clock,
             model.ice_consolidation_thickness,
@@ -44,8 +37,6 @@ end
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
 @kernel function _slab_thermodynamic_time_step!(ice_thickness,
                                                 ice_concentration,
-                                                previous_ice_thickness,
-                                                previous_ice_concentration,
                                                 grid,
                                                 Δt,
                                                 clock,
@@ -58,8 +49,8 @@ end
     i, j = @index(Global, NTuple)
      
     Gⁿ = ice_thermodynamics.thermodynamic_tendency
-    @inbounds hⁿ = previous_ice_thickness[i, j, 1]
-    @inbounds ℵⁿ = previous_ice_concentration[i, j, 1]
+    @inbounds hⁿ = ice_thickness[i, j, 1]
+    @inbounds ℵⁿ = ice_concentration[i, j, 1]
     @inbounds hᶜ = ice_consolidation_thickness[i, j, 1]
 
     # Total volume tendency
