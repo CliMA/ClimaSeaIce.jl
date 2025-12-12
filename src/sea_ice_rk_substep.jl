@@ -39,7 +39,7 @@ function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
     return nothing
 end
 
-function dynamic_time_step!(model::FESeaIceModel, Δt)
+function dynamic_time_step!(model::RKSeaIceModel, Δt)
     grid = model.grid
     arch = architecture(grid)
 
