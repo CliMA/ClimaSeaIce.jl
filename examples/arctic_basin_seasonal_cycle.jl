@@ -26,7 +26,6 @@
 using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Units: Time
-using Oceananigans.OutputReaders
 using ClimaSeaIce
 using CairoMakie
 

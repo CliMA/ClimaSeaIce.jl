@@ -166,33 +166,8 @@ simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
                                                  schedule = IterationInterval(5),
                                                  overwrite_existing = true)
 
-# ## Progress monitoring
-#
-# We set up a progress callback to monitor the simulation:
 
-wall_time = [time_ns()]
-
-function progress(sim) 
-    h = sim.model.ice_thickness
-    ℵ = sim.model.ice_concentration
-    u = sim.model.velocities.u
-    v = sim.model.velocities.v
-
-    hmax = maximum(interior(h))
-    ℵmin = minimum(interior(ℵ))
-    umax = maximum(interior(u)), maximum(interior(v))
-    step_time = 1e-9 * (time_ns() - wall_time[1])
-
-    @info @sprintf("Time: %s, Iteration %d, Δt %s, max(vel): (%.2e, %.2e), max(h): %.2f, min(ℵ): %.2f, wtime: %s \n",
-                   prettytime(sim.model.clock.time),
-                   sim.model.clock.iteration,
-                   prettytime(sim.Δt),
-                   umax..., hmax, ℵmin, prettytime(step_time))
-
-     wall_time[1] = time_ns()
-end
-
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
+# We can finally run the simulation
 
 run!(simulation)
 
