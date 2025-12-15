@@ -81,10 +81,10 @@ current_figure() #hide
 # We create `FieldTimeSeries` objects with cyclical indexing so the forcing
 # repeats annually:
 
-Rs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
-Rl = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
-Qs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
-Ql = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Cyclical())
+Rs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Oceananigans.OutputReaders.Cyclical())
+Rl = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Oceananigans.OutputReaders.Cyclical())
+Qs = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Oceananigans.OutputReaders.Cyclical())
+Ql = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Oceananigans.OutputReaders.Cyclical())
 
 for (i, time) in enumerate(times)
     set!(Rs[i], tabulated_shortwave[i:i])
