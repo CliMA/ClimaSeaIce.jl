@@ -2,13 +2,13 @@ using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
 using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
 
-import Oceananigans.TimeSteppers: rk_substep!, cache_previous_fields!, step_lagrangian_particles!
+import Oceananigans.TimeSteppers: rk_substep!, cache_current_fields!, step_lagrangian_particles!
 
 const RKSeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:SplitRungeKuttaTimeStepper}
 
 step_lagrangian_particles!(model::SeaIceModel, Δτ) = nothing
 
-function cache_previous_fields!(model::RKSeaIceModel)
+function cache_current_fields!(model::RKSeaIceModel)
     previous_fields = model.timestepper.Ψ⁻
     model_fields = prognostic_fields(model)
     grid = model.grid
