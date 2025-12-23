@@ -9,7 +9,7 @@ using Oceananigans.Units
 using Oceananigans.Operators
 using Oceananigans.BoundaryConditions
 using Printf
-# using CairoMakie
+using CairoMakie
 
 # The experiment found in the paper: 
 # Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
