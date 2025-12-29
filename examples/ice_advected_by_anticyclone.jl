@@ -183,19 +183,18 @@ ui = @lift(interior(utimeseries[$iter], :, :, 1))
 vi = @lift(interior(vtimeseries[$iter], :, :, 1))
 
 fig = Figure()
-ax = Axis(fig[1, 1], title = "sea ice thickness")
-ax = Axis(fig[1, 2], title = "sea ice concentration")
-ax = Axis(fig[2, 1], title = "zonal velocity")
-ax = Axis(fig[2, 2], title = "meridional velocity")
+ax1 = Axis(fig[1, 1], title = "sea ice thickness")
+ax2 = Axis(fig[1, 2], title = "sea ice concentration")
+ax3 = Axis(fig[2, 1], title = "zonal velocity")
+ax4 = Axis(fig[2, 2], title = "meridional velocity")
 
-heatmap!(ax, hi, colormap = :magma, colorrange = (0.23, 0.37))
-heatmap!(ax, ℵi, colormap = Reverse(:deep), colorrange = (0.9, 1))
-heatmap!(ax, ui, colorrange = (-0.1, 0.1))
-heatmap!(ax, vi, colorrange = (-0.1, 0.1))
+heatmap!(ax1, hi, colormap = :magma, colorrange = (0.23, 0.37))
+heatmap!(ax2, ℵi, colormap = Reverse(:deep), colorrange = (0.9, 1))
+heatmap!(ax3, ui, colorrange = (-0.1, 0.1))
+heatmap!(ax4, vi, colorrange = (-0.1, 0.1))
 
 CairoMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
-    @info "doing iter $i"
 end
 nothing #hide
 
