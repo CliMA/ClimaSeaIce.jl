@@ -1,7 +1,7 @@
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.Utils: configure_kernel
 using Oceananigans.Architectures: convert_to_device
-using Oceananigans.Fields: instantiated_location, boundary_conditions
+using Oceananigans.Fields: instantiated_location
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.ImmersedBoundaries: peripheral_node
 using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
