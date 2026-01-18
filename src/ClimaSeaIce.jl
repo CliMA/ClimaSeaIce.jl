@@ -12,17 +12,15 @@ using Oceananigans.Grids: architecture
 using KernelAbstractions: @kernel, @index
 
 # Simulations interface
-import Oceananigans: fields, prognostic_fields
+import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
 import Oceananigans.Fields: set!
 import Oceananigans.Models: AbstractModel
-import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.Utils: prettytime
 import Oceananigans.ImmersedBoundaries: mask_immersed_field!
 import Oceananigans.Advection: cell_advection_timescale
 import Oceananigans.TurbulenceClosures: cell_diffusion_timescale
-import Oceananigans.OutputWriters: checkpointer_address
 
 export SeaIceModel, 
        MeltingConstrainedFluxBalance,
