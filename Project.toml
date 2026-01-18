@@ -1,7 +1,7 @@
 name = "ClimaSeaIce"
 uuid = "6ba0ff68-24e6-4315-936c-2e99227c95a4"
 authors = ["Climate Modeling Alliance and contributors"]
-version = "0.3.12"
+version = "0.3.13"
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
