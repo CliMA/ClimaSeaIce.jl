@@ -211,7 +211,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            fields(model.dynamics))
 
 prognostic_fields(::Nothing) = NamedTuple()
-                           
+
 # TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
