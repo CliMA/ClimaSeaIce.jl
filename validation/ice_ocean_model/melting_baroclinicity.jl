@@ -42,7 +42,7 @@ top_ocean_heat_flux = Qᵀ = Field{Center, Center, Nothing}(ice_grid)
 top_salt_flux       = Qˢ = Field{Center, Center, Nothing}(ice_grid)
 # top_salt_flux       = Qˢ = arch_array(arch, zeros(Nx, Ny))
 
-# Generate a zero-dimensional grid for a single column slab model 
+# Generate a zero-dimensional grid for a single column slab model
 
 boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Qᵀ)),
                        S = FieldBoundaryConditions(top=FluxBoundaryCondition(Qˢ)))
@@ -51,8 +51,7 @@ equation_of_state = TEOS10EquationOfState()
 buoyancy = SeawaterBuoyancy(; equation_of_state)
 horizontal_biharmonic_diffusivity = HorizontalScalarBiharmonicDiffusivity(κ=5e6)
 
-ocean_model = HydrostaticFreeSurfaceModel(; buoyancy, boundary_conditions,
-                                          grid = ocean_grid,
+ocean_model = HydrostaticFreeSurfaceModel(ocean_grid; buoyancy, boundary_conditions,
                                           momentum_advection = WENO(),
                                           tracer_advection = WENO(),
                                           #closure = (horizontal_biharmonic_diffusivity, CATKEVerticalDiffusivity()),
@@ -67,7 +66,7 @@ bottom_bc = IceWaterThermalEquilibrium(ConstantField(30)) #ocean_surface_salinit
 
 u, v, w = ocean_model.velocities
 ocean_surface_velocities = (u = view(u, :, :, Nz), #interior(u, :, :, Nz),
-                            v = view(v, :, :, Nz), #interior(v, :, :, Nz),    
+                            v = view(v, :, :, Nz), #interior(v, :, :, Nz),
                             w = ZeroField())
 
 ice_model = SlabSeaIceModel(ice_grid;
@@ -102,7 +101,7 @@ function hᵢ(x, y)
     if sqrt(x^2 + y^2) < 20kilometers
         #return 1 + 0.1 * rand()
         return 2
-    else 
+    else
         return 0
     end
 end
@@ -137,7 +136,7 @@ h = ice_model.ice_thickness
 T = ocean_model.tracers.T
 S = ocean_model.tracers.S
 u, v, w = ocean_model.velocities
-η = ocean_model.free_surface.η
+η = ocean_model.free_surface.displacement
 
 ht = []
 Tt = []
