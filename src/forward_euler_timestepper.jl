@@ -44,6 +44,6 @@ reset!(timestepper::ForwardEulerTimeStepper) = nothing
 #####
 
 # Forward Euler is a self-starting timestepper, so no state needs to be saved
-prognostic_state(timestepper::ForwardEulerTimeStepper) = nothing
+prognostic_state(::ForwardEulerTimeStepper) = nothing
 restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::Nothing) = ts
 restore_prognostic_state!(ts::ForwardEulerTimeStepper, state) = ts
