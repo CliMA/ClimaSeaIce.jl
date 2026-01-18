@@ -223,12 +223,6 @@ prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
 ##### Checkpointing
 #####
 
-# TODO: remove when added in oceananigans
-prognostic_state(::Nothing) = nothing
-prognostic_state(::ConstantField) = nothing
-restore_prognostic_state!(f::ConstantField, state) = f
-restore_prognostic_state!(f::ConstantField, ::Nothing) = f
-
 function prognostic_state(model::SeaIceModel)
     return (clock = prognostic_state(model.clock),
             velocities = prognostic_state(model.velocities),

@@ -88,13 +88,13 @@ prognostic_fields(mom::SeaIceMomentumEquation) = prognostic_fields(mom, mom.rheo
 ##### Checkpointing
 #####
 
-function prognostic_state(dynamics::SeaIceMomentumEquation)
-    pf = prognostic_fields(dynamics)
+function prognostic_state(mom::SeaIceMomentumEquation)
+    pf = prognostic_fields(mom)
     return prognostic_state(pf)
 end
 
-function restore_prognostic_state!(dynamics::SeaIceMomentumEquation, state)
-    pf = prognostic_fields(dynamics)
+function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
+    pf = prognostic_fields(mom)
     restore_prognostic_state!(pf, state)
-    return dynamics
+    return mom
 end
