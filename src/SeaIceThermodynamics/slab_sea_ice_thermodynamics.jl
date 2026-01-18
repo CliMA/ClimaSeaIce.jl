@@ -1,4 +1,4 @@
-import Oceananigans: fields, prognostic_fields
+import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
 
 struct ProportionalEvolution end
 
@@ -84,3 +84,17 @@ function SlabSeaIceThermodynamics(grid;
                                     concentration_evolution)
 end
 
+#####
+##### Checkpointing
+#####
+
+function prognostic_state(therm::SlabSeaIceThermodynamics)
+    return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),
+            thermodynamic_tendency = prognostic_state(therm.thermodynamic_tendency))
+end
+
+function restore_prognostic_state!(therm::SlabSeaIceThermodynamics, state)
+    restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)
+    restore_prognostic_state!(therm.thermodynamic_tendency, state.thermodynamic_tendency)
+    return therm
+end
