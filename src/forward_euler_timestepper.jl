@@ -45,6 +45,12 @@ Base.summary(::ForwardEulerTimeStepper) = "ForwardEulerTimeStepper"
 
 reset!(::ForwardEulerTimeStepper) = nothing
 
+TimeStepper(ts::Val{:ForwardEuler}, grid, prognostic_fields; kw...) =
+    ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
+
+TimeStepper(ts::ForwardEulerTimeStepper, grid, prognostic_fields; kw...) =
+    ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
+
 #####
 ##### Checkpointing
 #####
