@@ -20,7 +20,7 @@ an appropriate numerical method.
 The simplest timestepping scheme advances the state using:
 
 ```math
-U^{n+1} = U^n + \Delta t \cdot G^n
+U^{n+1} = U^n + Δt G^n
 ```
 
 where ``U^n`` is the state at timestep ``n`` and ``G^n`` is the tendency.
@@ -39,8 +39,22 @@ The Split Runge-Kutta 3 (SplitRK3) scheme is a third-order accurate method that
 performs three substeps per full time step. This is the default timestepper and
 is recommended for most applications.
 
-```julia
+```jldoctest
+using ClimaSeaIce
+using Oceananigans
+
+grid = RectilinearGrid(size=(16, 16, 16), extent=(1, 1, 1))
 model = SeaIceModel(grid; timestepper = :SplitRungeKutta3)  # default
+
+# output
+SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
+├── grid: 16×16×16 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×3 halo
+├── timestepper: SplitRungeKuttaTimeStepper(3)
+├── ice_thermodynamics: SlabThermodynamics
+├── advection: Nothing
+└── external_heat_fluxes: 
+    ├── top: Int64
+    └── bottom: Int64
 ```
 
 ### Algorithm
@@ -71,5 +85,5 @@ Each substep performs the following operations in sequence:
 | Split RK3 | 3rd | Larger stable Δt | Production simulations |
 
 For coupled ocean-sea ice simulations with ClimaOcean.jl, the Split RK3 timestepper
-is recommended as it matches the ocean model's timestepping scheme.
+is recommended as it matches the ocean model's default timestepping scheme.
 

@@ -190,6 +190,7 @@ function Base.show(io::IO, model::SIM)
 
     print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
+    print(io, "├── timestepper: ", summary(model.timestepper), '\n')
     print(io, "├── ice_thermodynamics: ", summary(model.ice_thermodynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
