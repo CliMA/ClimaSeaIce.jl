@@ -86,8 +86,10 @@ Unlike the Forward Euler version, this function uses the cached previous state `
 (stored by [`cache_current_fields!`](@ref)) as the base state for the update:
 
 ```math
-h^{n+1} = h^n + Δt \\cdot G_h^n
-ℵ^{n+1} = ℵ^n + Δt \\cdot G_ℵ^n
+\begin{align*}
+h^{n+1} = h^n + Δt G_h^n \\\\
+ℵ^{n+1} = ℵ^n + Δt G_ℵ^n
+\end{align*}
 ```
 
 where `hⁿ` and `ℵⁿ` are retrieved from `model.timestepper.Ψ⁻`.
@@ -116,7 +118,7 @@ function dynamic_time_step!(model::RKSeaIceModel, Δt)
     tracers = model.tracers
 
     Gⁿ = model.timestepper.Gⁿ
-    
+
     launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, tracers, Gⁿ, Δt)
 
     return nothing
