@@ -17,7 +17,7 @@ an appropriate numerical method.
 
 ## Forward Euler Timestepper
 
-The simplest timestepping scheme advances the state using:
+The `ForwardEuler` is the simplest timestepping scheme advances the state via:
 
 ```math
 U^{n+1} = U^n + Δt G^n
@@ -73,7 +73,7 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 
 ### Algorithm
 
-The SplitRK3 scheme follows Oceananigans' implementation. At the beginning of each
+The SplitRungeKutta3 scheme follows Oceananigans' implementation. At the beginning of each
 full time step, the current state is cached via [`cache_current_fields!`](@ref ClimaSeaIce.cache_current_fields!).
 Then, three substeps are performed via [`rk_substep!`](@ref ClimaSeaIce.rk_substep!), each with a different
 time increment and weighting.
@@ -95,8 +95,8 @@ Each substep performs the following operations in sequence:
 
 | Timestepper | Order | Stability | Use Case |
 |-------------|-------|-----------|----------|
-| Forward Euler | 1st | Requires small Δt | Simple tests, debugging |
-| Split RK3 | 3rd | Larger stable Δt | Production simulations |
+| ForwardEuler | 1st | Requires small Δt | Simple tests, debugging |
+| SplitRungeKutta3 | 3rd | Larger stable Δt | Production simulations |
 
-For coupled ocean-sea ice simulations with ClimaOcean.jl, the Split RK3 timestepper
+For coupled ocean-sea ice simulations with ClimaOcean.jl, the SplitRungeKutta3 timestepper
 is recommended as it matches the ocean model's default timestepping scheme.
