@@ -20,14 +20,14 @@ an appropriate numerical method.
 The `ForwardEuler` is the simplest timestepping scheme advances the state via:
 
 ```math
-U^{n+1} = U^n + Δt G^n
+U^{n+1} = U^n + Δt \, G^n
 ```
 
 where ``U^n`` is the state at timestep ``n`` and ``G^n`` is the tendency.
 
-To use Forward Euler:
+To use `ForwardEuler`, use the `timestepper` keyword argument when constructing the `SeaIceModel`:
 
-```jldoctest
+```jldoctest timesteppers
 using ClimaSeaIce
 using Oceananigans
 
@@ -53,11 +53,7 @@ The Split Runge-Kutta 3rd order (`SplitRungeKutta3`) scheme is a 3rd-order accur
 performs three substeps per full time step. This is the default timestepper and
 is recommended for most applications.
 
-```jldoctest
-using ClimaSeaIce
-using Oceananigans
-
-grid = RectilinearGrid(size=(16, 16, 1), extent=(1, 1, 1))
+```jldoctest timesteppers
 model = SeaIceModel(grid; timestepper = :SplitRungeKutta3)  # default
 
 # output
