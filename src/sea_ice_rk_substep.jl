@@ -34,8 +34,34 @@ function cache_current_fields!(model::RKSeaIceModel)
     return nothing
 end
 
-# We separate the thermodynamic step from the advection (dynamic) step.
-# The thermodynamic step is column physics and is performed all at once.
+"""
+    rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
+
+Perform a single Runge-Kutta substep for the sea ice model, advancing the state by `Δτ`.
+
+The substep consists of three sequential operations:
+
+1. **Dynamic step**: Compute advective tendencies and update ice thickness `h` and
+   concentration `ℵ` via [`dynamic_time_step!`](@ref).
+
+2. **Thermodynamic step**: Apply column physics (melting/freezing) via
+   `thermodynamic_time_step!`. This step is performed all at once since thermodynamics
+   is local column physics.
+
+3. **Momentum step**: Advance ice velocities using either an implicit or split-explicit
+   scheme via `time_step_momentum!`.
+
+This function is called by Oceananigans' `SplitRungeKuttaTimeStepper` for each of the
+three RK3 substeps within a full time step.
+
+Arguments
+=========
+- `model`: A `SeaIceModel` using `SplitRungeKuttaTimeStepper`.
+- `Δτ`: The substep time increment (a fraction of the full time step `Δt`).
+- `callbacks`: Callbacks to execute during the substep (currently unused).
+
+See also: [`cache_current_fields!`](@ref), [`dynamic_time_step!`](@ref)
+"""
 function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
 
     # Compute advective tendencies and update advected tracers
