@@ -18,7 +18,7 @@ end
 
 Return a first-order Forward-Euler timestepper (`ForwardEulerTimeStepper`)
 on `grid`, with `tracers`. The tendency fields `Gⁿ`, usually equal to
-the prognostic_fields passed as positional argument, can be specified via
+the `prognostic_fields` passed as positional argument, can be specified via
 optional `kwargs`.
 
 The first-order Forward-Euler timestepper steps forward the state `Uⁿ` by
