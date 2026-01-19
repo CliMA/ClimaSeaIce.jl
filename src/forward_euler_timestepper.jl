@@ -4,6 +4,7 @@ using Oceananigans.Fields: FunctionField, location
 using Oceananigans.Utils: @apply_regionally, apply_regionally!
 
 import Oceananigans: prognostic_state, restore_prognostic_state!
+import Oceananigans.TimeSteppers: TimeStepper
 
 mutable struct ForwardEulerTimeStepper{FT, GT, IT} <: AbstractTimeStepper
                  Gⁿ :: GT
@@ -37,6 +38,10 @@ function ForwardEulerTimeStepper(grid, prognostic_fields;
 
     return ForwardEulerTimeStepper{FT, GT, IT}(Gⁿ, implicit_solver)
 end
+
+TimeStepper(::Val{Symbol(:ForwardEuler)}, args...; kwargs...) = ForwardEulerTimeStepper(args...; kwargs...)
+
+Base.summary(::ForwardEulerTimeStepper) = "ForwardEulerTimeStepper"
 
 reset!(::ForwardEulerTimeStepper) = nothing
 
