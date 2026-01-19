@@ -48,8 +48,9 @@ format = Documenter.HTML(
 pages = [
     "Home" => "index.md",
     "Examples" => example_pages,
+    "Timestepping" => "timestepping.md",
 
-    "Library" => [ 
+    "Library" => [
         "Contents"       => "library/outline.md",
         "Public"         => "library/public.md",
         "Private"        => "library/internals.md",
