@@ -47,6 +47,9 @@ TimeStepper(ts::Val{:ForwardEuler}, grid, prognostic_fields; kw...) =
 TimeStepper(ts::ForwardEulerTimeStepper, grid, prognostic_fields; kw...) =
     ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
 
+Base.show(io::IO, ::ForwardEulerTimeStepper) = print(io, "ForwardEulerTimeStepper")
+Base.summary(::ForwardEulerTimeStepper) = "ForwardEulerTimeStepper"
+
 #####
 ##### Checkpointing
 #####

@@ -27,13 +27,27 @@ where ``U^n`` is the state at timestep ``n`` and ``G^n`` is the tendency.
 
 To use Forward Euler:
 
-```julia
+```jldoctest
+using ClimaSeaIce
+using Oceananigans
+
+grid = RectilinearGrid(size=(16, 16, 1), extent=(1, 1, 1))
 model = SeaIceModel(grid; timestepper = :ForwardEuler)
+
+# output
+SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
+├── grid: 16×16×1 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×1 halo
+├── timestepper: ForwardEulerTimeStepper
+├── ice_thermodynamics: SlabThermodynamics
+├── advection: Nothing
+└── external_heat_fluxes:
+    ├── top: Int64
+    └── bottom: Int64
 ```
 
 Forward Euler is first-order accurate and may require smaller time steps for stability.
 
-## Split Runge-Kutta 3 Timestepper (Default)
+## Split Runge-Kutta Timestepper (Default)
 
 The Split Runge-Kutta 3rd order (`SplitRungeKutta3`) scheme is a 3rd-order accurate method that
 performs three substeps per full time step. This is the default timestepper and
@@ -43,7 +57,7 @@ is recommended for most applications.
 using ClimaSeaIce
 using Oceananigans
 
-grid = RectilinearGrid(size=(16, 16, 16), extent=(1, 1, 1))
+grid = RectilinearGrid(size=(16, 16, 1), extent=(1, 1, 1))
 model = SeaIceModel(grid; timestepper = :SplitRungeKutta3)  # default
 
 # output
