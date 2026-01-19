@@ -12,9 +12,6 @@ RootSolvers = "7181ea78-2dcb-4de3-ab41-2b8ab5a31e74"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
 
-[sources]
-Oceananigans = {rev = "ss/reformulate-hydrostatic-model-2", url = "https://github.com/CliMA/Oceananigans.jl.git"}
-
 [compat]
 Adapt = "3, 4"
 JLD2 = "0.6.2"
