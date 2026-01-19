@@ -1,7 +1,4 @@
 # # Sea ice advected by an atmospheric anticyclone
-# 
-#
-#
 #
 using ClimaSeaIce
 using Oceananigans
@@ -11,8 +8,8 @@ using Oceananigans.BoundaryConditions
 using Printf
 using CairoMakie
 
-# The experiment found in the paper: 
-# Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models 
+# The experiment found in the paper:
+# Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models
 # on Quadrilateral and Triangular Grids With Different Variable Staggering
 
 arch = CPU()
@@ -23,13 +20,13 @@ L  = 512kilometers
 
 # 2 km domain
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
-                          x = (0, L), 
-                          y = (0, L), 
+                       size = (128, 128),
+                          x = (0, L),
+                          y = (0, L),
                        halo = (7, 7),
                    topology = (Bounded, Bounded, Flat))
 
-#####                   
+#####
 ##### Value boundary conditions for velocities
 #####
 
@@ -54,7 +51,7 @@ fill_halo_regions!((Uₒ, Vₒ))
 τₒ = SemiImplicitStress(uₑ=Uₒ, vₑ=Vₒ)
 
 ####
-#### Atmosphere - sea ice stress 
+#### Atmosphere - sea ice stress
 ####
 
 Uₐ = XFaceField(grid)
@@ -81,21 +78,21 @@ fill_halo_regions!((Uₐ, Vₐ))
 ##### Numerical details
 #####
 
-# We use an elasto-visco-plastic rheology and WENO seventh order 
+# We use an elasto-visco-plastic rheology and WENO seventh order
 # for advection of h and ℵ
 
-dynamics = SeaIceMomentumEquation(grid; 
+dynamics = SeaIceMomentumEquation(grid;
                                   top_momentum_stress = (u=τₐu, v=τₐv),
                                   bottom_momentum_stress = τₒ,
-                                  coriolis     = FPlane(f=1e-4))
+                                  coriolis = FPlane(f=1e-4))
 
-model = SeaIceModel(grid; 
+model = SeaIceModel(grid;
                     dynamics,
                     ice_thermodynamics = nothing, # No ice_thermodynamics here
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs))
 
-# We start with a concentration of ℵ = 1 and an 
+# We start with a concentration of ℵ = 1 and an
 # initial height field with perturbations around 0.3 m
 
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
@@ -121,7 +118,7 @@ function compute_wind_stress(sim)
     set!(Vₐ, va)
 
     fill_halo_regions!((Uₐ, Vₐ))
-    
+
     compute!(τₐu)
     compute!(τₐv)
 
@@ -137,14 +134,15 @@ u, v = model.velocities
 outputs = (; h, u, v, ℵ)
 
 simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
-                                                 filename = "sea_ice_advected_by_anticyclone.jld2", 
+                                                 filename = "sea_ice_advected_by_anticyclone.jld2",
+                                                 including = [:grid],
                                                  schedule = IterationInterval(5),
                                                  include = [:grid, :clock],
                                                  overwrite_existing = true)
 
 wall_time = [time_ns()]
 
-function progress(sim) 
+function progress(sim)
     h = sim.model.ice_thickness
     ℵ = sim.model.ice_concentration
     u = sim.model.velocities.u
@@ -164,11 +162,11 @@ function progress(sim)
      wall_time[1] = time_ns()
 end
 
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(5))
+simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
 
 run!(simulation)
 
-using CairoMakie
+# Load output
 
 htimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "h")
 utimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "u")

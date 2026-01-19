@@ -28,4 +28,3 @@ end
     h = @inbounds fields.h[i, j, 1]
     return slab_internal_heat_flux(flux, Tu, Tb, h)
 end
-
