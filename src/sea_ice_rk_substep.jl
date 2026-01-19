@@ -86,10 +86,10 @@ Unlike the Forward Euler version, this function uses the cached previous state `
 (stored by [`cache_current_fields!`](@ref)) as the base state for the update:
 
 ```math
-\begin{align*}
+\\begin{align*}
 h^{n+1} = h^n + Δt G_h^n \\\\
 ℵ^{n+1} = ℵ^n + Δt G_ℵ^n
-\end{align*}
+\\end{align*}
 ```
 
 where `hⁿ` and `ℵⁿ` are retrieved from `model.timestepper.Ψ⁻`.
