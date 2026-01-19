@@ -20,7 +20,7 @@ an appropriate numerical method.
 The simplest timestepping scheme advances the state using:
 
 ```math
-U^{n+1} = U^n + \Delta t \cdot G^n
+U^{n+1} = U^n + Δt G^n
 ```
 
 where ``U^n`` is the state at timestep ``n`` and ``G^n`` is the tendency.
