@@ -76,6 +76,35 @@ function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
     return nothing
 end
 
+"""
+    dynamic_time_step!(model::RKSeaIceModel, Δt)
+
+Update ice thickness `h` and concentration `ℵ` based on advective tendencies stored in
+`model.timestepper.Gⁿ` for a Runge-Kutta substep.
+
+Unlike the Forward Euler version, this function uses the cached previous state `Ψ⁻`
+(stored by [`cache_current_fields!`](@ref)) as the base state for the update:
+
+```math
+h^{n+1} = h^n + Δt \\cdot G_h^n
+ℵ^{n+1} = ℵ^n + Δt \\cdot G_ℵ^n
+```
+
+where `hⁿ` and `ℵⁿ` are retrieved from `model.timestepper.Ψ⁻`.
+
+The kernel `_dynamic_step_tracers!` also handles:
+- Clipping negative thickness and concentration values
+- Resetting concentration when thickness is zero (and vice versa)
+- Ridging: when `ℵ > 1`, concentration is capped at 1 and thickness is adjusted to
+  conserve ice volume
+
+Arguments
+=========
+- `model`: A `SeaIceModel` using `SplitRungeKuttaTimeStepper`.
+- `Δt`: The time increment for this substep.
+
+See also: [`rk_substep!`](@ref), [`cache_current_fields!`](@ref)
+"""
 function dynamic_time_step!(model::RKSeaIceModel, Δt)
     grid = model.grid
     arch = architecture(grid)
