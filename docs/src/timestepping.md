@@ -35,7 +35,7 @@ Forward Euler is first-order accurate and may require smaller time steps for sta
 
 ## Split Runge-Kutta 3 Timestepper (Default)
 
-The Split Runge-Kutta 3 (SplitRK3) scheme is a third-order accurate method that
+The Split Runge-Kutta 3rd order (`SplitRungeKutta3`) scheme is a 3rd-order accurate method that
 performs three substeps per full time step. This is the default timestepper and
 is recommended for most applications.
 
