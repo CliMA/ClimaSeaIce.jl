@@ -8,6 +8,17 @@ const RKSeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:SplitRungeKuttaTimeStep
 
 step_lagrangian_particles!(model::SeaIceModel, Δτ) = nothing
 
+"""
+    cache_current_fields!(model::RKSeaIceModel)
+
+Cache the current prognostic fields (ice thickness `h`, ice concentration `ℵ`, and any additional
+tracers) into the timestepper's `Ψ⁻` storage before performing a Runge-Kutta substep.
+
+This function is called by Oceananigans' `SplitRungeKuttaTimeStepper` at the beginning of each
+full time step to store the state `Uⁿ` that is needed for computing the RK3 weighted average.
+
+See also: [`rk_substep!`](@ref), [`dynamic_time_step!`](@ref)
+"""
 function cache_current_fields!(model::RKSeaIceModel)
     previous_fields = model.timestepper.Ψ⁻
     model_fields = prognostic_fields(model)
