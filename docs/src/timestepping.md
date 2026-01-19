@@ -73,10 +73,3 @@ Each substep performs the following operations in sequence:
 For coupled ocean-sea ice simulations with ClimaOcean.jl, the Split RK3 timestepper
 is recommended as it matches the ocean model's timestepping scheme.
 
-## API Reference
-
-```@docs
-cache_current_fields!
-rk_substep!
-dynamic_time_step!
-```
