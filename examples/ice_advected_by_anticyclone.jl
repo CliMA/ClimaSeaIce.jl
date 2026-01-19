@@ -137,7 +137,6 @@ simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
                                                  filename = "sea_ice_advected_by_anticyclone.jld2",
                                                  including = [:grid],
                                                  schedule = IterationInterval(5),
-                                                 include = [:grid, :clock],
                                                  overwrite_existing = true)
 
 wall_time = [time_ns()]
