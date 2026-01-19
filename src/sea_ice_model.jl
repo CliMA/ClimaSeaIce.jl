@@ -213,7 +213,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            fields(model.dynamics))
 
 prognostic_fields(::Nothing) = NamedTuple()
-                           
+
 # TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
@@ -245,3 +245,32 @@ function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
 
     return nothing
 end
+    
+#####
+##### Checkpointing
+#####
+
+function prognostic_state(model::SeaIceModel)
+    return (clock = prognostic_state(model.clock),
+            velocities = prognostic_state(model.velocities),
+            ice_thickness = prognostic_state(model.ice_thickness),
+            ice_concentration = prognostic_state(model.ice_concentration),
+            tracers = prognostic_state(model.tracers),
+            timestepper = prognostic_state(model.timestepper),
+            ice_thermodynamics = prognostic_state(model.ice_thermodynamics),
+            dynamics = prognostic_state(model.dynamics))
+end
+
+function restore_prognostic_state!(model::SeaIceModel, state)
+    restore_prognostic_state!(model.clock, state.clock)
+    restore_prognostic_state!(model.velocities, state.velocities)
+    restore_prognostic_state!(model.ice_thickness, state.ice_thickness)
+    restore_prognostic_state!(model.ice_concentration, state.ice_concentration)
+    restore_prognostic_state!(model.tracers, state.tracers)
+    restore_prognostic_state!(model.timestepper, state.timestepper)
+    restore_prognostic_state!(model.ice_thermodynamics, state.ice_thermodynamics)
+    restore_prognostic_state!(model.dynamics, state.dynamics)
+    return model
+end
+
+restore_prognostic_state!(::SeaIceModel, ::Nothing) = nothing
