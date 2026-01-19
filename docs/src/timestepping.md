@@ -1,7 +1,7 @@
 # Sea Ice Timestepping
 
 ClimaSeaIce.jl supports two timestepping schemes for evolving the sea ice state:
-Forward Euler and Split Runge-Kutta 3. The default is Split Runge-Kutta 3.
+Forward Euler and Split Runge-Kutta 3rd order. The default is Split Runge-Kutta 3rd order.
 
 ## Overview
 
