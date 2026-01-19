@@ -62,7 +62,7 @@ model = SeaIceModel(grid; timestepper = :SplitRungeKutta3)  # default
 
 # output
 SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
-├── grid: 16×16×16 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×3 halo
+├── grid: 16×16×1 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×1 halo
 ├── timestepper: SplitRungeKuttaTimeStepper(3)
 ├── ice_thermodynamics: SlabThermodynamics
 ├── advection: Nothing
