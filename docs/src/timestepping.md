@@ -52,7 +52,7 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 ├── timestepper: SplitRungeKuttaTimeStepper(3)
 ├── ice_thermodynamics: SlabThermodynamics
 ├── advection: Nothing
-└── external_heat_fluxes: 
+└── external_heat_fluxes:
     ├── top: Int64
     └── bottom: Int64
 ```
@@ -60,14 +60,14 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 ### Algorithm
 
 The SplitRK3 scheme follows Oceananigans' implementation. At the beginning of each
-full time step, the current state is cached via [`cache_current_fields!`](@ref).
-Then, three substeps are performed via [`rk_substep!`](@ref), each with a different
+full time step, the current state is cached via [`cache_current_fields!`](@ref ClimaSeaIce.cache_current_fields!).
+Then, three substeps are performed via [`rk_substep!`](@ref ClimaSeaIce.rk_substep!), each with a different
 time increment and weighting.
 
 Each substep performs the following operations in sequence:
 
 1. Compute advective tendencies for ice thickness ``h`` and concentration ``ℵ``
-2. Update ``h`` and ``ℵ`` via [`dynamic_time_step!`](@ref)
+2. Update ``h`` and ``ℵ`` via [`dynamic_time_step!`](@ref ClimaSeaIce.dynamic_time_step!)
 3. Apply thermodynamic fluxes (melting/freezing)
 4. Update ice momentum (implicit or split-explicit)
 
@@ -86,4 +86,3 @@ Each substep performs the following operations in sequence:
 
 For coupled ocean-sea ice simulations with ClimaOcean.jl, the Split RK3 timestepper
 is recommended as it matches the ocean model's default timestepping scheme.
-
