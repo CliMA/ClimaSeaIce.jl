@@ -1,11 +1,11 @@
-using Oceananigans.Architectures: architecture
-using Oceananigans.Fields: TracerFields
-using Oceananigans.TimeSteppers: TimeStepper
-using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans: tupleit, tracernames
+using Oceananigans.Architectures: architecture
+using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
+using Oceananigans.Fields: TracerFields
 using Oceananigans.Forcings: model_forcing
-using Oceananigans.Grids: halo_size, topology, with_halo
-using Oceananigans.Grids: LeftConnected, RightConnected, FullyConnected
+using Oceananigans.Grids: halo_size, topology, with_halo,
+                          LeftConnected, RightConnected, FullyConnected
+using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
@@ -55,7 +55,7 @@ function SeaIceModel(grid;
                      velocities                  = nothing,
                      advection                   = nothing,
                      tracers                     = (),
-                     timestepper                 = :SplitRungeKutta3,  
+                     timestepper                 = :SplitRungeKutta3,
                      boundary_conditions         = NamedTuple(),
                      ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
                      dynamics                    = nothing,
@@ -222,7 +222,7 @@ prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                       prognostic_fields(model.ice_thermodynamics))
 
 function update_state!(model::SIM, callbacks=[])
-    
+
     foreach(prognostic_fields(model)) do field
         mask_immersed_field_xy!(field, k=size(model.grid, 3))
         fill_halo_regions!(field, model.clock, fields(model))
@@ -246,7 +246,7 @@ function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
 
     return nothing
 end
-    
+
 #####
 ##### Checkpointing
 #####
