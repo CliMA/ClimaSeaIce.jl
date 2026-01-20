@@ -4,6 +4,7 @@ using Oceananigans.Fields: FunctionField, location
 using Oceananigans.Utils: @apply_regionally, apply_regionally!
 
 import Oceananigans: prognostic_state, restore_prognostic_state!
+import Oceananigans.TimeSteppers: TimeStepper
 
 mutable struct ForwardEulerTimeStepper{FT, GT, IT} <: AbstractTimeStepper
                  Gⁿ :: GT
@@ -17,7 +18,7 @@ end
 
 Return a first-order Forward-Euler timestepper (`ForwardEulerTimeStepper`)
 on `grid`, with `tracers`. The tendency fields `Gⁿ`, usually equal to
-the prognostic_fields passed as positional argument, can be specified via
+the `prognostic_fields` passed as positional argument, can be specified via
 optional `kwargs`.
 
 The first-order Forward-Euler timestepper steps forward the state `Uⁿ` by
@@ -36,6 +37,19 @@ function ForwardEulerTimeStepper(grid, prognostic_fields;
     GT = typeof(Gⁿ)
 
     return ForwardEulerTimeStepper{FT, GT, IT}(Gⁿ, implicit_solver)
+end
+
+TimeStepper(ts::Val{:ForwardEuler}, grid, prognostic_fields; kw...) =
+    ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
+
+TimeStepper(ts::ForwardEulerTimeStepper, grid, prognostic_fields; kw...) =
+    ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
+
+Base.summary(::ForwardEulerTimeStepper) = "ForwardEulerTimeStepper"
+
+function Base.show(io::IO, ts::ForwardEulerTimeStepper)
+    print(io, "ForwardEulerTimeStepper", '\n')
+    print(io, "└── implicit_solver: ", isnothing(ts.implicit_solver) ? "nothing" : nameof(typeof(ts.implicit_solver)))
 end
 
 reset!(::ForwardEulerTimeStepper) = nothing

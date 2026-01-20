@@ -1,5 +1,6 @@
 using Oceananigans: boundary_conditions
 using Oceananigans.Architectures: convert_to_device
+using Oceananigans.Fields: instantiated_location
 using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.Fields: instantiated_location
@@ -37,6 +38,16 @@ SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver{<:Any, <:KernelParameters}}
 
+# Reset the velocities to the previous time step
+# This does nothing for a FE model, but is necessary for an RK model.
+reset_velocities!(u, v, timestepper) = nothing
+
+function reset_velocities!(u, v, timestepper::SplitRungeKuttaTimeStepper) 
+    parent(u) .= parent(timestepper.Ψ⁻.u)
+    parent(v) .= parent(timestepper.Ψ⁻.v)
+    return nothing
+end
+
 """
     time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
 
@@ -53,6 +64,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     Nx, Ny, Nz = size(grid)
     Hx, Hy, _  = halo_size(grid)
     u, v       = model.velocities
+
+    reset_velocities!(u, v, model.timestepper)
 
     free_drift = dynamics.free_drift
     clock = model.clock

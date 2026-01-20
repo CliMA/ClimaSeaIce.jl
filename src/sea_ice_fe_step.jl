@@ -6,24 +6,22 @@ using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
 using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
 
-import Oceananigans.Models: update_model_field_time_series!
-
 const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:ForwardEulerTimeStepper}
 
 # We separate the thermodynamic step from the advection (dynamic) step.
 # The thermodynamic step is column physics and is performed all at once.
-function time_step!(model::FESeaIceModel, Δt; callbacks = [])
+function time_step!(model::FESeaIceModel, Δt; kwargs...)
     
     # Be paranoid and update state at iteration 0
     model.clock.iteration == 0 && update_state!(model)
-
-    # Perform the thermodynamic step
-    thermodynamic_time_step!(model, model.ice_thermodynamics, Δt)
 
     # Compute advective tendencies and update 
     # advected tracers
     compute_tendencies!(model, Δt)
     dynamic_time_step!(model, Δt)
+
+    # Perform the thermodynamic step
+    thermodynamic_time_step!(model, model.ice_thermodynamics, Δt)
 
     # This is an implicit (or split-explicit) step to advance momentum.
     time_step_momentum!(model, model.dynamics, Δt)
@@ -34,7 +32,7 @@ function time_step!(model::FESeaIceModel, Δt; callbacks = [])
     return nothing
 end
 
-function dynamic_time_step!(model::SIM, Δt)
+function dynamic_time_step!(model::FESeaIceModel, Δt)
     grid = model.grid
     arch = architecture(grid)
 
@@ -44,7 +42,7 @@ function dynamic_time_step!(model::SIM, Δt)
 
     Gⁿ = model.timestepper.Gⁿ
     
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, tracers, Gⁿ, Δt)
 
     return nothing
 end
@@ -53,7 +51,7 @@ end
 # We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
 # if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
 # to conserve the total ice volume in the cell.
-@kernel function _dynamic_step_tracers!(h, ℵ, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
     
@@ -62,8 +60,8 @@ end
     
     # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = h[i, j, k] + Δt * Ghⁿ[i, j, k]
-        ℵ⁺ = ℵ[i, j, k] + Δt * Gℵⁿ[i, j, k]
+        h⁺ = hⁿ[i, j, k] + Δt * Ghⁿ[i, j, k]
+        ℵ⁺ = ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k]
 
         ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
         h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
@@ -77,30 +75,4 @@ end
         ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
         h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
     end 
-end
-
-function update_state!(model::SIM)
-    
-    foreach(prognostic_fields(model)) do field
-        mask_immersed_field_xy!(field, k=size(model.grid, 3))
-        fill_halo_regions!(field, model.clock, fields(model))
-    end
-
-    update_model_field_time_series!(model, model.clock)
-
-    return nothing
-end
-
-function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
-    time = Time(clock.time)
-
-    possible_fts = (model.tracers, model.external_heat_fluxes, model.dynamics)
-    time_series_tuple = extract_field_time_series(possible_fts)
-    time_series_tuple = flattened_unique_values(time_series_tuple)
-
-    for fts in time_series_tuple
-        update_field_time_series!(fts, time)
-    end
-
-    return nothing
 end

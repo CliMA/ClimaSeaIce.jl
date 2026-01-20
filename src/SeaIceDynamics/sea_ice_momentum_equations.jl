@@ -82,19 +82,17 @@ function SeaIceMomentumEquation(grid;
 end
 
 fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
-prognostic_fields(mom::SeaIceMomentumEquation) = prognostic_fields(mom, mom.rheology)
+prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
 
 #####
 ##### Checkpointing
 #####
 
 function prognostic_state(mom::SeaIceMomentumEquation)
-    pf = prognostic_fields(mom)
-    return prognostic_state(pf)
+    return (; fields = prognostic_state(fields(mom)))
 end
 
 function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
-    pf = prognostic_fields(mom)
-    restore_prognostic_state!(pf, state)
+    restore_prognostic_state!(fields(mom), state.fields)
     return mom
 end
