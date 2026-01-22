@@ -1,5 +1,32 @@
-# # Sea ice advected by an atmospheric anticyclone
+# # Sea ice advected by an atmospheric anticyclone example
 #
+# This example simulates sea ice advected by an atmospheric anticyclone, based on
+# the experiment found in the paper:
+#
+# > Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models on
+# > Quadrilateral and Triangular Grids With Different Variable Staggering
+#
+# The ice is driven by a moving anticyclonic atmospheric eddy and interacts with
+# a cyclonic ocean eddy. This example demonstrates
+#
+#   * How to set up a two-dimensional sea ice model with time-varying atmospheric forcing.
+#   * How to prescribe moving atmospheric and ocean eddies.
+#   * How to use elasto-visco-plastic rheology with Coriolis effects.
+#   * How to save and visualize time series data.
+#
+# ## Install dependencies
+#
+# First let's make sure we have all required packages installed.
+#
+# ```julia
+# using Pkg
+# pkg"add Oceananigans, ClimaSeaIce, CairoMakie, JLD2"
+# ```
+#
+# ## The physical domain
+#
+# We set up a two-dimensional bounded domain:
+
 using ClimaSeaIce
 using Oceananigans
 using Oceananigans.Units
@@ -8,17 +35,12 @@ using Oceananigans.BoundaryConditions
 using Printf
 using CairoMakie
 
-# The experiment found in the paper:
-# Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models
-# on Quadrilateral and Triangular Grids With Different Variable Staggering
-
 arch = CPU()
 
 L  = 512kilometers
-𝓋ₒ = 0.01 # m / s maximum ocean speed
-𝓋ₐ = 30.0 # m / s maximum atmospheric speed modifier
+𝓋ₒ = 0.01 # m s⁻¹ maximum ocean speed
+𝓋ₐ = 30.0 # m s⁻¹ maximum atmospheric speed modifier
 
-# 2 km domain
 grid = RectilinearGrid(arch;
                        size = (128, 128),
                           x = (0, L),
@@ -26,9 +48,9 @@ grid = RectilinearGrid(arch;
                        halo = (7, 7),
                    topology = (Bounded, Bounded, Flat))
 
-#####
-##### Value boundary conditions for velocities
-#####
+# ## Boundary conditions
+#
+# We set value boundary conditions for velocities:
 
 u_bcs = FieldBoundaryConditions(north=ValueBoundaryCondition(0),
                                 south=ValueBoundaryCondition(0))
@@ -36,11 +58,10 @@ u_bcs = FieldBoundaryConditions(north=ValueBoundaryCondition(0),
 v_bcs = FieldBoundaryConditions(west=ValueBoundaryCondition(0),
                                 east=ValueBoundaryCondition(0))
 
-#####
-##### Ocean sea-ice stress
-#####
+# ## Ocean sea-ice stress
+#
+# We set up constant ocean velocities corresponding to a cyclonic eddy:
 
-# Constant ocean velocities corresponding to a cyclonic eddy
 Uₒ = XFaceField(grid)
 Vₒ = YFaceField(grid)
 
@@ -50,14 +71,11 @@ fill_halo_regions!((Uₒ, Vₒ))
 
 τₒ = SemiImplicitStress(uₑ=Uₒ, vₑ=Vₒ)
 
-####
-#### Atmosphere - sea ice stress
-####
+# ## Atmosphere-sea ice stress
+#
+# We set up atmospheric velocities corresponding to an anticyclonic eddy moving
+# northeast. The eddy center moves with time:
 
-Uₐ = XFaceField(grid)
-Vₐ = YFaceField(grid)
-
-# Atmospheric velocities corresponding to an anticyclonic eddy moving north-east
 @inline center(t) = 256kilometers + 51.2kilometers * t / 86400
 @inline radius(x, y, t)  = sqrt((x - center(t))^2 + (y - center(t))^2)
 @inline speed(x, y, t)   = 1 / 100 * exp(- radius(x, y, t) / 100kilometers)
@@ -65,7 +83,11 @@ Vₐ = YFaceField(grid)
 @inline ua_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (cosd(72) * (x - center(t)) + sind(72) * (y - center(t))) / 1000
 @inline va_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (cosd(72) * (y - center(t)) - sind(72) * (x - center(t))) / 1000
 
-# Initialize the stress at time t = 0
+# Initialize the stress at time t = 0:
+
+Uₐ = XFaceField(grid)
+Vₐ = YFaceField(grid)
+
 set!(Uₐ, (x, y) -> ua_time(x, y, 0))
 set!(Vₐ, (x, y) -> va_time(x, y, 0))
 
@@ -74,12 +96,10 @@ fill_halo_regions!((Uₐ, Vₐ))
 τₐu = Field(- Uₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3)
 τₐv = Field(- Vₐ * sqrt(Uₐ^2 + Vₐ^2) * 1.3 * 1.2e-3)
 
-#####
-##### Numerical details
-#####
-
-# We use an elasto-visco-plastic rheology and WENO seventh order
-# for advection of h and ℵ
+# ## Model configuration
+#
+# We use an elasto-visco-plastic rheology and WENO seventh order for advection
+# of ice thickness and concentration. We include Coriolis effects:
 
 dynamics = SeaIceMomentumEquation(grid;
                                   top_momentum_stress = (u=τₐu, v=τₐv),
@@ -88,28 +108,30 @@ dynamics = SeaIceMomentumEquation(grid;
 
 model = SeaIceModel(grid;
                     dynamics,
-                    ice_thermodynamics = nothing, # No ice_thermodynamics here
-                    timestepper = :SplitRungeKutta3,
+                    ice_thermodynamics = nothing, # No thermodynamics here
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs))
-
-# We start with a concentration of ℵ = 1 and an
-# initial height field with perturbations around 0.3 m
+    
+# ## Initial conditions
+#
+# We start with a concentration of ℵ = 1 and an initial height field with
+# perturbations around 0.3 m:
 
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
 
 set!(model, h = h₀)
 set!(model, ℵ = 1)
 
-#####
-##### Setup the simulation
-#####
-
-# run the model for 2 days
+# ## Running the simulation
+#
+# We run the model for 2 days with a 2-minute time step:
 
 simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
 
-# Remember to evolve the wind stress field in time!
+# ## Time-varying wind stress
+#
+# We need to evolve the wind stress field in time. We set up a callback to
+# update the atmospheric stress at each time step:
 
 function compute_wind_stress(sim)
     time = sim.model.clock.time
@@ -128,6 +150,11 @@ end
 
 simulation.callbacks[:top_stress] = Callback(compute_wind_stress, IterationInterval(1))
 
+# ## Output writer
+#
+# We set up an output writer to save the ice thickness, concentration, and
+# velocity fields:
+
 h = model.ice_thickness
 ℵ = model.ice_concentration
 u, v = model.velocities
@@ -140,40 +167,20 @@ simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
                                                  schedule = IterationInterval(5),
                                                  overwrite_existing = true)
 
-wall_time = [time_ns()]
 
-function progress(sim)
-    h = sim.model.ice_thickness
-    ℵ = sim.model.ice_concentration
-    u = sim.model.velocities.u
-    v = sim.model.velocities.v
-
-    hmax = maximum(interior(h))
-    ℵmin = minimum(interior(ℵ))
-    umax = maximum(interior(u)), maximum(interior(v))
-    step_time = 1e-9 * (time_ns() - wall_time[1])
-
-    @info @sprintf("Time: %s, Iteration %d, Δt %s, max(vel): (%.2e, %.2e), max(h): %.2f, min(ℵ): %.2f, wtime: %s \n",
-                   prettytime(sim.model.clock.time),
-                   sim.model.clock.iteration,
-                   prettytime(sim.Δt),
-                   umax..., hmax, ℵmin, prettytime(step_time))
-
-     wall_time[1] = time_ns()
-end
-
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
+# We can finally run the simulation
 
 run!(simulation)
 
-# Load output
+# ## Visualizing the results
+#
+# We load the saved time series and create an animation:
 
 htimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "h")
 utimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "u")
 vtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "v")
 ℵtimeseries = FieldTimeSeries("sea_ice_advected_by_anticyclone.jld2", "ℵ")
 
-# Visualize!
 Nt = length(htimeseries)
 iter = Observable(1)
 
@@ -182,20 +189,25 @@ hi = @lift(interior(htimeseries[$iter], :, :, 1))
 ui = @lift(interior(utimeseries[$iter], :, :, 1))
 vi = @lift(interior(vtimeseries[$iter], :, :, 1))
 
-fig = Figure()
-ax1 = Axis(fig[1, 1], title = "sea ice thickness")
-ax2 = Axis(fig[1, 2], title = "sea ice concentration")
-ax3 = Axis(fig[2, 1], title = "zonal velocity")
-ax4 = Axis(fig[2, 2], title = "meridional velocity")
+fig = Figure(size = (1200, 1200))
+ax1 = Axis(fig[1, 1], title = "Sea ice thickness (m)")
+ax2 = Axis(fig[1, 2], title = "Sea ice concentration")
+ax3 = Axis(fig[2, 1], title = "Zonal velocity (m s⁻¹)")
+ax4 = Axis(fig[2, 2], title = "Meridional velocity (m s⁻¹)")
 
 heatmap!(ax1, hi, colormap = :magma, colorrange = (0.23, 0.37))
 heatmap!(ax2, ℵi, colormap = Reverse(:deep), colorrange = (0.9, 1))
-heatmap!(ax3, ui, colorrange = (-0.1, 0.1))
-heatmap!(ax4, vi, colorrange = (-0.1, 0.1))
+heatmap!(ax3, ui, colorrange = (-0.1, 0.1), colormap = :balance)
+heatmap!(ax4, vi, colorrange = (-0.1, 0.1), colormap = :balance)
 
 CairoMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
+    @info "Rendering frame $i"
 end
 nothing #hide
 
 # ![](sea_ice_advected_by_anticyclone.mp4)
+#
+# The animation shows how the ice is advected and deformed by the moving
+# anticyclonic atmospheric eddy. Linear kinematic features (leads and ridges)
+# form as the ice responds to the complex stress patterns.
