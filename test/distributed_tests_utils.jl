@@ -73,7 +73,7 @@ function run_distributed_simulation(grid)
 end
 
 # Just a random simulation on a rectilinear grid
-function run_distributed_simulation(grid, filename)
+function run_distributed_jld2_simulation(grid, filename)
 
     τᵤ = 0.01
     τᵥ = 0.01
