@@ -30,6 +30,15 @@ run_large_pencil_distributed_grid = """
     run_distributed_sea_ice(arch, "distributed_large_pencil_seaice.jld2")
 """
 
+run_distributed_jld2writer = """
+    using MPI
+    MPI.Init()
+
+    include("distributed_tests_utils.jl")
+    arch = Distributed(CPU(), partition = Partition(2, 2))
+    run_distributed_sea_ice_jl2dwriter(arch, "distributed_jld2_writer.jld2")
+"""
+
 @testset "Test distributed seaiceGrid simulations..." begin
     # Run the serial computation
     grid = RectilinearGrid(CPU(); 
@@ -91,4 +100,27 @@ run_large_pencil_distributed_grid = """
 
     @test all(us .≈ up)
     @test all(vs .≈ vp)
+
+
+    @info "Testing JLD2Writer on distributed sea ice simulations"
+
+    write("distributed_jld2writer_tests.jl", run_distributed_jld2writer)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_jld2writer_tests.jl`)
+    rm("distributed_jld2writer_tests.jl")
+
+    @test isfile("distributed_jld2_writer_rank0.jld2")
+    @test isfile("distributed_jld2_writer_rank1.jld2")
+    @test isfile("distributed_jld2_writer_rank2.jld2")
+    @test isfile("distributed_jld2_writer_rank3.jld2")
+
+    h = FieldTimeSeries("distributed_jld2_writer.jld2", "h")
+    ℵ = FieldTimeSeries("distributed_jld2_writer.jld2", "ℵ")
+
+    @test length(h.times) = 20
+    @test length(ℵ.times) = 20
+
+    rm("distributed_jld2_writer_rank0.jld2")
+    rm("distributed_jld2_writer_rank1.jld2")
+    rm("distributed_jld2_writer_rank2.jld2")
+    rm("distributed_jld2_writer_rank3.jld2")
 end
