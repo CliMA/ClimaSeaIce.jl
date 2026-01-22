@@ -115,10 +115,8 @@ run_distributed_jld2writer = """
     h = FieldTimeSeries("distributed_jld2_writer.jld2", "h")
     ℵ = FieldTimeSeries("distributed_jld2_writer.jld2", "ℵ")
 
-    @show h
-
-    @test length(h.times) = 20
-    @test length(ℵ.times) = 20
+    @test length(h.times) == 20
+    @test length(ℵ.times) == 20
 
     rm("distributed_jld2_writer_rank0.jld2")
     rm("distributed_jld2_writer_rank1.jld2")
