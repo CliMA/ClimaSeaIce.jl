@@ -13,6 +13,7 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 import Oceananigans.Architectures: architecture
 import Oceananigans.Models: update_model_field_time_series!
+import Oceananigans.OutputWriters: default_included_properties
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
