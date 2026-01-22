@@ -1,15 +1,19 @@
-using Oceananigans.Architectures: architecture
-using Oceananigans.Fields: TracerFields
-using Oceananigans.TimeSteppers: TimeStepper
-using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans: tupleit, tracernames
+using Oceananigans.Architectures: architecture
+using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
+using Oceananigans.Fields: TracerFields
 using Oceananigans.Forcings: model_forcing
-using Oceananigans.Grids: halo_size, topology, with_halo
-using Oceananigans.Grids: LeftConnected, RightConnected, FullyConnected
+using Oceananigans.Grids: halo_size, topology, with_halo,
+                          LeftConnected, RightConnected, FullyConnected
+using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
+
+import Oceananigans.Architectures: architecture
+import Oceananigans.Models: update_model_field_time_series!
+import Oceananigans.OutputWriters: default_included_properties
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
@@ -53,6 +57,7 @@ function SeaIceModel(grid;
                      velocities                  = nothing,
                      advection                   = nothing,
                      tracers                     = (),
+                     timestepper                 = :SplitRungeKutta3,
                      boundary_conditions         = NamedTuple(),
                      ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
                      dynamics                    = nothing,
@@ -77,7 +82,6 @@ function SeaIceModel(grid;
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
 
     if isnothing(velocities)
-
         # Extend the halos for the velocity fields if the dynamics is
         # an extended split explicit momentum equation
         if dynamics isa ExtendedSplitExplicitMomentumEquation
@@ -122,7 +126,7 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
-    timestepper = ForwardEulerTimeStepper(grid, prognostic_fields)
+    timestepper = TimeStepper(timestepper, grid, prognostic_fields)
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
@@ -179,6 +183,7 @@ set!(model::SIM, new_clock::Clock) = set!(model.clock, new_clock)
 Base.summary(model::SIM) = "SeaIceModel"
 prettytime(model::SIM) = prettytime(model.clock.time)
 iteration(model::SIM) = model.clock.iteration
+architecture(model::SIM) = model.architecture
 
 function Base.show(io::IO, model::SIM)
     grid = model.grid
@@ -188,6 +193,7 @@ function Base.show(io::IO, model::SIM)
 
     print(io, "SeaIceModel{", typeof(arch), ", ", gridname, "}", timestr, '\n')
     print(io, "├── grid: ", summary(model.grid), '\n')
+    print(io, "├── timestepper: ", summary(model.timestepper), '\n')
     print(io, "├── ice_thermodynamics: ", summary(model.ice_thermodynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
@@ -197,7 +203,7 @@ end
 
 reset!(::SIM) = nothing
 initialize!(::SIM) = nothing
-default_included_properties(::SIM) = tuple(:grid)
+default_included_properties(::SIM) = [:grid]
 checkpointer_address(::SeaIceModel) = "SeaIceModel"
 
 # Fallback
@@ -211,10 +217,64 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            fields(model.dynamics))
 
 prognostic_fields(::Nothing) = NamedTuple()
-                           
+
 # TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
-                                      model.velocities,
-                                      prognostic_fields(model.dynamics),
+                                      prognostic_fields(model, model.dynamics),
                                       prognostic_fields(model.ice_thermodynamics))
+
+function update_state!(model::SIM, callbacks=[])
+
+    foreach(prognostic_fields(model)) do field
+        mask_immersed_field_xy!(field, k=size(model.grid, 3))
+        fill_halo_regions!(field, model.clock, fields(model))
+    end
+
+    update_model_field_time_series!(model, model.clock)
+
+    return nothing
+end
+
+function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
+    time = Time(clock.time)
+
+    possible_fts = (model.tracers, model.external_heat_fluxes, model.dynamics)
+    time_series_tuple = extract_field_time_series(possible_fts)
+    time_series_tuple = flattened_unique_values(time_series_tuple)
+
+    for fts in time_series_tuple
+        update_field_time_series!(fts, time)
+    end
+
+    return nothing
+end
+
+#####
+##### Checkpointing
+#####
+
+function prognostic_state(model::SeaIceModel)
+    return (clock = prognostic_state(model.clock),
+            velocities = prognostic_state(model.velocities),
+            ice_thickness = prognostic_state(model.ice_thickness),
+            ice_concentration = prognostic_state(model.ice_concentration),
+            tracers = prognostic_state(model.tracers),
+            timestepper = prognostic_state(model.timestepper),
+            ice_thermodynamics = prognostic_state(model.ice_thermodynamics),
+            dynamics = prognostic_state(model.dynamics))
+end
+
+function restore_prognostic_state!(model::SeaIceModel, state)
+    restore_prognostic_state!(model.clock, state.clock)
+    restore_prognostic_state!(model.velocities, state.velocities)
+    restore_prognostic_state!(model.ice_thickness, state.ice_thickness)
+    restore_prognostic_state!(model.ice_concentration, state.ice_concentration)
+    restore_prognostic_state!(model.tracers, state.tracers)
+    restore_prognostic_state!(model.timestepper, state.timestepper)
+    restore_prognostic_state!(model.ice_thermodynamics, state.ice_thermodynamics)
+    restore_prognostic_state!(model.dynamics, state.dynamics)
+    return model
+end
+
+restore_prognostic_state!(::SeaIceModel, ::Nothing) = nothing

@@ -1,6 +1,8 @@
 using ClimaSeaIce.Rheologies
 using Adapt
 
+import Oceananigans: prognostic_state, restore_prognostic_state!
+
 struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C
     rheology :: R
@@ -80,4 +82,17 @@ function SeaIceMomentumEquation(grid;
 end
 
 fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
-prognostic_fields(mom::SeaIceMomentumEquation) = prognostic_fields(mom, mom.rheology)
+prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+
+#####
+##### Checkpointing
+#####
+
+function prognostic_state(mom::SeaIceMomentumEquation)
+    return (; fields = prognostic_state(fields(mom)))
+end
+
+function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
+    restore_prognostic_state!(fields(mom), state.fields)
+    return mom
+end

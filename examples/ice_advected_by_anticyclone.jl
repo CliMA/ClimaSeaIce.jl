@@ -42,9 +42,9 @@ L  = 512kilometers
 𝓋ₐ = 30.0 # m s⁻¹ maximum atmospheric speed modifier
 
 grid = RectilinearGrid(arch;
-                       size = (128, 128), 
-                          x = (0, L), 
-                          y = (0, L), 
+                       size = (128, 128),
+                          x = (0, L),
+                          y = (0, L),
                        halo = (7, 7),
                    topology = (Bounded, Bounded, Flat))
 
@@ -101,12 +101,12 @@ fill_halo_regions!((Uₐ, Vₐ))
 # We use an elasto-visco-plastic rheology and WENO seventh order for advection
 # of ice thickness and concentration. We include Coriolis effects:
 
-dynamics = SeaIceMomentumEquation(grid; 
+dynamics = SeaIceMomentumEquation(grid;
                                   top_momentum_stress = (u=τₐu, v=τₐv),
                                   bottom_momentum_stress = τₒ,
                                   coriolis = FPlane(f=1e-4))
 
-model = SeaIceModel(grid; 
+model = SeaIceModel(grid;
                     dynamics,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection = WENO(order=7),
@@ -141,7 +141,7 @@ function compute_wind_stress(sim)
     set!(Vₐ, va)
 
     fill_halo_regions!((Uₐ, Vₐ))
-    
+
     compute!(τₐu)
     compute!(τₐv)
 
@@ -162,7 +162,8 @@ u, v = model.velocities
 outputs = (; h, u, v, ℵ)
 
 simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
-                                                 filename = "sea_ice_advected_by_anticyclone.jld2", 
+                                                 filename = "sea_ice_advected_by_anticyclone.jld2",
+                                                 including = [:grid],
                                                  schedule = IterationInterval(5),
                                                  overwrite_existing = true)
 

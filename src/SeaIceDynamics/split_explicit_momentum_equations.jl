@@ -1,12 +1,13 @@
-using Oceananigans.Grids: AbstractGrid, architecture, halo_size
-using Oceananigans.Utils: configure_kernel
+using Oceananigans: boundary_conditions
 using Oceananigans.Architectures: convert_to_device
-using Oceananigans.Fields: instantiated_location, boundary_conditions
-using Oceananigans.DistributedComputations: DistributedGrid
-using Oceananigans.ImmersedBoundaries: peripheral_node
+using Oceananigans.Fields: instantiated_location
 using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
-
+using Oceananigans.DistributedComputations: DistributedGrid
+using Oceananigans.Fields: instantiated_location
+using Oceananigans.Grids: AbstractGrid, architecture, halo_size
+using Oceananigans.ImmersedBoundaries: peripheral_node
 using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
+using Oceananigans.Utils: configure_kernel
 
 struct SplitExplicitSolver{I, K}
     substeps :: I
@@ -23,7 +24,7 @@ The default number of substeps is 120.
 """
 SplitExplicitSolver(grid; substeps=120) = SplitExplicitSolver(substeps, :xy)
 
-function SplitExplicitSolver(grid::DistributedGrid; substeps=120) 
+function SplitExplicitSolver(grid::DistributedGrid; substeps=120)
     Nx, Ny, _ = size(grid)
     Hx, Hy, _ = halo_size(grid)
     TX, TY, _ = topology(grid)
@@ -37,12 +38,22 @@ SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver{<:Any, <:KernelParameters}}
 
+# Reset the velocities to the previous time step
+# This does nothing for a FE model, but is necessary for an RK model.
+reset_velocities!(u, v, timestepper) = nothing
+
+function reset_velocities!(u, v, timestepper::SplitRungeKuttaTimeStepper) 
+    parent(u) .= parent(timestepper.Ψ⁻.u)
+    parent(v) .= parent(timestepper.Ψ⁻.v)
+    return nothing
+end
+
 """
     time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
 
 function for stepping u and v in the case of _explicit_ solvers.
-The sea-ice momentum equations are characterized by smaller time-scale than 
-sea-ice ice_thermodynamics and sea-ice tracer advection, therefore explicit rheologies require 
+The sea-ice momentum equations are characterized by smaller time-scale than
+sea-ice ice_thermodynamics and sea-ice tracer advection, therefore explicit rheologies require
 substepping over a set number of substeps.
 """
 function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)
@@ -53,7 +64,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     Nx, Ny, Nz = size(grid)
     Hx, Hy, _  = halo_size(grid)
     u, v       = model.velocities
-  
+
+    reset_velocities!(u, v, model.timestepper)
+
     free_drift = dynamics.free_drift
     clock = model.clock
     coriolis = dynamics.coriolis
@@ -69,9 +82,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     u_immersed_bc = u.boundary_conditions.immersed
     v_immersed_bc = v.boundary_conditions.immersed
 
-    model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
-                      (; h = model.ice_thickness, 
-                         ℵ = model.ice_concentration, 
+    model_fields = merge(dynamics.auxiliaries.fields, model.velocities,
+                      (; h = model.ice_thickness,
+                         ℵ = model.ice_concentration,
                          ρ = model.ice_density))
 
     params = dynamics.solver.kernel_parameters
@@ -82,13 +95,13 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     substeps = dynamics.solver.substeps
     initialize_rheology!(model, dynamics.rheology)
 
-    u_args = (u, grid, Δt, substeps, rheology, model_fields, 
+    u_args = (u, grid, Δt, substeps, rheology, model_fields,
               free_drift, clock, coriolis,
-              minimum_mass, minimum_concentration, 
+              minimum_mass, minimum_concentration,
               u_immersed_bc, top_stress, bottom_stress, u_forcing)
 
-    v_args = (v, grid, Δt, substeps, rheology, model_fields, 
-              free_drift, clock, coriolis, 
+    v_args = (v, grid, Δt, substeps, rheology, model_fields,
+              free_drift, clock, coriolis,
               minimum_mass, minimum_concentration,
               v_immersed_bc, top_stress, bottom_stress, v_forcing)
 
@@ -119,7 +132,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         for substep in 1 : substeps
             fill_halo_regions!(converted_u_halo...; only_local_halos = true)
             fill_halo_regions!(converted_v_halo...; only_local_halos = true)
-            
+
             # Compute stresses! depending on the particular rheology implementation
             compute_stresses!(dynamics, converted_stresses_args...)
 
@@ -127,7 +140,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
             # for u and v (used for the ocean-ice stresses and the Coriolis term)
             # In even substeps we calculate uⁿ⁺¹ = f(vⁿ) and vⁿ⁺¹ = f(uⁿ⁺¹).
             # In odd substeps we switch and calculate vⁿ⁺¹ = f(uⁿ) and uⁿ⁺¹ = f(vⁿ⁺¹).
-            if iseven(substep) 
+            if iseven(substep)
                 u_velocity_kernel!(converted_u_args...)
                 v_velocity_kernel!(converted_v_args...)
             else
@@ -140,31 +153,31 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     return nothing
 end
 
-@kernel function _u_velocity_step!(u, grid, Δt, 
-                                   substeps, rheology, 
-                                   model_fields, free_drift, 
-                                   clock, coriolis, 
+@kernel function _u_velocity_step!(u, grid, Δt,
+                                   substeps, rheology,
+                                   model_fields, free_drift,
+                                   clock, coriolis,
                                    minimum_mass, minimum_concentration,
                                    u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
 
     i, j = @index(Global, NTuple)
-    kᴺ   = size(grid, 3) 
+    kᴺ   = size(grid, 3)
 
     mᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, model_fields.ℵ)
 
-    Δτ = compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+    Δτ = compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, model_fields)
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
-   
+
     # Implicit part of the stress that depends linearly on the velocity
-    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) 
-          - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, model_fields)) / mᵢ * ℵᵢ 
+    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields)
+          - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, model_fields)) / mᵢ * ℵᵢ
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
-    uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity 
+    uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity
     uᶠ  = free_drift_u(i, j, kᴺ, grid, free_drift, clock, model_fields) # free drift velocity
 
-    # If the ice mass or the ice concentration are below a certain threshold, 
+    # If the ice mass or the ice concentration are below a certain threshold,
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
     active  = !peripheral_node(i, j, kᴺ, grid, Face(), Center(), Center())
@@ -172,32 +185,32 @@ end
     @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ) * active
 end
 
-@kernel function _v_velocity_step!(v, grid, Δt, 
-                                   substeps, rheology, 
-                                   model_fields, free_drift, 
-                                   clock, coriolis, 
+@kernel function _v_velocity_step!(v, grid, Δt,
+                                   substeps, rheology,
+                                   model_fields, free_drift,
+                                   clock, coriolis,
                                    minimum_mass, minimum_concentration,
                                    v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     i, j = @index(Global, NTuple)
-    kᴺ   = size(grid, 3) 
+    kᴺ   = size(grid, 3)
 
     mᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, model_fields.h, model_fields.ℵ, model_fields.ρ)
     ℵᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, model_fields.ℵ)
-    
-    Δτ = compute_substep_Δtᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields) 
+
+    Δτ = compute_substep_Δtᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, model_fields)
     Gv = v_velocity_tendency(i, j, grid, Δτ, rheology, model_fields, clock, coriolis, v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity
     τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields)
-          - implicit_τy_coefficient(i, j, kᴺ, grid, v_top_stress, clock, model_fields)) / mᵢ * ℵᵢ 
+          - implicit_τy_coefficient(i, j, kᴺ, grid, v_top_stress, clock, model_fields)) / mᵢ * ℵᵢ
 
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 
-    vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity 
+    vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity
     vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, model_fields)  # free drift velocity
 
-    # If the ice mass or the ice concentration are below a certain threshold, 
+    # If the ice mass or the ice concentration are below a certain threshold,
     # the sea ice velocity is set to the free drift velocity
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
     active  = !peripheral_node(i, j, kᴺ, grid, Center(), Face(), Center())

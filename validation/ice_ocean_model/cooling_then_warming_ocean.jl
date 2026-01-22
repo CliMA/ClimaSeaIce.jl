@@ -43,7 +43,7 @@ function compute_solar_insolation!(sim)
     return nothing
 end
 
-# Generate a zero-dimensional grid for a single column slab model 
+# Generate a zero-dimensional grid for a single column slab model
 
 top_salt_flux = Qˢ = Field{Center, Center, Nothing}(ocean_grid)
 boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Qᵀ)),
@@ -53,7 +53,7 @@ boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Q�
 equation_of_state = TEOS10EquationOfState()
 buoyancy = SeawaterBuoyancy(; equation_of_state)
 
-ocean_model = HydrostaticFreeSurfaceModel(grid = ocean_grid;
+ocean_model = HydrostaticFreeSurfaceModel(ocean_grid;
                                           buoyancy, boundary_conditions, closure,
                                           tracers = (:T, :S, :e))
 
