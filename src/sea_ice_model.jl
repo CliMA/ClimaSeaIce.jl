@@ -11,6 +11,7 @@ using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
+import Oceananigans.Architectures: architecture
 import Oceananigans.Models: update_model_field_time_series!
 
 @inline instantiate(T::DataType) = T()
@@ -181,6 +182,7 @@ set!(model::SIM, new_clock::Clock) = set!(model.clock, new_clock)
 Base.summary(model::SIM) = "SeaIceModel"
 prettytime(model::SIM) = prettytime(model.clock.time)
 iteration(model::SIM) = model.clock.iteration
+architecture(model::SIM) = model.architecture
 
 function Base.show(io::IO, model::SIM)
     grid = model.grid
