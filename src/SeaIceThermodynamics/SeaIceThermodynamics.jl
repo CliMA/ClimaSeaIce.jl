@@ -1,6 +1,6 @@
 module SeaIceThermodynamics
 
-export SlabSeaIceThermodynamics, 
+export SlabSeaIceThermodynamics,
        PhaseTransitions,
        MeltingConstrainedFluxBalance,
        PrescribedTemperature,
@@ -81,7 +81,7 @@ The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
 a function of temperature ``T`` via
 
 ```math
-ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρ_ℓ c_ℓ - ρᵢ cᵢ) (T - T₀)    
+ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρ_ℓ c_ℓ - ρᵢ cᵢ) (T - T₀)
 ```
 
 where ``ρᵢ`` is the `ice_density`, ``ρ_ℓ`` is the liquid density,
@@ -110,7 +110,7 @@ and that temperature is degrees Celsius.
 end
 
 @inline function latent_heat(thermo::PhaseTransitions, T)
-    T₀ = thermo.reference_temperature    
+    T₀ = thermo.reference_temperature
     ℒ₀ = thermo.reference_latent_heat
     ρᵢ = thermo.ice_density
     ρℓ = thermo.liquid_density
@@ -140,7 +140,6 @@ using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
 import Oceananigans.Models: AbstractModel
-import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
 

@@ -13,6 +13,7 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 import Oceananigans.Architectures: architecture
 import Oceananigans.Models: update_model_field_time_series!
+import Oceananigans.OutputWriters: default_included_properties
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
@@ -202,7 +203,7 @@ end
 
 reset!(::SIM) = nothing
 initialize!(::SIM) = nothing
-default_included_properties(::SIM) = tuple(:grid)
+default_included_properties(::SIM) = [:grid]
 checkpointer_address(::SeaIceModel) = "SeaIceModel"
 
 # Fallback
