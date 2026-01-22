@@ -39,14 +39,14 @@ run_distributed_jld2writer = """
     run_distributed_sea_ice_jl2dwriter(arch, "distributed_jld2_writer.jld2")
 """
 
-@testset "Test distributed seaiceGrid simulations..." begin
+@testset "Test distributed sea-ice grid simulations..." begin
     # Run the serial computation
     grid = RectilinearGrid(CPU(); 
-                            size = (100, 100, 1), 
-                            x = (-10kilometers, 10kilometers), 
-                            y = (-10kilometers, 10kilometers), 
-                            z = (-1, 0), 
-                            halo = (5, 5, 5))
+                           size = (100, 100, 1), 
+                           x = (-10kilometers, 10kilometers), 
+                           y = (-10kilometers, 10kilometers), 
+                           z = (-1, 0), 
+                           halo = (5, 5, 5))
 
     model = run_distributed_simulation(grid)
 
@@ -101,7 +101,6 @@ run_distributed_jld2writer = """
     @test all(us .≈ up)
     @test all(vs .≈ vp)
 
-
     @info "Testing JLD2Writer on distributed sea ice simulations"
 
     write("distributed_jld2writer_tests.jl", run_distributed_jld2writer)
@@ -115,6 +114,8 @@ run_distributed_jld2writer = """
 
     h = FieldTimeSeries("distributed_jld2_writer.jld2", "h")
     ℵ = FieldTimeSeries("distributed_jld2_writer.jld2", "ℵ")
+
+    @show h
 
     @test length(h.times) = 20
     @test length(ℵ.times) = 20
