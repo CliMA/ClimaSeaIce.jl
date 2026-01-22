@@ -52,9 +52,15 @@ run_distributed_jld2writer = """
 
     # Retrieve Serial quantities
     us, vs = model.velocities
+    hs = model.ice_thickness
+    ℵs = model.ice_concentration
 
     us = interior(us, :, :, 1)
     vs = interior(vs, :, :, 1)
+    hs = interior(hs, :, :, 1)
+    ℵs = interior(ℵs, :, :, 1)
+
+    @info "Testing (4, 1) Distributed sea ice simulations equality"
 
     # Run the distributed grid simulation with a slab configuration
     write("distributed_slab_tests.jl", run_slab_distributed_grid)
@@ -64,12 +70,18 @@ run_distributed_jld2writer = """
     # Retrieve Parallel quantities
     up = jldopen("distributed_yslab_seaice.jld2")["u"]
     vp = jldopen("distributed_yslab_seaice.jld2")["v"]
+    hp = jldopen("distributed_yslab_seaice.jld2")["h"]
+    ℵp = jldopen("distributed_yslab_seaice.jld2")["ℵ"]
 
     rm("distributed_yslab_seaice.jld2")
 
     # Test slab partitioning
     @test all(us .≈ up)
     @test all(vs .≈ vp)
+    @test all(hs .≈ hp)
+    @test all(ℵs .≈ ℵp)
+
+    @info "Testing (2, 2) Distributed sea ice simulations equality"
 
     # Run the distributed grid simulation with a pencil configuration
     write("distributed_tests.jl", run_pencil_distributed_grid)
@@ -79,15 +91,18 @@ run_distributed_jld2writer = """
     # Retrieve Parallel quantities
     up = jldopen("distributed_pencil_seaice.jld2")["u"]
     vp = jldopen("distributed_pencil_seaice.jld2")["v"]
+    hp = jldopen("distributed_pencil_seaice.jld2")["h"]
+    ℵp = jldopen("distributed_pencil_seaice.jld2")["ℵ"]
 
     rm("distributed_pencil_seaice.jld2")
 
     @test all(us .≈ up)
     @test all(vs .≈ vp)
+    @test all(hs .≈ hp)
+    @test all(ℵs .≈ ℵp)
 
-    # We try now with more ranks in the x-direction. This is not a trivial
-    # test as we are now splitting, not only where the singularities are, but
-    # also in the middle of the north fold. This is a more challenging test
+    @info "Testing (4, 2) Distributed sea ice simulations equality"
+
     write("distributed_large_pencil_tests.jl", run_large_pencil_distributed_grid)
     run(`$(mpiexec()) -n 8 $(Base.julia_cmd()) --project -O0 distributed_large_pencil_tests.jl`)
     rm("distributed_large_pencil_tests.jl")
@@ -95,11 +110,15 @@ run_distributed_jld2writer = """
     # Retrieve Parallel quantities
     up = jldopen("distributed_large_pencil_seaice.jld2")["u"]
     vp = jldopen("distributed_large_pencil_seaice.jld2")["v"]
+    hp = jldopen("distributed_large_pencil_seaice.jld2")["h"]
+    ℵp = jldopen("distributed_large_pencil_seaice.jld2")["ℵ"]
 
     rm("distributed_large_pencil_seaice.jld2")
 
     @test all(us .≈ up)
     @test all(vs .≈ vp)
+    @test all(hs .≈ hp)
+    @test all(ℵs .≈ ℵp)
 
     @info "Testing JLD2Writer on distributed sea ice simulations"
 

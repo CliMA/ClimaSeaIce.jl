@@ -19,10 +19,14 @@ function run_distributed_sea_ice(arch, filename)
 
     u = reconstruct_global_field(model.velocities.u)
     v = reconstruct_global_field(model.velocities.v)
+    h = reconstruct_global_field(model.ice_thickness)
+    ℵ = reconstruct_global_field(model.ice_concentration)
 
     if arch.local_rank == 0
         jldsave(filename; u = Array(interior(u, :, :, 1)),
-                          v = Array(interior(v, :, :, 1)))
+                          v = Array(interior(v, :, :, 1)),
+                          h = Array(interior(h, :, :, 1)),
+                          ℵ = Array(interior(ℵ, :, :, 1)))
     end
 
     MPI.Barrier(MPI.COMM_WORLD)
