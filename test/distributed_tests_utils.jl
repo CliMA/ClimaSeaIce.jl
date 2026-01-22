@@ -100,5 +100,7 @@ function run_distributed_jld2_simulation(grid, filename)
                                                     filename,
                                                     overwrite_existing = true)
 
+    run!(simulation)
+    
     return model
 end
