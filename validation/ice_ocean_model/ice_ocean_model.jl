@@ -41,13 +41,13 @@ iteration(model::IOM) = model.clock.iteration
 timestepper(::IOM) = nothing
 reset!(::IOM) = nothing
 initialize!(::IOM) = nothing
-default_included_properties(::IOM) = tuple()
+default_included_properties(::IOM) = Symbol[]
 update_state!(::IOM) = nothing
 prognostic_fields(cm::IOM) = nothing
 fields(::IOM) = NamedTuple()
 
 function IceOceanModel(ice, ocean; clock = Clock{Float64}(0, 0, 1))
-    
+
     previous_ice_thickness = deepcopy(ice.model.ice_thickness)
     previous_ice_concentration = deepcopy(ice.model.ice_concentration)
 
@@ -183,12 +183,12 @@ function time_step!(coupled_model::IceOceanModel, Δt; callbacks=nothing)
     #   accurate flux computation?
     # - Or, input "excess heat flux" into ocean after the ice melts
     # - Currently, non-conservative for heat due bc we don't account for excess
-        
+
     # TODO after ice time-step:
     #   - Adjust ocean temperature if the ice completely melts?
-   
+
     tick!(coupled_model.clock, Δt)
-    
+
     return nothing
 end
 
@@ -236,7 +236,7 @@ end
 
         # Update surface salinity flux.
         # Note: the Δt below is the ocean time-step, eg.
-        # ΔS = ⋯ - ∮ Qˢ dt ≈ ⋯ - Δtₒ * Qˢ 
+        # ΔS = ⋯ - ∮ Qˢ dt ≈ ⋯ - Δtₒ * Qˢ
         Qˢ[i, j, 1] = Δh / Δt * (Sᵢ[i, j, 1] - Sₒ[i, j, Nz])
 
         # Update previous ice thickness
@@ -294,10 +294,10 @@ end
 
         # Melting / freezing temperature at the surface of the ocean
         Tₘ = melting_temperature(liquidus, Sᴺ)
-                                 
+
         # Conditions for non-zero ice-ocean flux:
         #   - the ocean is below the freezing temperature, causing formation of ice.
-        freezing = Tᴺ < Tₘ 
+        freezing = Tᴺ < Tₘ
 
         #   - We are at the surface and the cell is covered by ice.
         icy_surface_cell = (k == Nz) & icy_cell
@@ -314,7 +314,7 @@ end
         #
         #   - When Tᴺ > Tₘ and we are in a surface cell covered by ice, we assume equilibrium
         #     and cool the ocean by injecting excess heat into the ice.
-        # 
+        #
         δEₒ = adjust_temperature * ρₒ * cₒ * (Tₘ - Tᴺ)
 
         # Perform temperature adjustment
@@ -329,7 +329,7 @@ end
         # A negative value δQ < 0 implies that heat is fluxed from the ice into
         # the ocean, cooling the ice and heating the ocean (δEₒ > 0). This occurs when
         # frazil ice is formed within the ocean.
-        
+
         δQ -= δEₒ * Δz / Δt
     end
 

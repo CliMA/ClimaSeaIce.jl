@@ -203,7 +203,7 @@ end
 
 reset!(::SIM) = nothing
 initialize!(::SIM) = nothing
-default_included_properties(::SIM) = tuple(:grid)
+default_included_properties(::SIM) = [:grid]
 checkpointer_address(::SeaIceModel) = "SeaIceModel"
 
 # Fallback
