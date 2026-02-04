@@ -29,7 +29,7 @@ struct ReplacementPressure end
 struct IceStrength end
 
 """
-    ElastoViscoPlasticRheology(FT::DataType = Float64; 
+    ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType; 
                                ice_compressive_strength = 27500, 
                                ice_compaction_hardening = 20, 
                                yield_curve_eccentricity = 2, 
@@ -85,7 +85,7 @@ Keyword Arguments
 - `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`, see Kimmritz et al (2016). Default: `π² / 2`.
 - `pressure_formulation`: can use `ReplacementPressure` or `IceStrength`. The replacement pressure formulation avoids ice motion in the absence of forcing. Default: `ReplacementPressure`.
 """
-function ElastoViscoPlasticRheology(FT::DataType = Float64; 
+function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType; 
                                     ice_compressive_strength = 27500, 
                                     ice_compaction_hardening = 20, 
                                     yield_curve_eccentricity = 2, 

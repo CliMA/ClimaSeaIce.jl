@@ -89,11 +89,11 @@ struct RadiativeEmission{FT}
 end
 
 """
-    RadiativeEmission(FT=Float64; kw...)
+    RadiativeEmission(FT=Oceananigans.defaults.FloatType; kw...)
 
 Returns a flux representing radiative emission from a surface.
 """
-function RadiativeEmission(FT=Float64;
+function RadiativeEmission(FT=Oceananigans.defaults.FloatType;
                            emissivity = 1,
                            stefan_boltzmann_constant = 5.67e-8,
                            reference_temperature = 273.15)
