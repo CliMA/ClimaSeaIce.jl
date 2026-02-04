@@ -20,7 +20,7 @@ struct LinearLiquidus{FT}
 end
 
 """
-    LinearLiquidus(FT=Float64,
+    LinearLiquidus(FT=Oceananigans.defaults.FloatType,
                    slope = 0.054, # psu / ᵒC
                    freshwater_melting_temperature = 0) # ᵒC
 
@@ -43,7 +43,7 @@ temperature is in degrees Celsius.
 Note: the function `melting_temperature(liquidus, salinity)` returns the
 melting temperature given `salinity`.
 """
-function LinearLiquidus(FT::DataType=Float64;
+function LinearLiquidus(FT::DataType=Oceananigans.defaults.FloatType;
                         slope = 0.054, # psu / ᵒC
                         freshwater_melting_temperature = 0) # ᵒC
 
@@ -66,7 +66,7 @@ struct PhaseTransitions{FT, L}
 end
 
 """
-    PhaseTransitions(FT=Float64,
+    PhaseTransitions(FT=Oceananigans.defaults.FloatType,
                      ice_density           = 917,   # kg m⁻³
                      ice_heat_capacity     = 2000,  # J / (kg ᵒC)
                      liquid_density        = 999.8, # kg m⁻³
@@ -91,7 +91,7 @@ liquid, and ``T₀`` is a reference temperature, all of which are assumed consta
 The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
-@inline function PhaseTransitions(FT=Float64;
+@inline function PhaseTransitions(FT=Oceananigans.defaults.FloatType;
                                   ice_density           = 917,    # kg m⁻³
                                   ice_heat_capacity     = 2000,   # J / (kg ᵒC)
                                   liquid_density        = 999.8,  # kg m⁻³

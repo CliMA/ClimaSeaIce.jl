@@ -44,7 +44,7 @@ struct SemiImplicitStress{U, V, FT}
 end
 
 """
-    SemiImplicitStress(FT = Float64; 
+    SemiImplicitStress(FT = Oceananigans.defaults.FloatType; 
                        uₑ = ZeroField(FT), 
                        vₑ = ZeroField(FT), 
                        ρₑ = 1026.0, 
@@ -64,7 +64,7 @@ and `uᵢⁿ⁺¹` and `vᵢⁿ⁺¹` are the sea ice velocities at the next tim
 
 Arguments
 ==========
-- `FT`: The field type of the velocities (optional, default: Float64).
+- `FT`: The field type of the velocities (optional, default: Oceananigans.defaults.FloatType).
 
 Keyword Arguments
 ==================
@@ -73,7 +73,7 @@ Keyword Arguments
 - `ρₑ`: The density of the external fluid.
 - `Cᴰ`: The drag coefficient.
 """
-function SemiImplicitStress(FT = Float64; 
+function SemiImplicitStress(FT = Oceananigans.defaults.FloatType; 
                             uₑ = ZeroField(FT), 
                             vₑ = ZeroField(FT), 
                             ρₑ = 1026.0, 
