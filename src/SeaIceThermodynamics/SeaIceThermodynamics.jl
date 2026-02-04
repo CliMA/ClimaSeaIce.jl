@@ -9,6 +9,7 @@ export SlabSeaIceThermodynamics,
        FluxFunction
 
 using Adapt
+using Oceananigans
 
 #####
 ##### A bit of ice_thermodynamics to start the day
