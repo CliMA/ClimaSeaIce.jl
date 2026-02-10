@@ -47,6 +47,12 @@ format = Documenter.HTML(
 
 pages = [
     "Home" => "index.md",
+
+    "Physics" => [
+        "Thermodynamics" => "physics/thermodynamics.md",
+        "Dynamics and Rheology" => "physics/dynamics_and_rheology.md",
+    ],
+
     "Examples" => example_pages,
     "Timestepping" => "timestepping.md",
 
