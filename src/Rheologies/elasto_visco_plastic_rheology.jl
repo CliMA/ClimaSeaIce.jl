@@ -53,8 +53,8 @@ parameterized as ``P_★ h \\exp[ - C ( 1 - ℵ )]`` where ``P_★`` is the `ice
 The stresses are substepped using a dynamic substepping coefficient ``α`` that is
 spatially varying and computed dynamically as in Kimmritz et al (2016)
 In particular: ``α = \\sqrt{γ²}``
-where ``γ² = ζ cα (Δt / mᵢ) / Az`` is a stability parameter with ``Az`` is the area of the grid cell,
-``mᵢ`` the ice mass, ``Δt`` the time step, and ``cα`` a numerical stability parameter which controls the
+where ``γ² = ζ c_α (Δt / mᵢ) / A_z`` is a stability parameter with ``A_z`` is the area of the grid cell,
+``mᵢ`` the ice mass, ``Δt`` the time step, and ``c_α`` a numerical stability parameter which controls the
 strength of ``γ²``.
 
 The stresses are substepped with:
