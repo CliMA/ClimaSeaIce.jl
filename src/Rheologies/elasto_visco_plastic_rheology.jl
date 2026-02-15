@@ -52,10 +52,10 @@ parameterized as ``P_★ h \\exp[ - C ( 1 - ℵ )]`` where ``P_★`` is the `ice
 
 The stresses are substepped using a dynamic substepping coefficient ``α`` that is
 spatially varying and computed dynamically as in Kimmritz et al (2016)
-In particular: α = sqrt(γ²)
-where γ² = ζ * cα * (Δt / mᵢ) / Az is a stability parameter with ``Az`` is the area of the grid cell,
+In particular: ``α = \\sqrt{γ²}``
+where ``γ² = ζ cα (Δt / mᵢ) / Az`` is a stability parameter with ``Az`` is the area of the grid cell,
 ``mᵢ`` the ice mass, ``Δt`` the time step, and ``cα`` a numerical stability parameter which controls the
-stregth of ``γ²``.
+strength of ``γ²``.
 
 The stresses are substepped with:
 ```math
@@ -64,7 +64,7 @@ The stresses are substepped with:
 
 This formulation allows fast convergence in regions where α is small. Regions where
 ``α`` is large correspond to regions where the ice is more solid and the convergence is slower.
-``α`` can be thougth of as a ``pseudo substep number'' or a ``relaxation parameter''.
+``α`` can be thougth of as a "pseudo substep number" or a "relaxation parameter".
 If we are using a subcycling solver, then if ``α`` ≪ number of substeps, the convergence is faster.
 
 Arguments
