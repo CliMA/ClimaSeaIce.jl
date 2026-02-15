@@ -83,6 +83,32 @@ end
 fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
 prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
 
+struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
+    coriolis :: C
+    rheology :: R
+    auxiliaries :: A
+    solver :: S
+    free_drift :: F
+    external_momentum_stresses :: ES
+    minimum_concentration :: FT
+    minimum_mass :: FT
+end
+
+function Base.show(io::IO, sime::SeaIceMomentumEquation)
+
+    aux_fields = keys(sime.auxiliaries.fields)
+
+    print(io, "SeaIceMomentumEquation", '\n')
+    print(io, "├── coriolis: ", summary(sime.coriolis), '\n')
+    print(io, "├── rheology: ", summary(sime.rheology), '\n')
+    print(io, "├── auxiliaries: ", join(aux_fields, ", "), '\n')
+    print(io, "├── solver: ", summary(sime.solver), '\n')
+    print(io, "├── free_drift: ", sime.free_drift, '\n')
+    print(io, "├── external_momentum_stresses: ", keys(sime.external_momentum_stresses), '\n')
+    print(io, "├── minimum_concentration: ", sime.minimum_concentration, '\n')
+    print(io, "└── minimum_mass: ", sime.minimum_mass)
+end
+
 #####
 ##### Checkpointing
 #####
