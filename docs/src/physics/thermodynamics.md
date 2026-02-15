@@ -185,5 +185,5 @@ thermodynamics = SlabSeaIceThermodynamics(grid;
 thermodynamics
 ```
 
-When coupled to a `SeaIceModel`, these thermodynamics automatically compute thickness
+When coupled to a [`SeaIceModel`](@ref), these thermodynamics automatically compute thickness
 tendencies based on the configured heat fluxes and boundary conditions.
