@@ -58,7 +58,7 @@ Uₐ = XFaceField(grid)
 Vₐ = YFaceField(grid)
 
 # Atmospheric velocities corresponding to an anticyclonic eddy moving north-east
-@inline center(t) = 256kilometers + 51.2kilometers * t / 86400
+@inline center(t) = 256kilometers + 51.2kilometers * t / day
 @inline radius(x, y, t)  = sqrt((x - center(t))^2 + (y - center(t))^2)
 @inline speed(x, y, t)   = 1 / 100 * exp(- radius(x, y, t) / 100kilometers)
 
