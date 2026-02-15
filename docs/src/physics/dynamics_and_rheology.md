@@ -172,10 +172,10 @@ normal stresses (``\sigma_{11}``, ``\sigma_{22}``) depend on both viscosities an
 
 The ice strength ``P`` determines when plastic yielding occurs:
 ```math
-P = P^\star h \exp\left[-C(1 - \aleph)\right]
+P = P_\star h \exp\left[-C(1 - \aleph)\right]
 ```
 where:
-- ``P^\star`` is the compressive strength parameter (default: 27,500 N/m²)
+- ``P_\star`` is the compressive strength parameter (default: 27,500 N/m²)
 - ``h`` is the ice thickness
 - ``C`` is the compaction hardening exponent (default: 20)
 - ``\aleph`` is the ice concentration
