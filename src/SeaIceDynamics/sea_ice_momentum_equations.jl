@@ -32,11 +32,12 @@ Constructs a `SeaIceMomentumEquation` object that controls the dynamical evoluti
 The sea-ice momentum obey the following evolution equation:
 
 ```math
-\\frac{∂𝐮}{∂t} + 𝐟 × 𝐮 = \\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma} + \\frac{\\boldsymbol{\\tau}ₒ}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₐ}{mᵢ}
+\\frac{∂\\boldsymbol{u}}{∂t} + \\boldsymbol{f} × \\boldsymbol{u} = \\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma} + \\frac{\\boldsymbol{\\tau}ₒ}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₐ}{mᵢ}
 ```
-where ``∂𝐮/∂t`` is the time derivative of the ice velocity, ``𝐟`` is the coriolis force,
-``\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma}`` is the divergence of internal stresses, ``\\boldsymbol{\\tau}ₒ/mᵢ`` is the ice-ocean boundary stress,
-and ``\\boldsymbol{\\tau}ₐ/mᵢ`` is the ice-atmosphere boundary stress.
+where ``∂\\boldsymbol{u}/∂t`` is the time derivative of the ice velocity, ``\\boldsymbol{f}`` is the
+Coriolis parameter, ``\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma}`` is the divergence of internal
+stresses, ``\\boldsymbol{\\tau}ₒ/mᵢ`` is the ice-ocean boundary stress, ``\\boldsymbol{\\tau}ₐ/mᵢ`` is the
+ice-atmosphere boundary stress, and ``mᵢ = ρᵢ h ℵ`` is the ice mass per unit area.
 
 Arguments
 =========
