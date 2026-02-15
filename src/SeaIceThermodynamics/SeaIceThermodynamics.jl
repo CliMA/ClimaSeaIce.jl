@@ -56,6 +56,14 @@ end
     return liquidus.freshwater_melting_temperature - liquidus.slope * salinity
 end
 
+Base.summary(lq::LinearLiquidus) = "LinearLiquidus(freshwater_melting_temperature = $(lq.freshwater_melting_temperature), slope = $(lq.slope))"
+
+function Base.show(io::IO, lq::LinearLiquidus{FT}) where FT
+    print(io, summary(lq), "{", FT, "}", '\n')
+    print(io, "├── freshwater_melting_temperature: ", lq.freshwater_melting_temperature, '\n')
+    print(io, "└── slope: ", lq.slope)
+end
+
 struct PhaseTransitions{FT, L}
     ice_density :: FT
     ice_heat_capacity :: FT
@@ -119,7 +127,7 @@ function Base.show(io::IO, pt::PhaseTransitions{FT}) where FT
     print(io, "├── liquid_heat_capacity: ", pt.liquid_heat_capacity, '\n')
     print(io, "├── reference_latent_heat: ", pt.reference_latent_heat, '\n')
     print(io, "├── reference_temperature: ", pt.reference_temperature, '\n')
-    print(io, "└── liquidus: ", pt.liquidus)
+    print(io, "└── liquidus: ", summary(pt.liquidus))
 end
 
 @inline function latent_heat(thermo::PhaseTransitions, T)
