@@ -172,7 +172,7 @@ normal stresses (``\sigma_{11}``, ``\sigma_{22}``) depend on both viscosities an
 
 The ice strength ``P`` determines when plastic yielding occurs:
 ```math
-P = P^\star h \exp\left(-C(1 - \aleph)\right)
+P = P^\star h \exp\left[-C(1 - \aleph)\right]
 ```
 where:
 - ``P^\star`` is the compressive strength parameter (default: 27,500 N/m²)
@@ -324,5 +324,5 @@ set!(model, h = 0.3, ℵ = 1.0)
 model
 ```
 
-This configuration will produce realistic ice deformation patterns including
+This configuration produces realistic ice deformation patterns including
 linear kinematic features (LKFs) that form when ice fractures under stress.
