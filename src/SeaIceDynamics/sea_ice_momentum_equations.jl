@@ -18,13 +18,13 @@ end
 struct ExplicitSolver end
 
 """
-    SeaIceMomentumEquation(grid; 
+    SeaIceMomentumEquation(grid;
                            coriolis = nothing,
                            rheology = ElastoViscoPlasticRheology(eltype(grid)),
                            top_momentum_stress    = nothing,
                            bottom_momentum_stress = nothing,
                            free_drift = nothing,
-                           solver = SplitExplicitSolver(150),
+                           solver = SplitExplicitSolver(grid; substeps=150),
                            minimum_concentration = 1e-3,
                            minimum_mass = 1.0)
 
@@ -32,12 +32,11 @@ Constructs a `SeaIceMomentumEquation` object that controls the dynamical evoluti
 The sea-ice momentum obey the following evolution equation:
 
 ```math
-    ∂u                   τₒ    τₐ
-    -- + f x u = ∇ ⋅ σ + --  + -- 
-    ∂t                   mᵢ    mᵢ
+\frac{∂𝐮}{∂t} + 𝐟 × 𝐮 = 𝛁 ⋅ 𝛔 + \frac{τₒ}{mᵢ} + + \frac{τₐ}{mᵢ}
 ```
-where the terms (left to right) represent (1) the time derivative of the ice velocity, (2) the coriolis force.
-(3) the divergence of internal stresses, (4) the ice-ocean boundary stress, and (5) the ice-atmosphere boundary stress.
+where ``∂𝐮/∂t`` is the time derivative of the ice velocity, ``𝐟`` is the coriolis force,
+``𝛁 ⋅ 𝛔`` is the divergence of internal stresses, ``τₒ/mᵢ`` is the ice-ocean boundary stress,
+and ``τₐ/mᵢ`` is the ice-atmosphere boundary stress.
 
 Arguments
 =========
@@ -55,7 +54,7 @@ Keyword Arguments
 - `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
 - `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
 """
-function SeaIceMomentumEquation(grid; 
+function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 top_momentum_stress    = nothing,
@@ -71,9 +70,9 @@ function SeaIceMomentumEquation(grid;
 
     FT = eltype(grid)
 
-    return SeaIceMomentumEquation(coriolis, 
-                                  rheology, 
-                                  auxiliaries, 
+    return SeaIceMomentumEquation(coriolis,
+                                  rheology,
+                                  auxiliaries,
                                   solver,
                                   free_drift,
                                   external_momentum_stresses,
