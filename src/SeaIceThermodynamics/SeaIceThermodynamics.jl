@@ -67,12 +67,13 @@ struct PhaseTransitions{FT, L}
 end
 
 """
-    PhaseTransitions(FT=Oceananigans.defaults.FloatType,
+    PhaseTransitions(FT=Oceananigans.defaults.FloatType;
                      ice_density           = 917,   # kg m⁻³
                      ice_heat_capacity     = 2000,  # J / (kg ᵒC)
                      liquid_density        = 999.8, # kg m⁻³
                      liquid_heat_capacity  = 4186,  # J / (kg ᵒC)
-                     reference_latent_heat = 334e3  # J kg⁻³
+                     reference_latent_heat = 334e3, # J kg⁻³
+                     reference_temperature = 0,     # ᵒC
                      liquidus = LinearLiquidus(FT)) # default assumes psu, ᵒC
 
 Return a representation of transitions between the solid and liquid phases
@@ -108,6 +109,17 @@ and that temperature is degrees Celsius.
                             convert(FT, reference_latent_heat),
                             convert(FT, reference_temperature),
                             liquidus)
+end
+
+function Base.show(io::IO, pt::PhaseTransitions{FT}) where FT
+    print(io, "PhaseTransitions{", FT, "}", '\n')
+    print(io, "├── ice_density: ", pt.ice_density, '\n')
+    print(io, "├── ice_heat_capacity: ", pt.ice_heat_capacity, '\n')
+    print(io, "├── liquid_density: ", pt.liquid_density, '\n')
+    print(io, "├── liquid_heat_capacity: ", pt.liquid_heat_capacity, '\n')
+    print(io, "├── reference_latent_heat: ", pt.reference_latent_heat, '\n')
+    print(io, "├── reference_temperature: ", pt.reference_temperature, '\n')
+    print(io, "└── liquidus: ", pt.liquidus)
 end
 
 @inline function latent_heat(thermo::PhaseTransitions, T)
