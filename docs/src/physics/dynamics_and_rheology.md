@@ -9,20 +9,19 @@ for capturing the characteristic fractures, leads, and ridges observed in real s
 
 The sea ice momentum equation describes the balance of forces acting on an ice element:
 ```math
-\frac{\partial \mathbf{u}}{\partial t} + \mathbf{f} \times \mathbf{u} =
-\frac{1}{m_i} \nabla \cdot \boldsymbol{\sigma} +
-\frac{\boldsymbol{\tau}_a}{m_i} +
-\frac{\boldsymbol{\tau}_o}{m_i}
+\frac{\partial \boldsymbol{u}}{\partial t} + \boldsymbol{f} \times \boldsymbol{u} =
+    \frac{1}{m_i} \boldsymbol{\nabla} \cdot \boldsymbol{\sigma} +
+    \frac{\boldsymbol{\tau}_a}{m_i} + \frac{\boldsymbol{\tau}_o}{m_i}
 ```
 where:
-- ``\mathbf{u} = (u, v)`` is the ice velocity
-- ``\mathbf{f}`` is the Coriolis parameter
+- ``\boldsymbol{u} = (u, v)`` is the ice velocity
+- ``\boldsymbol{f}`` is the Coriolis parameter
 - ``m_i = \rho_i h \aleph`` is the ice mass per unit area (density × thickness × concentration)
 - ``\boldsymbol{\sigma}`` is the internal stress tensor
 - ``\boldsymbol{\tau}_a`` is the atmospheric stress (wind drag)
 - ``\boldsymbol{\tau}_o`` is the oceanic stress (water drag)
 
-The divergence of the stress tensor, ``\nabla \cdot \boldsymbol{\sigma}``, represents
+The divergence of the stress tensor, ``\boldsymbol{\nabla} \cdot \boldsymbol{\sigma}``, represents
 internal forces arising from ice deformation.
 
 ## Setting up ice dynamics
