@@ -76,12 +76,12 @@ fill_halo_regions!((Uₒ, Vₒ))
 # We set up atmospheric velocities corresponding to an anticyclonic eddy moving
 # northeast. The eddy center moves with time:
 
-@inline center(t) = 256kilometers + 51.2kilometers * t / 86400
-@inline radius(x, y, t)  = sqrt((x - center(t))^2 + (y - center(t))^2)
-@inline speed(x, y, t)   = 1 / 100 * exp(- radius(x, y, t) / 100kilometers)
+@inline center(t) = 256kilometers + 51.2kilometers * t / day
+@inline radius(x, y, t) = sqrt((x - center(t))^2 + (y - center(t))^2)
+@inline speed(x, y, t) = 1 / 100 * exp(- radius(x, y, t) / 100kilometers)
 
-@inline ua_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (cosd(72) * (x - center(t)) + sind(72) * (y - center(t))) / 1000
-@inline va_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (cosd(72) * (y - center(t)) - sind(72) * (x - center(t))) / 1000
+@inline ua_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (  cosd(72) * (x - center(t)) + sind(72) * (y - center(t))) / 1000
+@inline va_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (- sind(72) * (x - center(t)) + cosd(72) * (y - center(t))) / 1000
 
 # Initialize the stress at time t = 0:
 
@@ -111,11 +111,11 @@ model = SeaIceModel(grid;
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection = WENO(order=7),
                     boundary_conditions = (u=u_bcs, v=v_bcs))
-    
+
 # ## Initial conditions
 #
-# We start with a concentration of ℵ = 1 and an initial height field with
-# perturbations around 0.3 m:
+# We start with a concentration of `ℵ = 1` and an initial height field with
+# perturbations around 0.3 meters:
 
 h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 1000kilometers) + sin(30 * y / 1000kilometers))
 
