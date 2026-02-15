@@ -31,7 +31,7 @@ The [`PhaseTransitions`](@ref) struct encapsulates the thermodynamic properties 
 ice-water transitions:
 
 ```@example thermodynamics
-using ClimaSeaIce.SeaIceThermodynamics: PhaseTransitions, latent_heat
+using ClimaSeaIce.SeaIceThermodynamics: PhaseTransitions
 
 phase_transitions = PhaseTransitions()
 ```
@@ -48,6 +48,8 @@ are the respective heat capacities, ``\mathscr{L}_0`` is the reference latent he
 temperature ``T_0``, and ``T`` is the current temperature.
 
 ```@example thermodynamics
+using ClimaSeaIce.SeaIceThermodynamics: latent_heat
+
 # Latent heat at different temperatures
 L_at_0C = latent_heat(phase_transitions, 0.0)
 L_at_minus10C = latent_heat(phase_transitions, -10.0)
