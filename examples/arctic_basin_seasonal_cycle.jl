@@ -3,12 +3,12 @@
 # This example reproduces results from Semtner (1976), which simulates the seasonal
 # cycle of sea ice in the Arctic basin. The model uses climatological forcing data
 # from Fletcher (1965) for shortwave radiation, longwave radiation, sensible heat
-# flux, and latent heat flux. This example demonstrates
+# flux, and latent heat flux. This example demonstrates how to:
 #
-#   * How to use time-varying climatological forcing data.
-#   * How to set up seasonal cycles with `FieldTimeSeries` and cyclical indexing.
-#   * How to combine multiple heat flux components.
-#   * How to simulate multi-year seasonal cycles.
+#   * use time-varying climatological forcing data.
+#   * set up seasonal cycles with `FieldTimeSeries` and cyclical indexing.
+#   * combine multiple heat flux components.
+#   * simulate multi-year seasonal cycles.
 #
 # ## Install dependencies
 #
@@ -60,7 +60,7 @@ times = times_days .* day # times in seconds
 # Convert fluxes to the right units (W m⁻²):
 
 kcal_to_joules = 4184
-tabulated_shortwave .*= kcal_to_joules / (month_days * days) 
+tabulated_shortwave .*= kcal_to_joules / (month_days * days)
 tabulated_longwave  .*= kcal_to_joules / (month_days * days) .* ϵ
 tabulated_sensible  .*= kcal_to_joules / (month_days * days)
 tabulated_latent    .*= kcal_to_joules / (month_days * days)
@@ -108,9 +108,11 @@ end
     return Q * (1 - α)
 end
 
-# NOTE: Semtner (1976) uses a wrong value for the Stefan-Boltzmann constant
-# (roughly 2% higher) to match the results of Maykut & Untersteiner (1965).
-# We use the same value here for comparison purposes:
+# !!! note "Slightly wrong value for Stefan-Boltzmann constant"
+#
+#     Semtner (1976) uses a wrong value for the Stefan-Boltzmann constant
+#     (roughly 2% higher) to match the results of Maykut & Untersteiner (1965).
+#     We use here the same value here for comparison purposes.
 
 σ = 5.67e-8 * 1.02 # Wrong value, but used for comparison!
 
