@@ -89,6 +89,14 @@ Adapt.adapt_structure(to, τ::SemiImplicitStress) =
                                   τ.ρₑ,
                                   τ.Cᴰ)
 
+function Base.show(io::IO, τ::SemiImplicitStress)
+    print(io, "SemiImplicitStress", '\n')
+    print(io, "├── uₑ: ", summary(τ.uₑ), '\n')
+    print(io, "├── vₑ: ", summary(τ.vₑ), '\n')
+    print(io, "├── ρₑ: ", τ.ρₑ, '\n')
+    print(io, "└── Cᴰ: ", τ.Cᴰ)
+end
+
 @inline function explicit_τx(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
     uₑ = @inbounds τ.uₑ[i, j, k]
     Δu = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
