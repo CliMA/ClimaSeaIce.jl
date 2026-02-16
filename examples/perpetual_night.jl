@@ -44,3 +44,4 @@ lines!(axT, t / day, T)
 lines!(axh, t / day, h)
 
 display(fig)
+
