@@ -8,7 +8,7 @@ using Oceananigans.Units: Time
 using Oceananigans.OutputReaders
 using ClimaSeaIce
 
-# Generate a 0D grid for a single column slab model
+# Generate a 0D grid for a single column slab model 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 # Forcings (Semtner 1976, table 1), originally tabulated by Fletcher (1965)
@@ -32,7 +32,7 @@ times = times_days .* day # times in seconds
 
 # Convert fluxes to the right units
 kcal_to_joules = 4184
-tabulated_shortwave .*= kcal_to_joules / (month_days * days)
+tabulated_shortwave .*= kcal_to_joules / (month_days * days) 
 tabulated_longwave  .*= kcal_to_joules / (month_days * days) .* ϵ
 tabulated_sensible  .*= kcal_to_joules / (month_days * days)
 tabulated_latent    .*= kcal_to_joules / (month_days * days)
@@ -45,7 +45,8 @@ lines!(ax, times, tabulated_shortwave)
 lines!(ax, times, tabulated_longwave)
 lines!(ax, times, tabulated_sensible)
 lines!(ax, times, tabulated_latent)
-fig
+
+display(fig)
 
 # Make them into a FieldTimeSeries for better manipulation
 
@@ -127,4 +128,9 @@ lines!(axh, t / day, h)
 lines!(axℵ, t / day, ℵ)
 lines!(axQ, t / day, Q)
 
-fig
+display(fig)
+
+save("ice_timeseries.png", fig)
+nothing # hide
+
+# ![](ice_timeseries.png)
