@@ -7,12 +7,12 @@
 # is run for longer, the ice will keep freezing, and freezing, and will never run
 # out of water. Also, the water in the infinite bucket is (somehow) all at the same
 # temperature, in equilibrium with the ice-water interface (and therefore fixed at
-# the melting temperature). This example demonstrates
+# the melting temperature). This example demonstrates how to:
 #
-#   * How to use `SlabSeaIceThermodynamics` with prescribed boundary conditions.
-#   * How to configure internal heat conduction.
-#   * How to use `FluxFunction` for frazil ice formation.
-#   * How to collect and visualize time series data.
+#   * use `SlabSeaIceThermodynamics` with prescribed boundary conditions,
+#   * configure internal heat conduction,
+#   * use `FluxFunction` for frazil ice formation,
+#   * collect and visualize time series data.
 #
 # ## Install dependencies
 #

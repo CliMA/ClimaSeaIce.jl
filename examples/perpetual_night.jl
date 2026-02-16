@@ -2,11 +2,11 @@
 #
 # In this example, we simulate sea ice under perpetual night conditions, where
 # the ice surface emits longwave radiation but receives no incoming solar radiation.
-# This example demonstrates
+# This example demonstrates how to:
 #
-#   * How to use `RadiativeEmission` for outgoing longwave radiation.
-#   * How to set initial ice thickness.
-#   * How to collect and visualize time series data.
+#   * use `RadiativeEmission` for outgoing longwave radiation,
+#   * set initial ice thickness,
+#   * collect and visualize time series data.
 #
 # ## Install dependencies
 #

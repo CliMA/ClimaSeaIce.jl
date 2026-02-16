@@ -2,12 +2,12 @@
 #
 # This example simulates a solid block of ice moving against a triangular coastline
 # in a periodic channel. The ice is driven by atmospheric winds and interacts with
-# the coastline through immersed boundaries. This example demonstrates
+# the coastline through immersed boundaries. This example demonstrates how to:
 #
-#   * How to set up a two-dimensional sea ice model with immersed boundaries.
-#   * How to prescribe atmospheric and oceanic stresses.
-#   * How to use elasto-visco-plastic rheology with split-explicit time stepping.
-#   * How to visualize the evolution of ice thickness, concentration, and velocity.
+#   * set up a two-dimensional sea ice model with immersed boundaries,
+#   * prescribe atmospheric and oceanic stresses,
+#   * use elasto-visco-plastic rheology with split-explicit time stepping,
+#   * visualize the evolution of ice thickness, concentration, and velocity.
 #
 # ## Install dependencies
 #
@@ -42,15 +42,15 @@ arch = CPU()
 #
 # We create a rectilinear grid with periodic boundaries in x and bounded boundaries in y:
 
-grid = RectilinearGrid(arch; size = (Nx, Ny), 
-                                x = (-Lx/2, Lx/2), 
-                                y = (0, Ly), 
+grid = RectilinearGrid(arch; size = (Nx, Ny),
+                                x = (-Lx/2, Lx/2),
+                                y = (0, Ly),
                              halo = (4, 4),
                          topology = (Periodic, Bounded, Flat))
 
 # We define a triangular coastline using an immersed boundary:
 
-bottom(x, y) = ifelse(y > y_max, 0, 
+bottom(x, y) = ifelse(y > y_max, 0,
                ifelse(abs(x / Lx) * Nx + y / Ly * Ny > 24, 0, 1))
 
 grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
@@ -81,9 +81,9 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 # We use an elasto-visco-plastic rheology and WENO seventh order for advection
 # of ice thickness and concentration:
 
-dynamics = SeaIceMomentumEquation(grid; 
+dynamics = SeaIceMomentumEquation(grid;
                                   top_momentum_stress = (u=τᵤ, v=τᵥ),
-                                  bottom_momentum_stress = τₒ, 
+                                  bottom_momentum_stress = τₒ,
                                   rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 
@@ -95,7 +95,7 @@ u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
 
 # We define the model with WENO advection and no thermodynamics:
 
-model = SeaIceModel(grid; 
+model = SeaIceModel(grid;
                     advection = WENO(order=7),
                     dynamics = dynamics,
                     boundary_conditions = (; u=u_bcs),
@@ -110,7 +110,7 @@ set!(model, ℵ = 1)
 #
 # We run the model for 2 days with a 2-minute time step:
 
-simulation = Simulation(model, Δt = 2minutes, stop_time=2days) 
+simulation = Simulation(model, Δt = 2minutes, stop_time=2days)
 
 # ## Collecting data
 #

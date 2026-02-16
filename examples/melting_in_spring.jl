@@ -4,12 +4,12 @@
 # the sun is shining. The ice is subject to solar insolation and sensible heat
 # fluxes from the atmosphere. Different grid cells show how the ice melts at
 # different rates depending on the amount of solar insolation they receive.
-# This example demonstrates
+# This example demonstrates how to:
 #
-#   * How to set up a one-dimensional model with multiple grid cells.
-#   * How to prescribe spatially varying solar insolation.
-#   * How to use `FluxFunction` for parameterized heat fluxes.
-#   * How to visualize the evolution of multiple ice columns.
+#   * set up a one-dimensional model with multiple grid cells,
+#   * prescribe spatially varying solar insolation,
+#   * use `FluxFunction` for parameterized heat fluxes,
+#   * visualize the evolution of multiple ice columns.
 #
 # ## Install dependencies
 #
@@ -69,7 +69,7 @@ parameters = (
     uₐ = parameters.atmosphere_wind_speed
     ℵ  = fields.ℵ[i, j, 1]
 
-    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ 
+    return Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ) * ℵ
 end
 
 aerodynamic_flux = FluxFunction(sensible_heat_flux; parameters)

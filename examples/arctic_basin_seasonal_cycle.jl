@@ -5,9 +5,9 @@
 # from Fletcher (1965) for shortwave radiation, longwave radiation, sensible heat
 # flux, and latent heat flux. This example demonstrates how to:
 #
-#   * use time-varying climatological forcing data.
-#   * set up seasonal cycles with `FieldTimeSeries` and cyclical indexing.
-#   * combine multiple heat flux components.
+#   * use time-varying climatological forcing data,
+#   * set up seasonal cycles with `FieldTimeSeries` and cyclical indexing,
+#   * combine multiple heat flux components,
 #   * simulate multi-year seasonal cycles.
 #
 # ## Install dependencies

@@ -4,11 +4,11 @@
 # represented by four grid points that start at 1°C and are cooled down by an
 # atmosphere with temperatures of -20, -10, -5, and 0°C. The lake is 10 m deep
 # and not subjected to radiative transfer (this lake is covered in a wind tunnel
-# under which we blow some cold air). This example demonstrates
+# under which we blow some cold air). This example demonstrates how to:
 #
-#   * How to couple a simple lake model with sea ice thermodynamics.
-#   * How to use `FluxFunction` for complex boundary conditions.
-#   * How to track energy budgets.
+#   * couple a simple lake model with sea ice thermodynamics,
+#   * use `FluxFunction` for complex boundary conditions,
+#   * track energy budgets.
 #
 # ## Install dependencies
 #
@@ -45,7 +45,7 @@ atmosphere = (
     atmosphere_wind_speed    = 5,     # m s⁻¹
     atmosphere_ice_flux      = [0.0, 0.0, 0.0, 0.0], # W m⁻²
 )
-    
+
 # The flux is positive (cooling by fluxing heat upward away from the upper surface)
 # when the atmosphere temperature is less than the surface temperature:
 
@@ -60,7 +60,7 @@ atmosphere = (
 
     Qₐ[i] = ifelse(ℵ == 0, zero(grid), Cₛ * ρₐ * cₐ * uₐ * (Tᵤ - Tₐ))
 
-    return Qₐ[i] 
+    return Qₐ[i]
 end
 
 # ## Lake model
@@ -101,10 +101,10 @@ lake = (
     Δ  = lake.lake_depth
     Δt = lake.Δt
     ℵ  = fields.ℵ[i, j, 1]
-    
+
     Qᵗ = lake.atmosphere_lake_flux
     Qᵇ = lake.lake_ice_flux
-    
+
     Qₐ = Cₛ * ρₐ * cₐ * uₐ * (Tₐ - Tₒ[i]) * (1 - ℵ)
     Tⁿ = Tₒ[i] + Qₐ / (ρₒ * cₒ) * Δt
     Qᵢ = ρₒ * cₒ * (Tⁿ - 0) / Δt * Δ # W m⁻²
@@ -126,7 +126,7 @@ bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux; parameters=(; lake
 
 model = SeaIceModel(grid;
                     ice_consolidation_thickness = 0.05, # m
-                    top_heat_flux, 
+                    top_heat_flux,
                     bottom_heat_flux)
 
 # We initialize all columns with open water (0 thickness and 0 concentration):
@@ -268,7 +268,7 @@ dEi1 = (Ei1[2:end] - Ei1[1:end-1]) ./ 10minutes
 dEi2 = (Ei2[2:end] - Ei2[1:end-1]) ./ 10minutes
 dEi3 = (Ei3[2:end] - Ei3[1:end-1]) ./ 10minutes
 dEi4 = (Ei4[2:end] - Ei4[1:end-1]) ./ 10minutes
-tpE  = t[2:end] 
+tpE  = t[2:end]
 
 lines!(axE, t ./ day, Ei1)
 lines!(axA, t ./ day, Qa1)

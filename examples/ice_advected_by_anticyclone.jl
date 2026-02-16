@@ -7,12 +7,12 @@
 # > Quadrilateral and Triangular Grids With Different Variable Staggering
 #
 # The ice is driven by a moving anticyclonic atmospheric eddy and interacts with
-# a cyclonic ocean eddy. This example demonstrates
+# a cyclonic ocean eddy. This example demonstrates how to:
 #
-#   * How to set up a two-dimensional sea ice model with time-varying atmospheric forcing.
-#   * How to prescribe moving atmospheric and ocean eddies.
-#   * How to use elasto-visco-plastic rheology with Coriolis effects.
-#   * How to save and visualize time series data.
+#   * set up a two-dimensional sea ice model with time-varying atmospheric forcing,
+#   * prescribe moving atmospheric and ocean eddies,
+#   * use elasto-visco-plastic rheology with Coriolis effects,
+#   * save and visualize time series data.
 #
 # ## Install dependencies
 #
@@ -20,7 +20,7 @@
 #
 # ```julia
 # using Pkg
-# pkg"add Oceananigans, ClimaSeaIce, CairoMakie, JLD2"
+# pkg"add Oceananigans, ClimaSeaIce, CairoMakie"
 # ```
 #
 # ## The physical domain

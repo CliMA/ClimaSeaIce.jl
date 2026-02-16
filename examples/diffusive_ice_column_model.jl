@@ -3,12 +3,12 @@
 # This example demonstrates the use of `EnthalpyMethodSeaIceModel`, which resolves
 # the vertical structure of sea ice using an enthalpy-based formulation. The model
 # includes internal heat conduction and tracks the phase transitions between ice and
-# water within the ice column. This example demonstrates
+# water within the ice column. This example demonstrates how to:
 #
-#   * How to set up an `EnthalpyMethodSeaIceModel` with molecular diffusivity.
-#   * How to prescribe time-varying boundary conditions.
-#   * How to compute ice thickness from the temperature profile.
-#   * How to visualize the evolution of temperature, enthalpy, porosity, and diffusivity.
+#   * set up an `EnthalpyMethodSeaIceModel` with molecular diffusivity,
+#   * prescribe time-varying boundary conditions,
+#   * compute ice thickness from the temperature profile,
+#   * visualize the evolution of temperature, enthalpy, porosity, and diffusivity.
 #
 # ## Install dependencies
 #
@@ -73,7 +73,7 @@ ax = Axis(fig[1, 1], title="Boundary Conditions", xlabel="Time (s)", ylabel="Tem
 lines!(ax, t, air_ice_temperature.(0, 0, t), label="Air-ice surface temperature")
 lines!(ax, t, ice_ocean_temperature.(0, 0, t), label="Ice-ocean temperature")
 axislegend(ax)
-     
+
 current_figure() #hide
 
 # We create the boundary conditions:
@@ -139,8 +139,8 @@ simulation.callbacks[:thickness] = Callback(compute_ice_thickness, IterationInte
 
 # We also collect profiles of temperature, enthalpy, porosity, and diffusivity:
 
-tt = [] 
-Tt = [] 
+tt = []
+Tt = []
 Ht = []
 ϕt = []
 κt = []
@@ -153,7 +153,7 @@ function grab_profiles!(sim)
     κ = sim.model.closure.κ
 
     # Extract interior data (excluding halos)
-    Ti = interior(T, 1, 1, :)  
+    Ti = interior(T, 1, 1, :)
     Hi = interior(H, 1, 1, :)
     ϕi = interior(ϕ, 1, 1, :)
     κi = interior(κ, 1, 1, :)

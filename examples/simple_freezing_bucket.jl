@@ -1,11 +1,11 @@
 # # Simple freezing bucket example
 #
 # This is ClimaSeaIce.jl's simplest example: a single grid point model of sea ice
-# freezing in a bucket. This example demonstrates
+# freezing in a bucket. This example demonstrates how to:
 #
-#   * How to load `ClimaSeaIce.jl`.
-#   * How to instantiate a `SlabSeaIceModel` with prescribed boundary conditions.
-#   * How to configure internal heat conduction.
+#   * load `ClimaSeaIce.jl`,
+#   * instantiate a `SlabSeaIceModel` with prescribed boundary conditions,
+#   * configure internal heat conduction.
 #
 # ## Install dependencies
 #
