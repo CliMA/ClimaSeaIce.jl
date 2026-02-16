@@ -94,15 +94,13 @@ set!(model, T=initial_ice_ocean_temperature)
 
 # ## Time stepping
 #
-# We're using explicit time stepping. The CFL condition is
-#
-# ```math
-# Δt < Δz² / κ ≈ 0.1² / 1e-6 ≈ 1e4
-# ```
+# We're using explicit time stepping. The CFL number is ``κ Δt / Δz²`` and thus
+# is we want to remain below, e.g., 0.1 we need to choose our timestep accordingly.
 
 κ = 1e-5
-Δz = Δzᶜᶜᶠ(1, 1, 1, grid)
-Δt = 0.1 * Δz^2 / κ
+Δz_min = minimum_zspacing(grid)
+Δt = 0.1 * Δz_min^2 / κ
+
 simulation = Simulation(model; Δt)
 
 # ## Diagnostics
