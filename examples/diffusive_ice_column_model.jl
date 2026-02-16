@@ -37,13 +37,13 @@ tf = 10days
 t = 0:dt:tf
 
 set_theme!(Theme(fontsize=24, linewidth=3))
-
 fig = Figure()
 ax = Axis(fig[1, 1], title="Boundary Conditions", xlabel="Time (s)", ylabel="Temperature (ᵒC)")
 lines!(ax, t, air_ice_temperature.(0, 0, t), label="Air-ice surface temperature")
 lines!(ax, t, ice_ocean_temperature.(0, 0, t), label="Ice-ocean temperature")
 axislegend(ax)
-fig
+     
+display(fig)
 
 top_T_bc = ValueBoundaryCondition(air_ice_temperature)
 bottom_T_bc = ValueBoundaryCondition(ice_ocean_temperature)
@@ -97,8 +97,8 @@ end
 
 simulation.callbacks[:thickness] = Callback(compute_ice_thickness, IterationInterval(1))
 
-tt = []
-Tt = []
+tt = [] 
+Tt = [] 
 Ht = []
 ϕt = []
 κt = []
@@ -111,7 +111,7 @@ function grab_profiles!(sim)
     κ = sim.model.closure.κ
 
     # Extract interior data (excluding halos)
-    Ti = interior(T, 1, 1, :)
+    Ti = interior(T, 1, 1, :)  
     Hi = interior(H, 1, 1, :)
     ϕi = interior(ϕ, 1, 1, :)
     κi = interior(κ, 1, 1, :)
@@ -159,8 +159,8 @@ z = znodes(model.state.T)
 #=
 # TODO: calculate analytical solution
 ℒ = model.fusion_enthalpy
-ΔT = ocean_temperature - atmosphere_temperature
-c = ice_heat_capacity
+ΔT = ocean_temperature - atmosphere_temperature 
+c = ice_heat_capacity 
 f(λ) = λ * exp(λ^2) * erf(λ) - St / sqrt(π)
 =#
 
@@ -192,4 +192,4 @@ vlines!(axq, tnh)
 axislegend(axq, position=:lb)
 axislegend(axT, position=:lb)
 
-fig
+display(fig)
