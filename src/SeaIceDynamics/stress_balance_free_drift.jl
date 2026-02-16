@@ -6,7 +6,8 @@ struct StressBalanceFreeDrift{T, B} <: AbstractFreeDriftDynamics
 end
 
 """
-    StressBalanceFreeDrift{T, B}
+    StressBalanceFreeDrift(; top_momentum_stress = nothing,
+                             bottom_momentum_stress = nothing)
 
 A free drift parameterization that computes the free drift velocities as a balance between top and bottom stresses ``τₐ ≈ τₒ``.
 
