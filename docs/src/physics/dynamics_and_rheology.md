@@ -30,12 +30,14 @@ The [`SeaIceMomentumEquation`](@ref) struct configures the dynamical components:
 
 ```@example dynamics
 using Oceananigans
+using Oceananigans.Units
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, SemiImplicitStress
 
+Lx = Ly = 512kilometers
 grid = RectilinearGrid(size = (64, 64),
-                       x = (0, 512e3),
-                       y = (0, 512e3),
+                       x = (0, Lx),
+                       y = (0, Ly),
                        topology = (Bounded, Bounded, Flat))
 
 # Ocean velocity field for ice-ocean drag
@@ -287,13 +289,14 @@ Here's a complete setup for ice dynamics with EVP rheology:
 
 ```@example dynamics
 using Oceananigans
+using Oceananigans.Units
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, SemiImplicitStress, SplitExplicitSolver
-using ClimaSeaIce.Rheologies: ElastoViscoPlasticRheology
+using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, SemiImplicitStress
 
-grid = RectilinearGrid(size = (128, 128),
-                       x = (0, 512e3),
-                       y = (0, 512e3),
+Lx = Ly = 512kilometers
+grid = RectilinearGrid(size = (64, 64),
+                       x = (0, Lx),
+                       y = (0, Ly),
                        topology = (Bounded, Bounded, Flat))
 
 # Ocean drag
