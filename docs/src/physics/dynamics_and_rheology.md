@@ -34,17 +34,20 @@ using Oceananigans.Units
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, SemiImplicitStress
 
-Lx = Ly = 512kilometers
+L = 512kilometers
 grid = RectilinearGrid(size = (64, 64),
-                       x = (0, Lx),
-                       y = (0, Ly),
+                       x = (0, L),
+                       y = (0, L),
                        topology = (Bounded, Bounded, Flat))
 
 # Ocean velocity field for ice-ocean drag
 Uₒ = XFaceField(grid)
 Vₒ = YFaceField(grid)
-set!(Uₒ, (x, y) -> 0.01 * (2y - 512e3) / 512e3)  # Cyclonic pattern
-set!(Vₒ, (x, y) -> 0.01 * (512e3 - 2x) / 512e3)
+
+# Cyclonic pattern; ∂u/∂y + ∂v/∂x = 0
+𝓋ₒ = 0.01 # m/s
+set!(Uₒ, (x, y) -> 𝓋ₒ * (2y - L) / L)
+set!(Vₒ, (x, y) -> 𝓋ₒ * (L - 2x) / L)
 
 dynamics = SeaIceMomentumEquation(grid;
     coriolis = FPlane(f = 1e-4),
