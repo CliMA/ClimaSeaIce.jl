@@ -84,17 +84,6 @@ end
 fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
 prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
 
-struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
-    coriolis :: C
-    rheology :: R
-    auxiliaries :: A
-    solver :: S
-    free_drift :: F
-    external_momentum_stresses :: ES
-    minimum_concentration :: FT
-    minimum_mass :: FT
-end
-
 function Base.show(io::IO, sime::SeaIceMomentumEquation)
 
     aux_fields = keys(sime.auxiliaries.fields)
