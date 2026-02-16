@@ -30,9 +30,9 @@ import Oceananigans: fields, prognostic_fields
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ##
-##     ∂u                   τₒ    τₐ
-##     -- + f x u = ∇ ⋅ σ + --  + -- + g∇η
-##     ∂t                   mᵢ    mᵢ
+##     ∂u           ∇ ⋅ σ   τₒ    τₐ
+##     -- + f x u = ----- + --  + -- + g ∇η
+##     ∂t            mᵢ     mᵢ    mᵢ
 ##
 ## where the terms (left to right) represent the
 ## - time derivative of the ice velocity
