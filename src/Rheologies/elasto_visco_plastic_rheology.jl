@@ -25,11 +25,23 @@ struct ElastoViscoPlasticRheology{FT, IP}
         new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
 end
 
+function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
+    print(io, "ElastoViscoPlasticRheology{", FT, "}", '\n')
+    print(io, "├── ice_compressive_strength: ", evpr.ice_compressive_strength, '\n')
+    print(io, "├── ice_compaction_hardening: ", evpr.ice_compaction_hardening, '\n')
+    print(io, "├── yield_curve_eccentricity: ", evpr.yield_curve_eccentricity, '\n')
+    print(io, "├── minimum_plastic_stress: ", evpr.minimum_plastic_stress, '\n')
+    print(io, "├── min_relaxation_parameter: ", evpr.min_relaxation_parameter, '\n')
+    print(io, "├── max_relaxation_parameter: ", evpr.max_relaxation_parameter, '\n')
+    print(io, "├── relaxation_strength: ", evpr.relaxation_strength, '\n')
+    print(io, "└── pressure_formulation: ", summary(evpr.pressure_formulation))
+end
+
 struct ReplacementPressure end
 struct IceStrength end
 
 """
-    ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType;
+    ElastoViscoPlasticRheology(FT = Oceananigans.defaults.FloatType;
                                ice_compressive_strength = 27500,
                                ice_compaction_hardening = 20,
                                yield_curve_eccentricity = 2,
