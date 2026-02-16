@@ -4,7 +4,7 @@ using ClimaSeaIce
 using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission
 using CairoMakie
 
-# Generate a zero-dimensional grid for a single column slab model 
+# Generate a zero-dimensional grid for a single column slab model
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 # Build a model of an ice slab that has internal conductive fluxes
@@ -43,5 +43,4 @@ axh = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
 lines!(axT, t / day, T)
 lines!(axh, t / day, h)
 
-display(fig)
-
+fig
