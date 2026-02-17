@@ -7,7 +7,7 @@ using Adapt
 using KernelAbstractions: @kernel, @index
 
 ## The equations are solved in an iterative form following the EVP rheology of
-## Kimmritz et al (2016) (https://www.sciencedirect.com/science/article/pii/S1463500317300690)
+## Kimmritz et al. (2016); doi: 10.1016/j.ocemod.2017.05.006
 #
 # Where:
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
@@ -21,18 +21,30 @@ struct ElastoViscoPlasticRheology{FT, IP}
     max_relaxation_parameter :: FT # maximum number of substeps expressed as the dynamic coefficient
     relaxation_strength :: FT # strength of the relaxation parameter
     pressure_formulation :: IP # formulation of ice pressure
-    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, ip::IP) where {FT, IP}  = 
+    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, ip::IP) where {FT, IP}  =
         new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
+end
+
+function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
+    print(io, "ElastoViscoPlasticRheology{", FT, "}", '\n')
+    print(io, "├── ice_compressive_strength: ", evpr.ice_compressive_strength, '\n')
+    print(io, "├── ice_compaction_hardening: ", evpr.ice_compaction_hardening, '\n')
+    print(io, "├── yield_curve_eccentricity: ", evpr.yield_curve_eccentricity, '\n')
+    print(io, "├── minimum_plastic_stress: ", evpr.minimum_plastic_stress, '\n')
+    print(io, "├── min_relaxation_parameter: ", evpr.min_relaxation_parameter, '\n')
+    print(io, "├── max_relaxation_parameter: ", evpr.max_relaxation_parameter, '\n')
+    print(io, "├── relaxation_strength: ", evpr.relaxation_strength, '\n')
+    print(io, "└── pressure_formulation: ", summary(evpr.pressure_formulation))
 end
 
 struct ReplacementPressure end
 struct IceStrength end
 
 """
-    ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType; 
-                               ice_compressive_strength = 27500, 
-                               ice_compaction_hardening = 20, 
-                               yield_curve_eccentricity = 2, 
+    ElastoViscoPlasticRheology(FT = Oceananigans.defaults.FloatType;
+                               ice_compressive_strength = 27500,
+                               ice_compaction_hardening = 20,
+                               yield_curve_eccentricity = 2,
                                minimum_plastic_stress = 2e-9,
                                min_relaxation_parameter = 50,
                                max_relaxation_parameter = 300,
@@ -40,22 +52,21 @@ struct IceStrength end
                                pressure_formulation = ReplacementPressure())
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
-rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al (2016).
+rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al. (2016).
 The stress tensor is computed following the constitutive relation:
 ```math
-σᵢⱼ = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
+σᵢⱼ = 2η ϵ̇ᵢⱼ + [(ζ - η) (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
 ```
 where ``ϵ̇ᵢⱼ`` are the strain rates, ``η`` is the shear viscosity, ``ζ`` is the bulk viscosity,
 and ``P`` is the ice strength (acting as the isotropic part of the stress tensor)
-parameterized as ``P★ h exp( - C ⋅ ( 1 - ℵ ))`` where ``P★`` is the `ice_compressive_strength`, 
+parameterized as ``P_\\star h \\exp[ - C ( 1 - ℵ )]`` where ``P_\\star`` is the `ice_compressive_strength`,
 ``C`` is the `ice_compaction_hardening`, ``h`` is the ice thickness, and ``ℵ`` is the ice concentration.
 
 The stresses are substepped using a dynamic substepping coefficient ``α`` that is
-spatially varying and computed dynamically as in Kimmritz et al (2016)
-In particular: α = sqrt(γ²) 
-where γ² = ζ * cα * (Δt / mᵢ) / Az is a stability parameter with ``Az`` is the area of the grid cell, 
-``mᵢ`` the ice mass, ``Δt`` the time step, and ``cα`` a numerical stability parameter which controls the 
-stregth of ``γ²``.
+spatially varying and computed dynamically as done by Kimmritz et al. (2016).
+In particular: ``α = \\sqrt{γ²}``, where ``γ² = ζ c_α (Δt / mᵢ) / A_z`` is a stability parameter
+with ``A_z`` is the area of the grid cell, ``mᵢ`` the ice mass, ``Δt`` the time step, and ``c_α`` a
+numerical stability parameter which controls the strength of ``γ²``.
 
 The stresses are substepped with:
 ```math
@@ -63,40 +74,42 @@ The stresses are substepped with:
 ```
 
 This formulation allows fast convergence in regions where α is small. Regions where
-α is large correspond to regions where the ice is more solid and the convergence is slower.
-α can be thougth of as a ``pseudo substep number'' or a ``relaxation parameter''. If we are using 
-a subcycling solver, if `α` ≪ number of substeps, the convergence will be faster.
+``α`` is large correspond to regions where the ice is more solid and the convergence is slower.
+``α`` can be thougth of as a "pseudo substep number" or a "relaxation parameter".
+If we are using a subcycling solver, then if ``α`` ≪ number of substeps, the convergence is faster.
 
 Arguments
 =========
-    
+
 - `grid`: the `SlabSeaIceModel` grid
 
 Keyword Arguments
 =================
-    
+
 - `ice_compressive_strength`: parameter expressing compressive strength (in Nm²). Default: `27500`.
 - `ice_compaction_hardening`: exponent coefficient for compaction hardening. Default: `20`.
 - `yield_curve_eccentricity`: eccentricity of the elliptic yield curve. Default: `2`.
-- `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice, 
+- `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice,
            transitioning the ice from a plastic to a viscous behaviour. Default: `1e-10`.
 - `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`. Default: `30`.
 - `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default: `500`.
-- `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`, see Kimmritz et al (2016). Default: `π² / 2`.
-- `pressure_formulation`: can use `ReplacementPressure` or `IceStrength`. The replacement pressure formulation avoids ice motion in the absence of forcing. Default: `ReplacementPressure`.
+- `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`;
+                         see Kimmritz et al. (2016). Default: `π² / 2`.
+- `pressure_formulation`: can use `ReplacementPressure` or `IceStrength`. The replacement pressure formulation avoids
+                          ice motion in the absence of forcing. Default: `ReplacementPressure`.
 """
-function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType; 
-                                    ice_compressive_strength = 27500, 
-                                    ice_compaction_hardening = 20, 
-                                    yield_curve_eccentricity = 2, 
+function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType;
+                                    ice_compressive_strength = 27500,
+                                    ice_compaction_hardening = 20,
+                                    yield_curve_eccentricity = 2,
                                     minimum_plastic_stress = 2e-9,
                                     min_relaxation_parameter = 50,
                                     max_relaxation_parameter = 300,
                                     relaxation_strength = π^2,
                                     pressure_formulation = ReplacementPressure())
 
-    return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength), 
-                                      convert(FT, ice_compaction_hardening), 
+    return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength),
+                                      convert(FT, ice_compaction_hardening),
                                       convert(FT, yield_curve_eccentricity),
                                       convert(FT, minimum_plastic_stress),
                                       convert(FT, min_relaxation_parameter),
@@ -122,7 +135,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     uⁿ = Field{Face,   Center, Nothing}(grid)
     vⁿ = Field{Center, Face,   Nothing}(grid)
     P  = Field{Center, Center, Nothing}(grid)
-    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al (2016)
+    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2016)
     ζ  = Field{Center, Center, Nothing}(grid)
     Δ  = Field{Center, Center, Nothing}(grid)
 
@@ -134,7 +147,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 
     parameters = KernelParameters(size(P.data)[1:2], P.data.offsets[1:2])
     _initialize_rhology! = configure_kernel(arch, grid, parameters, _initialize_evp_rhology!)[1]
-    
+
     fields  = (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
     kernels = (; _viscosity_kernel!, _stresses_kernel!, _initialize_rhology!)
 
@@ -142,7 +155,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 end
 
 # Extend the `adapt_structure` function for the ElastoViscoPlasticRheology
-Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) = 
+Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) =
     ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
                                Adapt.adapt(to, r.ice_compaction_hardening),
                                Adapt.adapt(to, r.yield_curve_eccentricity),
@@ -164,7 +177,7 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
 
     P★ = rheology.ice_compressive_strength
     C  = rheology.ice_compaction_hardening
-    
+
     u, v    = model.velocities
     fields  = model.dynamics.auxiliaries.fields
     kernels = model.dynamics.auxiliaries.kernels
@@ -174,18 +187,18 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
 end
 
 @kernel function _initialize_evp_rhology!(fields, grid, P★, C, h, ℵ, u, v)
-    i, j = @index(Global, NTuple)    
+    i, j = @index(Global, NTuple)
     @inbounds fields.P[i, j, 1]  = ice_strength(i, j, 1, grid, P★, C, h, ℵ)
     @inbounds fields.uⁿ[i, j, 1] = u[i, j, 1]
     @inbounds fields.vⁿ[i, j, 1] = v[i, j, 1]
 end
 
 # The parameterization for an `ElastoViscoPlasticRheology`
-@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k])) 
+@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k]))
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
-    
+
     h  = fields.h
     ρᵢ = fields.ρ
     ℵ  = fields.ℵ
@@ -209,23 +222,23 @@ end
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     Δm  = rheology.minimum_plastic_stress
 
-    # Extract auxiliary fields 
+    # Extract auxiliary fields
     P = fields.P
 
     # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v) 
+    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v)
+    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v)
 
     # Center - Center variables:
     ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, kᴺ, grid, strain_rate_xy, u, v)
 
-    # Ice divergence 
+    # Ice divergence
     δ = ϵ̇₁₁ + ϵ̇₂₂
 
     # Ice shear (at Centers)
     s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
 
-    # Visco - Plastic parameter 
+    # Visco - Plastic parameter
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
     Δᶜᶜᶜ = max(sqrt(δ^2 + s^2 * e⁻²), Δm)
@@ -246,7 +259,7 @@ end
 
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
-# following the αEVP formulation of Kimmritz et al (2016).
+# following the αEVP formulation of Kimmritz et al. (2016).
 @kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
@@ -261,10 +274,10 @@ end
     σ₂₂ = fields.σ₂₂
     σ₁₂ = fields.σ₁₂
     α   = fields.α
-    
+
     # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v) 
-    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v) 
+    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v)
+    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v)
     ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
 
     ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
@@ -276,17 +289,17 @@ end
     ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
     ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
 
-    # σ(uᵖ): the tangential stress depends only shear viscosity 
+    # σ(uᵖ): the tangential stress depends only shear viscosity
     # while the compressive stresses depend on the bulk viscosity and the ice strength
-    σ₁₁ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₁ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2) 
+    σ₁₁ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₁₁ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
     σ₂₂ᵖ⁺¹ = 2 * ηᶜᶜᶜ * ϵ̇₂₂ + ((ζᶜᶜᶜ - ηᶜᶜᶜ) * (ϵ̇₁₁ + ϵ̇₂₂) - Pᵣ / 2)
     σ₁₂ᵖ⁺¹ = 2 * ηᶠᶠᶜ * ϵ̇₁₂
 
-    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ) 
-    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ) 
+    mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ)
+    mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
     # Update coefficients for substepping using dynamic substepping
-    # with spatially varying coefficients as in Kimmritz et al (2016)
+    # with spatially varying coefficients as done by Kimmritz et al. (2016)
     γ²ᶜᶜᶜ = ζᶜᶜᶜ * cα * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
     γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), α⁺^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
     γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), α⁻, α⁺)
@@ -296,7 +309,7 @@ end
     γᶠᶠᶜ  = clamp(sqrt(γ²ᶠᶠᶜ), α⁻, α⁺)
 
     @inbounds begin
-        # Compute the new stresses and store the value of the 
+        # Compute the new stresses and store the value of the
         # dynamic substepping coefficient α
         σ₁₁★ = (σ₁₁ᵖ⁺¹ - σ₁₁[i, j, 1]) / γᶜᶜᶜ
         σ₂₂★ = (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ
@@ -327,13 +340,13 @@ end
 ##### Numerical forcing to help convergence
 #####
 
-@inline function sum_of_forcing_u(i, j, k, grid, ::ElastoViscoPlasticRheology, u_forcing, fields, Δt) 
+@inline function sum_of_forcing_u(i, j, k, grid, ::ElastoViscoPlasticRheology, u_forcing, fields, Δt)
     user_forcing = u_forcing(i, j, k, grid, fields)
     rheology_forcing = @inbounds (fields.uⁿ[i, j, k] - fields.u[i, j, k]) / Δt / ℑxᶠᵃᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing
 end
 
-@inline function sum_of_forcing_v(i, j, k, grid, ::ElastoViscoPlasticRheology, v_forcing, fields, Δt) 
+@inline function sum_of_forcing_v(i, j, k, grid, ::ElastoViscoPlasticRheology, v_forcing, fields, Δt)
     user_forcing = v_forcing(i, j, k, grid, fields)
     rheology_forcing = @inbounds (fields.vⁿ[i, j, k] - fields.v[i, j, k]) / Δt / ℑyᵃᶠᵃ(i, j, k, grid, fields.α)
     return user_forcing + rheology_forcing

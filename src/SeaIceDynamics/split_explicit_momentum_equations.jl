@@ -42,14 +42,14 @@ const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExpl
 # This does nothing for a FE model, but is necessary for an RK model.
 reset_velocities!(u, v, timestepper) = nothing
 
-function reset_velocities!(u, v, timestepper::SplitRungeKuttaTimeStepper) 
+function reset_velocities!(u, v, timestepper::SplitRungeKuttaTimeStepper)
     parent(u) .= parent(timestepper.Ψ⁻.u)
     parent(v) .= parent(timestepper.Ψ⁻.v)
     return nothing
 end
 
 """
-    time_step_momentum!(model, rheology::AbstractExplicitRheology, Δt)
+    time_step_momentum!(model, rheology::SplitExplicitMomentumEquation, Δt)
 
 function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than
