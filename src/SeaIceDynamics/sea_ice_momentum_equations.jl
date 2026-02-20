@@ -18,13 +18,13 @@ end
 struct ExplicitSolver end
 
 """
-    SeaIceMomentumEquation(grid; 
+    SeaIceMomentumEquation(grid;
                            coriolis = nothing,
                            rheology = ElastoViscoPlasticRheology(eltype(grid)),
                            top_momentum_stress    = nothing,
                            bottom_momentum_stress = nothing,
                            free_drift = nothing,
-                           solver = SplitExplicitSolver(150),
+                           solver = SplitExplicitSolver(grid; substeps=150),
                            minimum_concentration = 1e-3,
                            minimum_mass = 1.0)
 
@@ -32,12 +32,12 @@ Constructs a `SeaIceMomentumEquation` object that controls the dynamical evoluti
 The sea-ice momentum obey the following evolution equation:
 
 ```math
-    ∂u                   τₒ    τₐ
-    -- + f x u = ∇ ⋅ σ + --  + -- 
-    ∂t                   mᵢ    mᵢ
+\\frac{∂\\boldsymbol{u}}{∂t} + \\boldsymbol{f} × \\boldsymbol{u} = \\frac{\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma}}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₒ}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₐ}{mᵢ}
 ```
-where the terms (left to right) represent (1) the time derivative of the ice velocity, (2) the coriolis force.
-(3) the divergence of internal stresses, (4) the ice-ocean boundary stress, and (5) the ice-atmosphere boundary stress.
+where ``∂\\boldsymbol{u}/∂t`` is the time derivative of the ice velocity, ``\\boldsymbol{f}`` is the
+Coriolis parameter, ``\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma} / mᵢ`` is the divergence of internal
+stresses, ``\\boldsymbol{\\tau}ₒ/mᵢ`` is the ice-ocean boundary stress, ``\\boldsymbol{\\tau}ₐ/mᵢ`` is the
+ice-atmosphere boundary stress, and ``mᵢ = ρᵢ h ℵ`` is the ice mass per unit area.
 
 Arguments
 =========
@@ -55,7 +55,7 @@ Keyword Arguments
 - `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
 - `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
 """
-function SeaIceMomentumEquation(grid; 
+function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 top_momentum_stress    = nothing,
@@ -71,9 +71,9 @@ function SeaIceMomentumEquation(grid;
 
     FT = eltype(grid)
 
-    return SeaIceMomentumEquation(coriolis, 
-                                  rheology, 
-                                  auxiliaries, 
+    return SeaIceMomentumEquation(coriolis,
+                                  rheology,
+                                  auxiliaries,
                                   solver,
                                   free_drift,
                                   external_momentum_stresses,
@@ -83,6 +83,21 @@ end
 
 fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
 prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+
+function Base.show(io::IO, sime::SeaIceMomentumEquation)
+
+    aux_fields = keys(sime.auxiliaries.fields)
+
+    print(io, "SeaIceMomentumEquation", '\n')
+    print(io, "├── coriolis: ", summary(sime.coriolis), '\n')
+    print(io, "├── rheology: ", summary(sime.rheology), '\n')
+    print(io, "├── auxiliaries: ", join(aux_fields, ", "), '\n')
+    print(io, "├── solver: ", summary(sime.solver), '\n')
+    print(io, "├── free_drift: ", sime.free_drift, '\n')
+    print(io, "├── external_momentum_stresses: ", keys(sime.external_momentum_stresses), '\n')
+    print(io, "├── minimum_concentration: ", sime.minimum_concentration, '\n')
+    print(io, "└── minimum_mass: ", sime.minimum_mass)
+end
 
 #####
 ##### Checkpointing
