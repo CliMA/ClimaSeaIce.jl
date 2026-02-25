@@ -19,7 +19,7 @@ KernelAbstractions = "0.9"
 Oceananigans = "0.104.1, 0.105"
 RootSolvers = "0.3, 0.4, 1.0"
 Roots = "2"
-SeawaterPolynomials = "0.3.4"
+SeawaterPolynomials = "0.3.9"
 julia = "1.10"
 
 [extras]
