@@ -12,8 +12,8 @@ using Oceananigans.Fields: ZeroField
 @inline explicit_τx(i, j, k, grid, stress::Number, clock, fields) = stress
 @inline explicit_τy(i, j, k, grid, stress::Number, clock, fields) = stress
 
-@inline explicit_τx(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
-@inline explicit_τy(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k] 
+@inline explicit_τx(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k]
+@inline explicit_τy(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k]
 
 # NamedTuple stess (assuming it is `u` and `v`)
 @inline implicit_τx_coefficient(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τx_coefficient(i, j, k, grid, stress.u, clock, fields)
@@ -26,7 +26,7 @@ using Oceananigans.Fields: ZeroField
 ##### Utility for computing the total stress
 #####
 
-@inline x_momentum_stress(i, j, k, grid, stress, clock, fields) = 
+@inline x_momentum_stress(i, j, k, grid, stress, clock, fields) =
     @inbounds explicit_τx(i, j, k, grid, stress, clock, fields) - implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) * fields.u[i, j, k]
 
 @inline y_momentum_stress(i, j, k, grid, stress, clock, fields) =
@@ -44,23 +44,24 @@ struct SemiImplicitStress{U, V, FT}
 end
 
 """
-    SemiImplicitStress(FT = Oceananigans.defaults.FloatType; 
-                       uₑ = ZeroField(FT), 
-                       vₑ = ZeroField(FT), 
-                       ρₑ = 1026.0, 
+    SemiImplicitStress(FT = Oceananigans.defaults.FloatType;
+                       uₑ = ZeroField(FT),
+                       vₑ = ZeroField(FT),
+                       ρₑ = 1026.0,
                        Cᴰ = 5.5e-3)
 
-A structure representing the semi-implicit stress between the sea ice and an external fluid (either the ocean or the atmosphere),
-calculated as
+A structure representing the semi-implicit stress between the sea ice and an external fluid
+(either the ocean or the atmosphere), calculated as:
+
 ```math
-τᵤ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (uₑ - uᵢⁿ⁺¹)
-```
-```math
-τᵥ = ρₑ Cᴰ sqrt((uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²) (vₑ - vᵢⁿ⁺¹)
+\\begin{align*}
+τᵤ & = ρₑ Cᴰ \\sqrt{(uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²} (uₑ - uᵢⁿ⁺¹) \\\\
+τᵥ & = ρₑ Cᴰ \\sqrt{(uₑ - uᵢⁿ)² + (vₑ - vᵢⁿ)²} (vₑ - vᵢⁿ⁺¹)
+\\end{align*}
 ```
 
-where `uₑ` and `vₑ` are the external velocities, `uᵢⁿ` and `vᵢⁿ` are the sea ice velocities at the current time step,
-and `uᵢⁿ⁺¹` and `vᵢⁿ⁺¹` are the sea ice velocities at the next time step.
+where ``uₑ`` and ``vₑ`` are the external velocities, ``uᵢⁿ`` and ``vᵢⁿ`` are the sea ice velocities
+at the current time step, and ``uᵢⁿ⁺¹`` and ``vᵢⁿ⁺¹`` are the sea ice velocities at the next time step.
 
 Arguments
 ==========
@@ -73,43 +74,51 @@ Keyword Arguments
 - `ρₑ`: The density of the external fluid.
 - `Cᴰ`: The drag coefficient.
 """
-function SemiImplicitStress(FT = Oceananigans.defaults.FloatType; 
-                            uₑ = ZeroField(FT), 
-                            vₑ = ZeroField(FT), 
-                            ρₑ = 1026.0, 
-                            Cᴰ = 5.5e-3) 
+function SemiImplicitStress(FT = Oceananigans.defaults.FloatType;
+                            uₑ = ZeroField(FT),
+                            vₑ = ZeroField(FT),
+                            ρₑ = 1026.0,
+                            Cᴰ = 5.5e-3)
 
     return SemiImplicitStress(uₑ, vₑ, convert(FT, ρₑ), convert(FT, Cᴰ))
 end
 
-Adapt.adapt_structure(to, τ::SemiImplicitStress) = 
-               SemiImplicitStress(Adapt.adapt(to, τ.uₑ), 
-                                  Adapt.adapt(to, τ.vₑ), 
+Adapt.adapt_structure(to, τ::SemiImplicitStress) =
+               SemiImplicitStress(Adapt.adapt(to, τ.uₑ),
+                                  Adapt.adapt(to, τ.vₑ),
                                   τ.ρₑ,
                                   τ.Cᴰ)
 
-@inline function explicit_τx(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+function Base.show(io::IO, τ::SemiImplicitStress)
+    print(io, "SemiImplicitStress", '\n')
+    print(io, "├── uₑ: ", summary(τ.uₑ), '\n')
+    print(io, "├── vₑ: ", summary(τ.vₑ), '\n')
+    print(io, "├── ρₑ: ", τ.ρₑ, '\n')
+    print(io, "└── Cᴰ: ", τ.Cᴰ)
+end
+
+@inline function explicit_τx(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
     uₑ = @inbounds τ.uₑ[i, j, k]
     Δu = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * uₑ
 end
 
-@inline function explicit_τy(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+@inline function explicit_τy(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
     vₑ = @inbounds τ.vₑ[i, j, k]
-    Δv = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k] 
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
+    Δv = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k]
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₑ
 end
 
-@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
-    Δu = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k] 
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v) 
+@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
+    Δu = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
 end
 
-@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u) 
-    Δv = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k] 
+@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
+    Δv = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k]
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
 end

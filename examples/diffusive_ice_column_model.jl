@@ -1,3 +1,28 @@
+# # Diffusive ice column model example
+#
+# This example demonstrates the use of `EnthalpyMethodSeaIceModel`, which resolves
+# the vertical structure of sea ice using an enthalpy-based formulation. The model
+# includes internal heat conduction and tracks the phase transitions between ice and
+# water within the ice column. This example demonstrates how to:
+#
+#   * set up an `EnthalpyMethodSeaIceModel` with molecular diffusivity,
+#   * prescribe time-varying boundary conditions,
+#   * compute ice thickness from the temperature profile,
+#   * visualize the evolution of temperature, enthalpy, porosity, and diffusivity.
+#
+# ## Install dependencies
+#
+# First let's make sure we have all required packages installed.
+#
+# ```julia
+# using Pkg
+# pkg"add Oceananigans, ClimaSeaIce, CairoMakie"
+# ```
+#
+# ## The physical domain
+#
+# We build a one-dimensional vertical grid with 20 grid points and 10 cm resolution:
+
 using ClimaSeaIce.EnthalpyMethodSeaIceModels: EnthalpyMethodSeaIceModel, MolecularDiffusivity
 using Oceananigans
 using Oceananigans.Units
@@ -5,33 +30,39 @@ using Oceananigans.Operators: Δzᶜᶜᶠ
 using Oceananigans.Grids: znode
 using CairoMakie
 
-#####
-##### Set up a EnthalpyMethodSeaIceModel
-#####
-
-# Build a grid with 10 cm resolution
 grid = RectilinearGrid(size=20, z=(-1, 0), topology=(Flat, Flat, Bounded))
 
-# Set up a simple problem and build the ice model
+# ## Model configuration
+#
+# We set up a simple problem with molecular diffusivity. The diffusivity differs
+# for ice and water phases:
+
 closure = MolecularDiffusivity(grid, κ_ice=1e-5, κ_water=1e-6)
 
-#####
-##### Create temperature boundary conditions
-#####
+# ## Temperature boundary conditions
+#
+# We define time-varying boundary conditions for the top (air-ice interface) and
+# bottom (ice-ocean interface) of the ice column:
 
-initial_air_ice_temperature = -5
-top_T_amplitude = 5
-top_T_slope = -0.5 / day # ᵒC s⁻¹
+initial_air_ice_temperature = -5 # °C
+top_T_amplitude = 5 # °C
+top_T_slope = -0.5 / day # °C s⁻¹
 
-# Information about ocean cooling
-initial_ice_ocean_temperature = 1.1
-bottom_T_slope = -0.1 / day # ᵒC s⁻¹
+# Information about ocean cooling:
 
-# Calculate BCs
+initial_ice_ocean_temperature = 1.1 # °C
+bottom_T_slope = -0.1 / day # °C s⁻¹
+
+# The top temperature oscillates with a daily cycle and has a long-term cooling trend:
+
 air_ice_temperature(x, y, t) = top_T_slope * t + top_T_amplitude * sin(2π*t/day) + initial_air_ice_temperature
+
+# The bottom temperature cools linearly:
+
 ice_ocean_temperature(x, y, t) = bottom_T_slope * t + initial_ice_ocean_temperature
 
-# Plot boundary condition functions
+# Let's visualize the boundary condition functions:
+
 dt = 10minutes
 tf = 10days
 t = 0:dt:tf
@@ -42,32 +73,39 @@ ax = Axis(fig[1, 1], title="Boundary Conditions", xlabel="Time (s)", ylabel="Tem
 lines!(ax, t, air_ice_temperature.(0, 0, t), label="Air-ice surface temperature")
 lines!(ax, t, ice_ocean_temperature.(0, 0, t), label="Ice-ocean temperature")
 axislegend(ax)
-     
-display(fig)
+
+current_figure() #hide
+
+# We create the boundary conditions:
 
 top_T_bc = ValueBoundaryCondition(air_ice_temperature)
 bottom_T_bc = ValueBoundaryCondition(ice_ocean_temperature)
 T_bcs = FieldBoundaryConditions(top=top_T_bc, bottom=bottom_T_bc)
 
+# ## Building the model
+#
+# We assemble the model with the grid, closure, and boundary conditions:
+
 model = EnthalpyMethodSeaIceModel(; grid, closure, boundary_conditions=(; T=T_bcs))
 
-# Initialize and run
+# We initialize the temperature field:
+
 set!(model, T=initial_ice_ocean_temperature)
 
-H = model.state.H
-
-# We're using explicit time stepping. The CFL condition is
+# ## Time stepping
 #
-#   Δt < Δz² / κ ≈ 0.1² / 1e-6 ≈ 1e4,
+# We're using explicit time stepping. The CFL number is ``κ Δt / Δz²`` and thus
+# to ensure that remains below, e.g., 0.1 we choose our timestep ``Δt`` accordingly.
 
 κ = 1e-5
-Δz = Δzᶜᶜᶠ(1, 1, 1, grid)
-Δt = 0.1 * Δz^2 / κ
+Δz_min = minimum_zspacing(grid)
+Δt = 0.1 * Δz_min^2 / κ
+
 simulation = Simulation(model; Δt)
 
-#####
-##### Set up diagnostics
-#####
+# ## Diagnostics
+#
+# We set up diagnostics to compute ice thickness and collect profiles:
 
 const c = Center()
 
@@ -97,8 +135,10 @@ end
 
 simulation.callbacks[:thickness] = Callback(compute_ice_thickness, IterationInterval(1))
 
-tt = [] 
-Tt = [] 
+# We also collect profiles of temperature, enthalpy, porosity, and diffusivity:
+
+tt = []
+Tt = []
 Ht = []
 ϕt = []
 κt = []
@@ -111,7 +151,7 @@ function grab_profiles!(sim)
     κ = sim.model.closure.κ
 
     # Extract interior data (excluding halos)
-    Ti = interior(T, 1, 1, :)  
+    Ti = interior(T, 1, 1, :)
     Hi = interior(H, 1, 1, :)
     ϕi = interior(ϕ, 1, 1, :)
     κi = interior(κ, 1, 1, :)
@@ -126,23 +166,25 @@ function grab_profiles!(sim)
     return nothing
 end
 
-simulation.callbacks[:grabber] = Callback(grab_profiles!, TimeInterval(1hour)) #SpecifiedTimes(10minutes, 30minutes, 1hour))
+simulation.callbacks[:grabber] = Callback(grab_profiles!, TimeInterval(1hour))
 
-#####
-##### Run the simulation
-#####
+# ## Running the simulation
+#
+# We run the simulation for 10 days:
 
 simulation.stop_time = 10days
 run!(simulation)
 
-# Make a plot
+# ## Visualizing the results
+#
+# We create an interactive visualization with sliders to explore the evolution:
 
 fig = Figure()
 
 axT = Axis(fig[1, 1], xlabel="Temperature (ᵒC)", ylabel="z (m)")
 axH = Axis(fig[1, 2], xlabel="Enthalpy (J m⁻³)", ylabel="z (m)")
 axϕ = Axis(fig[1, 3], xlabel="Porosity", ylabel="z (m)")
-axκ = Axis(fig[1, 4], xlabel="Diffusivity", ylabel="z (m)")
+axκ = Axis(fig[1, 4], xlabel="Diffusivity (m² s⁻¹)", ylabel="z (m)")
 axh = Axis(fig[2, 1:4], xlabel="Time (hours)", ylabel="Ice thickness (m)")
 axq = Axis(fig[3, 1:4], xlabel="Time (hours)", ylabel="Surface temperatures (ᵒC)")
 
@@ -156,14 +198,6 @@ n = slider.value
 
 z = znodes(model.state.T)
 
-#=
-# TODO: calculate analytical solution
-ℒ = model.fusion_enthalpy
-ΔT = ocean_temperature - atmosphere_temperature 
-c = ice_heat_capacity 
-f(λ) = λ * exp(λ^2) * erf(λ) - St / sqrt(π)
-=#
-
 tn = @lift tt[$n]
 tnh = @lift tt[$n] / hour
 Tn = @lift Tt[$n]
@@ -176,7 +210,6 @@ scatterlines!(axH, Hn, z; label)
 scatterlines!(axϕ, ϕn, z; label)
 scatterlines!(axκ, κn, z; label)
 
-lines!(axh, th ./ hour, ht)
 lines!(axh, th ./ hour, ht)
 
 hn = @lift begin
@@ -192,5 +225,8 @@ vlines!(axq, tnh)
 axislegend(axq, position=:lb)
 axislegend(axT, position=:lb)
 
-display(fig)
+current_figure() #hide
 
+# The visualization shows the evolution of the temperature profile, enthalpy, porosity
+# (liquid fraction), and thermal diffusivity within the ice column. The ice thickness
+# evolves as the column freezes and melts in response to the boundary conditions.
