@@ -15,14 +15,14 @@ struct SplitExplicitSolver{I, K}
 end
 
 """
-    SplitExplicitSolver(grid; substeps=120)
+    SplitExplicitSolver(grid::AbstractGrid; substeps=120)
 
 Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
 by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
 """
-SplitExplicitSolver(grid; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, :xy)
 
 function SplitExplicitSolver(grid::DistributedGrid; substeps=120)
     Nx, Ny, _ = size(grid)
