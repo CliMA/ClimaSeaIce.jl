@@ -49,7 +49,7 @@ function reset_velocities!(u, v, timestepper::SplitRungeKuttaTimeStepper)
 end
 
 """
-    time_step_momentum!(model, rheology::SplitExplicitMomentumEquation, Δt)
+    time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt)
 
 function for stepping u and v in the case of _explicit_ solvers.
 The sea-ice momentum equations are characterized by smaller time-scale than
