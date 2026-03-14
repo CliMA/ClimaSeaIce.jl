@@ -18,8 +18,6 @@ using Test
     model = SeaIceModel(grid; snow_thermodynamics=snow_thermo)
     @test model.snow_thermodynamics isa SlabThermodynamics
     @test model.snow_thickness isa Field
-    @test haskey(model.freshwater_fluxes, :snow)
-    @test haskey(model.freshwater_fluxes, :ice)
 
     # Snow's internal heat flux should be IceSnowConductiveFlux after constructor wiring
     snow_flux = model.snow_thermodynamics.internal_heat_flux
@@ -34,8 +32,6 @@ using Test
     model_no_snow = SeaIceModel(grid)
     @test isnothing(model_no_snow.snow_thermodynamics)
     @test isnothing(model_no_snow.snow_thickness)
-    @test  haskey(model_no_snow.freshwater_fluxes, :ice)
-    @test !haskey(model_no_snow.freshwater_fluxes, :snow)
 end
 
 @testset "Backward compatibility without snow" begin

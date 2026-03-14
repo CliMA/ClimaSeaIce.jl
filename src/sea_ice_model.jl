@@ -21,7 +21,7 @@ import Oceananigans.OutputWriters: default_included_properties
 
 const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected}
 
-struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, CT, SP, STF, FWF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, CT, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
@@ -42,8 +42,6 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, CT, SP, STF, F
     # External boundary conditions
     external_heat_fluxes :: STF
     snow_precipitation :: SP
-    # Freshwater fluxes (diagnostic, written by thermodynamic step)
-    freshwater_fluxes :: FWF
     # Numerics
     timestepper :: TS
     advection :: A
@@ -131,17 +129,6 @@ function SeaIceModel(grid;
     # Wrap snow_precipitation in a field (but preserve FieldTimeSeries)
     if !(snow_precipitation isa FieldTimeSeries)
         snow_precipitation = field((Center, Center, Nothing), snow_precipitation, grid)
-    end
-
-    # Freshwater fluxes (diagnostic, written by thermodynamic step)
-    freshwater_fluxes = if isnothing(snow_thermodynamics)
-        (ice = (top    = Field{Center, Center, Nothing}(grid),
-                bottom = Field{Center, Center, Nothing}(grid)),)
-    else
-        (snow = (top    = Field{Center, Center, Nothing}(grid),
-                 bottom = Field{Center, Center, Nothing}(grid)),
-         ice  = (top    = Field{Center, Center, Nothing}(grid),
-                 bottom = Field{Center, Center, Nothing}(grid)))
     end
 
     # Adding thickness and concentration if not there
@@ -242,7 +229,6 @@ function SeaIceModel(grid;
                        dynamics,
                        external_heat_fluxes,
                        snow_precipitation,
-                       freshwater_fluxes,
                        timestepper,
                        advection)
 end

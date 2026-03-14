@@ -240,8 +240,8 @@ end
 
 const FTS = Union{FieldTimeSeries, GPUAdaptedFieldTimeSeries}
 
-@inline get_precipitation(i, j, Ps, clock)      = @inbounds snow_precip[i, j, 1]
-@inline get_precipitation(i, j, Ps::FTS, clock) = @inbounds snow_precip[i, j, 1, Time(clock.time)]
+@inline get_precipitation(i, j, Ps, clock)      = @inbounds Ps[i, j, 1]
+@inline get_precipitation(i, j, Ps::FTS, clock) = @inbounds Ps[i, j, 1, Time(clock.time)]
 
 @inline function snow_accumulation(i, j, snow_precip, snow_thermo, ℵ, clock)
     Ps = get_precipitation(i, j, snow_precip, clock) # kg/m^2/s
