@@ -5,6 +5,7 @@ using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.Grids: halo_size, topology, with_halo,
                           LeftConnected, RightConnected, FullyConnected
+using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
@@ -127,8 +128,10 @@ function SeaIceModel(grid;
         Field{Center, Center, Nothing}(grid)
     end
 
-    # Wrap snow_precipitation in a field
-    snow_precipitation = field((Center, Center, Nothing), snow_precipitation, grid)
+    # Wrap snow_precipitation in a field (but preserve FieldTimeSeries)
+    if !(snow_precipitation isa FieldTimeSeries)
+        snow_precipitation = field((Center, Center, Nothing), snow_precipitation, grid)
+    end
 
     # Freshwater fluxes (diagnostic, written by thermodynamic step)
     freshwater_fluxes = if isnothing(snow_thermodynamics)

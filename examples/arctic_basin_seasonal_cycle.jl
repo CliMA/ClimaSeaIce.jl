@@ -35,6 +35,7 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Units: Time
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: getflux
 using CairoMakie
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
@@ -108,11 +109,20 @@ end
     return flux[i, j, 1, t]
 end
 
-# For shortwave radiation, we account for surface albedo:
+# For shortwave radiation, we account for surface albedo following
+# Semtner (1976) and Winton (2000). Snow-covered ice has a higher albedo
+# than bare ice, and melting surfaces are darker than cold ones:
+#   snow: 0.80 (cold) → 0.75 (melting)
+#   ice:  0.65 (cold) → 0.58 (melting)
+# We detect snow presence via the hs field, and melting via Ts ≈ 0.
 
 @inline function linearly_interpolate_solar_flux(i, j, grid, Ts, clock, model_fields, flux)
     Q = linearly_interpolate_flux(i, j, grid, Ts, clock, model_fields, flux)
-    α = ifelse(Ts < -0.1, 0.75, 0.64) # albedo depends on surface temperature
+    has_snow = hasproperty(model_fields, :hs) && @inbounds model_fields.hs[i, j, 1] > 0
+    melting = Ts > -0.1
+    αc = ifelse(has_snow, 0.78, 0.75)
+    αm = ifelse(has_snow, 0.68, 0.64)
+    α = ifelse(melting, αm, αc)
     return Q * (1 - α)
 end
 
@@ -151,12 +161,24 @@ set!(model_bare, h=0.3, ℵ=1)
 
 snow_thermodynamics = SlabSnowThermodynamics(grid)
 
-# We prescribe a constant snowfall rate of about 3e-6 kg/m²/s, corresponding
-# to roughly 30 cm/year of snow accumulation at ρs = 330 kg/m³.
-# In summer, the excess surface energy melts snow faster than it accumulates,
-# so the snow cover follows a natural seasonal cycle.
+# Snowfall follows a seasonal cycle: heavy in winter, none in summer.
+# The peak rate of 6e-6 kg/m²/s corresponds to roughly 30 cm/year
+# of snow accumulation at ρs = 330 kg/m³.
 
-snow_precipitation = 3e-6 # kg m⁻² s⁻¹
+# We prescribe a seasonal snowfall cycle: maximum in winter (January),
+# zero in summer. Using a sinusoidal profile with peak rate 6e-6 kg/m²/s,
+# clipped to zero during summer months.
+
+Psmax = 6e-6 # kg m⁻² s⁻¹ (peak winter snowfall rate)
+snow_precipitation = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Oceananigans.OutputReaders.Cyclical())
+
+for (i, time) in enumerate(times)
+    # Sinusoidal cycle: max at mid-January (day 15), zero in summer
+    # cos peaks at t=0 (Jan 1), so shift by 15 days
+    phase = 2π * (time - 15day) / (year_days * day)
+    Ps = Psmax * max(0, cos(phase))
+    set!(snow_precipitation[i], [Ps])
+end
 
 # ## Building the snow-covered model
 #
@@ -173,7 +195,7 @@ set!(model_snow, h=0.3, ℵ=1, hs=0.05) # Start with 5 cm of snow
 # We run both simulations for 10 years with an 8-hour time step:
 
 Δt = 8hours
-stop_time = 10 * 360days
+stop_time = 20 * 360days
 
 # Bare-ice simulation:
 
@@ -182,10 +204,13 @@ simulation_bare = Simulation(model_bare, Δt=Δt, stop_time=stop_time)
 series_bare = []
 
 function accumulate_bare(sim)
-    T = sim.model.ice_thermodynamics.top_surface_temperature
-    h = sim.model.ice_thickness
-    ℵ = sim.model.ice_concentration
-    push!(series_bare, (time(sim), first(h), first(T), first(ℵ)))
+    m = sim.model
+    T = m.ice_thermodynamics.top_surface_temperature
+    h = m.ice_thickness
+    ℵ = m.ice_concentration
+    Tu = first(T)
+    Qu = getflux(top_heat_flux, 1, 1, grid, Tu, m.clock, fields(m))
+    push!(series_bare, (time(sim), first(h), Tu, first(ℵ), Qu))
 end
 
 simulation_bare.callbacks[:save] = Callback(accumulate_bare)
@@ -198,11 +223,14 @@ simulation_snow = Simulation(model_snow, Δt=Δt, stop_time=stop_time)
 series_snow = []
 
 function accumulate_snow(sim)
-    Tu = sim.model.snow_thermodynamics.top_surface_temperature
-    h  = sim.model.ice_thickness
-    ℵ  = sim.model.ice_concentration
-    hs = sim.model.snow_thickness
-    push!(series_snow, (time(sim), first(h), first(Tu), first(ℵ), first(hs)))
+    m  = sim.model
+    Tu = m.snow_thermodynamics.top_surface_temperature
+    h  = m.ice_thickness
+    ℵ  = m.ice_concentration
+    hs = m.snow_thickness
+    Tus = first(Tu)
+    Qu = getflux(top_heat_flux, 1, 1, grid, Tus, m.clock, fields(m))
+    push!(series_snow, (time(sim), first(h), Tus, first(ℵ), first(hs), Qu))
 end
 
 simulation_snow.callbacks[:save] = Callback(accumulate_snow)
@@ -212,35 +240,43 @@ run!(simulation_snow)
 #
 # We extract the time series data and compare:
 
-t_bare = [d[1] for d in series_bare]
-h_bare = [d[2] for d in series_bare]
-T_bare = [d[3] for d in series_bare]
+t_bare  = [d[1] for d in series_bare]
+h_bare  = [d[2] for d in series_bare]
+T_bare  = [d[3] for d in series_bare]
+ℵ_bare  = [d[4] for d in series_bare]
+Qu_bare = [d[5] for d in series_bare]
 
-t_snow = [d[1] for d in series_snow]
-h_snow = [d[2] for d in series_snow]
-T_snow = [d[3] for d in series_snow]
-hs     = [d[5] for d in series_snow]
+t_snow  = [d[1] for d in series_snow]
+h_snow  = [d[2] for d in series_snow]
+T_snow  = [d[3] for d in series_snow]
+ℵ_snow  = [d[4] for d in series_snow]
+hs_snow = [d[5] for d in series_snow]
+Qu_snow = [d[6] for d in series_snow]
 
 set_theme!(Theme(fontsize=24, linewidth=3))
 
-fig = Figure(size=(1200, 1200))
+fig = Figure(size=(1200, 1800))
 
 axT = Axis(fig[1, 1], ylabel="Surface temperature (°C)")
 lines!(axT, t_bare ./ day, T_bare, label="Bare ice")
 lines!(axT, t_snow ./ day, T_snow, label="Snow-covered", linestyle=:dash)
 axislegend(axT, position=:rb)
 
-axh = Axis(fig[2, 1], ylabel="Ice thickness (m)")
+axℵ = Axis(fig[2, 1], ylabel="Ice concentration (-)")
+lines!(axℵ, t_bare ./ day, ℵ_bare, label="Bare ice")
+lines!(axℵ, t_snow ./ day, ℵ_snow, label="Snow-covered", linestyle=:dash)
+
+axh = Axis(fig[3, 1], ylabel="Ice thickness (m)")
 lines!(axh, t_bare ./ day, h_bare, label="Bare ice")
 lines!(axh, t_snow ./ day, h_snow, label="Snow-covered", linestyle=:dash)
-axislegend(axh, position=:rb)
 
-axs = Axis(fig[3, 1], ylabel="Snow thickness (m)")
-lines!(axs, t_snow ./ day, hs, color=Makie.wong_colors()[2])
+axs = Axis(fig[4, 1], ylabel="Snow thickness (m)")
+lines!(axs, t_snow ./ day, hs_snow, color=Makie.wong_colors()[2])
 
-axd = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Thickness difference (m)")
-lines!(axd, t_bare ./ day, h_bare .- h_snow[1:length(h_bare)], color=:black)
-hlines!(axd, [0], color=:gray, linestyle=:dot, linewidth=1)
+axQ = Axis(fig[5, 1], xlabel="Time (days)", ylabel="Top heat flux (W m⁻²)")
+lines!(axQ, t_bare ./ day, Qu_bare, label="Bare ice")
+lines!(axQ, t_snow ./ day, Qu_snow, label="Snow-covered", linestyle=:dash)
+hlines!(axQ, [0], color=:gray, linestyle=:dot, linewidth=1)
 
 save("ice_timeseries.png", fig)
 nothing # hide
@@ -255,7 +291,6 @@ nothing # hide
 #   * **has a warmer surface temperature** because the same heat flux produces a
 #     larger temperature drop across the more insulating snow+ice slab,
 #   * **accumulates snow in autumn/winter** and **melts it in spring/summer** as
-#     the surface energy balance turns positive.
-#
-# The bottom panel shows the thickness difference: positive means bare ice is
-# thicker, confirming that snow insulation reduces net ice growth.
+#     the surface energy balance turns positive,
+#   * **reflects more sunlight** due to the higher snow albedo (0.80 vs 0.65),
+#     further reducing the energy available for melting.

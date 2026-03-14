@@ -1,4 +1,6 @@
 using Oceananigans.Architectures: architecture
+using Oceananigans.OutputReaders: FieldTimeSeries
+using Oceananigans.Units: Time
 using Oceananigans.Utils
 using KernelAbstractions: @kernel, @index
 
@@ -125,74 +127,67 @@ end
     bottom_bc = ice_thermodynamics.heat_boundary_conditions.bottom
     @inbounds Si = model_fields.S[i, j, 1]
 
-    Tb     = bottom_temperature(i, j, grid, bottom_bc, liquidus)
-    Tm_ice = melting_temperature(liquidus, Si)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    Tm = melting_temperature(liquidus, Si)
 
     # --- Snow surface solve ---
     # Snow's internal_heat_flux is a FluxFunction wrapping ice_snow_conductive_flux,
     # which computes the combined conductive flux F = (Tb - Tu) / (hs/ks + hi/ki).
     # The MeltingConstrainedFluxBalance root-find balances Qatm(Tu) = Fc(Tu).
     snow_top_bc = snow_thermodynamics.heat_boundary_conditions.top
-    Tu_field    = snow_thermodynamics.top_surface_temperature
-    Qi_snow     = snow_thermodynamics.internal_heat_flux
-    Qu_ext      = top_external_heat_flux
+    Tu = snow_thermodynamics.top_surface_temperature
+    Qi = snow_thermodynamics.internal_heat_flux
+    Qu = top_external_heat_flux
 
     # Effective melting temperature: snow (0 C) when snow present, ice otherwise
-    Tm = ifelse(hsⁿ > 0, zero(Tm_ice), Tm_ice)
+    Tm = ifelse(hsⁿ > 0, zero(Tm), Tm)
 
     if !isa(snow_top_bc, PrescribedTemperature)
         if consolidated_ice
-            Tu⁻ = @inbounds Tu_field[i, j, 1]
-            Tu  = top_surface_temperature(i, j, grid, snow_top_bc, Tu⁻, Qi_snow, Qu_ext, clock, model_fields)
-            Tu  = min(Tu, Tm)
+            Tu⁻ = @inbounds Tu[i, j, 1]
+            Tuⁿ = top_surface_temperature(i, j, grid, snow_top_bc, Tu⁻, Qi, Qu, clock, model_fields)
+            Tuⁿ = min(Tuⁿ, Tm)
         else
-            Tu = Tb
+            Tuⁿ = Tb
         end
-        @inbounds Tu_field[i, j, 1] = Tu
+        @inbounds Tu[i, j, 1] = Tuⁿ
     end
 
-    @inbounds Tu = Tu_field[i, j, 1]
+    @inbounds Tus = Tu[i, j, 1]
 
-    # --- Interface temperature ---
-    # Tsi = Tb + (Tu - Tb) * Ri / (Rs + Ri)
-    # When hs = 0: Tsi = Tu (snow layer has zero resistance)
+    # Tsi = Tb + (Tus - Tb) * Ri / (Rs + Ri)
+    # When hs = 0: Tsi = Tus (snow layer has zero resistance)
     ks  = snow_thermodynamics.internal_heat_flux.parameters.snow_conductivity
-    Tsi = interface_temperature(i, j, grid, ice_thermodynamics, ks, Tu, model_fields)
+    Tsi = interface_temperature(i, j, grid, ice_thermodynamics, ks, Tus, model_fields)
     @inbounds ice_thermodynamics.top_surface_temperature[i, j, 1] = Tsi
 
-    # --- Compute fluxes ---
-    Fc  = ifelse(consolidated_ice,
-                 getflux(Qi_snow, i, j, grid, Tu, clock, model_fields),
-                 zero(grid))
-    Qui = getflux(Qu_ext, i, j, grid, Tu, clock, model_fields)
+    Qis = ifelse(consolidated_ice, getflux(Qi, i, j, grid, Tus, clock, model_fields), zero(grid))
+    Qui = getflux(Qu, i, j, grid, Tus, clock, model_fields)
 
-    # --- Snow melt from surface flux imbalance ---
     # δQ < 0 means more internal flux than external → energy available for melting
-    δQ = Qui - Fc
+    δQ = Qui - Qis
     melt_energy = max(zero(δQ), -δQ) # positive when melting
 
-    phase_snow = snow_thermodynamics.phase_transitions
-    ρs      = phase_snow.density
-    Lf_snow = phase_snow.reference_latent_heat
+    ρs = snow_thermodynamics.phase_transitions.density
+    Ls = snow_thermodynamics.phase_transitions.reference_latent_heat
 
-    snow_energy_capacity = ρs * Lf_snow * hsⁿ / Δt # W/m²
-    snow_absorbed = min(melt_energy, snow_energy_capacity)
-    Δhs_melt     = snow_absorbed * Δt / (ρs * Lf_snow)
+    snow_energy_capacity = ρs * Ls * hsⁿ / Δt # W/m²
+    Qs  = min(melt_energy, snow_energy_capacity)
+    Gs⁻ = Qs / (ρs * Ls)
 
-    # --- Ice tendency via thermodynamic_tendency ---
     # The effective top flux for the ice is Qui + snow_absorbed.
     # Snow absorbing melt energy acts as extra cooling from the ice's perspective:
     # thermodynamic_tendency computes Qi_ice = Fc (by interface temperature construction),
     # so wu = (Qui + snow_absorbed - Fc) / ℰu = -excess / ℰu
     # and wb = (Fc - Qb) / ℰb.
-    Qu_ice = Qui + snow_absorbed
+    Qui = Qui + Qs
 
     ∂t_V = thermodynamic_tendency(i, j, 1, grid,
                                   ice_thermodynamics,
                                   ice_thickness,
                                   ice_concentration,
                                   ice_consolidation_thickness,
-                                  Qu_ice,
+                                  Qui,
                                   bottom_external_heat_flux,
                                   clock, model_fields)
 
@@ -202,9 +197,9 @@ end
     # so hs adjusts to keep hs * ℵ constant (analogous to how ice tracks h * ℵ).
     hsⁿ = ifelse(ℵⁿ⁺¹ > 0, hsⁿ * ℵⁿ / ℵⁿ⁺¹, zero(hsⁿ))
 
-    Δhs_accum = snow_accumulation(i, j, snow_precipitation, snow_thermodynamics, ℵⁿ⁺¹, Δt)
-    hs⁺ = hsⁿ - Δhs_melt + Δhs_accum
-    hs⁺ = max(zero(hs⁺), hs⁺)
+    Gs⁺ = snow_accumulation(i, j, snow_precipitation, snow_thermodynamics, ℵⁿ⁺¹, clock)
+    hs⁺  = hsⁿ + Δt * (Gs⁺ - Gs⁻)
+    hs⁺  = max(zero(hs⁺), hs⁺)
 
     # Snow-ice formation (flooding when freeboard is negative)
     hⁿ⁺¹, hs⁺ = snow_ice_formation(hⁿ⁺¹, hs⁺, ice_thermodynamics, snow_thermodynamics)
@@ -243,10 +238,13 @@ end
     return (hⁿ⁺¹, ℵⁿ⁺¹)
 end
 
-@inline function snow_accumulation(i, j, snow_precip, snow_thermo, ℵ, Δt)
-    @inbounds Ps = snow_precip[i, j, 1] # kg/m^2/s
+@inline get_precipitation(i, j, snow_precip, clock) = @inbounds snow_precip[i, j, 1]
+@inline get_precipitation(i, j, snow_precip::FieldTimeSeries, clock) = @inbounds snow_precip[i, j, 1, Time(clock.time)]
+
+@inline function snow_accumulation(i, j, snow_precip, snow_thermo, ℵ, clock)
+    Ps = get_precipitation(i, j, snow_precip, clock) # kg/m^2/s
     ρs = snow_thermo.phase_transitions.density
-    return ifelse(ℵ > 0, Ps * Δt / ρs, zero(Δt))
+    return ifelse(ℵ > 0, Ps / ρs, zero(ρs))
 end
 
 @inline function snow_ice_formation(hi, hs, ice_thermo, snow_thermo)
