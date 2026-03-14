@@ -44,7 +44,7 @@ if TEST_GROUP == "all" || TEST_GROUP == "snow"
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "energy_conservation"
-    include("test_energy_consrvation.jl")
+    include("test_energy_conservation.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"
