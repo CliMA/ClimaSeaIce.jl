@@ -43,6 +43,10 @@ if TEST_GROUP == "all" || TEST_GROUP == "snow"
     include("test_snow_thermodynamics.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "energy_conservation"
+    include("test_energy_consrvation.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"
     include("test_distributed_sea_ice.jl")
 end
