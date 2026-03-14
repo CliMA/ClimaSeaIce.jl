@@ -239,9 +239,7 @@ The snow model includes three processes that modify the snow thickness each time
    ```math
    h_f = h_i (1 - \rho_i / \rho_w) - h_s \rho_s / \rho_w < 0
    ```
-   The flooding step is **energy-conserving**: it uses the liquid density ``\rho_w``
-   (consistent with the `latent_heat` definition) to compute the mass transfer between
-   snow and ice.
+   The flooding step formulated like this is **energy-conserving**
 
 ### Snow volume conservation
 
