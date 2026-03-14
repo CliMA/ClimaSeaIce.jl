@@ -343,7 +343,6 @@ axR = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Residual (W m⁻²)",
 for c in 1:4
     Ei_b = [d[c] for d in Ei_bare]
     Ei_s = [d[c] for d in Ei_snow_ts]
-
     lines!(axE, t_b ./ day, Ei_b, color=colors[c], label=atm_labels[c])
     lines!(axE, t_s ./ day, Ei_s, color=colors[c], linestyle=:dash)
 
@@ -357,17 +356,11 @@ for c in 1:4
     lines!(axQ, t_b ./ day, Ql_b, color=colors[c])
     lines!(axQ, t_s ./ day, Ql_s, color=colors[c], linestyle=:dash)
 
-    # Budget residual: dE/dt should equal -Qa + Ql + Qp
-    # where Qp is the precipitation latent heat flux (negative = energy added)
     dEi_b = (Ei_b[2:end] .- Ei_b[1:end-1]) ./ Δt
     dEi_s = (Ei_s[2:end] .- Ei_s[1:end-1]) ./ Δt
-
-    # Precipitation flux scaled by concentration (snow covers ℵ fraction)
     Qp = [-ℒs_snow * snow_precipitation * ℵ_s[c][k] for k in 2:length(ℵ_s[c])]
-
     resid_b = dEi_b .- (.-(Qa_b) .+ Ql_b)[2:end]
     resid_s = dEi_s .- (.-(Qa_s) .+ Ql_s)[2:end] .- Qp
-
     lines!(axR, t_b[2:end] ./ day, resid_b, color=colors[c])
     lines!(axR, t_s[2:end] ./ day, resid_s, color=colors[c], linestyle=:dash)
 end
