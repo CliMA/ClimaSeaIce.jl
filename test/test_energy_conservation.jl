@@ -48,7 +48,7 @@ function energy_conservation_test(; snow=false, precipitation=false, melting=fal
     PT = model.ice_thermodynamics.phase_transitions
     ℰ  = latent_heat(PT, 0)
     ρs = snow ? snow_thermo.phase_transitions.density : 0.0
-    Ls = snow ? snow_thermo.phase_transitions.reference_latent_heat : 0.0
+    ℒs = snow ? snow_thermo.phase_transitions.reference_latent_heat : 0.0
 
     Δt = 600.0
     Nsteps = 200
@@ -58,18 +58,18 @@ function energy_conservation_test(; snow=false, precipitation=false, melting=fal
         h₀  = first(interior(model.ice_thickness))
         ℵ₀  = first(interior(model.ice_concentration))
         hs₀ = snow ? first(interior(model.snow_thickness)) : 0.0
-        E₀  = -ℵ₀ * (ℰ * h₀ + ρs * Ls * hs₀)
+        E₀  = -ℵ₀ * (ℰ * h₀ + ρs * ℒs * hs₀)
 
         time_step!(model, Δt)
 
         h₁  = first(interior(model.ice_thickness))
         ℵ₁  = first(interior(model.ice_concentration))
         hs₁ = snow ? first(interior(model.snow_thickness)) : 0.0
-        E₁  = -ℵ₁ * (ℰ * h₁ + ρs * Ls * hs₁)
+        E₁  = -ℵ₁ * (ℰ * h₁ + ρs * ℒs * hs₁)
 
         Qa = top_record[1]
         Ql = bot_record[1]
-        Qp = (precipitation && ℵ₁ > 0) ? -Ls * Ps : 0.0
+        Qp = (precipitation && ℵ₁ > 0) ? -ℒs * Ps : 0.0
 
         dE = E₁ - E₀
         expected = (-Qa + Ql + Qp) * Δt

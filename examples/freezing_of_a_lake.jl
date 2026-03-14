@@ -249,11 +249,11 @@ function accumulate_energy_snow(sim)
     h  = m.ice_thickness
     ℵ  = m.ice_concentration
     hs = m.snow_thickness
-    PT_ice  = m.ice_thermodynamics.phase_transitions
-    ℰ_ice   = latent_heat(PT_ice, 0)
+    PT = m.ice_thermodynamics.phase_transitions
+    ℰi = latent_heat(PT, 0)
     ρs = snow_thermodynamics.phase_transitions.density
-    Ls = snow_thermodynamics.phase_transitions.reference_latent_heat
-    En = - ℵ .* (h .* ℰ_ice .+ hs .* ρs * Ls)
+    ℒs = snow_thermodynamics.phase_transitions.reference_latent_heat
+    En = - ℵ .* (h .* ℰi .+ hs .* ρs * ℒs)
     push!(Ei_snow_ts, deepcopy(En))
     push!(Qa_snow_ts, deepcopy(atmosphere_snow.atmosphere_ice_flux))
     push!(Ql_snow_ts, deepcopy(lake_snow.lake_ice_flux))
@@ -320,14 +320,14 @@ nothing # hide
 # ## Energy budget analysis
 #
 # We verify energy conservation for both models. The stored energy is
-# E = -ℰi h ℵ for bare ice, or E = -(ℰi h ℵ + ρs Ls hs) including snow.
+# E = -ℰi h ℵ for bare ice, or E = -ℵ(ℰi h + ρs ℒs hs) including snow.
 #
 # For the snow model, precipitation adds latent heat to the system. The full
 # budget is: dE/dt = -Qa + Ql + Qp, where Qp is the precipitation latent
 # heat flux. We compute Qp from the snow thickness change due to accumulation.
 
 ρs_snow = snow_thermodynamics.phase_transitions.density
-Ls_snow = snow_thermodynamics.phase_transitions.reference_latent_heat
+ℒs_snow = snow_thermodynamics.phase_transitions.reference_latent_heat
 
 fig = Figure(size=(1200, 1000))
 
@@ -363,7 +363,7 @@ for c in 1:4
     dEi_s = (Ei_s[2:end] .- Ei_s[1:end-1]) ./ Δt
 
     # Precipitation flux scaled by concentration (snow covers ℵ fraction)
-    Qp = [-Ls_snow * snow_precipitation * ℵ_s[c][k] for k in 2:length(ℵ_s[c])]
+    Qp = [-ℒs_snow * snow_precipitation * ℵ_s[c][k] for k in 2:length(ℵ_s[c])]
 
     resid_b = dEi_b .- (.-(Qa_b) .+ Ql_b)[2:end]
     resid_s = dEi_s .- (.-(Qa_s) .+ Ql_s)[2:end] .- Qp

@@ -1,5 +1,5 @@
 using Oceananigans.Architectures: architecture
-using Oceananigans.OutputReaders: FieldTimeSeries
+using Oceananigans.OutputReaders: FieldTimeSeries, GPUAdaptedFieldTimeSeries
 using Oceananigans.Units: Time
 using Oceananigans.Utils
 using KernelAbstractions: @kernel, @index
@@ -169,17 +169,17 @@ end
     melt_energy = max(zero(δQ), -δQ) # positive when melting
 
     ρs = snow_thermodynamics.phase_transitions.density
-    Ls = snow_thermodynamics.phase_transitions.reference_latent_heat
+    ℒs = snow_thermodynamics.phase_transitions.reference_latent_heat
 
-    snow_energy_capacity = ρs * Ls * hsⁿ / Δt # W/m²
+    snow_energy_capacity = ρs * ℒs * hsⁿ / Δt # W/m²
     Qs  = min(melt_energy, snow_energy_capacity)
-    Gs⁻ = Qs / (ρs * Ls)
+    Gs⁻ = Qs / (ρs * ℒs)
 
     # The effective top flux for the ice is Qui + snow_absorbed.
     # Snow absorbing melt energy acts as extra cooling from the ice's perspective:
-    # thermodynamic_tendency computes Qi_ice = Fc (by interface temperature construction),
-    # so wu = (Qui + snow_absorbed - Fc) / ℰu = -excess / ℰu
-    # and wb = (Fc - Qb) / ℰb.
+    # thermodynamic_tendency computes Qi = Qis (by interface temperature construction),
+    # so  wu = (Qui + Qs - Qis) / ℰu = - Qs / ℰu
+    # and wb = (Qis - Qb) / ℰb.
     Qui = Qui + Qs
 
     ∂t_V = thermodynamic_tendency(i, j, 1, grid,
@@ -238,8 +238,10 @@ end
     return (hⁿ⁺¹, ℵⁿ⁺¹)
 end
 
-@inline get_precipitation(i, j, snow_precip, clock) = @inbounds snow_precip[i, j, 1]
-@inline get_precipitation(i, j, snow_precip::FieldTimeSeries, clock) = @inbounds snow_precip[i, j, 1, Time(clock.time)]
+const FTS = Union{FieldTimeSeries, GPUAdaptedFieldTimeSeries}
+
+@inline get_precipitation(i, j, Ps, clock)      = @inbounds snow_precip[i, j, 1]
+@inline get_precipitation(i, j, Ps::FTS, clock) = @inbounds snow_precip[i, j, 1, Time(clock.time)]
 
 @inline function snow_accumulation(i, j, snow_precip, snow_thermo, ℵ, clock)
     Ps = get_precipitation(i, j, snow_precip, clock) # kg/m^2/s
@@ -255,22 +257,17 @@ end
     # Freeboard: positive when ice floats above waterline
     hf = hi * (1 - ρi / ρw) - hs * ρs / ρw
 
-    # Energy-conserving snow-ice formation.
-    # Since E = -ℵ(ℰ h + ρs Ls hs) with ℰ = ρw L (see `latent_heat`),
-    # energy conservation requires ℰ δhi = ρs Ls δhs, i.e. δhs = ρw δhi / ρs
-    # (with L = Ls). Combined with freeboard → 0:
-    #   δhi = -hf / (2 - ρi/ρw)
+    # Flooding occurs when freeboard is negative.
+    # Mass conservation (δhi ρi = δhs ρs) also conserves energy
+    # since ℰ = ρ L (see `latent_heat`) and L is the same for ice and snow.
     flooding = hf < 0
-    denom = 2 - ρi / ρw
-    δhi = ifelse(flooding, -hf / denom, zero(hf))
-    δhs = ifelse(flooding, ρw * δhi / ρs, zero(hf))
+    δhs = ifelse(flooding, -hf * ρi / ρs, zero(hf))
 
     # Clip: can't remove more snow than available
     hs⁺ = max(zero(hs), hs - δhs)
     δhs = hs - hs⁺
-
     # Recompute δhi from actual snow removed (energy conservation)
-    δhi = δhs * ρs / ρw
+    δhi = δhs * ρs / ρi
     hi⁺ = hi + δhi
 
     return (hi⁺, hs⁺)

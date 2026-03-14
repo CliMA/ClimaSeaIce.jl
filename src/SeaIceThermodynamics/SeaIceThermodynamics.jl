@@ -105,7 +105,7 @@ The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
 @inline function PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                                  density               = 917,    # kg m⁻³
+                                  density                = 917,    # kg m⁻³
                                   heat_capacity          = 2000,   # J / (kg ᵒC)
                                   liquid_density         = 999.8,  # kg m⁻³
                                   liquid_heat_capacity   = 4186,   # J / (kg ᵒC)
@@ -141,7 +141,7 @@ end
     c  = thermo.heat_capacity
     cℓ = thermo.liquid_heat_capacity
 
-    return ρℓ * ℒ₀ + (ρℓ * cℓ - ρ * c) * (T - T₀)
+    return ρ * ℒ₀ + (ρℓ * cℓ - ρ * c) * (T - T₀)
 end
 
 # Fallback for no ice_thermodynamics
