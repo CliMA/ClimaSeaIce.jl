@@ -173,8 +173,6 @@ Psmax = 6e-6 # kg m⁻² s⁻¹ (peak winter snowfall rate)
 snow_precipitation = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Oceananigans.OutputReaders.Cyclical())
 
 for (i, time) in enumerate(times)
-    # Sinusoidal cycle: max at mid-January (day 15), zero in summer
-    # cos peaks at t=0 (Jan 1), so shift by 15 days
     phase = 2π * (time - 15day) / (year_days * day)
     Ps = Psmax * max(0, cos(phase))
     set!(snow_precipitation[i], [Ps])
