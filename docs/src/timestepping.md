@@ -39,6 +39,7 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 ├── grid: 16×16×1 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×1 halo
 ├── timestepper: ForwardEulerTimeStepper
 ├── ice_thermodynamics: SlabThermodynamics
+├── snow_thermodynamics: Nothing
 ├── advection: Nothing
 └── external_heat_fluxes:
     ├── top: Int64
@@ -61,6 +62,7 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 ├── grid: 16×16×1 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×1 halo
 ├── timestepper: SplitRungeKuttaTimeStepper(3)
 ├── ice_thermodynamics: SlabThermodynamics
+├── snow_thermodynamics: Nothing
 ├── advection: Nothing
 └── external_heat_fluxes:
     ├── top: Int64
