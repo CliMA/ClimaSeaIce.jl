@@ -4,7 +4,7 @@ using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
 
 import Oceananigans.TimeSteppers: rk_substep!, cache_current_fields!, step_lagrangian_particles!
 
-const RKSeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:SplitRungeKuttaTimeStepper}
+const RKSeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:Any, <:SplitRungeKuttaTimeStepper}
 
 step_lagrangian_particles!(model::SeaIceModel, Δτ) = nothing
 
@@ -111,15 +111,18 @@ function dynamic_time_step!(model::RKSeaIceModel, Δt)
     grid = model.grid
     arch = architecture(grid)
 
-    h = model.ice_thickness
-    ℵ = model.ice_concentration
+    h  = model.ice_thickness
+    ℵ  = model.ice_concentration
     hⁿ = model.timestepper.Ψ⁻.h
     ℵⁿ = model.timestepper.Ψ⁻.ℵ
-    tracers = model.tracers
 
+    hs  = model.snow_thickness
+    hsⁿ = isnothing(hs) ? nothing : model.timestepper.Ψ⁻.hs
+
+    tracers = model.tracers
     Gⁿ = model.timestepper.Gⁿ
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
 
     return nothing
 end

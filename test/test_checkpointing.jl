@@ -138,7 +138,7 @@ function test_sea_ice_checkpointer_output(arch)
     Δt = 1
 
     grid = RectilinearGrid(arch, size=(Nx, Ny), x=(0, Lx), y=(0, Ly), topology=(Bounded, Bounded, Flat))
-    for ice_thermodynamics in (nothing, SlabSeaIceThermodynamics(grid))
+    for ice_thermodynamics in (nothing, SlabThermodynamics(grid))
         for dynamics in (nothing, SeaIceMomentumEquation(grid))
 
             true_model = SeaIceModel(grid; dynamics, ice_thermodynamics)
@@ -158,4 +158,25 @@ end
 
 @testset "Checkpointing Tests" begin
     test_sea_ice_checkpointer_output(CPU())
+end
+
+@testset "Checkpointing with snow" begin
+    Nx, Ny = 16, 16
+    Lx, Ly = 100, 100
+    Δt = 1
+
+    grid = RectilinearGrid(CPU(), size=(Nx, Ny), x=(0, Lx), y=(0, Ly), topology=(Bounded, Bounded, Flat))
+    snow_thermo = SlabSnowThermodynamics(grid)
+
+    true_model = SeaIceModel(grid; ice_thermodynamics=SlabThermodynamics(grid), snow_thermodynamics=snow_thermo)
+    test_model = deepcopy(true_model)
+
+    for field in merge(true_model.velocities,
+                       (; h  = true_model.ice_thickness,
+                          ℵ  = true_model.ice_concentration,
+                          hs = true_model.snow_thickness))
+        set!(field, (x, y) -> rand() * 1e-5)
+    end
+
+    run_checkpointer_tests(true_model, test_model, Δt)
 end

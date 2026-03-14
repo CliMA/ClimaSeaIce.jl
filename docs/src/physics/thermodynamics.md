@@ -168,17 +168,18 @@ sensible_heat(Tu, clock, fields, parameters) = parameters.coefficient * (paramet
 flux = FluxFunction(sensible_heat; parameters = (coefficient = 15.0, T_air = -10.0))
 ```
 
-## Putting it together: SlabSeaIceThermodynamics
+## Putting it together: SlabThermodynamics
 
-The [`SlabSeaIceThermodynamics`](@ref) struct combines all thermodynamic components:
+The [`SlabThermodynamics`](@ref) struct (also aliased as `SlabSeaIceThermodynamics`)
+combines all thermodynamic components:
 
 ```@example thermodynamics
 using Oceananigans
-using ClimaSeaIce.SeaIceThermodynamics: SlabSeaIceThermodynamics, ConductiveFlux, MeltingConstrainedFluxBalance
+using ClimaSeaIce.SeaIceThermodynamics: SlabThermodynamics, ConductiveFlux, MeltingConstrainedFluxBalance
 
 grid = RectilinearGrid(size=(10, 10), x=(0, 1e5), y=(0, 1e5), topology=(Periodic, Periodic, Flat))
 
-thermodynamics = SlabSeaIceThermodynamics(grid;
+thermodynamics = SlabThermodynamics(grid;
     top_heat_boundary_condition = MeltingConstrainedFluxBalance(),
     internal_heat_flux = ConductiveFlux(Float64; conductivity = 2.0))
 
@@ -187,3 +188,87 @@ thermodynamics
 
 When coupled to a [`SeaIceModel`](@ref), these thermodynamics automatically compute thickness
 tendencies based on the configured heat fluxes and boundary conditions.
+
+## Snow thermodynamics
+
+ClimaSeaIce supports a **layered snow model** where a snow layer sits on top of the ice slab.
+Snow insulates the ice by adding thermal resistance in series, reducing the conductive flux
+and slowing ice growth.
+
+### Snow layer physics
+
+When snow is present, the combined conductive flux through the snow+ice slab uses
+resistors in series:
+```math
+F_c = \frac{T_b - T_u}{h_s / k_s + h_i / k_i}
+```
+where ``h_s, k_s`` are the snow thickness and conductivity, and ``h_i, k_i`` are the ice
+thickness and conductivity. Snow typically has ``k_s \approx 0.31`` W/(m·K) compared to
+``k_i \approx 2`` W/(m·K) for ice, making it an effective insulating layer.
+
+The snow surface temperature ``T_u`` is determined by balancing the atmospheric heat
+fluxes against the combined conductive flux, using the same
+[`MeltingConstrainedFluxBalance`](@ref) approach as bare ice. The melting point for snow
+is 0°C (rather than the salinity-dependent liquidus for ice).
+
+### Interface temperature
+
+The snow-ice interface temperature ``T_{si}`` is computed analytically from the surface
+temperature using the thermal resistance ratio:
+```math
+T_{si} = T_b + (T_u - T_b) \frac{R_i}{R_s + R_i}
+```
+where ``R_i = h_i / k_i`` and ``R_s = h_s / k_s``. This temperature is passed to the ice
+thermodynamics as a prescribed boundary condition, so the ice layer is completely
+unaware of the snow layer above it.
+
+### Snow processes
+
+The snow model includes three processes that modify the snow thickness each time step:
+
+1. **Surface melt**: When the surface temperature reaches the melting point, any excess
+   conductive flux first melts snow before reaching the ice. The snow absorbs energy
+   ``\rho_s L_s \Delta h_s`` before excess energy melts ice from the top.
+
+2. **Snowfall accumulation**: Snow precipitates at a prescribed rate (kg/m²/s) and
+   accumulates only where ice is present (``\aleph > 0``).
+
+3. **Snow-ice formation (flooding)**: When the snow load pushes the ice surface below
+   the waterline (negative freeboard), seawater floods the snow layer and converts it
+   to ice. The freeboard criterion is:
+   ```math
+   h_f = h_i (1 - \rho_i / \rho_w) - h_s \rho_s / \rho_w < 0
+   ```
+   The flooding step is **energy-conserving**: it uses the liquid density ``\rho_w``
+   (consistent with the `latent_heat` definition) to compute the mass transfer between
+   snow and ice.
+
+### Snow volume conservation
+
+Snow thickness ``h_s`` represents the thickness over the ice-covered fraction ``\aleph``.
+The total snow energy per unit area is ``\rho_s L_s h_s \aleph``, consistent with how ice
+energy is ``\mathscr{L} h \aleph``. When ice concentration changes (e.g., during
+consolidation), the snow thickness is adjusted to conserve the snow volume
+``h_s \times \aleph``.
+
+### Setting up a snow-covered model
+
+Use [`SlabSnowThermodynamics`](@ref) for convenient construction with snow defaults:
+
+```@example thermodynamics
+using ClimaSeaIce
+
+grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
+
+snow_thermodynamics = SlabSnowThermodynamics(grid)
+
+model = SeaIceModel(grid;
+    snow_thermodynamics,
+    snow_precipitation = 3e-6) # kg/m²/s
+
+set!(model, h=1, ℵ=1, hs=0.1) # 10 cm snow on 1 m ice
+```
+
+The [`SeaIceModel`](@ref) constructor automatically wires the layered coupling:
+the snow's internal heat flux is replaced with the combined snow+ice conductive flux,
+and the ice's top boundary condition becomes a prescribed interface temperature.

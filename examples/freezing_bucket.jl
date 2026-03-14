@@ -2,15 +2,18 @@
 #
 # A common laboratory experiment freezes an insulated bucket of water from the top
 # down, using a metal lid to keep the top of the bucket at some constant, very cold
-# temperature. In this example, we simulate such a scenario using the `SeaIceModel`.
-# Here, the bucket is perfectly insulated and infinitely deep: if the `Simulation`
-# is run for longer, the ice will keep freezing, and freezing, and will never run
-# out of water. Also, the water in the infinite bucket is (somehow) all at the same
-# temperature, in equilibrium with the ice-water interface (and therefore fixed at
-# the melting temperature). This example demonstrates how to:
+# temperature. In this example, we simulate such a scenario using the `SeaIceModel`,
+# comparing ice growth with and without a snow layer on top.
 #
-#   * use `SlabSeaIceThermodynamics` with prescribed boundary conditions,
+# Snow acts as an insulating blanket: its low thermal conductivity (~0.31 W/m/K vs
+# ~2 W/m/K for ice) reduces the conductive heat flux through the slab, slowing ice
+# growth. We run two side-by-side simulations to see this effect.
+#
+# This example demonstrates how to:
+#
+#   * use `SlabThermodynamics` with prescribed boundary conditions,
 #   * configure internal heat conduction,
+#   * add a snow layer with `snow_thermodynamics` and `snow_precipitation`,
 #   * use `FluxFunction` for frazil ice formation,
 #   * collect and visualize time series data.
 #
@@ -37,123 +40,178 @@ using CairoMakie
 # ## An infinitely deep bucket with a single grid point
 #
 # Perhaps surprisingly, we need just one grid point to model a possibly infinitely
-# thick slab of ice with `SlabSeaIceModel`. We would only need more than 1 grid point
+# thick slab of ice with `SeaIceModel`. We would only need more than 1 grid point
 # if our boundary conditions vary in the horizontal direction:
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-# ## Model configuration
+# ## Ice thermodynamics
 #
 # We build our model of an ice slab freezing into a bucket. We start by defining
 # a constant internal `ConductiveFlux` with ice conductivity:
 
-conductivity = 2 # W m⁻¹ K⁻¹
-internal_heat_flux = ConductiveFlux(; conductivity)
+ki = 2 # W m⁻¹ K⁻¹
+ice_internal_heat_flux = ConductiveFlux(; conductivity=ki)
 
-# Note that other units besides Celsius _can_ be used, but that requires setting
-# `model.phase_transitions` with appropriate parameters. We set the ice heat capacity
-# and density as well:
+# We set the heat capacity and density:
 
 ice_heat_capacity = 2100 # J kg⁻¹ K⁻¹
 ice_density = 900 # kg m⁻³
-phase_transitions = PhaseTransitions(; ice_heat_capacity, ice_density)
+ice_phase_transitions = PhaseTransitions(; heat_capacity=ice_heat_capacity, density=ice_density)
 
-# We set the top ice temperature:
+# We set the top ice temperature to a cold -10 °C:
 
 top_temperature = -10 # °C
 top_heat_boundary_condition = PrescribedTemperature(top_temperature)
 
-# ## Constructing the thermodynamics
-#
-# We construct the ice thermodynamics using a simple slab sea ice representation:
+# We construct the ice thermodynamics:
 
-ice_thermodynamics = SlabSeaIceThermodynamics(grid;
-                                              internal_heat_flux,
-                                              phase_transitions,
-                                              top_heat_boundary_condition)
+ice_thermodynamics = SlabThermodynamics(grid;
+                                        internal_heat_flux = ice_internal_heat_flux,
+                                        phase_transitions = ice_phase_transitions,
+                                        top_heat_boundary_condition)
 
 # ## Frazil ice formation
 #
-# We also prescribe a frazil ice heat flux that stops when the ice has reached a
+# We prescribe a frazil ice heat flux that stops when the ice has reached a
 # concentration of 1. This heat flux represents the initial ice formation from a
 # liquid bucket:
 
-@inline frazil_ice_formation(i, j, grid, Tuᵢ, clock, fields) = - (1 - fields.ℵ[i, j, 1]) # W m⁻²
+@inline frazil_ice_formation(i, j, grid, Tui, clock, fields) = -(1 - fields.ℵ[i, j, 1]) # W m⁻²
 
 bottom_heat_flux = FluxFunction(frazil_ice_formation)
 
-# ## Building the model
+# ## Model without snow
 #
-# Then we assemble it all into a model:
+# First, a bare-ice model:
 
-model = SeaIceModel(grid; ice_thermodynamics, bottom_heat_flux)
+model_bare = SeaIceModel(grid; ice_thermodynamics, bottom_heat_flux)
 
-# Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics`
-# is `IceWaterThermalEquilibrium` with freshwater. That's what we want!
-
-model.ice_thermodynamics.heat_boundary_conditions.bottom
-
-# ## Running a simulation
+# ## Snow thermodynamics
 #
-# We're ready to freeze the bucket for 10 straight days. The ice will start forming
-# suddenly due to the frazil ice heat flux and then eventually grow more slowly:
-
-simulation = Simulation(model, Δt=10minute, stop_time=10days)
-
-# ## Collecting data
+# Snow has a much lower thermal conductivity than ice, typically around 0.31 W/m/K.
+# When snow sits on top of ice, it acts as an insulating layer that reduces the
+# total conductive heat flux. The combined thermal resistance is the sum of
+# the snow and ice resistances in series: R = hs/ks + hi/ki.
 #
-# Before simulating the freezing bucket, we set up a `Callback` to create a time
-# series of the ice thickness saved at every time step:
+# We define the snow layer with its own thermodynamic properties:
 
-timeseries = []
+snow_thermodynamics = SlabSnowThermodynamics(grid)
 
-function accumulate_timeseries(sim)
-    h = sim.model.ice_thickness
-    ℵ = sim.model.ice_concentration
-    push!(timeseries, (time(sim), first(h), first(ℵ)))
+# We also add a light snowfall rate (about 3.6 cm/day of snow accumulation):
+
+snow_precipitation = 4e-4 # kg m⁻² s⁻¹
+
+# ## Model with snow
+#
+# When `snow_thermodynamics` is provided, the `SeaIceModel` constructor
+# automatically wires the layered coupling: the snow layer sits on top of
+# the ice and drives the surface temperature solve using the combined
+# snow+ice conductive flux.
+
+model_snow = SeaIceModel(grid;
+    ice_thermodynamics = SlabThermodynamics(grid;
+                                            internal_heat_flux = ice_internal_heat_flux,
+                                            phase_transitions = ice_phase_transitions,
+                                            top_heat_boundary_condition),
+    bottom_heat_flux,
+    snow_thermodynamics,
+    snow_precipitation)
+
+# ## Running both simulations
+#
+# We freeze the bucket for 30 days with a 10-minute time step:
+
+Δt = 10minute
+stop_time = 30days
+
+# First, set up and run the bare-ice simulation:
+
+simulation_bare = Simulation(model_bare, Δt=Δt, stop_time=stop_time)
+
+timeseries_bare = []
+
+function accumulate_bare(sim)
+    push!(timeseries_bare, (time(sim),
+                            first(sim.model.ice_thickness),
+                            first(sim.model.ice_concentration)))
 end
 
-simulation.callbacks[:save] = Callback(accumulate_timeseries)
+simulation_bare.callbacks[:save] = Callback(accumulate_bare)
+run!(simulation_bare)
 
-# Now we're ready to run the simulation:
+# Now set up and run the snow-covered simulation:
 
-run!(simulation)
+simulation_snow = Simulation(model_snow, Δt=Δt, stop_time=stop_time)
+
+timeseries_snow = []
+
+function accumulate_snow(sim)
+    push!(timeseries_snow, (time(sim),
+                            first(sim.model.ice_thickness),
+                            first(sim.model.ice_concentration),
+                            first(sim.model.snow_thickness)))
+end
+
+simulation_snow.callbacks[:save] = Callback(accumulate_snow)
+run!(simulation_snow)
 
 # ## Visualizing the results
 #
-# It'd be a shame to run such a "cool" simulation without looking at the results.
-# We'll visualize it with Makie:
+# We extract the time series and compare:
 
-# `timeseries` is a `Vector` of `Tuple`. So we have to do a bit of processing
-# to build `Vector`s of time `t` and thickness `h`. It's not much work though:
+t_bare = [d[1] for d in timeseries_bare]
+h_bare = [d[2] for d in timeseries_bare]
+ℵ_bare = [d[3] for d in timeseries_bare]
 
-t = [datum[1] for datum in timeseries]
-h = [datum[2] for datum in timeseries]
-ℵ = [datum[3] for datum in timeseries]
-V = h .* ℵ
+t_snow = [d[1] for d in timeseries_snow]
+h_snow = [d[2] for d in timeseries_snow]
+ℵ_snow = [d[3] for d in timeseries_snow]
+hs     = [d[4] for d in timeseries_snow]
 
-# Just for fun, we also compute the velocity of the ice-water interface:
+# Compute freezing rates (ice volume tendency):
 
-dVdt = @. (h[2:end] .* ℵ[2:end] - h[1:end-1] .* ℵ[1:end-1]) / simulation.Δt
-
-# All that's left, really, is to put those `lines!` in an `Axis`:
+V_bare = h_bare .* ℵ_bare
+V_snow = h_snow .* ℵ_snow
+dVdt_bare = @. (V_bare[2:end] - V_bare[1:end-1]) / Δt
+dVdt_snow = @. (V_snow[2:end] - V_snow[1:end-1]) / Δt
 
 set_theme!(Theme(fontsize=24, linewidth=4))
 
-fig = Figure(size=(1600, 700))
+fig = Figure(size=(1200, 900))
 
-axh = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (cm)")
-axℵ = Axis(fig[1, 2], xlabel="Time (days)", ylabel="Ice concentration (-)")
-axV = Axis(fig[1, 3], xlabel="Ice volume (cm)", ylabel="Freezing rate (μm s⁻¹)")
+# Ice thickness comparison
+axh = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (cm)",
+           title="Ice growth: bare vs snow-covered")
+lines!(axh, t_bare ./ day, 1e2 .* h_bare, label="Bare ice")
+lines!(axh, t_snow ./ day, 1e2 .* h_snow, label="Snow-covered ice", linestyle=:dash)
+axislegend(axh, position=:rb)
 
-lines!(axh, t ./ day, 1e2 .* h)
-lines!(axℵ, t ./ day, ℵ)
-lines!(axV, 1e2 .* V[1:end-1], 1e6 .* dVdt)
+# Snow thickness
+axs = Axis(fig[1, 2], xlabel="Time (days)", ylabel="Snow thickness (cm)",
+           title="Snow accumulation")
+lines!(axs, t_snow ./ day, 1e2 .* hs, color=:dodgerblue)
+
+# Freezing rate comparison
+axf = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Freezing rate (μm s⁻¹)",
+           title="Bottom freezing rate")
+lines!(axf, t_bare[2:end] ./ day, 1e6 .* dVdt_bare, label="Bare ice")
+lines!(axf, t_snow[2:end] ./ day, 1e6 .* dVdt_snow, label="Snow-covered ice", linestyle=:dash)
+axislegend(axf, position=:rt)
+
+# Ice concentration
+axc = Axis(fig[2, 2], xlabel="Time (days)", ylabel="Ice concentration (-)",
+           title="Ice concentration")
+lines!(axc, t_bare ./ day, ℵ_bare, label="Bare ice")
+lines!(axc, t_snow ./ day, ℵ_snow, label="Snow-covered ice", linestyle=:dash)
+axislegend(axc, position=:rb)
 
 save("freezing_bucket.png", fig)
 nothing # hide
 
 # ![](freezing_bucket.png)
 #
-# If you want more ice, you can increase `simulation.stop_time` and
-# `run!(simulation)` again (or just re-run the whole script).
+# The snow-covered ice grows significantly slower than bare ice. The snow layer
+# acts as an insulating blanket, reducing the conductive heat flux from the cold
+# surface to the warm ice-water interface. With less heat escaping through the slab,
+# less ice freezes at the bottom.

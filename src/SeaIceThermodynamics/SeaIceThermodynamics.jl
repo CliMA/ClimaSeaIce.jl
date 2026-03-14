@@ -1,11 +1,14 @@
 module SeaIceThermodynamics
 
-export SlabSeaIceThermodynamics,
+export SlabThermodynamics,
+       SlabSeaIceThermodynamics,
+       SlabSnowThermodynamics,
        PhaseTransitions,
        MeltingConstrainedFluxBalance,
        PrescribedTemperature,
        RadiativeEmission,
        ConductiveFlux,
+       IceSnowConductiveFlux,
        FluxFunction
 
 using Adapt
@@ -65,8 +68,8 @@ function Base.show(io::IO, lq::LinearLiquidus{FT}) where FT
 end
 
 struct PhaseTransitions{FT, L}
-    ice_density :: FT
-    ice_heat_capacity :: FT
+    density :: FT
+    heat_capacity :: FT
     liquid_density :: FT
     liquid_heat_capacity :: FT
     reference_latent_heat :: FT
@@ -76,13 +79,13 @@ end
 
 """
     PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                     ice_density           = 917,   # kg m⁻³
-                     ice_heat_capacity     = 2000,  # J / (kg ᵒC)
-                     liquid_density        = 999.8, # kg m⁻³
-                     liquid_heat_capacity  = 4186,  # J / (kg ᵒC)
-                     reference_latent_heat = 334e3, # J kg⁻³
-                     reference_temperature = 0,     # ᵒC
-                     liquidus = LinearLiquidus(FT)) # default assumes psu, ᵒC
+                     density               = 917,   # kg m⁻³
+                     heat_capacity          = 2000,  # J / (kg ᵒC)
+                     liquid_density         = 999.8, # kg m⁻³
+                     liquid_heat_capacity   = 4186,  # J / (kg ᵒC)
+                     reference_latent_heat  = 334e3, # J kg⁻³
+                     reference_temperature  = 0,     # ᵒC
+                     liquidus = LinearLiquidus(FT))  # default assumes psu, ᵒC
 
 Return a representation of transitions between the solid and liquid phases
 of salty water: in other words, the freezing and melting of sea ice.
@@ -91,27 +94,27 @@ The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
 a function of temperature ``T`` via
 
 ```math
-ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρ_ℓ c_ℓ - ρᵢ cᵢ) (T - T₀)
+ρ ℒ(T) = ρ ℒ₀ + (ρ_ℓ c_ℓ - ρ c) (T - T₀)
 ```
 
-where ``ρᵢ`` is the `ice_density`, ``ρ_ℓ`` is the liquid density,
-``cᵢ`` is the heat capacity of ice, and ``c_ℓ`` is the heat capacity of
-liquid, and ``T₀`` is a reference temperature, all of which are assumed constant.
+where ``ρ`` is the solid `density`, ``ρ_ℓ`` is the liquid density,
+``c`` is the solid `heat_capacity`, ``c_ℓ`` is the liquid heat capacity,
+and ``T₀`` is a reference temperature, all of which are assumed constant.
 
 The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
 @inline function PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                                  ice_density           = 917,    # kg m⁻³
-                                  ice_heat_capacity     = 2000,   # J / (kg ᵒC)
-                                  liquid_density        = 999.8,  # kg m⁻³
-                                  liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
-                                  reference_latent_heat = 334e3,  # J kg⁻³
-                                  reference_temperature = 0,      # ᵒC
+                                  density               = 917,    # kg m⁻³
+                                  heat_capacity          = 2000,   # J / (kg ᵒC)
+                                  liquid_density         = 999.8,  # kg m⁻³
+                                  liquid_heat_capacity   = 4186,   # J / (kg ᵒC)
+                                  reference_latent_heat  = 334e3,  # J kg⁻³
+                                  reference_temperature  = 0,      # ᵒC
                                   liquidus = LinearLiquidus(FT))
 
-    return PhaseTransitions(convert(FT, ice_density),
-                            convert(FT, ice_heat_capacity),
+    return PhaseTransitions(convert(FT, density),
+                            convert(FT, heat_capacity),
                             convert(FT, liquid_density),
                             convert(FT, liquid_heat_capacity),
                             convert(FT, reference_latent_heat),
@@ -121,8 +124,8 @@ end
 
 function Base.show(io::IO, pt::PhaseTransitions{FT}) where FT
     print(io, "PhaseTransitions{", FT, "}", '\n')
-    print(io, "├── ice_density: ", pt.ice_density, '\n')
-    print(io, "├── ice_heat_capacity: ", pt.ice_heat_capacity, '\n')
+    print(io, "├── density: ", pt.density, '\n')
+    print(io, "├── heat_capacity: ", pt.heat_capacity, '\n')
     print(io, "├── liquid_density: ", pt.liquid_density, '\n')
     print(io, "├── liquid_heat_capacity: ", pt.liquid_heat_capacity, '\n')
     print(io, "├── reference_latent_heat: ", pt.reference_latent_heat, '\n')
@@ -133,12 +136,12 @@ end
 @inline function latent_heat(thermo::PhaseTransitions, T)
     T₀ = thermo.reference_temperature
     ℒ₀ = thermo.reference_latent_heat
-    ρᵢ = thermo.ice_density
+    ρ  = thermo.density
     ρℓ = thermo.liquid_density
-    cᵢ = thermo.ice_heat_capacity
+    c  = thermo.heat_capacity
     cℓ = thermo.liquid_heat_capacity
 
-    return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
+    return ρℓ * ℒ₀ + (ρℓ * cℓ - ρ * c) * (T - T₀)
 end
 
 # Fallback for no ice_thermodynamics
