@@ -120,8 +120,8 @@ end
     Q = linearly_interpolate_flux(i, j, grid, Ts, clock, model_fields, flux)
     has_snow = hasproperty(model_fields, :hs) && @inbounds model_fields.hs[i, j, 1] > 0
     melting = Ts > -0.1
-    αc = ifelse(has_snow, 0.78, 0.75)
-    αm = ifelse(has_snow, 0.68, 0.64)
+    αc = ifelse(has_snow, 0.80, 0.65)
+    αm = ifelse(has_snow, 0.75, 0.58)
     α = ifelse(melting, αm, αc)
     return Q * (1 - α)
 end
