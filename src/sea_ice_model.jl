@@ -238,7 +238,13 @@ const SIM = SeaIceModel
 function set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing)
     !isnothing(h)  && set!(model.ice_thickness, h)
     !isnothing(ℵ)  && set!(model.ice_concentration, ℵ)
-    !isnothing(hs) && set!(model.snow_thickness, hs)
+
+    if !isnothing(hs)
+        if isnothing(model.snow_thickness)
+            throw(ArgumentError("Cannot set snow thickness `hs` on a SeaIceModel without snow (model.snow_thickness is nothing)."))
+        end
+        set!(model.snow_thickness, hs)
+    end
 
     return nothing
 end
