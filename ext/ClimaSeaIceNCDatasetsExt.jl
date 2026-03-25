@@ -17,10 +17,11 @@ default_horizontal_velocity_attributes(::LatitudeLongitudeGrid) = Dict(
     "v" => Dict("long_name" => "Velocity in the meridional direction (+ = north).", "units" => "m/s"))
 
 default_horizontal_velocity_attributes(::OrthogonalSphericalShellGrid) = Dict(
-        "u" => Dict("long_name" => "Velocity in the i-direction (+ = increasing i).", "units" => "m/s"),
-        "v" => Dict("long_name" => "Velocity in the j-direction (+ = increasing j).", "units" => "m/s"))
-
-default_horizontal_velocity_attributes(ibg::ImmersedBoundaryGrid) = default_velocity_attributes(ibg.underlying_grid)
+    "u" => Dict("long_name" => "Velocity in the i-direction (+ = increasing i).", "units" => "m/s"),
+    "v" => Dict("long_name" => "Velocity in the j-direction (+ = increasing j).", "units" => "m/s")
+)
+    
+default_horizontal_velocity_attributes(ibg::ImmersedBoundaryGrid) = default_horizontal_velocity_attributes(ibg.underlying_grid)
 
 default_sea_ice_attributes() = Dict(
     "h" => Dict("long_name" => "Sea ice thickness.", "units" => "m"),
