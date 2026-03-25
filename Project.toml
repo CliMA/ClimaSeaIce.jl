@@ -1,7 +1,7 @@
 name = "ClimaSeaIce"
 uuid = "6ba0ff68-24e6-4315-936c-2e99227c95a4"
 authors = ["Climate Modeling Alliance and contributors"]
-version = "0.4.5"
+version = "0.4.6"
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
@@ -11,6 +11,12 @@ Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 RootSolvers = "7181ea78-2dcb-4de3-ab41-2b8ab5a31e74"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
+
+[weakdeps]
+NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+
+[extensions]
+ClimaSeaIceNCDatasetsExt = "NCDatasets"
 
 [compat]
 Adapt = "3, 4"
@@ -27,4 +33,4 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["MPI", "Test"]
+test = ["MPI", "Test", "NCDatasets"]

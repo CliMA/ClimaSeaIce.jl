@@ -39,6 +39,10 @@ if TEST_GROUP == "all" || TEST_GROUP == "checkpointing"
     include("test_checkpointing.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "netcdf"
+    include("test_netcdf_writer.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"
     include("test_distributed_sea_ice.jl")
 end
