@@ -33,20 +33,19 @@ function thermodynamic_time_step!(model, ::SlabThermodynamics, ::SlabThermodynam
     arch = architecture(grid)
 
     launch!(arch, grid, :xy,
-                _layered_thermodynamic_time_step!,
-                model.ice_thickness,
-                model.ice_concentration,
-                grid, Δt,
-                model.clock,
-                model.ice_consolidation_thickness,
-                model.ice_thermodynamics,
-                model.external_heat_fluxes.top,
-                model.external_heat_fluxes.bottom,
-                model.snow_thickness,
-                model.snow_thermodynamics,
-                model.snow_precipitation,
-                fields(model))
-    end
+            _layered_thermodynamic_time_step!,
+            model.ice_thickness,
+            model.ice_concentration,
+            grid, Δt,
+            model.clock,
+            model.ice_consolidation_thickness,
+            model.ice_thermodynamics,
+            model.external_heat_fluxes.top,
+            model.external_heat_fluxes.bottom,
+            model.snow_thickness,
+            model.snow_thermodynamics,
+            model.snow_precipitation,
+            fields(model))
 
     return nothing
 end
