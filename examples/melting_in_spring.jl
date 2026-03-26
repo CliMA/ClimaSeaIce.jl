@@ -92,7 +92,7 @@ set!(model_bare, h=1, ℵ=1)
 # thermal conductivity (~0.31 W/m/K) than ice (~2 W/m/K), so it acts as an
 # insulating blanket that reduces the conductive flux through the slab.
 
-snow_thermodynamics = SlabSnowThermodynamics(grid)
+snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 model_snow = SeaIceModel(grid;
                          ice_consolidation_thickness = 0.05,

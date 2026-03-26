@@ -170,8 +170,7 @@ flux = FluxFunction(sensible_heat; parameters = (coefficient = 15.0, T_air = -10
 
 ## Putting it together: SlabThermodynamics
 
-The [`SlabThermodynamics`](@ref) struct (also aliased as `SlabSeaIceThermodynamics`)
-combines all thermodynamic components:
+The [`SlabThermodynamics`](@ref) struct combines all thermodynamic components:
 
 ```@example thermodynamics
 using Oceananigans
@@ -251,14 +250,14 @@ consolidation), the snow thickness is adjusted to conserve the snow volume
 
 ### Setting up a snow-covered model
 
-Use [`SlabSnowThermodynamics`](@ref) for convenient construction with snow defaults:
+Use [`snow_slab_thermodynamics`](@ref) for convenient construction with snow defaults:
 
 ```@example thermodynamics
 using ClimaSeaIce
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-snow_thermodynamics = SlabSnowThermodynamics(grid)
+snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 model = SeaIceModel(grid;
     snow_thermodynamics,

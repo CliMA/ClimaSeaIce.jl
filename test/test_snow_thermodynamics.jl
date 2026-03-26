@@ -10,11 +10,8 @@ using Test
 @testset "Snow model construction" begin
     grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
 
-    # Backward compat alias
-    @test SlabSeaIceThermodynamics === SlabThermodynamics
-
     # Model with snow
-    snow_thermo = SlabSnowThermodynamics(grid)
+    snow_thermo = snow_slab_thermodynamics(grid)
     model = SeaIceModel(grid; snow_thermodynamics=snow_thermo)
     @test model.snow_thermodynamics isa SlabThermodynamics
     @test model.snow_thickness isa Field
@@ -101,7 +98,7 @@ end
 @testset "Snow-ice formation (flooding)" begin
     grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-    snow_thermo = SlabSnowThermodynamics(grid)
+    snow_thermo = snow_slab_thermodynamics(grid)
     ice_thermo  = SlabThermodynamics(grid; top_heat_boundary_condition = PrescribedTemperature(-5.0))
 
     model = SeaIceModel(grid;
@@ -126,7 +123,7 @@ end
 @testset "Snowfall accumulation" begin
     grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-    snow_thermo = SlabSnowThermodynamics(grid)
+    snow_thermo = snow_slab_thermodynamics(grid)
     ice_thermo  = SlabThermodynamics(grid)
 
     Ps = 1e-5  # kg/m^2/s snowfall rate
@@ -148,7 +145,7 @@ end
 @testset "Snow melts before ice" begin
     grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
-    snow_thermo = SlabSnowThermodynamics(grid)
+    snow_thermo = snow_slab_thermodynamics(grid)
 
     ice_thermo = SlabThermodynamics(grid)
 

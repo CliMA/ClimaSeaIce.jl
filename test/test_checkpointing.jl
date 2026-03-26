@@ -166,7 +166,7 @@ end
     Δt = 1
 
     grid = RectilinearGrid(CPU(), size=(Nx, Ny), x=(0, Lx), y=(0, Ly), topology=(Bounded, Bounded, Flat))
-    snow_thermo = SlabSnowThermodynamics(grid)
+    snow_thermo = snow_slab_thermodynamics(grid)
 
     true_model = SeaIceModel(grid; ice_thermodynamics=SlabThermodynamics(grid), snow_thermodynamics=snow_thermo)
     test_model = deepcopy(true_model)

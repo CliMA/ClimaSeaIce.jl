@@ -19,22 +19,19 @@ Adapt.adapt_structure(to, t::SlabThermodynamics) =
 
 const SSIT = SlabThermodynamics
 
-# Backward compatibility alias
-const SlabSeaIceThermodynamics = SlabThermodynamics
-
 """
-    SlabSnowThermodynamics(grid; kw...)
+    snow_slab_thermodynamics(grid; kw...)
 
 Construct a `SlabThermodynamics` with default parameters appropriate for snow:
 conductivity = 0.31 W/(m K), density = 330 kg/m³, heat capacity = 2090 J/(kg K),
 and latent heat = 334000 J/kg.
 """
-function SlabSnowThermodynamics(grid;
-                                conductivity          = 0.31,
-                                density               = 330,
-                                heat_capacity         = 2090,
-                                reference_latent_heat = 334e3,
-                                kw...)
+function snow_slab_thermodynamics(grid;
+                                  conductivity          = 0.31,
+                                  density               = 330,
+                                  heat_capacity         = 2090,
+                                  reference_latent_heat = 334e3,
+                                  kw...)
 
     FT = eltype(grid)
     internal_heat_flux = ConductiveFlux(FT, conductivity = conductivity)
@@ -103,6 +100,15 @@ function SlabThermodynamics(grid;
                               phase_transitions,
                               concentration_evolution)
 end
+
+"""
+    sea_ice_slab_thermodynamics(grid; kw...)
+
+Construct a `SlabThermodynamics` with default parameters appropriate for sea ice:
+conductivity = 2 W/(m K), density = 917 kg/m³, heat capacity = 2000 J/(kg K),
+and latent heat = 334000 J/kg.
+"""
+sea_ice_slab_thermodynamics(grid; kw...) = SlabThermodynamics(grid; kw...)
 
 #####
 ##### Checkpointing

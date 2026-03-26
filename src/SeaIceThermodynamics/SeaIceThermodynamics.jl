@@ -1,8 +1,8 @@
 module SeaIceThermodynamics
 
 export SlabThermodynamics,
-       SlabSeaIceThermodynamics,
-       SlabSnowThermodynamics,
+       snow_slab_thermodynamics,
+       sea_ice_slab_thermodynamics,
        PhaseTransitions,
        MeltingConstrainedFluxBalance,
        PrescribedTemperature,

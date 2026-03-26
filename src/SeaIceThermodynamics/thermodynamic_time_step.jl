@@ -4,26 +4,35 @@ using Oceananigans.Units: Time
 using Oceananigans.Utils
 using KernelAbstractions: @kernel, @index
 
-thermodynamic_time_step!(model, ::Nothing, Δt) = nothing
+# No ice, no thermodynamics!
+thermodynamic_time_step!(model, ::Nothing, snow_thermodynamics, Δt) = nothing
 
-function thermodynamic_time_step!(model, ::SlabThermodynamics, Δt)
+# Only slab ice
+function thermodynamic_time_step!(model, ::SlabThermodynamics, ::Nothing, Δt)
     grid = model.grid
     arch = architecture(grid)
 
-    if isnothing(model.snow_thermodynamics)
-        launch!(arch, grid, :xy,
-                _ice_thermodynamic_time_step!,
-                model.ice_thickness,
-                model.ice_concentration,
-                grid, Δt,
-                model.clock,
-                model.ice_consolidation_thickness,
-                model.ice_thermodynamics,
-                model.external_heat_fluxes.top,
-                model.external_heat_fluxes.bottom,
-                fields(model))
-    else
-        launch!(arch, grid, :xy,
+    launch!(arch, grid, :xy,
+            _ice_thermodynamic_time_step!,
+            model.ice_thickness,
+            model.ice_concentration,
+            grid, Δt,
+            model.clock,
+            model.ice_consolidation_thickness,
+            model.ice_thermodynamics,
+            model.external_heat_fluxes.top,
+            model.external_heat_fluxes.bottom,
+            fields(model))
+
+    return nothing
+end
+
+# Slab ice and slab snow
+function thermodynamic_time_step!(model, ::SlabThermodynamics, ::SlabThermodynamics, Δt)
+    grid = model.grid
+    arch = architecture(grid)
+
+    launch!(arch, grid, :xy,
                 _layered_thermodynamic_time_step!,
                 model.ice_thickness,
                 model.ice_concentration,

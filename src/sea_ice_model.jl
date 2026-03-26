@@ -63,7 +63,7 @@ function SeaIceModel(grid;
                      tracers                     = (),
                      timestepper                 = :SplitRungeKutta3,
                      boundary_conditions         = NamedTuple(),
-                     ice_thermodynamics          = SlabThermodynamics(grid),
+                     ice_thermodynamics          = sea_ice_slab_thermodynamics(grid),
                      snow_thermodynamics         = nothing,
                      snow_precipitation          = 0,
                      dynamics                    = nothing,

@@ -1,9 +1,8 @@
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 using Oceananigans
 
-# Frazil ice formation
 @inline function thermodynamic_tendency(i, j, k, grid,
-                                        ice_thermodynamics::SlabSeaIceThermodynamics,
+                                        ice_thermodynamics::SlabThermodynamics,
                                         ice_thickness,
                                         ice_concentration,
                                         ice_consolidation_thickness,

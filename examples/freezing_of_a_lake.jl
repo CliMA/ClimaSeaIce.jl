@@ -161,7 +161,7 @@ bottom_heat_flux_snow = FluxFunction(advance_lake_and_frazil_flux;
 
 # Snow parameters: low conductivity insulates the ice
 
-snow_thermodynamics = SlabSnowThermodynamics(grid)
+snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 # Light snowfall: about 5 cm/month of snow at density 330 kg/m^3
 

@@ -3,20 +3,12 @@
 # This example reproduces results from Semtner (1976), which simulates the seasonal
 # cycle of sea ice in the Arctic basin. The model uses climatological forcing data
 # from Fletcher (1965) for shortwave radiation, longwave radiation, sensible heat
-# flux, and latent heat flux.
-#
-# We run two side-by-side simulations --- bare ice and snow-covered ice --- to show
-# the insulating effect of snow. Snow has a much lower thermal conductivity than ice
-# (~0.31 vs ~2 W/m/K), reducing the conductive flux through the slab and therefore
-# slowing ice growth.
-#
-# This example demonstrates how to:
+# flux, and latent heat flux. This example demonstrates how to:
 #
 #   * use time-varying climatological forcing data,
 #   * set up seasonal cycles with `FieldTimeSeries` and cyclical indexing,
 #   * combine multiple heat flux components,
-#   * add a snow layer with `snow_thermodynamics`,
-#   * compare ice growth with and without snow insulation.
+#   * simulate multi-year seasonal cycles.
 #
 # ## Install dependencies
 #
@@ -35,7 +27,6 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Units: Time
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: getflux
 using CairoMakie
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
@@ -104,25 +95,16 @@ end
 
 # We define flux functions that linearly interpolate the time series:
 
-@inline function linearly_interpolate_flux(i, j, grid, Ts, clock, model_fields, flux)
+@inline function linearly_interpolate_flux(i, j, grid, Tₛ, clock, model_fields, flux)
     t  = Time(clock.time)
     return flux[i, j, 1, t]
 end
 
-# For shortwave radiation, we account for surface albedo following
-# Semtner (1976) and Winton (2000). Snow-covered ice has a higher albedo
-# than bare ice, and melting surfaces are darker than cold ones:
-#   snow: 0.80 (cold) → 0.75 (melting)
-#   ice:  0.65 (cold) → 0.58 (melting)
-# We detect snow presence via the hs field, and melting via Ts ≈ 0.
+# For shortwave radiation, we account for surface albedo:
 
-@inline function linearly_interpolate_solar_flux(i, j, grid, Ts, clock, model_fields, flux)
-    Q = linearly_interpolate_flux(i, j, grid, Ts, clock, model_fields, flux)
-    has_snow = hasproperty(model_fields, :hs) && @inbounds model_fields.hs[i, j, 1] > 0
-    melting = Ts > -0.1
-    αc = ifelse(has_snow, 0.80, 0.65)
-    αm = ifelse(has_snow, 0.75, 0.58)
-    α = ifelse(melting, αm, αc)
+@inline function linearly_interpolate_solar_flux(i, j, grid, Tₛ, clock, model_fields, flux)
+    Q = linearly_interpolate_flux(i, j, grid, Tₛ, clock, model_fields, flux)
+    α = ifelse(Tₛ < -0.1, 0.75, 0.64) # albedo depends on surface temperature
     return Q * (1 - α)
 end
 
@@ -142,153 +124,73 @@ Q_sensible  = FluxFunction(linearly_interpolate_flux,       parameters=Qs)
 Q_latent    = FluxFunction(linearly_interpolate_flux,       parameters=Ql)
 Q_emission  = RadiativeEmission(emissivity=ϵ, stefan_boltzmann_constant=σ)
 
+# We combine all top heat fluxes:
+
 top_heat_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
 
-# ## Building the bare-ice model
+# ## Building the model
 #
-# We assemble the bare-ice model and initialize it with 30 cm of ice at full concentration:
+# We assemble the model and initialize it with 30 cm of ice at full concentration:
 
-model_bare = SeaIceModel(grid; top_heat_flux)
-set!(model_bare, h=0.3, ℵ=1)
+model = SeaIceModel(grid; top_heat_flux)
+set!(model, h=0.3, ℵ=1) # Start from 30 cm of ice and full concentration
 
-# ## Snow thermodynamics
+# ## Running the simulation
 #
-# Snow has a much lower thermal conductivity than ice. When it accumulates on top
-# of sea ice, it adds thermal resistance in series with the ice: R = hs/ks + hi/ki.
-# This reduces the conductive flux that drives ice growth at the bottom.
+# We run the simulation for 30 years with an 8-hour time step:
+
+simulation = Simulation(model, Δt=8hours, stop_time=30 * 360days)
+
+# ## Collecting data
 #
-# We set up the snow layer with physical properties for Arctic snow:
+# We set up a callback to accumulate time series data:
 
-snow_thermodynamics = SlabSnowThermodynamics(grid)
+series = []
 
-# Snowfall follows a seasonal cycle: heavy in winter, none in summer.
-# The peak rate of 6e-6 kg/m²/s corresponds to roughly 30 cm/year
-# of snow accumulation at ρs = 330 kg/m³.
-
-# We prescribe a seasonal snowfall cycle: maximum in winter (January),
-# zero in summer. Using a sinusoidal profile with peak rate 6e-6 kg/m²/s,
-# clipped to zero during summer months.
-
-Psmax = 6e-6 # kg m⁻² s⁻¹ (peak winter snowfall rate)
-snow_precipitation = FieldTimeSeries{Nothing, Nothing, Nothing}(grid, times; time_indexing = Oceananigans.OutputReaders.Cyclical())
-
-for (i, time) in enumerate(times)
-    phase = 2π * (time - 15day) / (year_days * day)
-    Ps = Psmax * max(0, cos(phase))
-    set!(snow_precipitation[i], [Ps])
+function accumulate_timeseries(sim)
+    T = model.ice_thermodynamics.top_surface_temperature
+    h = model.ice_thickness
+    ℵ = model.ice_concentration
+    Qe = model.external_heat_fluxes.top
+    Qe = ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions.getflux(Qe, 1, 1, grid, first(T), model.clock, model.ice_thickness)
+    push!(series, (time(sim), first(h), first(T), first(ℵ), Qe))
 end
 
-# ## Building the snow-covered model
-#
-# When `snow_thermodynamics` is provided, the `SeaIceModel` constructor
-# automatically builds the layered coupling: the snow layer sits on top of
-# ice, drives the surface temperature solve using the combined conductive
-# flux, and computes the interface temperature between snow and ice.
+simulation.callbacks[:save] = Callback(accumulate_timeseries)
 
-model_snow = SeaIceModel(grid; top_heat_flux, snow_thermodynamics, snow_precipitation)
-set!(model_snow, h=0.3, ℵ=1, hs=0.05) # Start with 5 cm of snow
-
-# ## Running the simulations
-#
-# We run both simulations for 10 years with an 8-hour time step:
-
-Δt = 8hours
-stop_time = 20 * 360days
-
-# Bare-ice simulation:
-
-simulation_bare = Simulation(model_bare, Δt=Δt, stop_time=stop_time)
-
-series_bare = []
-
-function accumulate_bare(sim)
-    m = sim.model
-    T = m.ice_thermodynamics.top_surface_temperature
-    h = m.ice_thickness
-    ℵ = m.ice_concentration
-    Tu = first(T)
-    Qu = getflux(top_heat_flux, 1, 1, grid, Tu, m.clock, fields(m))
-    push!(series_bare, (time(sim), first(h), Tu, first(ℵ), Qu))
-end
-
-simulation_bare.callbacks[:save] = Callback(accumulate_bare)
-run!(simulation_bare)
-
-# Snow-covered simulation:
-
-simulation_snow = Simulation(model_snow, Δt=Δt, stop_time=stop_time)
-
-series_snow = []
-
-function accumulate_snow(sim)
-    m  = sim.model
-    Tu = m.snow_thermodynamics.top_surface_temperature
-    h  = m.ice_thickness
-    ℵ  = m.ice_concentration
-    hs = m.snow_thickness
-    Tus = first(Tu)
-    Qu = getflux(top_heat_flux, 1, 1, grid, Tus, m.clock, fields(m))
-    push!(series_snow, (time(sim), first(h), Tus, first(ℵ), first(hs), Qu))
-end
-
-simulation_snow.callbacks[:save] = Callback(accumulate_snow)
-run!(simulation_snow)
+run!(simulation)
 
 # ## Visualizing the results
 #
-# We extract the time series data and compare:
+# We extract the time series data and visualize the evolution:
 
-t_bare  = [d[1] for d in series_bare]
-h_bare  = [d[2] for d in series_bare]
-T_bare  = [d[3] for d in series_bare]
-ℵ_bare  = [d[4] for d in series_bare]
-Qu_bare = [d[5] for d in series_bare]
+t = [datum[1] for datum in series]
+h = [datum[2] for datum in series]
+T = [datum[3] for datum in series]
+ℵ = [datum[4] for datum in series]
+Q = [datum[5] for datum in series]
 
-t_snow  = [d[1] for d in series_snow]
-h_snow  = [d[2] for d in series_snow]
-T_snow  = [d[3] for d in series_snow]
-ℵ_snow  = [d[4] for d in series_snow]
-hs_snow = [d[5] for d in series_snow]
-Qu_snow = [d[6] for d in series_snow]
+set_theme!(Theme(fontsize=24, linewidth=4))
 
-set_theme!(Theme(fontsize=24, linewidth=3))
+fig = Figure(size=(1000, 1200))
 
-fig = Figure(size=(1200, 1800))
+axT = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Top temperature (ᵒC)")
+axh = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
+axℵ = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Ice concentration (-)")
+axQ = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Top heat flux (W m⁻²)")
 
-axT = Axis(fig[1, 1], ylabel="Surface temperature (°C)")
-lines!(axT, t_bare ./ day, T_bare, label="Bare ice")
-lines!(axT, t_snow ./ day, T_snow, label="Snow-covered", linestyle=:dash)
-axislegend(axT, position=:rb)
+lines!(axT, t ./ day, T)
+lines!(axh, t ./ day, h)
+lines!(axℵ, t ./ day, ℵ)
+lines!(axQ, t ./ day, Q)
 
-axℵ = Axis(fig[2, 1], ylabel="Ice concentration (-)")
-lines!(axℵ, t_bare ./ day, ℵ_bare, label="Bare ice")
-lines!(axℵ, t_snow ./ day, ℵ_snow, label="Snow-covered", linestyle=:dash)
-
-axh = Axis(fig[3, 1], ylabel="Ice thickness (m)")
-lines!(axh, t_bare ./ day, h_bare, label="Bare ice")
-lines!(axh, t_snow ./ day, h_snow, label="Snow-covered", linestyle=:dash)
-
-axs = Axis(fig[4, 1], ylabel="Snow thickness (m)")
-lines!(axs, t_snow ./ day, hs_snow, color=Makie.wong_colors()[2])
-
-axQ = Axis(fig[5, 1], xlabel="Time (days)", ylabel="Top heat flux (W m⁻²)")
-lines!(axQ, t_bare ./ day, Qu_bare, label="Bare ice")
-lines!(axQ, t_snow ./ day, Qu_snow, label="Snow-covered", linestyle=:dash)
-hlines!(axQ, [0], color=:gray, linestyle=:dot, linewidth=1)
+current_figure() #hide
 
 save("ice_timeseries.png", fig)
 nothing # hide
 
 # ![](ice_timeseries.png)
 #
-# The results show that snow insulation has a significant effect on the seasonal
-# cycle. The snow-covered ice:
-#
-#   * **grows more slowly in winter** because the snow layer reduces the conductive
-#     flux from the cold surface to the ice-water interface,
-#   * **has a warmer surface temperature** because the same heat flux produces a
-#     larger temperature drop across the more insulating snow+ice slab,
-#   * **accumulates snow in autumn/winter** and **melts it in spring/summer** as
-#     the surface energy balance turns positive,
-#   * **reflects more sunlight** due to the higher snow albedo (0.80 vs 0.65),
-#     further reducing the energy available for melting.
+# The results show the seasonal cycle of sea ice, with ice growing in winter and
+# melting in summer. After several years, the model reaches a quasi-equilibrium
+# seasonal cycle.

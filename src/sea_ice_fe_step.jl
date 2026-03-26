@@ -21,7 +21,7 @@ function time_step!(model::FESeaIceModel, Δt; kwargs...)
     dynamic_time_step!(model, Δt)
 
     # Perform the thermodynamic step
-    thermodynamic_time_step!(model, model.ice_thermodynamics, Δt)
+    thermodynamic_time_step!(model, model.ice_thermodynamics, model.snow_thermodynamics, Δt)
 
     # This is an implicit (or split-explicit) step to advance momentum.
     time_step_momentum!(model, model.dynamics, Δt)

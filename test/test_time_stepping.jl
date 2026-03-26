@@ -28,7 +28,7 @@ end
         advections = (WENO(), UpwindBiased(order=5))
 
         ice_thermodynamics = (nothing, SlabThermodynamics(grid))
-        snow_thermodynamics_options = (nothing, SlabSnowThermodynamics(grid))
+        snow_thermodynamics_options = (nothing, snow_slab_thermodynamics(grid))
 
         coriolises = (nothing, FPlane(latitude=45), BetaPlane(latitude=45))
         solvers = (ExplicitSolver(), SplitExplicitSolver())

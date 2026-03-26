@@ -26,7 +26,7 @@ end
     @info "Running sea ice advection with snow test"
 
     grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
-    snow_thermo = SlabSnowThermodynamics(grid)
+    snow_thermo = snow_slab_thermodynamics(grid)
     model = SeaIceModel(grid; advection=WENO(), snow_thermodynamics=snow_thermo)
 
     set!(model, h=1, ℵ=1, hs=0.2)

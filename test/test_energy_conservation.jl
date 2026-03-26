@@ -29,7 +29,7 @@ function energy_conservation_test(; snow=false, precipitation=false, melting=fal
     bot_record = [0.0]
     bot_heat_flux = FluxFunction(bottom_recording_flux; parameters = (flux_value = Qb, record = bot_record))
 
-    snow_thermo = snow ? SlabSnowThermodynamics(grid) : nothing
+    snow_thermo = snow ? snow_slab_thermodynamics(grid) : nothing
     Ps = precipitation ? 6e-5 : 0
 
     model = SeaIceModel(grid;
