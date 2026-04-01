@@ -28,16 +28,12 @@ default_sea_ice_attributes() = Dict(
     "ℵ" => Dict("long_name" => "Sea ice concentration.", "units" => "-")
 )
 
-function __init__()
-    OCNE = Base.get_extension(Oceananigans, :OceananigansNCDatasetsExt)
-    if !isnothing(OCNE)
-        @eval begin
-            function $OCNE.default_output_attributes(model::SeaIceModel)
-                velocity_attrs = default_horizontal_velocity_attributes(model.grid)
-                tracer_attrs = default_sea_ice_attributes()
-                return merge(velocity_attrs, tracer_attrs)
-            end
-        end
+OCNE = Base.get_extension(Oceananigans, :OceananigansNCDatasetsExt)
+if !isnothing(OCNE)
+    function OCNE.default_output_attributes(model::SeaIceModel)
+        velocity_attrs = default_horizontal_velocity_attributes(model.grid)
+        tracer_attrs = default_sea_ice_attributes()
+        return merge(velocity_attrs, tracer_attrs)
     end
 end
 
