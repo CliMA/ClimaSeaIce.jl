@@ -68,7 +68,7 @@ function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
     compute_tendencies!(model, Δτ)
     dynamic_time_step!(model, Δτ)
 
-    thermodynamic_time_step!(model, model.ice_thermodynamics, Δτ)
+    thermodynamic_time_step!(model, model.ice_thermodynamics, model.snow_thermodynamics, Δτ)
 
     # This is an implicit (or split-explicit) step to advance momentum.
     time_step_momentum!(model, model.dynamics, Δτ)
