@@ -54,9 +54,9 @@ internal_heat_flux = ConductiveFlux(; conductivity)
 # `model.phase_transitions` with appropriate parameters. We set the ice heat capacity
 # and density as well:
 
-ice_heat_capacity = 2100 # J kg⁻¹ K⁻¹
-ice_density = 900 # kg m⁻³
-phase_transitions = PhaseTransitions(; ice_heat_capacity, ice_density)
+heat_capacity = 2100 # J kg⁻¹ K⁻¹
+density = 900 # kg m⁻³
+phase_transitions = PhaseTransitions(; heat_capacity, density)
 
 # We set the top ice temperature:
 
