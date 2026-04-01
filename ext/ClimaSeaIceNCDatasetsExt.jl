@@ -24,8 +24,9 @@ default_horizontal_velocity_attributes(::OrthogonalSphericalShellGrid) = Dict(
 default_horizontal_velocity_attributes(ibg::ImmersedBoundaryGrid) = default_horizontal_velocity_attributes(ibg.underlying_grid)
 
 default_sea_ice_attributes() = Dict(
-    "h" => Dict("long_name" => "Sea ice thickness.", "units" => "m"),
-    "ℵ" => Dict("long_name" => "Sea ice concentration.", "units" => "-")
+    "h"  => Dict("long_name" => "Sea ice thickness.", "units" => "m"),
+    "ℵ"  => Dict("long_name" => "Sea ice concentration.", "units" => "-"),
+    "hs" => Dict("long_name" => "Snow thickness.", "units" => "m")
 )
 
 function __init__()
