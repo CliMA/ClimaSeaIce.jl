@@ -68,34 +68,26 @@ function SeaIceModel(grid;
                      ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
                      dynamics                    = nothing,
                      forcing                     = NamedTuple())
-    mpi_rank = get(ENV, "OMPI_COMM_WORLD_RANK", "?")
-    @info "SeaIceModel: start" mpi_rank grid_type=typeof(grid) dynamics_type=typeof(dynamics) timestepper=timestepper
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_consolidation_thickness in a field
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
-    @info "SeaIceModel: created ice_consolidation_thickness field" mpi_rank
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
-    @info "SeaIceModel: normalized tracers tuple" mpi_rank tracers=tracers
 
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
-    @info "SeaIceModel: assembled field names" mpi_rank field_names=field_names
 
     bc_tuple = Tuple(FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
                      for name in field_names)
     default_boundary_conditions = NamedTuple{field_names}(bc_tuple)
-    @info "SeaIceModel: built default boundary conditions" mpi_rank
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
     # have precedence, followed by embedded, followed by default.
     boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
     boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
-    @info "SeaIceModel: regularized boundary conditions" mpi_rank
 
     if isnothing(velocities)
-        @info "SeaIceModel: constructing velocities from scratch" mpi_rank
         # Extend the halos for the velocity fields if the dynamics is
         # an extended split explicit momentum equation
         if dynamics isa ExtendedSplitExplicitMomentumEquation
@@ -103,46 +95,34 @@ function SeaIceModel(grid;
             raw_substeps = dynamics.solver.substeps
             Nsubsteps = raw_substeps isa Integer ? raw_substeps : length(raw_substeps)
             TX, TY    = topology(grid)
-            @info "SeaIceModel: with_halo pre-check" mpi_rank topology=(TX, TY) raw_substeps=raw_substeps Nsubsteps=Nsubsteps old_halos=old_halos
             Hx = TX() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[1]) : old_halos[1]
             Hy = TY() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[2]) : old_halos[2]
 
             new_halos = (Hx, Hy, old_halos[3])
-            @info "SeaIceModel: extending velocity halos" mpi_rank old_halos=old_halos new_halos=new_halos Nsubsteps=Nsubsteps
             if new_halos == old_halos
-                @info "SeaIceModel: halos unchanged, reusing original grid" mpi_rank
                 velocity_grid = grid
             else
-                @info "SeaIceModel: calling with_halo" mpi_rank new_halos=new_halos
                 velocity_grid = with_halo(new_halos, grid)
-                @info "SeaIceModel: velocity_grid created with extended halos" mpi_rank velocity_halos=halo_size(velocity_grid)
             end
         else
             velocity_grid = grid
-            @info "SeaIceModel: using original grid for velocities" mpi_rank
         end
 
         u = Field{Face, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.u)
-        @info "SeaIceModel: velocity field u allocated" mpi_rank
         v = Field{Center, Face, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.v)
-        @info "SeaIceModel: velocity field v allocated" mpi_rank
         velocities = (; u, v)
-        @info "SeaIceModel: bundled velocities" mpi_rank
     end
 
     tracers = TracerFields(tracers, grid, boundary_conditions)
-    @info "SeaIceModel: tracer fields allocated" mpi_rank
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field
     ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
     ice_density  = field((Center, Center, Nothing), ice_density, grid)
-    @info "SeaIceModel: salinity and density fields wrapped" mpi_rank
 
     # Construct prognostic fields if not provided
     ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
     ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ)
-    @info "SeaIceModel: ice thickness and concentration fields allocated" mpi_rank
 
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
@@ -158,7 +138,6 @@ function SeaIceModel(grid;
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
     timestepper = TimeStepper(timestepper, grid, prognostic_fields)
-    @info "SeaIceModel: timestepper constructed" mpi_rank timestepper_type=typeof(timestepper)
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
@@ -171,19 +150,15 @@ function SeaIceModel(grid;
             end
         end
     end
-    @info "SeaIceModel: external top heat flux resolved" mpi_rank
 
     model_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, fields(dynamics))
     forcing = model_forcing(forcing, model_fields, prognostic_fields)
-    @info "SeaIceModel: forcing object built" mpi_rank forcing_type=typeof(forcing)
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,
                             bottom = bottom_heat_flux)
-    @info "SeaIceModel: external heat fluxes packaged" mpi_rank
 
     arch = architecture(grid)
-    @info "SeaIceModel: returning model" mpi_rank architecture_type=typeof(arch)
 
     return SeaIceModel(arch,
                        grid,
