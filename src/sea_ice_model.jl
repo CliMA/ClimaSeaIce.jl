@@ -4,7 +4,10 @@ using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: TracerFields
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.Grids: halo_size, topology, with_halo,
-                          LeftConnected, RightConnected, FullyConnected
+                          LeftConnected, RightConnected, FullyConnected,
+                          RightCenterFolded, RightFaceFolded,
+                          LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
+                          LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
 using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
@@ -18,7 +21,10 @@ import Oceananigans.OutputWriters: default_included_properties
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
 
-const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected}
+const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
+                                RightCenterFolded, RightFaceFolded,
+                                LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
+                                LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
 struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
@@ -86,13 +92,18 @@ function SeaIceModel(grid;
         # an extended split explicit momentum equation
         if dynamics isa ExtendedSplitExplicitMomentumEquation
             old_halos = halo_size(grid)
-            Nsubsteps = length(dynamics.solver.substeps)
+            raw_substeps = dynamics.solver.substeps
+            Nsubsteps = length(raw_substeps)
             TX, TY    = topology(grid)
-            Hx = TX() isa ConnectedTopology ? Nsubsteps + old_halos[1] : old_halos[1]
-            Hy = TY() isa ConnectedTopology ? Nsubsteps + old_halos[2] : old_halos[2]
+            Hx = TX() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[1]) : old_halos[1]
+            Hy = TY() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[2]) : old_halos[2]
 
             new_halos = (Hx, Hy, old_halos[3])
-            velocity_grid = with_halo(new_halos, grid)
+            if new_halos == old_halos
+                velocity_grid = grid
+            else
+                velocity_grid = with_halo(new_halos, grid)
+            end
         else
             velocity_grid = grid
         end
