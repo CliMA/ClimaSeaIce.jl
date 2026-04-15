@@ -261,7 +261,7 @@ snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 model = SeaIceModel(grid;
     snow_thermodynamics,
-    snow_precipitation = 3e-6) # kg/m²/s
+    snowfall = 3e-6) # kg/m²/s
 
 set!(model, h=1, ℵ=1, hs=0.1) # 10 cm snow on 1 m ice
 ```

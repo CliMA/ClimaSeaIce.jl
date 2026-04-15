@@ -41,7 +41,7 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, CT, SP, STF, A
     dynamics :: D
     # External boundary conditions
     external_heat_fluxes :: STF
-    snow_precipitation :: SP
+    snowfall :: SP
     # Numerics
     timestepper :: TS
     advection :: A
@@ -65,7 +65,7 @@ function SeaIceModel(grid;
                      boundary_conditions         = NamedTuple(),
                      ice_thermodynamics          = sea_ice_slab_thermodynamics(grid),
                      snow_thermodynamics         = nothing,
-                     snow_precipitation          = 0,
+                     snowfall                    = 0,
                      dynamics                    = nothing,
                      forcing                     = NamedTuple())
 
@@ -126,9 +126,9 @@ function SeaIceModel(grid;
         Field{Center, Center, Nothing}(grid)
     end
 
-    # Wrap snow_precipitation in a field (but preserve FieldTimeSeries)
-    if !(snow_precipitation isa FieldTimeSeries)
-        snow_precipitation = field((Center, Center, Nothing), snow_precipitation, grid)
+    # Wrap snowfall in a field (but preserve FieldTimeSeries)
+    if !(snowfall isa FieldTimeSeries)
+        snowfall = field((Center, Center, Nothing), snowfall, grid)
     end
 
     # Adding thickness and concentration if not there
@@ -170,20 +170,21 @@ function SeaIceModel(grid;
 
         # Ice gets PrescribedTemperature BC: the layered kernel writes Tsi,
         # then delegates to thermodynamic_tendency which skips the surface solve.
-        ice_bcs = (top = PrescribedTemperature(0),
-                   bottom = ice_thermodynamics.heat_boundary_conditions.bottom)
+        ice_bcs = (top = PrescribedTemperature(0), bottom = ice_thermodynamics.heat_boundary_conditions.bottom)
 
         ice_thermodynamics = SlabThermodynamics(Tu_ice,
-                                                 ice_bcs,
-                                                 ice_thermodynamics.internal_heat_flux,
-                                                 ice_thermodynamics.phase_transitions,
-                                                 ice_thermodynamics.concentration_evolution)
+                                                ice_bcs,
+                                                ice_thermodynamics.internal_heat_flux,
+                                                ice_thermodynamics.phase_transitions,
+                                                ice_thermodynamics.concentration_evolution)
 
         ks = snow_thermodynamics.internal_heat_flux.parameters.flux.conductivity
         parameters = (snow_conductivity = ks, ice_thermodynamics = ice_thermodynamics)
+        
         snow_internal_flux = FluxFunction(ice_snow_conductive_flux;
                                           parameters,
                                           top_temperature_dependent = true)
+
         snow_thermodynamics = SlabThermodynamics(snow_thermodynamics.top_surface_temperature,
                                                  snow_thermodynamics.heat_boundary_conditions,
                                                  snow_internal_flux,
@@ -228,7 +229,7 @@ function SeaIceModel(grid;
                        snow_thermodynamics,
                        dynamics,
                        external_heat_fluxes,
-                       snow_precipitation,
+                       snowfall,
                        timestepper,
                        advection)
 end
@@ -315,7 +316,7 @@ end
 function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
     time = Time(clock.time)
 
-    possible_fts = (model.tracers, model.external_heat_fluxes, model.snow_precipitation, model.dynamics)
+    possible_fts = (model.tracers, model.external_heat_fluxes, model.snowfall, model.dynamics)
     time_series_tuple = extract_field_time_series(possible_fts)
     time_series_tuple = flattened_unique_values(time_series_tuple)
 

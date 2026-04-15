@@ -9,7 +9,7 @@
 #
 #   * couple a simple lake model with sea ice thermodynamics,
 #   * use `FluxFunction` for complex boundary conditions,
-#   * add a snow layer with `snow_thermodynamics` and `snow_precipitation`,
+#   * add a snow layer with `snow_thermodynamics` and `snowfall`,
 #   * track energy budgets and verify conservation.
 #
 # ## Install dependencies
@@ -165,14 +165,14 @@ snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 # Light snowfall: about 5 cm/month of snow at density 330 kg/m^3
 
-snow_precipitation = 6e-5 # kg m⁻² s⁻¹
+snowfall = 6e-5 # kg m⁻² s⁻¹
 
 model_snow = SeaIceModel(grid;
                          ice_consolidation_thickness = 0.05,
                          top_heat_flux = top_heat_flux_snow,
                          bottom_heat_flux = bottom_heat_flux_snow,
                          snow_thermodynamics,
-                         snow_precipitation)
+                         snowfall)
 
 set!(model_snow, h=0, ℵ=0, hs=0)
 
@@ -358,7 +358,7 @@ for c in 1:4
 
     dEi_b = (Ei_b[2:end] .- Ei_b[1:end-1]) ./ Δt
     dEi_s = (Ei_s[2:end] .- Ei_s[1:end-1]) ./ Δt
-    Qp = [-ℒs_snow * snow_precipitation * ℵ_s[c][k] for k in 2:length(ℵ_s[c])]
+    Qp = [-ℒs_snow * snowfall * ℵ_s[c][k] for k in 2:length(ℵ_s[c])]
     resid_b = dEi_b .- (.-(Qa_b) .+ Ql_b)[2:end]
     resid_s = dEi_s .- (.-(Qa_s) .+ Ql_s)[2:end] .- Qp
     lines!(axR, t_b[2:end] ./ day, resid_b, color=colors[c])

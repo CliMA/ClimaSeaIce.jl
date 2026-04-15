@@ -44,7 +44,7 @@ function thermodynamic_time_step!(model, ::SlabThermodynamics, ::SlabThermodynam
             model.external_heat_fluxes.bottom,
             model.snow_thickness,
             model.snow_thermodynamics,
-            model.snow_precipitation,
+            model.snowfall,
             fields(model))
 
     return nothing
@@ -118,17 +118,17 @@ end
                                                     bottom_external_heat_flux,
                                                     snow_thickness,
                                                     snow_thermodynamics,
-                                                    snow_precipitation,
+                                                    snowfall,
                                                     model_fields)
 
     i, j = @index(Global, NTuple)
 
-    @inbounds hⁿ  = ice_thickness[i, j, 1]
+    @inbounds hiⁿ = ice_thickness[i, j, 1]
     @inbounds ℵⁿ  = ice_concentration[i, j, 1]
     @inbounds hᶜ  = ice_consolidation_thickness[i, j, 1]
     @inbounds hsⁿ = snow_thickness[i, j, 1]
 
-    consolidated_ice = hⁿ ≥ hᶜ
+    consolidated_ice = hiⁿ ≥ hᶜ
 
     phase_ice = ice_thermodynamics.phase_transitions
     liquidus  = phase_ice.liquidus
@@ -199,24 +199,24 @@ end
                                   bottom_external_heat_flux,
                                   clock, model_fields)
 
-    hⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_V, hⁿ, ℵⁿ, hᶜ, Δt)
+    hiⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_V, hiⁿ, ℵⁿ, hᶜ, Δt)
 
     # Conserve snow volume when concentration changes: new ice has no snow,
-    # so hs adjusts to keep hs * ℵ constant (analogous to how ice tracks h * ℵ).
+    # so hs adjusts to keep hs * ℵ constant (analogous to how ice tracks hi * ℵ).
     hsⁿ = ifelse(ℵⁿ⁺¹ > 0, hsⁿ * ℵⁿ / ℵⁿ⁺¹, zero(hsⁿ))
 
-    Gs⁺ = snow_accumulation(i, j, snow_precipitation, snow_thermodynamics, ℵⁿ⁺¹, clock)
+    Gs⁺ = snow_accumulation(i, j, snowfall, snow_thermodynamics, ℵⁿ⁺¹, clock)
     hs⁺  = hsⁿ + Δt * (Gs⁺ - Gs⁻)
     hs⁺  = max(zero(hs⁺), hs⁺)
 
     # Snow-ice formation (flooding when freeboard is negative)
-    hⁿ⁺¹, hs⁺ = snow_ice_formation(hⁿ⁺¹, hs⁺, ice_thermodynamics, snow_thermodynamics)
+    hiⁿ⁺¹, hs⁺ = snow_ice_formation(hiⁿ⁺¹, hs⁺, ice_thermodynamics, snow_thermodynamics)
 
     # Reset snow when no ice
     hs⁺ = ifelse(ℵⁿ⁺¹ ≤ 0, zero(hs⁺), hs⁺)
 
     @inbounds ice_concentration[i, j, 1] = ℵⁿ⁺¹
-    @inbounds ice_thickness[i, j, 1]     = hⁿ⁺¹
+    @inbounds ice_thickness[i, j, 1]     = hiⁿ⁺¹
     @inbounds snow_thickness[i, j, 1]    = hs⁺
 end
 
@@ -251,8 +251,8 @@ const FTS = Union{FieldTimeSeries, GPUAdaptedFieldTimeSeries}
 @inline get_precipitation(i, j, Ps, clock)      = @inbounds Ps[i, j, 1]
 @inline get_precipitation(i, j, Ps::FTS, clock) = @inbounds Ps[i, j, 1, Time(clock.time)]
 
-@inline function snow_accumulation(i, j, snow_precip, snow_thermo, ℵ, clock)
-    Ps = get_precipitation(i, j, snow_precip, clock) # kg/m^2/s
+@inline function snow_accumulation(i, j, snowfall, snow_thermo, ℵ, clock)
+    Ps = get_precipitation(i, j, snowfall, clock) # kg/m^2/s
     ρs = snow_thermo.phase_transitions.density
     return ifelse(ℵ > 0, Ps / ρs, zero(ρs))
 end

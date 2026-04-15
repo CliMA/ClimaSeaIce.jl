@@ -37,7 +37,7 @@ function energy_conservation_test(; snow=false, precipitation=false, melting=fal
                         top_heat_flux,
                         bottom_heat_flux = bot_heat_flux,
                         snow_thermodynamics = snow_thermo,
-                        snow_precipitation = Ps)
+                        snowfall = Ps)
 
     if snow
         set!(model, h=1.0, ℵ=1, hs=0.2)

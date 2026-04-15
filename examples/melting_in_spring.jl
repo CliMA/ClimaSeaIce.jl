@@ -80,11 +80,11 @@ top_heat_flux = (outgoing_radiation, solar_insolation, aerodynamic_flux)
 
 # ## Building the bare-ice model
 
-model_bare = SeaIceModel(grid;
+bare_ice_model = SeaIceModel(grid;
                          ice_consolidation_thickness = 0.05,
                          top_heat_flux)
 
-set!(model_bare, h=1, ℵ=1)
+set!(bare_ice_model, h=1, ℵ=1)
 
 # ## Building the snow-covered model
 #
@@ -94,12 +94,12 @@ set!(model_bare, h=1, ℵ=1)
 
 snow_thermodynamics = snow_slab_thermodynamics(grid)
 
-model_snow = SeaIceModel(grid;
+snowy_ice_model = SeaIceModel(grid;
                          ice_consolidation_thickness = 0.05,
                          top_heat_flux,
                          snow_thermodynamics)
 
-set!(model_snow, h=1, ℵ=1, hs=0.2) # 20 cm of snow, no precipitation
+set!(snowy_ice_model, h=1, ℵ=1, hs=0.2) # 20 cm of snow, no precipitation
 
 # ## Running both simulations
 #
@@ -110,7 +110,7 @@ set!(model_snow, h=1, ℵ=1, hs=0.2) # 20 cm of snow, no precipitation
 
 # Bare-ice simulation:
 
-simulation_bare = Simulation(model_bare, Δt=Δt, stop_time=30days)
+simulation_bare = Simulation(bare_ice_model, Δt=Δt, stop_time=30days)
 
 series_bare = []
 
@@ -130,7 +130,7 @@ run!(simulation_bare)
 
 # Snow-covered simulation:
 
-simulation_snow = Simulation(model_snow, Δt=Δt, stop_time=30days)
+snowy_ice_simulation = Simulation(snowy_ice_model, Δt=Δt, stop_time=30days)
 
 series_snow = []
 
@@ -147,8 +147,8 @@ function accumulate_snow(sim)
                         h[4, 1, 1], ℵ[4, 1, 1], Tu[4, 1, 1], hs[4, 1, 1]))
 end
 
-simulation_snow.callbacks[:save] = Callback(accumulate_snow)
-run!(simulation_snow)
+snowy_ice_simulation.callbacks[:save] = Callback(accumulate_snow)
+run!(snowy_ice_simulation)
 
 # ## Extracting the time series
 

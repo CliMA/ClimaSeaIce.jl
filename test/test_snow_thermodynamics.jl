@@ -130,7 +130,7 @@ end
     model = SeaIceModel(grid;
                         ice_thermodynamics = ice_thermo,
                         snow_thermodynamics = snow_thermo,
-                        snow_precipitation = Ps)
+                        snowfall = Ps)
 
     set!(model, h=1, ℵ=1, hs=0)
 
