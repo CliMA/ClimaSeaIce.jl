@@ -12,7 +12,7 @@ using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
-using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, ice_snow_conductive_flux
+using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 import Oceananigans.Architectures: architecture
@@ -181,26 +181,26 @@ function SeaIceModel(grid;
 
         # Ice gets PrescribedTemperature BC: the layered kernel writes Tsi,
         # then delegates to thermodynamic_tendency which skips the surface solve.
-        ice_bcs = (top = PrescribedTemperature(0), bottom = ice_thermodynamics.heat_boundary_conditions.bottom)
+        ice_thermodynamics = SlabThermodynamics(grid;
+            top_surface_temperature        = Tu_ice,
+            top_heat_boundary_condition    = PrescribedTemperature(0),
+            bottom_heat_boundary_condition = ice_thermodynamics.heat_boundary_conditions.bottom,
+            internal_heat_flux             = ice_thermodynamics.internal_heat_flux.parameters.flux,
+            phase_transitions              = ice_thermodynamics.phase_transitions,
+            concentration_evolution        = ice_thermodynamics.concentration_evolution)
 
-        ice_thermodynamics = SlabThermodynamics(Tu_ice,
-                                                ice_bcs,
-                                                ice_thermodynamics.internal_heat_flux,
-                                                ice_thermodynamics.phase_transitions,
-                                                ice_thermodynamics.concentration_evolution)
-
+        # Build combined snow+ice conductive flux
         ks = snow_thermodynamics.internal_heat_flux.parameters.flux.conductivity
-        parameters = (snow_conductivity = ks, ice_thermodynamics = ice_thermodynamics)
-        
-        snow_internal_flux = FluxFunction(ice_snow_conductive_flux;
-                                          parameters,
-                                          top_temperature_dependent = true)
+        ki = ice_thermodynamics.internal_heat_flux.parameters.flux.conductivity
+        combined_flux = IceSnowConductiveFlux(ks, ki)
 
-        snow_thermodynamics = SlabThermodynamics(snow_thermodynamics.top_surface_temperature,
-                                                 snow_thermodynamics.heat_boundary_conditions,
-                                                 snow_internal_flux,
-                                                 snow_thermodynamics.phase_transitions,
-                                                 snow_thermodynamics.concentration_evolution)
+        snow_thermodynamics = SlabThermodynamics(grid;
+            top_surface_temperature        = snow_thermodynamics.top_surface_temperature,
+            top_heat_boundary_condition    = snow_thermodynamics.heat_boundary_conditions.top,
+            bottom_heat_boundary_condition = ice_thermodynamics.heat_boundary_conditions.bottom,
+            internal_heat_flux             = combined_flux,
+            phase_transitions              = snow_thermodynamics.phase_transitions,
+            concentration_evolution        = snow_thermodynamics.concentration_evolution)
     end
 
     if !isnothing(ice_thermodynamics)

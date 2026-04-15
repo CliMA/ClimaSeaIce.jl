@@ -53,6 +53,11 @@ end
 fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
 prognostic_fields(therm::SSIT) = NamedTuple()
 
+flux_function(internal_heat_flux::Function) = internal_heat_flux
+flux_function(internal_heat_flux::ConductiveFlux) = slab_internal_heat_flux
+flux_function(internal_heat_flux::IceSnowConductiveFlux) = ice_snow_conductive_flux
+
+
 """
     SlabThermodynamics(grid; kw...)
 
@@ -73,22 +78,17 @@ function SlabThermodynamics(grid;
                   liquidus = phase_transitions.liquidus,
                   bottom_heat_boundary_condition = bottom_heat_boundary_condition)
 
-    internal_heat_flux_function = FluxFunction(slab_internal_heat_flux;
+    internal_heat_flux_function = FluxFunction(flux_function(internal_heat_flux);
                                                parameters,
                                                top_temperature_dependent=true)
 
-    if top_heat_boundary_condition isa PrescribedTemperature
-        if !isnothing(top_surface_temperature)
-            msg = "You cannot provide a redundant top_surface_temperature when using \
-                   PrescribedTemperature top_heat_boundary_condition."
-            throw(ArgumentError(msg))
-        else
-            # Convert to `field` (does nothing if it's already a Field)
+    if isnothing(top_surface_temperature)
+        if top_heat_boundary_condition isa PrescribedTemperature
             top_surface_temperature = top_heat_boundary_condition.temperature
             top_surface_temperature = field((Center, Center, Nothing), top_surface_temperature, grid)
+        else
+            top_surface_temperature = Field{Center, Center, Nothing}(grid)
         end
-    else
-        top_surface_temperature = Field{Center, Center, Nothing}(grid)
     end
 
     heat_boundary_conditions = (top = top_heat_boundary_condition,

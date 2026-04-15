@@ -165,8 +165,11 @@ end
 
     # Tsi = Tb + (Tus - Tb) * Ri / (Rs + Ri)
     # When hs = 0: Tsi = Tus (snow layer has zero resistance)
-    ks  = snow_thermodynamics.internal_heat_flux.parameters.snow_conductivity
-    Tsi = interface_temperature(i, j, grid, ice_thermodynamics, ks, Tus, model_fields)
+    snow_params = snow_thermodynamics.internal_heat_flux.parameters
+    flux     = snow_params.flux
+    liquidus = snow_params.liquidus
+    bottom_bc = snow_params.bottom_heat_boundary_condition
+    Tsi = interface_temperature(i, j, grid, flux, bottom_bc, liquidus, Tus, model_fields)
     @inbounds ice_thermodynamics.top_surface_temperature[i, j, 1] = Tsi
 
     Qis = ifelse(consolidated_ice, getflux(Qi, i, j, grid, Tus, clock, model_fields), zero(grid))
