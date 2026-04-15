@@ -2,51 +2,75 @@ import Oceananigans: fields, prognostic_fields, prognostic_state, restore_progno
 
 struct ProportionalEvolution end
 
-struct SlabSeaIceThermodynamics{ST, HBC, CF, GT, P, CE}
+struct SlabThermodynamics{ST, HBC, CF, P, CE}
     top_surface_temperature :: ST
     heat_boundary_conditions :: HBC
-    # Internal flux
     internal_heat_flux :: CF
-    thermodynamic_tendency :: GT
-    # Melting and freezing stuff
     phase_transitions :: P
-    # Rules to evolve concentration
     concentration_evolution :: CE
 end
 
-Adapt.adapt_structure(to, t::SlabSeaIceThermodynamics) = 
-    SlabSeaIceThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
-                             Adapt.adapt(to, t.heat_boundary_conditions),
-                             Adapt.adapt(to, t.internal_heat_flux),
-                             Adapt.adapt(to, t.thermodynamic_tendency),
-                             Adapt.adapt(to, t.phase_transitions),
-                             Adapt.adapt(to, t.concentration_evolution))
+Adapt.adapt_structure(to, t::SlabThermodynamics) =
+    SlabThermodynamics(Adapt.adapt(to, t.top_surface_temperature),
+                       Adapt.adapt(to, t.heat_boundary_conditions),
+                       Adapt.adapt(to, t.internal_heat_flux),
+                       Adapt.adapt(to, t.phase_transitions),
+                       Adapt.adapt(to, t.concentration_evolution))
 
-const SSIT = SlabSeaIceThermodynamics
+const SSIT = SlabThermodynamics
+
+"""
+    snow_slab_thermodynamics(grid; kw...)
+
+Construct a `SlabThermodynamics` with default parameters appropriate for snow:
+conductivity = 0.31 W/(m K), density = 330 kg/m³, heat capacity = 2090 J/(kg K),
+and latent heat = 334000 J/kg.
+"""
+function snow_slab_thermodynamics(grid;
+                                  conductivity          = 0.31,
+                                  density               = 330,
+                                  heat_capacity         = 2090,
+                                  reference_latent_heat = 334e3,
+                                  kw...)
+
+    FT = eltype(grid)
+    internal_heat_flux = ConductiveFlux(FT, conductivity = conductivity)
+    phase_transitions  = PhaseTransitions(FT;
+                                          density               = density,
+                                          heat_capacity         = heat_capacity,
+                                          reference_latent_heat = reference_latent_heat)
+
+    return SlabThermodynamics(grid; internal_heat_flux, phase_transitions, kw...)
+end
 
 Base.summary(therm::SSIT) = "SlabThermodynamics"
 
 function Base.show(io::IO, therm::SSIT)
-    print(io, "SlabSeaIceThermodynamics", '\n')
+    print(io, "SlabThermodynamics", '\n')
     print(io, "└── top_surface_temperature: ", summary(therm.top_surface_temperature))
 end
-       
-fields(therm::SSIT) = (; Tu = therm.top_surface_temperature, Gʰ = therm.thermodynamic_tendency)
+
+fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
 prognostic_fields(therm::SSIT) = NamedTuple()
 
+flux_function(internal_heat_flux::Function) = internal_heat_flux
+flux_function(internal_heat_flux::ConductiveFlux) = slab_internal_heat_flux
+flux_function(internal_heat_flux::IceSnowConductiveFlux) = ice_snow_conductive_flux
+
+
 """
-    SlabSeaIceThermodynamics(grid; kw...)
+    SlabThermodynamics(grid; kw...)
 
 Pretty simple model for sea ice.
 """
-function SlabSeaIceThermodynamics(grid;
-                                  top_surface_temperature        = nothing,
-                                  top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
-                                  bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
-                                  # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
-                                  internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
-                                  phase_transitions              = PhaseTransitions(eltype(grid)),
-                                  concentration_evolution        = ProportionalEvolution())
+function SlabThermodynamics(grid;
+                            top_surface_temperature        = nothing,
+                            top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
+                            bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
+                            # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
+                            internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
+                            phase_transitions              = PhaseTransitions(eltype(grid)),
+                            concentration_evolution        = ProportionalEvolution())
 
     # Construct an internal heat flux function that captures the liquidus and
     # bottom boundary condition.
@@ -54,47 +78,47 @@ function SlabSeaIceThermodynamics(grid;
                   liquidus = phase_transitions.liquidus,
                   bottom_heat_boundary_condition = bottom_heat_boundary_condition)
 
-    internal_heat_flux_function = FluxFunction(slab_internal_heat_flux;
+    internal_heat_flux_function = FluxFunction(flux_function(internal_heat_flux);
                                                parameters,
                                                top_temperature_dependent=true)
 
-    if top_heat_boundary_condition isa PrescribedTemperature  
-        if !isnothing(top_surface_temperature)
-            msg = "You cannot provide a redundant top_surface_temperature when using \
-                   PrescribedTemperature top_heat_boundary_condition."
-            throw(ArgumentError(msg))
-        else
-            # Convert to `field` (does nothing if it's already a Field)
-            top_surface_temperature = top_heat_boundary_condition.temperature 
+    if isnothing(top_surface_temperature)
+        if top_heat_boundary_condition isa PrescribedTemperature
+            top_surface_temperature = top_heat_boundary_condition.temperature
             top_surface_temperature = field((Center, Center, Nothing), top_surface_temperature, grid)
+        else
+            top_surface_temperature = Field{Center, Center, Nothing}(grid)
         end
-    else
-        top_surface_temperature = Field{Center, Center, Nothing}(grid)
     end
 
-    thermodynamic_tendency = Field{Center, Center, Nothing}(grid)
     heat_boundary_conditions = (top = top_heat_boundary_condition,
                                 bottom = bottom_heat_boundary_condition)
 
-    return SlabSeaIceThermodynamics(top_surface_temperature,
-                                    heat_boundary_conditions,
-                                    internal_heat_flux_function,
-                                    thermodynamic_tendency,
-                                    phase_transitions,
-                                    concentration_evolution)
+    return SlabThermodynamics(top_surface_temperature,
+                              heat_boundary_conditions,
+                              internal_heat_flux_function,
+                              phase_transitions,
+                              concentration_evolution)
 end
+
+"""
+    sea_ice_slab_thermodynamics(grid; kw...)
+
+Construct a `SlabThermodynamics` with default parameters appropriate for sea ice:
+conductivity = 2 W/(m K), density = 917 kg/m³, heat capacity = 2000 J/(kg K),
+and latent heat = 334000 J/kg.
+"""
+sea_ice_slab_thermodynamics(grid; kw...) = SlabThermodynamics(grid; kw...)
 
 #####
 ##### Checkpointing
 #####
 
-function prognostic_state(therm::SlabSeaIceThermodynamics)
-    return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),
-            thermodynamic_tendency = prognostic_state(therm.thermodynamic_tendency))
+function prognostic_state(therm::SlabThermodynamics)
+    return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
 end
 
-function restore_prognostic_state!(therm::SlabSeaIceThermodynamics, state)
+function restore_prognostic_state!(therm::SlabThermodynamics, state)
     restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)
-    restore_prognostic_state!(therm.thermodynamic_tendency, state.thermodynamic_tendency)
     return therm
 end

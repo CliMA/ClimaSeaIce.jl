@@ -1,9 +1,8 @@
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 using Oceananigans
 
-# Frazil ice formation
 @inline function thermodynamic_tendency(i, j, k, grid,
-                                        ice_thermodynamics::SlabSeaIceThermodynamics,
+                                        ice_thermodynamics::SlabThermodynamics,
                                         ice_thickness,
                                         ice_concentration,
                                         ice_consolidation_thickness,
@@ -23,14 +22,14 @@ using Oceananigans
     Tu = ice_thermodynamics.top_surface_temperature
 
     @inbounds begin
-        hᵢ = ice_thickness[i, j, k]
+        hi = ice_thickness[i, j, k]
         hc = ice_consolidation_thickness[i, j, k]
-        Sᵢ = model_fields.S[i, j, k]
+        Si = model_fields.S[i, j, k]
     end
 
-    @inbounds Tuᵢ = Tu[i, j, k]
+    @inbounds Tui = Tu[i, j, k]
 
-    consolidated_ice = hᵢ ≥ hc
+    consolidated_ice = hi ≥ hc
 
     # Determine top surface temperature. 
     # Does this really fit here?
@@ -40,7 +39,7 @@ using Oceananigans
             Tu⁻ = @inbounds Tu[i, j, k]
             Tuⁿ = top_surface_temperature(i, j, grid, top_heat_bc, Tu⁻, Qi, Qu, clock, model_fields)
             # We cap by melting temperature
-            Tuₘ = melting_temperature(liquidus, Sᵢ)
+            Tuₘ = melting_temperature(liquidus, Si)
             Tuⁿ = min(Tuⁿ, Tuₘ)
         else # slab is unconsolidated and does not have an independent surface temperature
             Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
@@ -49,25 +48,27 @@ using Oceananigans
         @inbounds Tu[i, j, k] = Tuⁿ
     end
 
-    @inbounds Tuᵢ = Tu[i, j, k]
+    @inbounds Tui = Tu[i, j, k]
 
-    Tbᵢ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
-    ℰb = latent_heat(phase_transitions, Tbᵢ)
-    ℰu = latent_heat(phase_transitions, Tuᵢ)
+    Tbi = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+    ℰb = latent_heat(phase_transitions, Tbi)
+    ℰu = latent_heat(phase_transitions, Tui)
 
     # Retrieve fluxes
-    Quᵢ = getflux(Qu, i, j, grid, Tuᵢ, clock, model_fields)
-    Qbᵢ = getflux(Qb, i, j, grid, Tuᵢ, clock, model_fields)
+    Qui = getflux(Qu, i, j, grid, Tui, clock, model_fields)
+    Qbi = getflux(Qb, i, j, grid, Tui, clock, model_fields)
 
     if consolidated_ice # If the ice is consolidated, we use the internal heat flux
-        Qiᵢ = getflux(Qi, i, j, grid, Tuᵢ, clock, model_fields)
+        Qii = getflux(Qi, i, j, grid, Tui, clock, model_fields)
     else # Slab is unconsolidated, there is no internal heat flux (Qi -> ∞)
-        Qiᵢ = zero(grid)
+        Qii = zero(grid)
     end
     
     # Upper (top) and bottom interface velocities
-    wu = (Quᵢ - Qiᵢ) / ℰu # < 0 => melting
-    wb = (Qiᵢ - Qbᵢ) / ℰb # < 0 => freezing
-    
-    return wu + wb 
+    # wu < 0 => top melting (volume loss from top)
+    # wb > 0 => bottom freezing (volume gain at bottom)
+    wu = (Qui - Qii) / ℰu
+    wb = (Qii - Qbi) / ℰb
+
+    return wu + wb
 end

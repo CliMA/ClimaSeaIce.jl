@@ -1,17 +1,18 @@
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
-using Oceananigans.Fields: TracerFields
+using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.Grids: halo_size, topology, with_halo,
                           LeftConnected, RightConnected, FullyConnected,
                           RightCenterFolded, RightFaceFolded,
                           LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                           LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
+using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
-using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature
+using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 import Oceananigans.Architectures: architecture
@@ -26,7 +27,7 @@ const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                                 LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
-struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, CT, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
@@ -36,14 +37,17 @@ struct SeaIceModel{GR, TD, D, TS, CL, U, T, IT, IC, ID, CT, STF, A, F, Arch} <: 
     tracers :: T
     ice_thickness :: IT
     ice_concentration :: IC
+    snow_thickness :: SNH
     ice_density :: ID
     ice_consolidation_thickness :: CT
     # Thermodynamics
     ice_thermodynamics :: TD
+    snow_thermodynamics :: SNT
     # Dynamics
     dynamics :: D
     # External boundary conditions
     external_heat_fluxes :: STF
+    snowfall :: SP
     # Numerics
     timestepper :: TS
     advection :: A
@@ -65,7 +69,9 @@ function SeaIceModel(grid;
                      tracers                     = (),
                      timestepper                 = :SplitRungeKutta3,
                      boundary_conditions         = NamedTuple(),
-                     ice_thermodynamics          = SlabSeaIceThermodynamics(grid),
+                     ice_thermodynamics          = sea_ice_slab_thermodynamics(grid),
+                     snow_thermodynamics         = nothing,
+                     snowfall                    = 0,
                      dynamics                    = nothing,
                      forcing                     = NamedTuple())
 
@@ -124,8 +130,28 @@ function SeaIceModel(grid;
     ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
     ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ)
 
+    # Snow thickness (only allocated when snow_thermodynamics is provided)
+    snow_thickness = if isnothing(snow_thermodynamics)
+        nothing
+    else
+        Field{Center, Center, Nothing}(grid)
+    end
+
+    # Wrap snowfall in a field (but preserve FieldTimeSeries)
+    if !(snowfall isa FieldTimeSeries)
+        snowfall = field((Center, Center, Nothing), snowfall, grid)
+    end
+
     # Adding thickness and concentration if not there
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
+
+    # Add snow thickness to prognostic fields when present
+    prognostic_fields = if !isnothing(snow_thickness)
+        merge(prognostic_fields, (; hs = snow_thickness))
+    else
+        prognostic_fields
+    end
+
     prognostic_fields = if ice_salinity isa ConstantField
         prognostic_fields
     else
@@ -139,9 +165,48 @@ function SeaIceModel(grid;
     tracers = merge(tracers, (; S = ice_salinity))
     timestepper = TimeStepper(timestepper, grid, prognostic_fields)
 
+    # When snow is present:
+    # 1. Rebuild snow thermodynamics with IceSnowConductiveFlux so the snow's
+    #    surface solve uses the combined resistance (hs/ks + hi/ki).
+    # 2. Set ice's top BC to PrescribedTemperature so thermodynamic_tendency
+    #    skips the surface solve (the layered kernel prescribes Tsi).
+    # 3. Ensure ice's top_surface_temperature is a writable Field.
+    if !isnothing(snow_thermodynamics) && !isnothing(ice_thermodynamics)
+        # Ensure ice's top_surface_temperature is writable
+        Tu_ice = ice_thermodynamics.top_surface_temperature
+        if Tu_ice isa ConstantField
+            Tu_ice = Field{Center, Center, Nothing}(grid)
+            set!(Tu_ice, ice_thermodynamics.top_surface_temperature.constant)
+        end
+
+        # Ice gets PrescribedTemperature BC: the layered kernel writes Tsi,
+        # then delegates to thermodynamic_tendency which skips the surface solve.
+        ice_thermodynamics = SlabThermodynamics(grid;
+            top_surface_temperature        = Tu_ice,
+            top_heat_boundary_condition    = PrescribedTemperature(0),
+            bottom_heat_boundary_condition = ice_thermodynamics.heat_boundary_conditions.bottom,
+            internal_heat_flux             = ice_thermodynamics.internal_heat_flux.parameters.flux,
+            phase_transitions              = ice_thermodynamics.phase_transitions,
+            concentration_evolution        = ice_thermodynamics.concentration_evolution)
+
+        # Build combined snow+ice conductive flux
+        ks = snow_thermodynamics.internal_heat_flux.parameters.flux.conductivity
+        ki = ice_thermodynamics.internal_heat_flux.parameters.flux.conductivity
+        combined_flux = IceSnowConductiveFlux(ks, ki)
+
+        snow_thermodynamics = SlabThermodynamics(grid;
+            top_surface_temperature        = snow_thermodynamics.top_surface_temperature,
+            top_heat_boundary_condition    = snow_thermodynamics.heat_boundary_conditions.top,
+            bottom_heat_boundary_condition = ice_thermodynamics.heat_boundary_conditions.bottom,
+            internal_heat_flux             = combined_flux,
+            phase_transitions              = snow_thermodynamics.phase_transitions,
+            concentration_evolution        = snow_thermodynamics.concentration_evolution)
+    end
+
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
-            if ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
+            if isnothing(snow_thermodynamics) &&
+               ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
                 # Default: external top flux is in equilibrium with internal fluxes
                 top_heat_flux = ice_thermodynamics.internal_heat_flux
             else
@@ -168,23 +233,30 @@ function SeaIceModel(grid;
                        tracers,
                        ice_thickness,
                        ice_concentration,
+                       snow_thickness,
                        ice_density,
                        ice_consolidation_thickness,
                        ice_thermodynamics,
+                       snow_thermodynamics,
                        dynamics,
                        external_heat_fluxes,
+                       snowfall,
                        timestepper,
                        advection)
 end
 
 const SIM = SeaIceModel
 
-function set!(model::SIM; h=nothing, ℵ=nothing)
-    grid = model.grid
-    arch = architecture(model)
+function set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing)
+    !isnothing(h)  && set!(model.ice_thickness, h)
+    !isnothing(ℵ)  && set!(model.ice_concentration, ℵ)
 
-    !isnothing(h) && set!(model.ice_thickness, h)
-    !isnothing(ℵ) && set!(model.ice_concentration, ℵ)
+    if !isnothing(hs)
+        if isnothing(model.snow_thickness)
+            throw(ArgumentError("Cannot set snow thickness `hs` on a SeaIceModel without snow (model.snow_thickness is nothing)."))
+        end
+        set!(model.snow_thickness, hs)
+    end
 
     return nothing
 end
@@ -206,6 +278,7 @@ function Base.show(io::IO, model::SIM)
     print(io, "├── grid: ", summary(model.grid), '\n')
     print(io, "├── timestepper: ", summary(model.timestepper), '\n')
     print(io, "├── ice_thermodynamics: ", summary(model.ice_thermodynamics), '\n')
+    print(io, "├── snow_thermodynamics: ", summary(model.snow_thermodynamics), '\n')
     print(io, "├── advection: ", summary(model.advection), '\n')
     print(io, "└── external_heat_fluxes: ", '\n')
     print(io, "    ├── top: ", flux_summary(model.external_heat_fluxes.top, "    │"), '\n')
@@ -220,8 +293,12 @@ checkpointer_address(::SeaIceModel) = "SeaIceModel"
 # Fallback
 fields(::Nothing) = NamedTuple()
 
+snow_fields(::Nothing) = NamedTuple()
+snow_fields(hs) = (; hs)
+
 fields(model::SIM) = merge((; h  = model.ice_thickness,
                               ℵ  = model.ice_concentration),
+                           snow_fields(model.snow_thickness),
                            model.tracers,
                            model.velocities,
                            fields(model.ice_thermodynamics),
@@ -229,9 +306,9 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
 
 prognostic_fields(::Nothing) = NamedTuple()
 
-# TODO: make this correct
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
+                                      snow_fields(model.snow_thickness),
                                       prognostic_fields(model, model.dynamics),
                                       prognostic_fields(model.ice_thermodynamics))
 
@@ -250,7 +327,7 @@ end
 function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
     time = Time(clock.time)
 
-    possible_fts = (model.tracers, model.external_heat_fluxes, model.dynamics)
+    possible_fts = (model.tracers, model.external_heat_fluxes, model.snowfall, model.dynamics)
     time_series_tuple = extract_field_time_series(possible_fts)
     time_series_tuple = flattened_unique_values(time_series_tuple)
 
@@ -270,6 +347,7 @@ function prognostic_state(model::SeaIceModel)
             velocities = prognostic_state(model.velocities),
             ice_thickness = prognostic_state(model.ice_thickness),
             ice_concentration = prognostic_state(model.ice_concentration),
+            snow_thickness = prognostic_state(model.snow_thickness),
             tracers = prognostic_state(model.tracers),
             timestepper = prognostic_state(model.timestepper),
             ice_thermodynamics = prognostic_state(model.ice_thermodynamics),
@@ -281,6 +359,7 @@ function restore_prognostic_state!(model::SeaIceModel, state)
     restore_prognostic_state!(model.velocities, state.velocities)
     restore_prognostic_state!(model.ice_thickness, state.ice_thickness)
     restore_prognostic_state!(model.ice_concentration, state.ice_concentration)
+    restore_prognostic_state!(model.snow_thickness, state.snow_thickness)
     restore_prognostic_state!(model.tracers, state.tracers)
     restore_prognostic_state!(model.timestepper, state.timestepper)
     restore_prognostic_state!(model.ice_thermodynamics, state.ice_thermodynamics)
