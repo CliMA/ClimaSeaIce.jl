@@ -1,5 +1,6 @@
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Architectures: architecture
+using Oceananigans.Advection: materialize_advection
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
@@ -218,6 +219,10 @@ function SeaIceModel(grid;
 
     model_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, fields(dynamics))
     forcing = model_forcing(forcing, model_fields, prognostic_fields)
+
+    # Fill any settings in advection scheme that might have been deferred until
+    # the grid and backend is known
+    advection = materialize_advection(advection, grid) 
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,
