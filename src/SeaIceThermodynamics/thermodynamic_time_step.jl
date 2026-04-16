@@ -209,8 +209,8 @@ end
     hsⁿ = ifelse(ℵⁿ⁺¹ > 0, hsⁿ * ℵⁿ / ℵⁿ⁺¹, zero(hsⁿ))
 
     Gs⁺ = snow_accumulation(i, j, snowfall, snow_thermodynamics, ℵⁿ⁺¹, clock)
-    hs⁺  = hsⁿ + Δt * (Gs⁺ - Gs⁻)
-    hs⁺  = max(zero(hs⁺), hs⁺)
+    hs⁺ = hsⁿ + Δt * (Gs⁺ - Gs⁻)
+    hs⁺ = max(zero(hs⁺), hs⁺)
 
     # Snow-ice formation (flooding when freeboard is negative)
     hiⁿ⁺¹, hs⁺ = snow_ice_formation(hiⁿ⁺¹, hs⁺, ice_thermodynamics, snow_thermodynamics)

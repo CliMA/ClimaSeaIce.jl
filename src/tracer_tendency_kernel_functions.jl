@@ -48,6 +48,6 @@ end
 @inline compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, ::Nothing) = nothing
 
 @inline function compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, hs)
-    @inbounds Gⁿ.hs[i, j, 1] = - div_Uℵh(i, j, k, grid, advection, velocities, ℵ, hs)
+    @inbounds Gⁿ.hs[i, j, 1] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ℵ, hs)
     return nothing
 end
