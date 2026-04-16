@@ -42,12 +42,12 @@ end
         Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
     end
 
-    compute_snow_advection_tendency!(i, j, kᴺ, Gⁿ, grid, advection, velocities, ice_concentration, snow_thickness)
+    compute_snow_advection_tendency!(i, j, kᴺ, Gⁿ, grid, advection, velocities, snow_thickness)
 end
 
-@inline compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, ::Nothing) = nothing
+@inline compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ::Nothing) = nothing
 
-@inline function compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, hs)
-    @inbounds Gⁿ.hs[i, j, 1] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, ℵ, hs)
+@inline function compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, hs)
+    @inbounds Gⁿ.hs[i, j, 1] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, hs)
     return nothing
 end
