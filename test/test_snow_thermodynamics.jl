@@ -16,14 +16,15 @@ using Test
     @test model.snow_thermodynamics isa SlabThermodynamics
     @test model.snow_thickness isa Field
 
-    # Snow's internal heat flux should be IceSnowConductiveFlux after constructor wiring
+    # Both layers store the raw conductive-flux coefficient; the combined
+    # snow+ice flux (IceSnowConductiveFlux) is assembled inline in the
+    # layered kernel, not stored on the thermodynamics.
     snow_flux = model.snow_thermodynamics.internal_heat_flux
-    @test snow_flux isa FluxFunction
-    @test snow_flux.func === ice_snow_conductive_flux
+    @test snow_flux isa ConductiveFlux
+    @test snow_flux.conductivity ≈ 0.31
 
-    # Ice thermodynamics is untouched (no snow reference)
     ice_flux = model.ice_thermodynamics.internal_heat_flux
-    @test ice_flux isa FluxFunction
+    @test ice_flux isa ConductiveFlux
 
     # Model without snow
     model_no_snow = SeaIceModel(grid)
@@ -126,7 +127,7 @@ end
     snow_thermo = snow_slab_thermodynamics(grid)
     ice_thermo  = SlabThermodynamics(grid)
 
-    Ps = 1e-5  # kg/m^2/s snowfall rate
+    Ps = 1e-5  # kg/m²/s snowfall rate
     model = SeaIceModel(grid;
                         ice_thermodynamics = ice_thermo,
                         snow_thermodynamics = snow_thermo,
@@ -146,15 +147,14 @@ end
     grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
     snow_thermo = snow_slab_thermodynamics(grid)
-
-    ice_thermo = SlabThermodynamics(grid)
+    ice_thermo  = SlabThermodynamics(grid)
 
     # Negative top_heat_flux means incoming heat (solar radiation), which
     # drives the surface to the melting point and creates a flux imbalance.
     model = SeaIceModel(grid;
                         ice_thermodynamics = ice_thermo,
                         snow_thermodynamics = snow_thermo,
-                        top_heat_flux = -100) # W/m^2 incoming
+                        top_heat_flux = -100) # W/m² incoming
 
     hi = 2.0
     hs = 0.1
@@ -172,13 +172,11 @@ end
     for timestepper in (:ForwardEuler, :SplitRungeKutta3)
         grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
 
-        snow_thermo = SlabThermodynamics(grid;
-            internal_heat_flux = ConductiveFlux(conductivity=0.31),
-            phase_transitions = PhaseTransitions(Float64; density=330, heat_capacity=2090,
-                                                 reference_latent_heat=334e3))
+        snow_thermo = snow_slab_thermodynamics(grid)
 
         model = SeaIceModel(grid;
             snow_thermodynamics = snow_thermo,
+            snow_density = 330,
             advection = WENO(),
             timestepper)
 

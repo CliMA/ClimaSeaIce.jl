@@ -28,6 +28,7 @@
 
 using Oceananigans
 using Oceananigans.Units
+using Oceananigans.Fields: interior
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: latent_heat
 using CairoMakie
@@ -207,8 +208,9 @@ Ql_bare_ts = []
 function accumulate_energy_bare(sim)
     h  = sim.model.ice_thickness
     ℵ  = sim.model.ice_concentration
-    PT = sim.model.ice_thermodynamics.phase_transitions
-    ℰ  = latent_heat(PT, 0)
+    pt = sim.model.phase_transitions
+    ρi = first(interior(sim.model.ice_density))
+    ℰ  = ρi * latent_heat(pt, 0)
     En = - h .* ℵ .* ℰ
     push!(Ei_bare, deepcopy(En))
     push!(Qa_bare_ts, deepcopy(atmosphere.atmosphere_ice_flux))
@@ -249,11 +251,11 @@ function accumulate_energy_snow(sim)
     h  = m.ice_thickness
     ℵ  = m.ice_concentration
     hs = m.snow_thickness
-    PT = m.ice_thermodynamics.phase_transitions
-    ℰi = latent_heat(PT, 0)
-    ρs = snow_thermodynamics.phase_transitions.density
-    ℒs = snow_thermodynamics.phase_transitions.reference_latent_heat
-    En = - ℵ .* (h .* ℰi .+ hs .* ρs * ℒs)
+    pt = m.phase_transitions
+    ρi = first(interior(m.ice_density))
+    ρs = first(interior(m.snow_density))
+    ℒ  = latent_heat(pt, 0)
+    En = - ℵ .* (h .* ρi * ℒ .+ hs .* ρs * ℒ)
     push!(Ei_snow_ts, deepcopy(En))
     push!(Qa_snow_ts, deepcopy(atmosphere_snow.atmosphere_ice_flux))
     push!(Ql_snow_ts, deepcopy(lake_snow.lake_ice_flux))
@@ -326,8 +328,8 @@ nothing # hide
 # budget is: dE/dt = -Qa + Ql + Qp, where Qp is the precipitation latent
 # heat flux. We compute Qp from the snow thickness change due to accumulation.
 
-ρs_snow = snow_thermodynamics.phase_transitions.density
-ℒs_snow = snow_thermodynamics.phase_transitions.reference_latent_heat
+ρs_snow = first(interior(model_snow.snow_density))
+ℒs_snow = model_snow.phase_transitions.reference_latent_heat
 
 fig = Figure(size=(1200, 1000))
 

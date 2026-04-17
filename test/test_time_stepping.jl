@@ -27,7 +27,7 @@ end
         rheologies = (ElastoViscoPlasticRheology(), ViscousRheology(ν=1000))
         advections = (WENO(), UpwindBiased(order=5))
 
-        ice_thermodynamics = (nothing, SlabThermodynamics(grid))
+        ice_thermodynamics_options = (nothing, SlabThermodynamics(grid))
         snow_thermodynamics_options = (nothing, snow_slab_thermodynamics(grid))
 
         coriolises = (nothing, FPlane(latitude=45), BetaPlane(latitude=45))
@@ -36,7 +36,7 @@ end
         for coriolis in coriolises,
             advection in advections,
             rheology in rheologies,
-            ice_thermo in ice_thermodynamics,
+            ice_thermo in ice_thermodynamics_options,
             snow_thermo in snow_thermodynamics_options,
             solver in solvers
 
