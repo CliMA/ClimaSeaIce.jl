@@ -21,7 +21,7 @@ function thermodynamic_time_step!(model, ice_thermodynamics::SlabThermodynamics,
             model.ice_consolidation_thickness,
             ice_thermodynamics,
             model.phase_transitions,
-            model.ice_density,
+            model.sea_ice_density,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
             fields(model))
@@ -47,7 +47,7 @@ function thermodynamic_time_step!(model,
             ice_thermodynamics,
             snow_thermodynamics,
             model.phase_transitions,
-            model.ice_density,
+            model.sea_ice_density,
             model.snow_density,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
@@ -81,7 +81,7 @@ end
                                                ice_consolidation_thickness,
                                                ice_thermodynamics,
                                                phase_transitions,
-                                               ice_density,
+                                               sea_ice_density,
                                                top_external_heat_flux,
                                                bottom_external_heat_flux,
                                                model_fields)
@@ -95,7 +95,7 @@ end
     ∂t_V = thermodynamic_tendency(i, j, 1, grid,
                                   ice_thermodynamics,
                                   phase_transitions,
-                                  ice_density,
+                                  sea_ice_density,
                                   ice_thickness,
                                   ice_concentration,
                                   ice_consolidation_thickness,
@@ -131,7 +131,7 @@ end
                                                    ice_thermodynamics,
                                                    snow_thermodynamics,
                                                    phase_transitions,
-                                                   ice_density,
+                                                   sea_ice_density,
                                                    snow_density,
                                                    top_external_heat_flux,
                                                    bottom_external_heat_flux,
@@ -215,7 +215,7 @@ end
     ∂t_V = ice_melt_freeze_tendency(i, j, 1, grid,
                                     ice_thermodynamics,
                                     phase_transitions,
-                                    ice_density,
+                                    sea_ice_density,
                                     Qi_ice,
                                     Tsi,
                                     ice_thickness, ice_consolidation_thickness,
@@ -233,7 +233,7 @@ end
     hs⁺ = max(zero(hs⁺), hs⁺)
 
     # Snow-ice formation (flooding when freeboard is negative)
-    @inbounds ρi = ice_density[i, j, 1]
+    @inbounds ρi = sea_ice_density[i, j, 1]
     hiⁿ⁺¹, hs⁺ = snow_ice_formation(hiⁿ⁺¹, hs⁺, ρi, ρs, phase_transitions.liquid_density)
 
     # Reset snow when no ice

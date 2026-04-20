@@ -84,7 +84,7 @@ bottom_heat_flux = FluxFunction(frazil_ice_formation)
 #
 # Then we assemble it all into a model:
 
-model = SeaIceModel(grid; ice_thermodynamics, phase_transitions, ice_density=900, bottom_heat_flux)
+model = SeaIceModel(grid; ice_thermodynamics, phase_transitions, sea_ice_density=900, bottom_heat_flux)
 
 # Note that the default bottom heat boundary condition for `SlabThermodynamics`
 # is `IceWaterThermalEquilibrium` with freshwater. That's what we want!

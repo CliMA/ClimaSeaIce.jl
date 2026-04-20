@@ -208,7 +208,7 @@ function accumulate_energy_bare(sim)
     h  = sim.model.ice_thickness
     ℵ  = sim.model.ice_concentration
     pt = sim.model.phase_transitions
-    ρi = sim.model.ice_density[1, 1, 1]
+    ρi = sim.model.sea_ice_density[1, 1, 1]
     ℰ  = ρi * latent_heat(pt, 0)
     En = - h .* ℵ .* ℰ
     push!(Ei_bare, deepcopy(En))
@@ -251,7 +251,7 @@ function accumulate_energy_snow(sim)
     ℵ  = m.ice_concentration
     hs = m.snow_thickness
     pt = m.phase_transitions
-    ρi = m.ice_density[1, 1, 1]
+    ρi = m.sea_ice_density[1, 1, 1]
     ρs = m.snow_density[1, 1, 1]
     ℒ  = latent_heat(pt, 0)
     En = - ℵ .* (h .* ρi * ℒ .+ hs .* ρs * ℒ)

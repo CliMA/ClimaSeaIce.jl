@@ -84,7 +84,7 @@ end
 
 Construct a `SlabThermodynamics` with default parameters appropriate for sea ice:
 conductivity = 2 W/(m K). Bulk density and all phase-transition parameters live
-on `SeaIceModel` (as `ice_density` and `phase_transitions` respectively).
+on `SeaIceModel` (as `sea_ice_density` and `phase_transitions` respectively).
 """
 sea_ice_slab_thermodynamics(grid; kw...) = SlabThermodynamics(grid; kw...)
 

@@ -47,7 +47,7 @@ function energy_conservation_test(; snow=false, precipitation=false, melting=fal
 
     pt = model.phase_transitions
     ℒ  = latent_heat(pt, 0)                    # per-mass at 0 ᵒC
-    ρi = @inbounds model.ice_density[1, 1, 1]  # bulk ice density
+    ρi = @inbounds model.sea_ice_density[1, 1, 1]  # bulk sea-ice density
     ρs = snow ? @inbounds(model.snow_density[1, 1, 1]) : 0.0
 
     Δt = 600.0

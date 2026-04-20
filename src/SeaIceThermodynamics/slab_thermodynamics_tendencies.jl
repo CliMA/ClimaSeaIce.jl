@@ -29,7 +29,7 @@ end
 @inline function ice_melt_freeze_tendency(i, j, k, grid,
                                           ice_thermodynamics::SlabThermodynamics,
                                           phase_transitions,
-                                          ice_density,
+                                          sea_ice_density,
                                           Qi_function,
                                           Tui,
                                           ice_thickness,
@@ -43,7 +43,7 @@ end
 
     @inbounds hi = ice_thickness[i, j, k]
     @inbounds hc = ice_consolidation_thickness[i, j, k]
-    @inbounds ρi = ice_density[i, j, 1]
+    @inbounds ρi = sea_ice_density[i, j, 1]
 
     consolidated_ice = hi ≥ hc
 
@@ -75,7 +75,7 @@ end
 @inline function thermodynamic_tendency(i, j, k, grid,
                                         ice_thermodynamics::SlabThermodynamics,
                                         phase_transitions,
-                                        ice_density,
+                                        sea_ice_density,
                                         ice_thickness,
                                         ice_concentration,
                                         ice_consolidation_thickness,
@@ -120,7 +120,7 @@ end
     return ice_melt_freeze_tendency(i, j, k, grid,
                                     ice_thermodynamics,
                                     phase_transitions,
-                                    ice_density,
+                                    sea_ice_density,
                                     Qi_function,
                                     Tui,
                                     ice_thickness, ice_consolidation_thickness,

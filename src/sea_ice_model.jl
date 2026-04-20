@@ -40,7 +40,7 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, S
     ice_thickness :: IT
     ice_concentration :: IC
     snow_thickness :: SNH
-    ice_density :: ID
+    sea_ice_density :: ID
     snow_density :: SND
     ice_consolidation_thickness :: CT
     # Shared thermodynamic parameters
@@ -66,7 +66,7 @@ function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
                      ice_consolidation_thickness = 0.05, # m
                      ice_salinity                = 0, # psu
-                     ice_density                 = 900, # kg m⁻³, bulk sea-ice
+                     sea_ice_density             = 900, # kg m⁻³, bulk sea-ice
                      snow_density                = 330, # kg m⁻³, bulk snow
                      phase_transitions           = PhaseTransitions(eltype(grid)),
                      top_heat_flux               = nothing,
@@ -130,9 +130,9 @@ function SeaIceModel(grid;
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_salinity in a field
-    ice_salinity = field((Center, Center, Nothing), ice_salinity, grid)
-    ice_density  = field((Center, Center, Nothing), ice_density, grid)
-    snow_density = field((Center, Center, Nothing), snow_density, grid)
+    ice_salinity    = field((Center, Center, Nothing), ice_salinity, grid)
+    sea_ice_density = field((Center, Center, Nothing), sea_ice_density, grid)
+    snow_density    = field((Center, Center, Nothing), snow_density, grid)
 
     # Construct prognostic fields if not provided
     ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
@@ -211,7 +211,7 @@ function SeaIceModel(grid;
                        ice_thickness,
                        ice_concentration,
                        snow_thickness,
-                       ice_density,
+                       sea_ice_density,
                        snow_density,
                        ice_consolidation_thickness,
                        phase_transitions,
@@ -277,7 +277,7 @@ snow_fields(hs) = (; hs)
 
 fields(model::SIM) = merge((; h  = model.ice_thickness,
                               ℵ  = model.ice_concentration,
-                              ρi = model.ice_density),
+                              ρi = model.sea_ice_density),
                            snow_fields(model.snow_thickness),
                            model.tracers,
                            model.velocities,
