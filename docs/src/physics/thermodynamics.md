@@ -199,9 +199,10 @@ ice_thermodynamics
 ```
 
 The bulk sea-ice density is passed to [`SeaIceModel`](@ref) separately via the
-`ice_density` keyword (default `900` kg/m³), and is stored as a
+`sea_ice_density` keyword (default `900` kg/m³), and is stored as a
 `Field{Center, Center, Nothing}` on the model. It is distinct from the
-microscopic pure-ice density inside [`PhaseTransitions`](@ref).
+microscopic pure-ice density inside [`PhaseTransitions`](@ref), which refers
+to the pure ice crystal and not to the porous sea-ice matrix.
 
 ## Customising the internal flux
 
@@ -399,11 +400,11 @@ step from the resistance ratio.
 
 When running a pure-dynamics simulation (no phase physics), pass
 `ice_thermodynamics = nothing`. `SeaIceModel` still carries the bulk
-`ice_density` field that the momentum equations need, so the dynamics path
-works without a thermodynamic step:
+`sea_ice_density` field that the momentum equations need, so the dynamics
+path works without a thermodynamic step:
 
 ```@example thermodynamics
 model_dyn = SeaIceModel(grid;
     ice_thermodynamics = nothing,
-    ice_density = 900)
+    sea_ice_density = 900)
 ```
