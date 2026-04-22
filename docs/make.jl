@@ -50,6 +50,7 @@ pages = [
 
     "Physics" => [
         "Thermodynamics" => "physics/thermodynamics.md",
+        "Layered snow + ice implementation" => "physics/layered_snow_ice_implementation.md",
         "Dynamics and Rheology" => "physics/dynamics_and_rheology.md",
     ],
 

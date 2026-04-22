@@ -162,10 +162,12 @@ end
     ks = snow_thermodynamics.internal_heat_flux.conductivity
     ki = ice_thermodynamics.internal_heat_flux.conductivity
     combined_flux = IceSnowConductiveFlux(ks, ki)
-    Qi_column = internal_flux_function(combined_flux, liquidus, bottom_bc)
+    
+    # Column internal heat flux
+    Qic = internal_flux_function(combined_flux, liquidus, bottom_bc)
 
     # Ice-only flux wrapper for the ice-interior evaluation at Tsi.
-    Qi_ice = internal_flux_function(ice_thermodynamics.internal_heat_flux, liquidus, bottom_bc)
+    Qii = internal_flux_function(ice_thermodynamics.internal_heat_flux, liquidus, bottom_bc)
 
     snow_top_bc = snow_thermodynamics.heat_boundary_conditions.top
     Tu = snow_thermodynamics.top_surface_temperature
@@ -177,7 +179,7 @@ end
     if !isa(snow_top_bc, PrescribedTemperature)
         if consolidated_ice
             @inbounds Tu⁻ = Tu[i, j, 1]
-            Tuⁿ = top_surface_temperature(i, j, grid, snow_top_bc, Tu⁻, Qi_column, Qu, clock, model_fields)
+            Tuⁿ = top_surface_temperature(i, j, grid, snow_top_bc, Tu⁻, Qic, Qu, clock, model_fields)
             Tuⁿ = min(Tuⁿ, Tm)
         else
             Tuⁿ = Tb
@@ -191,35 +193,68 @@ end
     # When hs = 0: Tsi = Tus (snow layer has zero resistance)
     Tsi = interface_temperature(i, j, grid, combined_flux, bottom_bc, liquidus, Tus, model_fields)
 
-    # Snow surface melt energy (uses ℒ₀ since the surface solve caps Tus at 0 C)
-    Qis = ifelse(consolidated_ice, getflux(Qi_column, i, j, grid, Tus, clock, model_fields), zero(grid))
+    # Snow-surface energy balance (Qis per-ice column flux, Qui per-cell from
+    # the coupler). Compare like with like by converting Qui to per-ice;
+    # Qui/ℵⁿ = Qui when ℵⁿ = 1, and restores the correct per-ice driving
+    # flux when ℵⁿ < 1.
+    Qis = ifelse(consolidated_ice, getflux(Qic, i, j, grid, Tus, clock, model_fields), zero(grid))
     Qui = getflux(Qu, i, j, grid, Tus, clock, model_fields)
 
-    # δQ < 0 means more internal flux than external → energy available for melting
-    δQ = Qui - Qis
-    melt_energy = max(zero(δQ), -δQ) # positive when melting
+    Qui_per_ice = ifelse(ℵⁿ > 0, Qui / ℵⁿ, zero(Qui))
+
+    δQ = Qui_per_ice - Qis                       # δQ < 0 ⇒ energy available for melt
+    melt_energy = max(zero(δQ), -δQ)             # per-ice
 
     @inbounds ρs = snow_density[i, j, 1]
     ℒs = phase_transitions.reference_latent_heat
 
-    snow_energy_capacity = ρs * ℒs * hsⁿ / Δt # W/m²
-    Qs = min(melt_energy, snow_energy_capacity)
-    Gs⁻ = Qs / (ρs * ℒs)
+    snow_energy_capacity = ρs * ℒs * hsⁿ / Δt    # per-ice
+    Qs  = min(melt_energy, snow_energy_capacity) # per-ice
+    Gs⁻ = Qs / (ρs * ℒs)                         # per-ice, drives Δhs
 
-    # The effective top flux for the ice is Qui + Qs.
-    # Snow absorbing melt energy acts as extra cooling from the ice's perspective:
-    # the ice-interior flux is evaluated at Tsi, so  wu = (Qui + Qs - Qii) / ℰu
-    # and wb = (Qii - Qb) / ℰb.
-    Qui_eff = Qui + Qs
+    # Closed-form self-consistent solve for ℵⁿ⁺¹. The ice-top effective flux
+    # Quie = Qui + Qs·ℵⁿ⁺¹ couples Quie and ℵⁿ⁺¹ linearly; the slab's
+    # concentration rule is also linear in ∂t_V, so the fixed point
+    #   ∂t_V = α + β·ℵⁿ⁺¹,    α = (Qui − Qbi)/(ρᵢℒ),  β = Qs/(ρᵢℒ)
+    #   ℵⁿ⁺¹ = ℵⁿ + K·∂t_V,   K = Δt · C,
+    #   C = ℵⁿ/(2hⁿ) (melt)  or  (1−ℵⁿ)/hᶜ (freeze)
+    # has the explicit solution  ℵⁿ⁺¹ = (ℵⁿ + K·α) / (1 − K·β).
+    # Solve both branches and pick the one with sign(∂t_V(ℵⁿ⁺¹)) consistent
+    # with its branch assumption. |K·β| ≲ 10⁻⁶ at ocean scales so the denominators are
+    # safely away from zero in practice; all divisions are NaN-guarded.
+    @inbounds ρi = sea_ice_density[i, j, 1]
+    ρiℒ = ρi * ℒs
+    Qbi = getflux(bottom_external_heat_flux, i, j, grid, Tus, clock, model_fields)
 
+    α = (Qui - Qbi) / ρiℒ  # per-cell volume rate
+    β = Qs / ρiℒ           # coefficient on ℵⁿ⁺¹
+
+    Cᵐ = ifelse(hiⁿ > zero(hiⁿ), ℵⁿ / (2 * hiⁿ), zero(hiⁿ))
+    Cᶠ = ifelse(hᶜ  > zero(hᶜ),  (1 - ℵⁿ) / hᶜ,  zero(hᶜ))
+    Kᵐ = Δt * Cᵐ
+    Kᶠ = Δt * Cᶠ
+
+    ε  = eps(typeof(β))
+    Dᵐ = 1 - Kᵐ * β
+    Dᶠ = 1 - Kᶠ * β
+    ℵᵐ = ifelse(abs(Dᵐ) > ε, (ℵⁿ + Kᵐ * α) / Dᵐ, ℵⁿ + Kᵐ * α)
+    ℵᶠ = ifelse(abs(Dᶠ) > ε, (ℵⁿ + Kᶠ * α) / Dᶠ, ℵⁿ + Kᶠ * α)
+
+    # Branch selection: melt if melt-branch solution yields ∂t_V < 0, else freeze.
+    ∂t_Vᵐ   = α + β * ℵᵐ
+    melting = ∂t_Vᵐ < zero(∂t_Vᵐ)
+    ℵtmp    = ifelse(melting, ℵᵐ, ℵᶠ)
+
+    # Final state via `ice_volume_update` (handles V<0 clipping, ridging, etc.).
+    Quie = Qui + Qs * ℵtmp
     ∂t_V = ice_melt_freeze_tendency(i, j, 1, grid,
                                     ice_thermodynamics,
                                     phase_transitions,
                                     sea_ice_density,
-                                    Qi_ice,
+                                    Qii,
                                     Tsi,
                                     ice_thickness, ice_consolidation_thickness,
-                                    Qui_eff, bottom_external_heat_flux,
+                                    Quie, bottom_external_heat_flux,
                                     clock, model_fields)
 
     hiⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_V, hiⁿ, ℵⁿ, hᶜ, Δt)
@@ -232,8 +267,7 @@ end
     hs⁺ = hsⁿ + Δt * (Gs⁺ - Gs⁻)
     hs⁺ = max(zero(hs⁺), hs⁺)
 
-    # Snow-ice formation (flooding when freeboard is negative)
-    @inbounds ρi = sea_ice_density[i, j, 1]
+    # Snow-ice formation (flooding when freeboard is negative).
     hiⁿ⁺¹, hs⁺ = snow_ice_formation(hiⁿ⁺¹, hs⁺, ρi, ρs, phase_transitions.liquid_density)
 
     # Reset snow when no ice
