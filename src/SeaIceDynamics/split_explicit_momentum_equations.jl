@@ -85,7 +85,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     model_fields = merge(dynamics.auxiliaries.fields, model.velocities,
                       (; h = model.ice_thickness,
                          ℵ = model.ice_concentration,
-                         ρ = model.ice_density))
+                         ρ = model.sea_ice_density))
 
     params = dynamics.solver.kernel_parameters
 

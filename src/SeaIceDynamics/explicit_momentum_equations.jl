@@ -19,7 +19,7 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
                       (; h = model.ice_thickness, 
                          ℵ = model.ice_concentration, 
-                         ρ = model.ice_density))
+                         ρ = model.sea_ice_density))
 
 
     free_drift = dynamics.free_drift
@@ -84,7 +84,7 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
             (; h = model.ice_thickness, 
                ℵ = model.ice_concentration, 
-               ρ = model.ice_density))
+               ρ = model.sea_ice_density))
 
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
