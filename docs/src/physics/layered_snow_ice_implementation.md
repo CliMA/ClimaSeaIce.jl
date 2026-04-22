@@ -29,8 +29,8 @@ Two conventions coexist and must be treated consistently:
 The snow surface sits on the ice-covered fraction only, so the surface energy balance is a **per-ice** balance:
 
 ```math
-\\delta Q = \\frac{Qui}{\\aleph^n} - Qis, \\qquad
-Q_s = \\min\\left(\\max(0, -\\delta Q), \\frac{\\rho_s \\mathcal{L}_s h_s^n}{\\Delta t}\\right).
+\delta Q = \frac{Qui}{\aleph^n} - Qis, \qquad
+Q_s = \min\left(\max(0, -\delta Q), \frac{\rho_s \mathcal{L}_s h_s^n}{\Delta t}\right).
 ```
 
 `Qs` (positive when melting) is the per-ice latent power absorbed by snow melt, giving a thickness rate `Gs⁻ = Qs/(ρₛ ℒₛ)`.
@@ -44,35 +44,35 @@ would otherwise suppress the snow melt rate.
 The slab mass balance and the `ProportionalEvolution` concentration rule are both linear in the end-of-step concentration `ℵⁿ⁺¹`:
 
 ```math
-\\partial_t V = \\frac{(Qui + Q_s \\aleph^{n+1}) - Qbi}{\\rho_i \\mathcal{L}}  \\equiv \\alpha + \\beta\\, \\aleph^{n+1},
+\partial_t V = \frac{(Qui + Q_s \aleph^{n+1}) - Qbi}{\rho_i \mathcal{L}}  \equiv \alpha + \beta\, \aleph^{n+1},
 ```
 
 with
 
 ```math
-\\alpha = \\frac{Qui - Qbi}{\\rho_i \\mathcal{L}}, \\quad
-\\beta  = \\frac{Q_s}{\\rho_i \\mathcal{L}},
+\alpha = \frac{Qui - Qbi}{\rho_i \mathcal{L}}, \quad
+\beta  = \frac{Q_s}{\rho_i \mathcal{L}},
 ```
 
 and
 
 ```math
-\\aleph^{n+1} = \\aleph^n + \\Delta t\\, C\\, \\partial_t V,
+\aleph^{n+1} = \aleph^n + \Delta t\, C\, \partial_t V,
 ```
 
 with
 
 ```math
-C = \\begin{cases}
-\\frac{\\aleph^n}{2 h^n} & \\text{if } \\partial_t V < 0 \\ \\text{(melt)} \\\\
-\\frac{1 - \\aleph^n}{h^c} & \\text{if } \\partial_t V \\ge 0 \\ \\text{(freeze)}.
-\\end{cases}
+C = \begin{cases}
+\frac{\aleph^n}{2 h^n} & \text{if } \partial_t V < 0 \ \text{(melt)} \\
+\frac{1 - \aleph^n}{h^c} & \text{if } \partial_t V \ge 0 \ \text{(freeze)}.
+\end{cases}
 ```
 
 Defining `K = Δt · C`, the fixed point `ℵⁿ⁺¹ · (1 − K β) = ℵⁿ + K α` has the **closed-form solution**
 
 ```math
-\\boxed{\\aleph^{n+1} = \\frac{\\aleph^n + K \\alpha}{1 - K \\beta}}.
+\boxed{\aleph^{n+1} = \frac{\aleph^n + K \alpha}{1 - K \beta}}.
 ```
 
 ## Branch selection

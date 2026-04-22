@@ -117,6 +117,11 @@ end
 
     @inbounds Tui = Tu[i, j, k]
 
+    # Evaluate the external flux closures exactly once at the converged Tui and pass the
+    # scalar values down to `ice_melt_freeze_tendency` (which accepts Number via `getflux`).
+    Qui = getflux(Qu, i, j, grid, Tui, clock, model_fields)
+    Qbi = getflux(bottom_external_heat_flux, i, j, grid, Tui, clock, model_fields)
+
     return ice_melt_freeze_tendency(i, j, k, grid,
                                     ice_thermodynamics,
                                     phase_transitions,
@@ -124,6 +129,6 @@ end
                                     Qi_function,
                                     Tui,
                                     ice_thickness, ice_consolidation_thickness,
-                                    Qu, bottom_external_heat_flux,
+                                    Qui, Qbi,
                                     clock, model_fields)
 end

@@ -246,6 +246,7 @@ end
     ℵtmp    = ifelse(melting, ℵᵐ, ℵᶠ)
 
     # Final state via `ice_volume_update` (handles V<0 clipping, ridging, etc.).
+    # Pass the cached Qbi scalar (not the closure) so the bottom-flux closure is evaluated exactly once per step
     Quie = Qui + Qs * ℵtmp
     ∂t_V = ice_melt_freeze_tendency(i, j, 1, grid,
                                     ice_thermodynamics,
@@ -254,7 +255,7 @@ end
                                     Qii,
                                     Tsi,
                                     ice_thickness, ice_consolidation_thickness,
-                                    Quie, bottom_external_heat_flux,
+                                    Quie, Qbi,
                                     clock, model_fields)
 
     hiⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_V, hiⁿ, ℵⁿ, hᶜ, Δt)
