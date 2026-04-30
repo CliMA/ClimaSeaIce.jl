@@ -115,9 +115,7 @@ end
 
 # When snow is present, it sits on top of ice as an independent layer. The
 # column-top surface solve happens at the atmosphere-snow surface using the
-# combined snow+ice conductive flux (`IceSnowConductiveFlux`). The combined
-# flux is constructed inline from the two layer conductivities; it is not
-# stored on either thermodynamics.
+# combined snow+ice conductive flux (`IceSnowConductiveFlux`). 
 #
 # The snow-ice interface temperature Tsi is computed analytically from the
 # resistance ratio and handed to `ice_melt_freeze_tendency` as an argument,
@@ -155,10 +153,8 @@ end
     Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
     Tm = melting_temperature(liquidus, Si)
 
-    # --- Snow surface solve using the combined snow+ice conductive flux ---
-    # Resistors in series: F = (Tb - Tu) / (hs/ks + hi/ki). Built inline from
-    # the two layer conductivities using `model.phase_transitions.liquidus`,
-    # so neither slab needs to hold a liquidus reference.
+    # Snow surface solve using the combined snow+ice conductive flux with a 
+    # resistors in series formulation: F = (Tb - Tu) / (hs/ks + hi/ki). 
     ks = snow_thermodynamics.internal_heat_flux.conductivity
     ki = ice_thermodynamics.internal_heat_flux.conductivity
     combined_flux = IceSnowConductiveFlux(ks, ki)
@@ -194,9 +190,7 @@ end
     Tsi = interface_temperature(i, j, grid, combined_flux, bottom_bc, liquidus, Tus, model_fields)
 
     # Snow-surface energy balance (Qis per-ice column flux, Qui per-cell from
-    # the coupler). Compare like with like by converting Qui to per-ice;
-    # Qui/ℵⁿ = Qui when ℵⁿ = 1, and restores the correct per-ice driving
-    # flux when ℵⁿ < 1.
+    # the coupler). Converting Qui to per-ice...
     Qis = ifelse(consolidated_ice, getflux(Qic, i, j, grid, Tus, clock, model_fields), zero(grid))
     Qui = getflux(Qu, i, j, grid, Tus, clock, model_fields)
 
@@ -220,8 +214,7 @@ end
     #   C = ℵⁿ/(2hⁿ) (melt)  or  (1−ℵⁿ)/hᶜ (freeze)
     # has the explicit solution  ℵⁿ⁺¹ = (ℵⁿ + K·α) / (1 − K·β).
     # Solve both branches and pick the one with sign(∂t_V(ℵⁿ⁺¹)) consistent
-    # with its branch assumption. |K·β| ≲ 10⁻⁶ at ocean scales so the denominators are
-    # safely away from zero in practice; all divisions are NaN-guarded.
+    # with its branch assumption.
     @inbounds ρi = sea_ice_density[i, j, 1]
     ρiℒ = ρi * ℒs
     Qbi = getflux(bottom_external_heat_flux, i, j, grid, Tus, clock, model_fields)
