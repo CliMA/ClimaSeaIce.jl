@@ -207,7 +207,7 @@ end
     Gs⁻ = Qs / (ρs * ℒs)                         # per-ice, drives Δhs
 
     # Closed-form self-consistent solve for ℵⁿ⁺¹. The ice-top effective flux
-    # Quie = Qui + Qs·ℵⁿ⁺¹ couples Quie and ℵⁿ⁺¹ linearly; the slab's
+    # Quiᵉᶠᶠ = Qui + Qs·ℵⁿ⁺¹ couples Quiᵉᶠᶠ and ℵⁿ⁺¹ linearly; the slab's
     # concentration rule is also linear in ∂t_V, so the fixed point
     #   ∂t_V = α + β·ℵⁿ⁺¹,    α = (Qui − Qbi)/(ρᵢℒ),  β = Qs/(ρᵢℒ)
     #   ℵⁿ⁺¹ = ℵⁿ + K·∂t_V,   K = Δt · C,
@@ -240,7 +240,7 @@ end
 
     # Final state via `ice_volume_update` (handles V<0 clipping, ridging, etc.).
     # Pass the cached Qbi scalar (not the closure) so the bottom-flux closure is evaluated exactly once per step
-    Quie = Qui + Qs * ℵtmp
+    Quiᵉᶠᶠ = Qui + Qs * ℵtmp
     ∂t_V = ice_melt_freeze_tendency(i, j, 1, grid,
                                     ice_thermodynamics,
                                     phase_transitions,
@@ -248,7 +248,7 @@ end
                                     Qii,
                                     Tsi,
                                     ice_thickness, ice_consolidation_thickness,
-                                    Quie, Qbi,
+                                    Quiᵉᶠᶠ, Qbi,
                                     clock, model_fields)
 
     hiⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_V, hiⁿ, ℵⁿ, hᶜ, Δt)
