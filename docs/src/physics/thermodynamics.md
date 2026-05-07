@@ -38,23 +38,30 @@ phase_transitions = PhaseTransitions()
 
 ### Temperature-dependent latent heat
 
-The latent heat of fusion ``\mathscr{L}`` represents the energy required to transform ice into
-liquid water (or released during freezing). It varies with temperature:
+The latent heat of fusion ``\mathscr{L}`` is the energy per unit mass of pure ice required
+to transform ice into liquid water (or released during freezing). It varies with
+temperature through a Stefan correction:
 ```math
-\rho_i \mathscr{L}(T) = \rho_i \mathscr{L}_0 + (\rho_\ell c_\ell - \rho_i c_i)(T - T_0)
+\mathscr{L}(T) = \mathscr{L}_0 + \left(\frac{\rho_\ell c_\ell}{\rho_i} - c_i\right)(T - T_0)
 ```
-where ``\rho_i`` and ``\rho_\ell`` are the ice and liquid densities, ``c_i`` and ``c_\ell``
-are the respective heat capacities, ``\mathscr{L}_0`` is the reference latent heat at
-temperature ``T_0``, and ``T`` is the current temperature.
+where ``\rho_i, c_i`` are the **microscopic pure-ice** density and heat capacity,
+``\rho_\ell, c_\ell`` are the liquid water density and heat capacity, ``\mathscr{L}_0`` is
+the reference latent heat at temperature ``T_0``, and ``T`` is the current temperature.
+All quantities here are material properties of pure H₂O and identical for sea ice and
+snow (the ice crystals are the same substance in both media).
+
+To obtain energy per unit volume of a porous medium (snow or sea ice), multiply by the
+bulk density of that medium. This separation of the *mass-budget multiplier* from the
+*per-mass Stefan correction* matches the CICE / CLM convention.
 
 ```@example thermodynamics
 using ClimaSeaIce.SeaIceThermodynamics: latent_heat
 
-# Latent heat at different temperatures
+# Per-mass latent heat at different temperatures
 L_at_0C = latent_heat(phase_transitions, 0.0)
 L_at_minus10C = latent_heat(phase_transitions, -10.0)
-println("Latent heat at 0°C: ", L_at_0C, " J/m³")
-println("Latent heat at -10°C: ", L_at_minus10C, " J/m³")
+println("Latent heat at 0°C: ", L_at_0C, " J/kg")
+println("Latent heat at -10°C: ", L_at_minus10C, " J/kg")
 ```
 
 ## Heat fluxes and the Stefan condition
@@ -170,20 +177,134 @@ flux = FluxFunction(sensible_heat; parameters = (coefficient = 15.0, T_air = -10
 
 ## Putting it together: SlabThermodynamics
 
-The [`SlabThermodynamics`](@ref) struct combines all thermodynamic components:
+The [`SlabThermodynamics`](@ref) struct describes a single slab layer (sea ice
+or snow). It carries the top surface temperature field, the top/bottom heat
+boundary conditions, the internal conductive flux coefficient, and the
+concentration-evolution rule. Phase-transition parameters (densities, latent
+heat, liquidus) are *not* stored here — they live on the [`SeaIceModel`](@ref)
+as `phase_transitions`, shared between the ice and the (optional) snow layer.
 
 ```@example thermodynamics
 using Oceananigans
-using ClimaSeaIce.SeaIceThermodynamics: SlabThermodynamics, ConductiveFlux, MeltingConstrainedFluxBalance
+using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: MeltingConstrainedFluxBalance
 
 grid = RectilinearGrid(size=(10, 10), x=(0, 1e5), y=(0, 1e5), topology=(Periodic, Periodic, Flat))
 
-thermodynamics = SlabThermodynamics(grid;
+ice_thermodynamics = SlabThermodynamics(grid;
     top_heat_boundary_condition = MeltingConstrainedFluxBalance(),
     internal_heat_flux = ConductiveFlux(Float64; conductivity = 2.0))
 
-thermodynamics
+ice_thermodynamics
 ```
+
+The bulk sea-ice density is passed to [`SeaIceModel`](@ref) separately via the
+`sea_ice_density` keyword (default `900` kg/m³), and is stored as a
+`Field{Center, Center, Nothing}` on the model. It is distinct from the
+microscopic pure-ice density inside [`PhaseTransitions`](@ref), which refers
+to the pure ice crystal and not to the porous sea-ice matrix.
+
+## Customising the internal flux
+
+The value you pass via `internal_heat_flux = ...` to `SlabThermodynamics`
+(and to its `sea_ice_slab_thermodynamics` and `snow_slab_thermodynamics`
+helpers) is the *raw coefficient* of the layer's internal flux — not a
+`FluxFunction`. The tendency kernel wraps it in a `FluxFunction` on the
+fly, threading in `model.phase_transitions.liquidus` and the slab's bottom
+boundary condition as parameters. This avoids baking the shared liquidus
+into each slab at construction time.
+
+Four shapes are supported out of the box:
+
+### A `ConductiveFlux` (default for both ice and snow)
+
+```@example thermodynamics
+using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux
+
+ice_thermodynamics = SlabThermodynamics(grid;
+    internal_heat_flux = ConductiveFlux(Float64; conductivity = 2.0))
+```
+
+Computes `Q_i = -k (T_u - T_b) / h_i`. The most common case.
+
+### A bare `Function`
+
+Pass a kernel function directly. Its signature must match the standard
+`FluxFunction` calling convention — `(i, j, grid, Tu, clock, fields,
+parameters) -> Q`:
+
+```@example thermodynamics
+@inline function radiative_internal_flux(i, j, grid, Tu, clock, fields, parameters)
+    hi = @inbounds fields.h[i, j, 1]
+    # parameters.flux is the function itself; parameters.liquidus and
+    # parameters.bottom_heat_boundary_condition are injected by the slab.
+    return ifelse(hi ≤ 0, zero(hi), -5.0 * Tu)  # toy radiative model
+end
+
+ice_thermodynamics_rad = SlabThermodynamics(grid;
+    internal_heat_flux = radiative_internal_flux)
+```
+
+### A fully-assembled `FluxFunction`
+
+If you have already packaged the kernel, its parameters, and the
+temperature-dependence flag in a `FluxFunction`, you can pass it directly.
+The slab stores it unchanged; the tendency kernel does *not* inject its
+own `liquidus` / `bottom_heat_boundary_condition`:
+
+```@example thermodynamics
+using ClimaSeaIce.SeaIceThermodynamics: FluxFunction
+
+user_flux = FluxFunction(radiative_internal_flux;
+                         parameters = (flux = nothing, absorption = 0.8),
+                         top_temperature_dependent = true)
+
+ice_thermodynamics_fn = SlabThermodynamics(grid;
+    internal_heat_flux = user_flux)
+```
+
+This is the right choice when your flux needs parameters that the default
+liquidus/bottom-BC injection cannot supply.
+
+### A custom flux struct (extend `flux_kernel`)
+
+For more structured flux descriptions, define a concrete type and provide
+one new method:
+
+```julia
+struct NonLinearConductiveFlux{T}
+    k0 :: T
+    α  :: T   # temperature sensitivity
+end
+
+@inline function nonlinear_conductive_flux(i, j, grid, Tu, clock, fields, parameters)
+    flux = parameters.flux           # ::NonLinearConductiveFlux
+    bottom_bc = parameters.bottom_heat_boundary_condition
+    liquidus = parameters.liquidus
+    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    hi = @inbounds fields.h[i, j, 1]
+    k_eff = flux.k0 * (1 + flux.α * Tu)
+    return ifelse(hi ≤ 0, zero(hi), -k_eff * (Tu - Tb) / hi)
+end
+
+# Extend the dispatch so the slab knows how to wrap NonLinearConductiveFlux
+ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::NonLinearConductiveFlux) = nonlinear_conductive_flux
+
+SlabThermodynamics(grid;
+    internal_heat_flux = NonLinearConductiveFlux(2.0, 0.01))
+```
+
+The benefit over the bare-function approach is that the flux coefficient is
+introspectable (`show`, GPU `adapt`, user copying, etc.) and carries its
+own type parameters.
+
+!!! note "Layered snow + ice coupling"
+    The layered path in `_layered_thermodynamic_time_step!` assumes that
+    each layer's flux carries a `.conductivity` field and that the coupling
+    is `IceSnowConductiveFlux` (resistors in series). Replacing the
+    internal flux with a non-conductive formulation in the layered case
+    requires changes to the layered kernel and is out of scope for the
+    current refactor.
 
 When coupled to a [`SeaIceModel`](@ref), these thermodynamics automatically compute thickness
 tendencies based on the configured heat fluxes and boundary conditions.
@@ -250,7 +371,10 @@ consolidation), the snow thickness is adjusted to conserve the snow volume
 
 ### Setting up a snow-covered model
 
-Use [`snow_slab_thermodynamics`](@ref) for convenient construction with snow defaults:
+Pass a second [`SlabThermodynamics`](@ref) via `snow_thermodynamics` (or use the
+[`snow_slab_thermodynamics`](@ref) helper, which defaults the snow conductivity
+to 0.31 W m⁻¹ K⁻¹). The model reads the bulk snow density from the
+`snow_density` keyword (default 330 kg/m³).
 
 ```@example thermodynamics
 using ClimaSeaIce
@@ -261,11 +385,26 @@ snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 model = SeaIceModel(grid;
     snow_thermodynamics,
+    snow_density = 330,
     snowfall = 3e-6) # kg/m²/s
 
 set!(model, h=1, ℵ=1, hs=0.1) # 10 cm snow on 1 m ice
 ```
 
-The [`SeaIceModel`](@ref) constructor automatically wires the layered coupling:
-the snow's internal heat flux is replaced with the combined snow+ice conductive flux,
-and the ice's top boundary condition becomes a prescribed interface temperature.
+The combined snow+ice conductive flux is constructed inline inside the
+layered thermodynamic kernel from each layer's conductivity, and the
+snow-ice interface temperature ``T_{si}`` is computed analytically at each
+step from the resistance ratio.
+
+### Dynamics-only configurations
+
+When running a pure-dynamics simulation (no phase physics), pass
+`ice_thermodynamics = nothing`. `SeaIceModel` still carries the bulk
+`sea_ice_density` field that the momentum equations need, so the dynamics
+path works without a thermodynamic step:
+
+```@example thermodynamics
+model_dyn = SeaIceModel(grid;
+    ice_thermodynamics = nothing,
+    sea_ice_density = 900)
+```

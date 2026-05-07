@@ -51,12 +51,11 @@ conductivity = 2 # W m⁻¹ K⁻¹
 internal_heat_flux = ConductiveFlux(; conductivity)
 
 # Note that other units besides Celsius _can_ be used, but that requires setting
-# `model.phase_transitions` with appropriate parameters. We set the ice heat capacity
-# and density as well:
+# `model.phase_transitions` with appropriate parameters. The microscopic
+# pure-ice heat capacity enters the Stefan correction to the latent heat:
 
 heat_capacity = 2100 # J kg⁻¹ K⁻¹
-density = 900 # kg m⁻³
-phase_transitions = PhaseTransitions(; heat_capacity, density)
+phase_transitions = PhaseTransitions(; heat_capacity)
 
 # We set the top ice temperature:
 
@@ -69,7 +68,6 @@ top_heat_boundary_condition = PrescribedTemperature(top_temperature)
 
 ice_thermodynamics = SlabThermodynamics(grid;
                                         internal_heat_flux,
-                                        phase_transitions,
                                         top_heat_boundary_condition)
 
 # ## Frazil ice formation
@@ -86,7 +84,7 @@ bottom_heat_flux = FluxFunction(frazil_ice_formation)
 #
 # Then we assemble it all into a model:
 
-model = SeaIceModel(grid; ice_thermodynamics, bottom_heat_flux)
+model = SeaIceModel(grid; ice_thermodynamics, phase_transitions, sea_ice_density=900, bottom_heat_flux)
 
 # Note that the default bottom heat boundary condition for `SlabThermodynamics`
 # is `IceWaterThermalEquilibrium` with freshwater. That's what we want!

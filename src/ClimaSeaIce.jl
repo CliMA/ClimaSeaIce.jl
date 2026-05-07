@@ -21,7 +21,7 @@ import Oceananigans.TimeSteppers: time_step!, update_state!
 import Oceananigans.TurbulenceClosures: cell_diffusion_timescale
 import Oceananigans.Utils: prettytime
 
-export SeaIceModel, 
+export SeaIceModel,
        MeltingConstrainedFluxBalance,
        PrescribedTemperature,
        RadiativeEmission,
