@@ -63,13 +63,13 @@ end
         uᶠ = free_drift_u(i, j, kᴺ, grid, free_drift, clock, fields)
         vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, fields)
 
-        has_ice = (mᶠᶜ > eps(typeof(mᶠᶜ))) & (ℵᶠᶜ > eps(typeof(ℵᶠᶜ)))
-        sea_ice = (mᶠᶜ ≥ minimum_mass) & (ℵᶠᶜ ≥ minimum_concentration)
-        u[i, j, 1] = ifelse(sea_ice, uᴰ, ifelse(has_ice, uᶠ, zero(grid)))
+        marginal_ice = (mᶠᶜ > eps(typeof(mᶠᶜ))) & (ℵᶠᶜ > eps(typeof(ℵᶠᶜ)))
+        active_ice = (mᶠᶜ ≥ minimum_mass) & (ℵᶠᶜ ≥ minimum_concentration)
+        u[i, j, 1] = ifelse(active_ice, uᴰ, ifelse(marginal_ice, uᶠ, zero(grid)))
 
-        has_ice = (mᶜᶠ > eps(typeof(mᶜᶠ))) & (ℵᶜᶠ > eps(typeof(ℵᶜᶠ)))
-        sea_ice = (mᶜᶠ ≥ minimum_mass) & (ℵᶜᶠ ≥ minimum_concentration)
-        v[i, j, 1] = ifelse(sea_ice, vᴰ, ifelse(has_ice, vᶠ, zero(grid)))
+        marginal_ice = (mᶜᶠ > eps(typeof(mᶜᶠ))) & (ℵᶜᶠ > eps(typeof(ℵᶜᶠ)))
+        active_ice = (mᶜᶠ ≥ minimum_mass) & (ℵᶜᶠ ≥ minimum_concentration)
+        v[i, j, 1] = ifelse(active_ice, vᴰ, ifelse(marginal_ice, vᶠ, zero(grid)))
     end 
 end
 
