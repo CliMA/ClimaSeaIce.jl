@@ -60,14 +60,11 @@ end
         uᴰ = (u⁻[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
         vᴰ = (v⁻[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
 
-        uᶠ = free_drift_u(i, j, kᴺ, grid, free_drift, clock, fields)
-        vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, fields)
-
         sea_ice = (mᶠᶜ ≥ minimum_mass) & (ℵᶠᶜ ≥ minimum_concentration)
-        u[i, j, 1] = ifelse(sea_ice, uᴰ, uᶠ)
+        u[i, j, 1] = ifelse(sea_ice, uᴰ, zero(grid))
 
         sea_ice = (mᶜᶠ ≥ minimum_mass) & (ℵᶜᶠ ≥ minimum_concentration)
-        v[i, j, 1] = ifelse(sea_ice, vᴰ, vᶠ)
+        v[i, j, 1] = ifelse(sea_ice, vᴰ, zero(grid))
     end 
 end
 
