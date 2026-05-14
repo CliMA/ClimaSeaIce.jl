@@ -175,12 +175,16 @@ end
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
     uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity
+    uᶠ  = free_drift_u(i, j, kᴺ, grid, free_drift, clock, model_fields) # free drift velocity
+
     # If the ice mass or the ice concentration are below a certain threshold,
-    # the sea ice velocity is set to zero.
+    # the sea ice velocity is set to the free drift velocity. If no ice is
+    # present above roundoff, the sea ice velocity is set to zero.
+    has_ice = (mᵢ > eps(typeof(mᵢ))) & (ℵᵢ > eps(typeof(ℵᵢ)))
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
     active  = !peripheral_node(i, j, kᴺ, grid, Face(), Center(), Center())
 
-    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, zero(grid)) * active
+    @inbounds u[i, j, 1] = ifelse(sea_ice, uᴰ, ifelse(has_ice, uᶠ, zero(grid))) * active
 end
 
 @kernel function _v_velocity_step!(v, grid, Δt,
@@ -206,10 +210,14 @@ end
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 
     vᴰ = @inbounds (v[i, j, 1] + Δτ * Gv) / (1 + Δτ * τvᵢ)# dynamical velocity
+    vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, model_fields)  # free drift velocity
+
     # If the ice mass or the ice concentration are below a certain threshold,
-    # the sea ice velocity is set to zero.
+    # the sea ice velocity is set to the free drift velocity. If no ice is
+    # present above roundoff, the sea ice velocity is set to zero.
+    has_ice = (mᵢ > eps(typeof(mᵢ))) & (ℵᵢ > eps(typeof(ℵᵢ)))
     sea_ice = (mᵢ ≥ minimum_mass) & (ℵᵢ ≥ minimum_concentration)
     active  = !peripheral_node(i, j, kᴺ, grid, Center(), Face(), Center())
 
-    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, zero(grid)) * active
+    @inbounds v[i, j, 1] = ifelse(sea_ice, vᴰ, ifelse(has_ice, vᶠ, zero(grid))) * active
 end
