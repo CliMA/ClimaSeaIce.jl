@@ -84,6 +84,10 @@ end
 fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
 prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
 
+# Fallback: keep the same grid and dynamics
+maybe_extended_grid(mom, grid) = grid
+materialize_solver(mom, velocity_grid) = mom
+
 function Base.show(io::IO, sime::SeaIceMomentumEquation)
 
     aux_fields = keys(sime.auxiliaries.fields)

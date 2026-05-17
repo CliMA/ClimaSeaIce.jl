@@ -8,6 +8,16 @@ using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.ImmersedBoundaries: peripheral_node
 using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
 using Oceananigans.Utils: configure_kernel
+using Oceananigans.Grids: halo_size, topology, with_halo,
+                          LeftConnected, RightConnected, FullyConnected,
+                          RightCenterFolded, RightFaceFolded,
+                          LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
+                          LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
+
+const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
+                                RightCenterFolded, RightFaceFolded,
+                                LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
+                                LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
 struct SplitExplicitSolver{I, K}
     substeps :: I
@@ -36,7 +46,35 @@ end
 SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
-const ExtendedSplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver{<:Any, <:KernelParameters}}
+
+# Shenanigans for extending the halos in Distributed grids
+function maybe_extended_grid(mom::SplitExplicitMomentumEquation, grid::DistributedGrid)
+    old_halos = halo_size(grid)
+    Nsubsteps = mom.solver.substeps
+    TX, TY, _ = topology(grid)
+    Hx = TX() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[1]) : old_halos[1]
+    Hy = TY() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[2]) : old_halos[2]
+
+    new_halos = (Hx, Hy, old_halos[3])
+    if new_halos == old_halos
+        return grid
+    else
+        return with_halo(new_halos, grid)
+    end
+end
+
+function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
+    new_auxiliaries = Auxiliaries(mom.rheology, grid)
+    new_solver      = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
+    return SeaIceMomentumEquation(mom.coriolis,
+                                  mom.rheology,
+                                  new_auxiliaries,
+                                  new_solver,
+                                  mom.free_drift,
+                                  mom.external_momentum_stresses,
+                                  mom.minimum_concentration,
+                                  mom.minimum_mass)
+end
 
 # Reset the velocities to the previous time step
 # This does nothing for a FE model, but is necessary for an RK model.

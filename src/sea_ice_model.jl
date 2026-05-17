@@ -4,15 +4,10 @@ using Oceananigans.Advection: materialize_advection
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
-using Oceananigans.Grids: halo_size, topology, with_halo,
-                          LeftConnected, RightConnected, FullyConnected,
-                          RightCenterFolded, RightFaceFolded,
-                          LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
-                          LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
 using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 
-using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
+using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
                                         PhaseTransitions, internal_flux_function
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
@@ -23,11 +18,6 @@ import Oceananigans.OutputWriters: default_included_properties
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
-
-const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
-                                RightCenterFolded, RightFaceFolded,
-                                LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
-                                LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
 struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
@@ -102,25 +92,9 @@ function SeaIceModel(grid;
 
     if isnothing(velocities)
         # Extend the halos for the velocity fields if the dynamics is
-        # an extended split explicit momentum equation
-        if dynamics isa ExtendedSplitExplicitMomentumEquation
-            old_halos = halo_size(grid)
-            raw_substeps = dynamics.solver.substeps
-            Nsubsteps = length(raw_substeps)
-            TX, TY    = topology(grid)
-            Hx = TX() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[1]) : old_halos[1]
-            Hy = TY() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[2]) : old_halos[2]
-
-            new_halos = (Hx, Hy, old_halos[3])
-            if new_halos == old_halos
-                velocity_grid = grid
-            else
-                velocity_grid = with_halo(new_halos, grid)
-            end
-        else
-            velocity_grid = grid
-        end
-
+        # an split explicit momentum equation on a Distributed grid
+        velocity_grid = maybe_extended_grid(dynamics, grid)
+        dynamics = materialize_solver(dynamics, velocity_grid)
         u = Field{Face, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.u)
         v = Field{Center, Face, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)

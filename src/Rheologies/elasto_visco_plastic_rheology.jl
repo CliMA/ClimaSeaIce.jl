@@ -130,7 +130,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
-    σ₁₂ = Field{Face, Face, Nothing}(grid)
+    σ₁₂ = Field{Face,   Face,   Nothing}(grid)
 
     uⁿ = Field{Face,   Center, Nothing}(grid)
     vⁿ = Field{Center, Face,   Nothing}(grid)
