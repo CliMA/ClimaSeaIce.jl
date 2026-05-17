@@ -38,9 +38,9 @@ end
     kᴺ   = size(grid, 3) # Assumption! The sea ice is located at the _top_ of the grid
 
     @inbounds begin
-        # `Gⁿ.h` stores the **volume-per-area** tendency `∂V/∂t = -∇·(U·V)` with
-        # `V = ℵ·h`, not `∂h/∂t`. This conserves `V`, then `_dynamic_step_tracers!` 
-        # recovers `h = V/ℵ` with a small-ℵ guard.
+        # `Gⁿ.h` stores `∂𝓋/∂t = -∇·(U·𝓋)` with `𝓋 = ℵ·h`, NOT `∂h/∂t`. 
+        # This flux-form scheme conserves the extensive integral `∫𝓋 dA = Σ Az`. 
+        # `_dynamic_step_tracers!` then recovers `h = 𝓋/ℵ` with a small-ℵ guard.
         Gⁿ.h[i, j, 1] = - div_Uℵh(i, j, kᴺ, grid, advection, velocities, ice_concentration, ice_thickness)
         Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
     end

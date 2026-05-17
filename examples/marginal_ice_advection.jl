@@ -57,7 +57,7 @@ u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
 # A uniform eastward ocean current provides the background advection that
 # carries the marginal ice block across the channel:
 
-𝓋ₒ = 0.1 # m s⁻¹ uniform ocean speed
+𝓋ₒ = 0.2 # m s⁻¹ uniform ocean speed
 
 Uₒ = XFaceField(grid)
 set!(Uₒ, 𝓋ₒ)
@@ -78,11 +78,8 @@ y_cyclone = Ly / 2
 @inline cyclone_radius(x, y, t) = sqrt((x - x_cyclone(t))^2 + (y - y_cyclone)^2)
 @inline speed(x, y, t) = 1 / 100 * exp(- cyclone_radius(x, y, t) / 80kilometers)
 
-@inline ua_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) *
-                           (  cosd(72) * (x - x_cyclone(t)) + sind(72) * (y - y_cyclone)) / 1000
-
-@inline va_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) *
-                           (- sind(72) * (x - x_cyclone(t)) + cosd(72) * (y - y_cyclone)) / 1000
+@inline ua_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (  cosd(72) * (x - x_cyclone(t)) + sind(72) * (y - y_cyclone)) / 1000
+@inline va_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (- sind(72) * (x - x_cyclone(t)) + cosd(72) * (y - y_cyclone)) / 1000
 
 # Initialize the stress at time t = 0:
 
@@ -113,6 +110,7 @@ dynamics = SeaIceMomentumEquation(grid;
 model = SeaIceModel(grid;
                     dynamics,
                     advection = WENO(order=7),
+                    timestepper = :ForwardEuler,
                     boundary_conditions = (; u=u_bcs),
                     ice_thermodynamics = nothing)
 
@@ -134,7 +132,7 @@ set!(model, h = ice_block, ℵ = ice_block)
 #
 # We run the model for 3 days with a 2-minute time step:
 
-simulation = Simulation(model, Δt = 2minutes, stop_time = 3days)
+simulation = Simulation(model, Δt = 5minutes, stop_time = 5days)
 
 # ## Time-varying wind stress
 #
@@ -157,7 +155,6 @@ function compute_wind_stress(sim)
 end
 
 simulation.callbacks[:top_stress] = Callback(compute_wind_stress, IterationInterval(1))
-simulation.callbacks[:progresss] = Callback(sim -> @info "$(prettytime(sim.model.clock.time)) at $(sim.model.clock.iteration)", IterationInterval(10))
 
 # ## Output writer
 #
