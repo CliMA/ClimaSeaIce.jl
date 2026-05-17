@@ -41,12 +41,10 @@ end
 end
 
 @testset "Volume-form advection conserves ∫(ℵ·h) dA" begin
-    # The conserved EXTENSIVE quantity is `∫(ℵh) dA = Σ ℵ·h·A_cell` (total
+    # The conserved EXTENSIVE quantity is `∫(ℵh) dA = Σ ℵ·h·Az` (total
     # ice volume, units m³). The kernel stores the intensive `𝓋 = ℵ·h`
-    # (units m). On a uniform grid `A_cell` is constant, but we weight by it
+    # (units m). On a uniform grid `Az` is constant, but we weight by it
     # here so this test is also correct on a non-uniform grid.
-    using Oceananigans.Operators: Azᶜᶜᶜ
-
     grid = RectilinearGrid(size=(64, 64, 1), x=(0,1), y=(0,1), z=(-1,0), halo=(4,4,4),
                            topology=(Periodic, Periodic, Bounded))
 
@@ -60,13 +58,7 @@ end
     set!(model, h = (x, y) -> 1.0 + 0.5*sin(2π*x)*cos(2π*y),
                 ℵ = (x, y) -> 0.5 + 0.3*sin(2π*x)*cos(2π*y))
 
-    function total_ice_volume(m)
-        g = m.ice_thickness.grid
-        Nx, Ny, _ = size(g)
-        h = interior(m.ice_thickness, :, :, 1)
-        ℵ = interior(m.ice_concentration, :, :, 1)
-        return sum(h[i, j] * ℵ[i, j] * Azᶜᶜᶜ(i, j, 1, g) for i in 1:Nx, j in 1:Ny)
-    end
+    total_ice_volume(m) = Field(Integral((model.ice_thickness * model.ice_concentration)))[1, 1, 1]
 
     V₀ = total_ice_volume(model)
     for _ in 1:50
