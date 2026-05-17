@@ -120,9 +120,10 @@ function dynamic_time_step!(model::RKSeaIceModel, Δt)
     hsⁿ = isnothing(hs) ? nothing : model.timestepper.Ψ⁻.hs
 
     tracers = model.tracers
-    Gⁿ = model.timestepper.Gⁿ
+    Gⁿ   = model.timestepper.Gⁿ
+    ℵmin = model.concentration_floor
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, ℵmin, tracers, Gⁿ, Δt)
 
     return nothing
 end

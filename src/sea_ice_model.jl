@@ -19,7 +19,7 @@ import Oceananigans.OutputWriters: default_included_properties
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
 
-struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, CF, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
@@ -33,6 +33,8 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, S
     sea_ice_density :: ID
     snow_density :: SND
     ice_consolidation_thickness :: CT
+    # Numerical floor on the ice concentration
+    concentration_floor :: CF
     # Shared thermodynamic parameters
     phase_transitions :: PT
     # Thermodynamics
@@ -58,6 +60,7 @@ function SeaIceModel(grid;
                      ice_salinity                = 0, # psu
                      sea_ice_density             = 900, # kg m⁻³, bulk sea-ice
                      snow_density                = 330, # kg m⁻³, bulk snow
+                     concentration_floor         = 1e-10,
                      phase_transitions           = PhaseTransitions(eltype(grid)),
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,
@@ -75,6 +78,7 @@ function SeaIceModel(grid;
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_consolidation_thickness in a field
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
+    concentration_floor = convert(eltype(grid), concentration_floor)
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
 
@@ -191,6 +195,7 @@ function SeaIceModel(grid;
                        sea_ice_density,
                        snow_density,
                        ice_consolidation_thickness,
+                       concentration_floor,
                        phase_transitions,
                        ice_thermodynamics,
                        snow_thermodynamics,
