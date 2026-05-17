@@ -41,12 +41,7 @@ end
 end
 
 @testset "Volume-form advection conserves ∫(ℵ·h) dA" begin
-    # The conserved EXTENSIVE quantity is `∫(ℵh) dA = Σ ℵ·h·Az` (total
-    # ice volume, units m³). The kernel stores the intensive `𝓋 = ℵ·h`
-    # (units m). On a uniform grid `Az` is constant, but we weight by it
-    # here so this test is also correct on a non-uniform grid.
-    grid = RectilinearGrid(size=(64, 64, 1), x=(0,1), y=(0,1), z=(-1,0), halo=(4,4,4),
-                           topology=(Periodic, Periodic, Bounded))
+    grid = RectilinearGrid(size=(64, 64, 1), x=(0,1), y=(0,1), z=(-1,0), halo=(4,4,4), topology=(Periodic, Periodic, Bounded))
 
     # Convergent/divergent flow toward (0.5, 0.5)
     u = Field{Face, Center, Center}(grid)
@@ -58,13 +53,11 @@ end
     set!(model, h = (x, y) -> 1.0 + 0.5*sin(2π*x)*cos(2π*y),
                 ℵ = (x, y) -> 0.5 + 0.3*sin(2π*x)*cos(2π*y))
 
-    total_ice_volume(m) = Field(Integral((model.ice_thickness * model.ice_concentration)))[1, 1, 1]
-
-    V₀ = total_ice_volume(model)
+    V₀ = Field(Integral((model.ice_thickness * model.ice_concentration)))[1, 1, 1]
     for _ in 1:50
         time_step!(model, 0.01)
     end
-    V₅₀ = total_ice_volume(model)
+    V₅₀ = Field(Integral((model.ice_thickness * model.ice_concentration)))[1, 1, 1]
 
     @test isapprox(V₅₀, V₀; rtol = 1e-12)
 end
