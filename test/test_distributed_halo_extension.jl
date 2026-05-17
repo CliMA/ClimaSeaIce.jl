@@ -35,6 +35,10 @@ Hx, Hy, Hz = halo_size(grid)
 Hx = max(substeps + 2, Hx)
 @test halo_size(model.velocities.u.grid) == (Hx, Hy, Hz)
 @test halo_size(model.dynamics.auxiliaries.fields.P.grid) == (Hx, Hy, Hz)
+# Prognostic tracer-like fields must share the extended halos with the EVP
+# auxiliaries — otherwise the stress kernel reads h/ℵ out-of-bounds.
+@test halo_size(model.ice_thickness.grid)     == (Hx, Hy, Hz)
+@test halo_size(model.ice_concentration.grid) == (Hx, Hy, Hz)
 
 Nx, Ny, Nz = size(grid)
 

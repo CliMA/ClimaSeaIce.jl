@@ -103,11 +103,12 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     Hx, Hy, _  = halo_size(grid)
     u, v       = model.velocities
 
-    reset_velocities!(u, v, model.timestepper)
-
     free_drift = dynamics.free_drift
     clock = model.clock
     coriolis = dynamics.coriolis
+
+    reset_velocities!(u, v, model.timestepper)
+    fill_halo_regions!((model.ice_thickness, model.ice_concentration), clock, fields(model))
 
     minimum_mass = dynamics.minimum_mass
     minimum_concentration = dynamics.minimum_concentration
@@ -131,6 +132,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
+
     initialize_rheology!(model, dynamics.rheology)
 
     u_args = (u, grid, Δt, substeps, rheology, model_fields,

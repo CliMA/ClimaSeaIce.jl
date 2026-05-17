@@ -98,21 +98,24 @@ function SeaIceModel(grid;
         u = Field{Face, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.u)
         v = Field{Center, Face, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
+    else
+        velocity_grid = velocities.u.grid
     end
 
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field
-    ice_salinity    = field((Center, Center, Nothing), ice_salinity, grid)
+    ice_salinity    = field((Center, Center, Nothing), ice_salinity,    grid)
     sea_ice_density = field((Center, Center, Nothing), sea_ice_density, grid)
-    snow_density    = field((Center, Center, Nothing), snow_density, grid)
+    snow_density    = field((Center, Center, Nothing), snow_density,    grid)
 
-    # Construct prognostic fields if not provided
-    ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
-    ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ)
+    # Thickness and concentration need to be on the velocity_grid because rheology needs both `h` and `ℵ`
+    # _inside_ the halos when running in an extended distributed grid. In serial cases and for solvers 
+    # other than split explicit velocity_grid == grid.
+    ice_thickness     = Field{Center, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.h)
+    ice_concentration = Field{Center, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.ℵ)
 
-    # Snow thickness (only allocated when snow_thermodynamics is provided)
+    # Snow thickness
     snow_thickness = if isnothing(snow_thermodynamics)
         nothing
     else
