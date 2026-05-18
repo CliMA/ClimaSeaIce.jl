@@ -1,14 +1,18 @@
 module SeaIceThermodynamics
 
-export SlabSeaIceThermodynamics, 
+export SlabThermodynamics,
+       snow_slab_thermodynamics,
+       sea_ice_slab_thermodynamics,
        PhaseTransitions,
        MeltingConstrainedFluxBalance,
        PrescribedTemperature,
        RadiativeEmission,
        ConductiveFlux,
+       IceSnowConductiveFlux,
        FluxFunction
 
 using Adapt
+using Oceananigans
 
 #####
 ##### A bit of ice_thermodynamics to start the day
@@ -20,7 +24,7 @@ struct LinearLiquidus{FT}
 end
 
 """
-    LinearLiquidus(FT=Float64,
+    LinearLiquidus(FT=Oceananigans.defaults.FloatType,
                    slope = 0.054, # psu / ᵒC
                    freshwater_melting_temperature = 0) # ᵒC
 
@@ -43,7 +47,7 @@ temperature is in degrees Celsius.
 Note: the function `melting_temperature(liquidus, salinity)` returns the
 melting temperature given `salinity`.
 """
-function LinearLiquidus(FT::DataType=Float64;
+function LinearLiquidus(FT::DataType=Oceananigans.defaults.FloatType;
                         slope = 0.054, # psu / ᵒC
                         freshwater_melting_temperature = 0) # ᵒC
 
@@ -55,9 +59,17 @@ end
     return liquidus.freshwater_melting_temperature - liquidus.slope * salinity
 end
 
+Base.summary(lq::LinearLiquidus) = "LinearLiquidus(freshwater_melting_temperature = $(lq.freshwater_melting_temperature), slope = $(lq.slope))"
+
+function Base.show(io::IO, lq::LinearLiquidus{FT}) where FT
+    print(io, summary(lq), "{", FT, "}", '\n')
+    print(io, "├── freshwater_melting_temperature: ", lq.freshwater_melting_temperature, '\n')
+    print(io, "└── slope: ", lq.slope)
+end
+
 struct PhaseTransitions{FT, L}
-    ice_density :: FT
-    ice_heat_capacity :: FT
+    density :: FT
+    heat_capacity :: FT
     liquid_density :: FT
     liquid_heat_capacity :: FT
     reference_latent_heat :: FT
@@ -66,13 +78,14 @@ struct PhaseTransitions{FT, L}
 end
 
 """
-    PhaseTransitions(FT=Float64,
-                     ice_density           = 917,   # kg m⁻³
-                     ice_heat_capacity     = 2000,  # J / (kg ᵒC)
-                     liquid_density        = 999.8, # kg m⁻³
-                     liquid_heat_capacity  = 4186,  # J / (kg ᵒC)
-                     reference_latent_heat = 334e3  # J kg⁻³
-                     liquidus = LinearLiquidus(FT)) # default assumes psu, ᵒC
+    PhaseTransitions(FT=Oceananigans.defaults.FloatType;
+                     density               = 917,   # kg m⁻³
+                     heat_capacity          = 2000,  # J / (kg ᵒC)
+                     liquid_density         = 999.8, # kg m⁻³
+                     liquid_heat_capacity   = 4186,  # J / (kg ᵒC)
+                     reference_latent_heat  = 334e3, # J kg⁻³
+                     reference_temperature  = 0,     # ᵒC
+                     liquidus = LinearLiquidus(FT))  # default assumes psu, ᵒC
 
 Return a representation of transitions between the solid and liquid phases
 of salty water: in other words, the freezing and melting of sea ice.
@@ -81,27 +94,27 @@ The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
 a function of temperature ``T`` via
 
 ```math
-ρᵢ ℒ(T) = ρᵢ ℒ₀ + (ρ_ℓ c_ℓ - ρᵢ cᵢ) (T - T₀)    
+ρ ℒ(T) = ρ ℒ₀ + (ρ_ℓ c_ℓ - ρ c) (T - T₀)
 ```
 
-where ``ρᵢ`` is the `ice_density`, ``ρ_ℓ`` is the liquid density,
-``cᵢ`` is the heat capacity of ice, and ``c_ℓ`` is the heat capacity of
-liquid, and ``T₀`` is a reference temperature, all of which are assumed constant.
+where ``ρ`` is the solid `density`, ``ρ_ℓ`` is the liquid density,
+``c`` is the solid `heat_capacity`, ``c_ℓ`` is the liquid heat capacity,
+and ``T₀`` is a reference temperature, all of which are assumed constant.
 
 The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
-@inline function PhaseTransitions(FT=Float64;
-                                  ice_density           = 917,    # kg m⁻³
-                                  ice_heat_capacity     = 2000,   # J / (kg ᵒC)
-                                  liquid_density        = 999.8,  # kg m⁻³
-                                  liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
-                                  reference_latent_heat = 334e3,  # J kg⁻³
-                                  reference_temperature = 0,      # ᵒC
+@inline function PhaseTransitions(FT=Oceananigans.defaults.FloatType;
+                                  density                = 917,    # kg m⁻³
+                                  heat_capacity          = 2000,   # J / (kg ᵒC)
+                                  liquid_density         = 999.8,  # kg m⁻³
+                                  liquid_heat_capacity   = 4186,   # J / (kg ᵒC)
+                                  reference_latent_heat  = 334e3,  # J kg⁻³
+                                  reference_temperature  = 0,      # ᵒC
                                   liquidus = LinearLiquidus(FT))
 
-    return PhaseTransitions(convert(FT, ice_density),
-                            convert(FT, ice_heat_capacity),
+    return PhaseTransitions(convert(FT, density),
+                            convert(FT, heat_capacity),
                             convert(FT, liquid_density),
                             convert(FT, liquid_heat_capacity),
                             convert(FT, reference_latent_heat),
@@ -109,15 +122,46 @@ and that temperature is degrees Celsius.
                             liquidus)
 end
 
-@inline function latent_heat(thermo::PhaseTransitions, T)
-    T₀ = thermo.reference_temperature    
-    ℒ₀ = thermo.reference_latent_heat
-    ρᵢ = thermo.ice_density
-    ρℓ = thermo.liquid_density
-    cᵢ = thermo.ice_heat_capacity
-    cℓ = thermo.liquid_heat_capacity
+function Base.show(io::IO, pt::PhaseTransitions{FT}) where FT
+    print(io, "PhaseTransitions{", FT, "}", '\n')
+    print(io, "├── density: ", pt.density, '\n')
+    print(io, "├── heat_capacity: ", pt.heat_capacity, '\n')
+    print(io, "├── liquid_density: ", pt.liquid_density, '\n')
+    print(io, "├── liquid_heat_capacity: ", pt.liquid_heat_capacity, '\n')
+    print(io, "├── reference_latent_heat: ", pt.reference_latent_heat, '\n')
+    print(io, "├── reference_temperature: ", pt.reference_temperature, '\n')
+    print(io, "└── liquidus: ", summary(pt.liquidus))
+end
 
-    return ρℓ * ℒ₀ + (ρℓ * cℓ - ρᵢ * cᵢ) * (T - T₀)
+"""
+    latent_heat(phase_transitions::PhaseTransitions, T)
+
+Return the per-mass latent heat of fusion of pure ice at temperature `T`,
+
+```math
+ℒ(T) = ℒ₀ + \\left(\\frac{ρ_ℓ c_ℓ}{ρ} - c\\right)(T - T₀) ,
+```
+
+where `ρ`, `c` are the microscopic pure-ice density and heat capacity,
+`ρ_ℓ`, `c_ℓ` are the liquid density and heat capacity, and `T₀` is the
+reference temperature at which the reference latent heat `ℒ₀` is defined.
+
+This is the per-mass form of the volumetric expression
+`ρ ℒ(T) = ρ ℒ₀ + (ρ_ℓ c_ℓ - ρ c)(T - T₀)` (divided through by `ρ`).
+
+The returned quantity is per unit mass of pure ice. To obtain energy per
+unit volume of a porous medium (snow or sea ice), multiply by the bulk
+density of that medium.
+"""
+@inline function latent_heat(phase_transitions::PhaseTransitions, T)
+    T₀ = phase_transitions.reference_temperature
+    ℒ₀ = phase_transitions.reference_latent_heat
+    ρ  = phase_transitions.density
+    ρℓ = phase_transitions.liquid_density
+    c  = phase_transitions.heat_capacity
+    cℓ = phase_transitions.liquid_heat_capacity
+
+    return ℒ₀ + (ρℓ * cℓ / ρ - c) * (T - T₀)
 end
 
 # Fallback for no ice_thermodynamics
@@ -133,7 +177,6 @@ using .HeatBoundaryConditions:
     PrescribedTemperature,
     getflux
 
-using Oceananigans.Utils: prettysummary
 using Oceananigans.TimeSteppers: Clock
 using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 
@@ -141,16 +184,16 @@ using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
 import Oceananigans.Models: AbstractModel
-import Oceananigans.OutputWriters: default_included_properties
 import Oceananigans.Simulations: reset!, initialize!, iteration
 import Oceananigans.TimeSteppers: time_step!, update_state!
+
 import Oceananigans.Utils: prettytime
 
 # TODO: Fix this after this PR
 # include("EnthalpyMethodThermodynamics.jl")
 
-include("slab_sea_ice_thermodynamics.jl")
 include("slab_heat_and_tracer_fluxes.jl")
+include("slab_sea_ice_thermodynamics.jl")
 include("slab_thermodynamics_tendencies.jl")
 include("thermodynamic_time_step.jl")
 

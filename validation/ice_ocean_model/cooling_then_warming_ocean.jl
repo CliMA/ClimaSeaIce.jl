@@ -1,11 +1,10 @@
 using Oceananigans
-using Oceananigans.Utils: prettysummary
 using Oceananigans.Units
 using Oceananigans.TurbulenceClosures: CATKEVerticalDiffusivity
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
 using SeawaterPolynomials: TEOS10EquationOfState
-using ClimaSeaIce.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission, IceWaterThermalEquilibrium
 using CairoMakie
 
 import Oceananigans.Simulations: time_step!, time
@@ -44,7 +43,7 @@ function compute_solar_insolation!(sim)
     return nothing
 end
 
-# Generate a zero-dimensional grid for a single column slab model 
+# Generate a zero-dimensional grid for a single column slab model
 
 top_salt_flux = Qˢ = Field{Center, Center, Nothing}(ocean_grid)
 boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Qᵀ)),
@@ -54,7 +53,7 @@ boundary_conditions = (T = FieldBoundaryConditions(top=FluxBoundaryCondition(Q�
 equation_of_state = TEOS10EquationOfState()
 buoyancy = SeawaterBuoyancy(; equation_of_state)
 
-ocean_model = HydrostaticFreeSurfaceModel(grid = ocean_grid;
+ocean_model = HydrostaticFreeSurfaceModel(ocean_grid;
                                           buoyancy, boundary_conditions, closure,
                                           tracers = (:T, :S, :e))
 
@@ -131,12 +130,12 @@ while (time(ocean_simulation) < 100days)
 
         @info string("Iter:  ", iteration(ocean_simulation),
                      ", t:   ", prettytime(ocean_simulation),
-                     ", Tₒ:  ", prettysummary(To[end][Nz]),
-                     ", Sₒ:  ", prettysummary(So[end][Nz]),
-                     ", h:   ", prettysummary(hi[end]),
-                     ", ℵ:   ", prettysummary(ℵi[end]),
-                     ", Tᵢ:  ", prettysummary(Tst[end]),
-                     ", ℵ h: ", prettysummary(ℵi[end] * hi[end]))
+                     ", Tₒ:  ", summary(To[end][Nz]),
+                     ", Sₒ:  ", summary(So[end][Nz]),
+                     ", h:   ", summary(hi[end]),
+                     ", ℵ:   ", summary(ℵi[end]),
+                     ", Tᵢ:  ", summary(Tst[end]),
+                     ", ℵ h: ", summary(ℵi[end] * hi[end]))
     end
 end
 

@@ -1,10 +1,12 @@
 using ClimaSeaIce.Rheologies
 using Adapt
 
+import Oceananigans: prognostic_state, restore_prognostic_state!
+
 struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C
     rheology :: R
-    auxiliary_fields :: A
+    auxiliaries :: A
     solver :: S
     free_drift :: F
     external_momentum_stresses :: ES
@@ -16,14 +18,13 @@ end
 struct ExplicitSolver end
 
 """
-    SeaIceMomentumEquation(grid; 
+    SeaIceMomentumEquation(grid;
                            coriolis = nothing,
                            rheology = ElastoViscoPlasticRheology(eltype(grid)),
-                           auxiliary_fields = NamedTuple(),
                            top_momentum_stress    = nothing,
                            bottom_momentum_stress = nothing,
                            free_drift = nothing,
-                           solver = SplitExplicitSolver(150),
+                           solver = SplitExplicitSolver(grid; substeps=150),
                            minimum_concentration = 1e-3,
                            minimum_mass = 1.0)
 
@@ -31,12 +32,12 @@ Constructs a `SeaIceMomentumEquation` object that controls the dynamical evoluti
 The sea-ice momentum obey the following evolution equation:
 
 ```math
-    ∂u                   τₒ    τₐ
-    -- + f x u = ∇ ⋅ σ + --  + -- 
-    ∂t                   mᵢ    mᵢ
+\\frac{∂\\boldsymbol{u}}{∂t} + \\boldsymbol{f} × \\boldsymbol{u} = \\frac{\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma}}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₒ}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₐ}{mᵢ}
 ```
-where the terms (left to right) represent (1) the time derivative of the ice velocity, (2) the coriolis force.
-(3) the divergence of internal stresses, (4) the ice-ocean boundary stress, and (5) the ice-atmosphere boundary stress.
+where ``∂\\boldsymbol{u}/∂t`` is the time derivative of the ice velocity, ``\\boldsymbol{f}`` is the
+Coriolis parameter, ``\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma} / mᵢ`` is the divergence of internal
+stresses, ``\\boldsymbol{\\tau}ₒ/mᵢ`` is the ice-ocean boundary stress, ``\\boldsymbol{\\tau}ₐ/mᵢ`` is the
+ice-atmosphere boundary stress, and ``mᵢ = ρᵢ h ℵ`` is the ice mass per unit area.
 
 Arguments
 =========
@@ -48,33 +49,31 @@ Keyword Arguments
 
 - `coriolis`: Parameters for the background rotation rate of the model.
 - `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
-- `auxiliary_fields`: A named tuple of auxiliary fields, default is an empty `NamedTuple()`.
 - `free_drift`: The free drift velocities used to limit sea ice momentum when the mass or the concentration are
                 below a certain threshold. Default is `nothing` (indicating that the free drift velocities are zero).
 - `solver`: The momentum solver to be used.
 - `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
 - `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
 """
-function SeaIceMomentumEquation(grid; 
+function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
-                                auxiliary_fields = NamedTuple(),
                                 top_momentum_stress    = nothing,
                                 bottom_momentum_stress = nothing,
                                 free_drift = nothing,
-                                solver = SplitExplicitSolver(150),
+                                solver = SplitExplicitSolver(grid; substeps=150),
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
 
-    auxiliary_fields = merge(auxiliary_fields, required_auxiliary_fields(rheology, grid))
+    auxiliaries = Auxiliaries(rheology, grid)
     external_momentum_stresses = (top = top_momentum_stress,
                                   bottom = bottom_momentum_stress)
 
     FT = eltype(grid)
 
-    return SeaIceMomentumEquation(coriolis, 
-                                  rheology, 
-                                  auxiliary_fields, 
+    return SeaIceMomentumEquation(coriolis,
+                                  rheology,
+                                  auxiliaries,
                                   solver,
                                   free_drift,
                                   external_momentum_stresses,
@@ -82,4 +81,33 @@ function SeaIceMomentumEquation(grid;
                                   convert(FT, minimum_mass))
 end
 
-fields(mom::SeaIceMomentumEquation) = mom.auxiliary_fields
+fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
+prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+
+function Base.show(io::IO, sime::SeaIceMomentumEquation)
+
+    aux_fields = keys(sime.auxiliaries.fields)
+
+    print(io, "SeaIceMomentumEquation", '\n')
+    print(io, "├── coriolis: ", summary(sime.coriolis), '\n')
+    print(io, "├── rheology: ", summary(sime.rheology), '\n')
+    print(io, "├── auxiliaries: ", join(aux_fields, ", "), '\n')
+    print(io, "├── solver: ", summary(sime.solver), '\n')
+    print(io, "├── free_drift: ", sime.free_drift, '\n')
+    print(io, "├── external_momentum_stresses: ", keys(sime.external_momentum_stresses), '\n')
+    print(io, "├── minimum_concentration: ", sime.minimum_concentration, '\n')
+    print(io, "└── minimum_mass: ", sime.minimum_mass)
+end
+
+#####
+##### Checkpointing
+#####
+
+function prognostic_state(mom::SeaIceMomentumEquation)
+    return (; fields = prognostic_state(fields(mom)))
+end
+
+function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
+    restore_prognostic_state!(fields(mom), state.fields)
+    return mom
+end
