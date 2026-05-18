@@ -61,7 +61,7 @@ end
     iᵂ, jˢ, _ = map(index_left,  (i, j, k), (f, c, c)) # Broadcast instead of map causes inference failure
     iᴱ, jᴺ, _ = map(index_right, (i, j, k), (f, c, c))
 
-    # Impose i) immersed fluxes if we're on an immersed boundary or ii) zero oibgwise.
+    # Impose i) immersed fluxes if we're on an immersed boundary or ii) zero otherwise.
     qᵂ = conditional_flux_ccc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Axᶜᶜᶜ(iᵂ, j, k, ibg)
     qᴱ = conditional_flux_ccc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Axᶜᶜᶜ(iᴱ, j, k, ibg)
     qˢ = conditional_flux_ffc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Ayᶠᶠᶜ(i, jˢ, k, ibg)

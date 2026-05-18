@@ -4,21 +4,21 @@ module SeaIceDynamics
 export compute_momentum_tendencies!, time_step_momentum!
 export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
 
-using ClimaSeaIce
-
 using Oceananigans
-using KernelAbstractions: @kernel, @index
-using Oceananigans.Utils: launch!
-using Oceananigans.Operators
 using Oceananigans.Grids
 using Oceananigans.Grids: architecture
+using Oceananigans.Operators
+using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
+using Oceananigans.Utils: launch!
+using KernelAbstractions: @kernel, @index
 
+using ClimaSeaIce
 using ClimaSeaIce: ice_mass
-using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ, 
-                              ∂ⱼ_σ₂ⱼ, 
+using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
+                              ∂ⱼ_σ₂ⱼ,
                               immersed_∂ⱼ_σ₁ⱼ,
                               immersed_∂ⱼ_σ₂ⱼ,
-                              required_auxiliary_fields, 
+                              Auxiliaries,
                               compute_stresses!,
                               initialize_rheology!,
                               compute_substep_Δtᶠᶜᶜ,
@@ -26,20 +26,20 @@ using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
                               sum_of_forcing_u,
                               sum_of_forcing_v
 
-import Oceananigans: fields
+import Oceananigans: fields, prognostic_fields
 
 ## A Framework to solve for the ice momentum equation, in the form:
-## 
-##     ∂u                   τₒ    τₐ
-##     -- + f x u = ∇ ⋅ σ + --  + -- + g∇η
-##     ∂t                   mᵢ    mᵢ
-## 
-## where the terms (left to right) represent the 
+##
+##     ∂u           ∇ ⋅ σ   τₒ    τₐ
+##     -- + f x u = ----- + --  + -- + g ∇η
+##     ∂t            mᵢ     mᵢ    mᵢ
+##
+## where the terms (left to right) represent the
 ## - time derivative of the ice velocity
 ## - coriolis force
 ## - divergence of internal stresses
-## - ice-ocean boundary stress 
-## - ice-atmosphere boundary stress 
+## - ice-ocean boundary stress
+## - ice-atmosphere boundary stress
 ## - ocean dynamic surface
 
 # Fallbacks for `nothing` ice dynamics

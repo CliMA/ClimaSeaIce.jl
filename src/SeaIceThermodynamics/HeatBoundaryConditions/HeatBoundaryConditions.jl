@@ -7,6 +7,7 @@ export MeltingConstrainedFluxBalance,
        FluxFunction
 
 using Adapt
+using Oceananigans
 
 """
     PrescribedTemperature()

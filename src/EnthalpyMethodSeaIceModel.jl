@@ -4,10 +4,10 @@ using Oceananigans.BoundaryConditions:
     fill_halo_regions!,
     regularize_field_boundary_conditions,
     FieldBoundaryConditions,
-    apply_z_bcs!,
+    compute_z_bcs!,
     ValueBoundaryCondition
 
-using Oceananigans.Utils: prettysummary, prettytime, launch!
+using Oceananigans.Utils: prettytime, launch!
 using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior, TracerFields
 using Oceananigans.Models: AbstractModel
 using Oceananigans.TimeSteppers: Clock, tick!
@@ -192,7 +192,7 @@ function time_step!(model::ETSIM, Δt; callbacks=nothing)
     launch!(arch, grid, :xyz, compute_tendencies!, G, grid, closure, Ψ)
 
     # Calculate fluxes
-    apply_z_bcs!(G.H, Ψ.H, arch, model.clock, model.state)
+    compute_z_bcs!(G.H, Ψ.H, arch, model.clock, model.state)
 
     launch!(arch, grid, :xyz, step_fields!, Ψ, G, Δt)
     update_state!(model)

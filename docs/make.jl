@@ -47,9 +47,17 @@ format = Documenter.HTML(
 
 pages = [
     "Home" => "index.md",
-    "Examples" => example_pages,
 
-    "Library" => [ 
+    "Physics" => [
+        "Thermodynamics" => "physics/thermodynamics.md",
+        "Layered snow + ice implementation" => "physics/layered_snow_ice_implementation.md",
+        "Dynamics and Rheology" => "physics/dynamics_and_rheology.md",
+    ],
+
+    "Examples" => example_pages,
+    "Timestepping" => "timestepping.md",
+
+    "Library" => [
         "Contents"       => "library/outline.md",
         "Public"         => "library/public.md",
         "Private"        => "library/internals.md",
