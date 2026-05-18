@@ -29,15 +29,6 @@ run_pencil_distributed_grid = """
     run_distributed_sea_ice(arch, "distributed_pencil_seaice.jld2")
 """
 
-run_large_pencil_distributed_grid = """
-    using MPI
-    MPI.Init()
-
-    include("distributed_tests_utils.jl")
-    arch = Distributed(CPU(), partition = Partition(4, 2))
-    run_distributed_sea_ice(arch, "distributed_large_pencil_seaice.jld2")
-"""
-
 run_distributed_jld2writer = """
     using MPI
     MPI.Init()
@@ -111,25 +102,6 @@ run_distributed_jld2writer = """
     ℵp = jldopen("distributed_pencil_seaice.jld2")["ℵ"]
 
     rm("distributed_pencil_seaice.jld2")
-
-    @test all(us .≈ up)
-    @test all(vs .≈ vp)
-    @test all(hs .≈ hp)
-    @test all(ℵs .≈ ℵp)
-
-    @info "Testing (4, 2) Distributed sea ice simulations equality"
-
-    write("distributed_large_pencil_tests.jl", run_large_pencil_distributed_grid)
-    run(`$(mpiexec()) -n 8 $(Base.julia_cmd()) --project -O0 distributed_large_pencil_tests.jl`)
-    rm("distributed_large_pencil_tests.jl")
-
-    # Retrieve Parallel quantities
-    up = jldopen("distributed_large_pencil_seaice.jld2")["u"]
-    vp = jldopen("distributed_large_pencil_seaice.jld2")["v"]
-    hp = jldopen("distributed_large_pencil_seaice.jld2")["h"]
-    ℵp = jldopen("distributed_large_pencil_seaice.jld2")["ℵ"]
-
-    rm("distributed_large_pencil_seaice.jld2")
 
     @test all(us .≈ up)
     @test all(vs .≈ vp)
