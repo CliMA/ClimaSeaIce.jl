@@ -67,8 +67,8 @@ dynamics = SeaIceMomentumEquation(grid;
 @inline immersed_u_drag(i, j, k, grid, clock, fields, D) = @inbounds - D * fields.u[i, j, k]
 @inline immersed_v_drag(i, j, k, grid, clock, fields, D) = @inbounds - D * fields.v[i, j, k]
 
-immersed_u_bc = FluxBoundaryCondition(immersed_u_drag, discrete_form=true, parameters=3e-1)
-immersed_v_bc = FluxBoundaryCondition(immersed_v_drag, discrete_form=true, parameters=3e-1)
+immersed_u_bc = FluxBoundaryCondition(immersed_u_drag, discrete_form=true, parameters=3e-2)
+immersed_v_bc = FluxBoundaryCondition(immersed_v_drag, discrete_form=true, parameters=3e-2)
 
 immersed_u_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, west=nothing, east=nothing, 
                                           south=immersed_u_bc, north=immersed_u_bc)
