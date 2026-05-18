@@ -126,7 +126,7 @@ set!(model, ℵ = 1)
 #
 # We run the model for 2 days with a 2-minute time step:
 
-simulation = Simulation(model, Δt = 2minutes, stop_time = 2days)
+simulation = Simulation(model, Δt = 5minutes, stop_time = 2days)
 
 # ## Time-varying wind stress
 #
@@ -201,7 +201,6 @@ heatmap!(ax4, vi, colorrange = (-0.1, 0.1), colormap = :balance)
 
 CairoMakie.record(fig, "sea_ice_advected_by_anticyclone.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
-    @info "Rendering frame $i"
 end
 nothing #hide
 
