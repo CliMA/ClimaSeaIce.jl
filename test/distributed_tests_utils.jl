@@ -1,10 +1,41 @@
 using JLD2
 using MPI
+using Test
 using Oceananigans
+using Oceananigans.Grids: halo_size, topology
+using Oceananigans.Utils: KernelParameters
 using Oceananigans.DistributedComputations: reconstruct_global_field, reconstruct_global_grid
 using Oceananigans.Units
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, ElastoViscoPlasticRheology, SemiImplicitStress
+using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, SplitExplicitSolver, ElastoViscoPlasticRheology, SemiImplicitStress
+
+function test_extended_halos()
+    arch = Distributed(CPU())
+    grid = RectilinearGrid(arch; size=(48, 8, 4), extent=(1, 1, 1),
+                        halo=(4, 4, 4),
+                        topology=(Periodic, Bounded, Bounded))
+
+    substeps = 8
+    solver   = SplitExplicitSolver(grid; substeps)
+    dynamics = SeaIceMomentumEquation(grid; solver, rheology=ElastoViscoPlasticRheology(eltype(grid)))
+    model    = ClimaSeaIce.SeaIceModel(grid; dynamics)
+
+    Hx, Hy, Hz = halo_size(grid)
+    Hx = max(substeps + 2, Hx)
+    @test halo_size(model.velocities.u.grid) == (Hx, Hy, Hz)
+    @test halo_size(model.dynamics.auxiliaries.fields.P.grid) == (Hx, Hy, Hz)
+    # Prognostic tracer-like fields must share the extended halos with the EVP
+    # auxiliaries — otherwise the stress kernel reads h/ℵ out-of-bounds.
+    @test halo_size(model.ice_thickness.grid)     == (Hx, Hy, Hz)
+    @test halo_size(model.ice_concentration.grid) == (Hx, Hy, Hz)
+
+    Nx, Ny, Nz = size(grid)
+
+    kp = model.dynamics.solver.kernel_parameters
+    # `split_explicit_kernel_size` for a ConnectedTopology in x is `-H+2:N+H-1`;
+    # in y this run is Bounded, so the kernel just iterates `1:N`.
+    @test kp == KernelParameters(-Hx+2:Nx+Hx-1, 1:Ny)
+end
 
 # Run the distributed grid simulation and save down reconstructed results
 function run_distributed_sea_ice(arch, filename)
