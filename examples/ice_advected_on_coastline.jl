@@ -32,7 +32,7 @@ using CairoMakie
 Lx = 512kilometers
 Ly = 256kilometers
 Nx = 256
-Ny = 256
+Ny = 128
 
 y_max = Ly / 2
 
@@ -119,9 +119,9 @@ set!(model, ℵ = 1)
 
 # ## Running the simulation
 #
-# We run the model for 2 days with a 2-minute time step:
+# We run the model for 3 days with a 5-minute time step:
 
-simulation = Simulation(model, Δt = 2minutes, stop_time=2days)
+simulation = Simulation(model, Δt = 5minutes, stop_time=3days)
 
 # ## Collecting data
 #
