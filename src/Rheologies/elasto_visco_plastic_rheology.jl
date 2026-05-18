@@ -47,10 +47,10 @@ struct ReplacementPressure{FT}
     minimum_plastic_stress :: FT # minimum plastic parameter (transitions to viscous behaviour)
 end
 
-ReplacementPressure(FT; minimum_plastic_stress = 2e-9) = ReplacementPressure(convert(FT, minimum_plastic_stress))
+ReplacementPressure(FT::DataType=Oceananigans.defaults.FloatType; minimum_plastic_stress=2e-9) = 
+    ReplacementPressure(convert(FT, minimum_plastic_stress))
 
 Adapt.adapt_structure(to, p::ReplacementPressure) = ReplacementPressure(Adapt.adapt(to, p.minimum_plastic_stress))
-
 
 """
     ElastoViscoPlasticRheology(FT = Oceananigans.defaults.FloatType;
