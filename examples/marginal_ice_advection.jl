@@ -130,7 +130,7 @@ set!(model, h = ice_block, ℵ = ice_block)
 
 # ## Running the simulation
 #
-# We run the model for 3 days with a 2-minute time step:
+# We run the model for 5 days with a 5-minute time step:
 
 simulation = Simulation(model, Δt = 5minutes, stop_time = 5days)
 
