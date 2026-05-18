@@ -3,6 +3,14 @@ using ClimaSeaIce
 
 include("distributed_tests_utils.jl")
 
+test_distributed_halos = """
+    using MPI
+    MPI.Init()
+
+    include("distributed_tests_utils.jl")
+    test_extended_halos()
+"""
+
 run_slab_distributed_grid = """
     using MPI
     MPI.Init()
@@ -40,6 +48,14 @@ run_distributed_jld2writer = """
 """
 
 @testset "Test distributed sea-ice grid simulations..." begin
+
+    @info "Testing (4, 1) Distributed sea ice halo extension"
+
+    # Test extended halos
+    write("distributed_halo_tests.jl", test_distributed_halos)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_halo_tests.jl`)
+    rm("distributed_halo_tests.jl")
+
     # Run the serial computation
     grid = RectilinearGrid(CPU(); 
                            size = (100, 100, 1), 
