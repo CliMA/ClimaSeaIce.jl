@@ -20,9 +20,13 @@ struct ElastoViscoPlasticRheology{FT, IP}
     min_relaxation_parameter :: FT # minimum number of substeps expressed as the dynamic coefficient
     max_relaxation_parameter :: FT # maximum number of substeps expressed as the dynamic coefficient
     relaxation_strength :: FT # strength of the relaxation parameter
+    rheology_activation_enabled :: Bool # whether to smoothly taper rheology in low-concentration ice
+    rheology_activation_lower_concentration :: FT # lower ice concentration for smooth rheology activation
+    rheology_activation_upper_concentration :: FT # upper ice concentration for smooth rheology activation
     pressure_formulation :: IP # formulation of ice pressure
-    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, ip::IP) where {FT, IP}  =
-        new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
+    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT,
+                               enabled::Bool, ℵ⁻::FT, ℵ⁺::FT, ip::IP) where {FT, IP}  =
+        new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, enabled, ℵ⁻, ℵ⁺, ip)
 end
 
 function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
@@ -34,6 +38,9 @@ function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
     print(io, "├── min_relaxation_parameter: ", evpr.min_relaxation_parameter, '\n')
     print(io, "├── max_relaxation_parameter: ", evpr.max_relaxation_parameter, '\n')
     print(io, "├── relaxation_strength: ", evpr.relaxation_strength, '\n')
+    print(io, "├── rheology_activation_enabled: ", evpr.rheology_activation_enabled, '\n')
+    print(io, "├── rheology_activation_lower_concentration: ", evpr.rheology_activation_lower_concentration, '\n')
+    print(io, "├── rheology_activation_upper_concentration: ", evpr.rheology_activation_upper_concentration, '\n')
     print(io, "└── pressure_formulation: ", summary(evpr.pressure_formulation))
 end
 
@@ -49,6 +56,7 @@ struct IceStrength end
                                min_relaxation_parameter = 50,
                                max_relaxation_parameter = 300,
                                relaxation_strength = π^2,
+                               rheology_activation_concentration = nothing,
                                pressure_formulation = ReplacementPressure())
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
@@ -95,6 +103,9 @@ Keyword Arguments
 - `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default: `500`.
 - `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`;
                          see Kimmritz et al. (2016). Default: `π² / 2`.
+- `rheology_activation_concentration`: `nothing` or a tuple `(lower, upper)` that smoothly tapers
+                                      EVP rheology from inactive to fully active over the specified
+                                      ice concentration range. Default: `nothing`.
 - `pressure_formulation`: can use `ReplacementPressure` or `IceStrength`. The replacement pressure formulation avoids
                           ice motion in the absence of forcing. Default: `ReplacementPressure`.
 """
@@ -106,7 +117,21 @@ function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatTy
                                     min_relaxation_parameter = 50,
                                     max_relaxation_parameter = 300,
                                     relaxation_strength = π^2,
+                                    rheology_activation_concentration = nothing,
                                     pressure_formulation = ReplacementPressure())
+
+    rheology_activation_enabled = !isnothing(rheology_activation_concentration)
+
+    if rheology_activation_enabled
+        lower_concentration, upper_concentration = rheology_activation_concentration
+
+        if upper_concentration <= lower_concentration
+            throw(ArgumentError("rheology_activation_concentration must satisfy lower < upper."))
+        end
+    else
+        lower_concentration = zero(FT)
+        upper_concentration = one(FT)
+    end
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength),
                                       convert(FT, ice_compaction_hardening),
@@ -115,6 +140,9 @@ function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatTy
                                       convert(FT, min_relaxation_parameter),
                                       convert(FT, max_relaxation_parameter),
                                       convert(FT, relaxation_strength),
+                                      rheology_activation_enabled,
+                                      convert(FT, lower_concentration),
+                                      convert(FT, upper_concentration),
                                       pressure_formulation)
 end
 
@@ -163,6 +191,9 @@ Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) =
                                Adapt.adapt(to, r.min_relaxation_parameter),
                                Adapt.adapt(to, r.max_relaxation_parameter),
                                Adapt.adapt(to, r.relaxation_strength),
+                               r.rheology_activation_enabled,
+                               Adapt.adapt(to, r.rheology_activation_lower_concentration),
+                               Adapt.adapt(to, r.rheology_activation_upper_concentration),
                                Adapt.adapt(to, r.pressure_formulation))
 
 """
@@ -177,24 +208,44 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
 
     P★ = rheology.ice_compressive_strength
     C  = rheology.ice_compaction_hardening
+    enabled = rheology.rheology_activation_enabled
+    ℵ⁻ = rheology.rheology_activation_lower_concentration
+    ℵ⁺ = rheology.rheology_activation_upper_concentration
 
     u, v    = model.velocities
     fields  = model.dynamics.auxiliaries.fields
     kernels = model.dynamics.auxiliaries.kernels
-    kernels._initialize_rhology!(fields, model.grid, P★, C, h, ℵ, u, v)
+    kernels._initialize_rhology!(fields, model.grid, P★, C, enabled, ℵ⁻, ℵ⁺, h, ℵ, u, v)
 
     return nothing
 end
 
-@kernel function _initialize_evp_rhology!(fields, grid, P★, C, h, ℵ, u, v)
+@kernel function _initialize_evp_rhology!(fields, grid, P★, C, enabled, ℵ⁻, ℵ⁺, h, ℵ, u, v)
     i, j = @index(Global, NTuple)
-    @inbounds fields.P[i, j, 1]  = ice_strength(i, j, 1, grid, P★, C, h, ℵ)
+    @inbounds fields.P[i, j, 1]  = ice_strength(i, j, 1, grid, P★, C, enabled, ℵ⁻, ℵ⁺, h, ℵ)
     @inbounds fields.uⁿ[i, j, 1] = u[i, j, 1]
     @inbounds fields.vⁿ[i, j, 1] = v[i, j, 1]
 end
 
+@inline function smootherstep_activation(ℵ, enabled, ℵ⁻, ℵ⁺)
+    q = clamp((ℵ - ℵ⁻) / (ℵ⁺ - ℵ⁻), zero(ℵ), one(ℵ))
+    χ = q^3 * (10 - 15q + 6q^2)
+    return ifelse(enabled, χ, one(ℵ))
+end
+
+@inline function rheology_activation(i, j, k, grid, rheology, ℵ)
+    ℵᵢ = @inbounds ℵ[i, j, k]
+    ℵ⁻ = rheology.rheology_activation_lower_concentration
+    ℵ⁺ = rheology.rheology_activation_upper_concentration
+    return smootherstep_activation(ℵᵢ, rheology.rheology_activation_enabled, ℵ⁻, ℵ⁺)
+end
+
 # The parameterization for an `ElastoViscoPlasticRheology`
-@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k]))
+@inline function ice_strength(i, j, k, grid, P★, C, enabled, ℵ⁻, ℵ⁺, h, ℵ)
+    ℵᵢ = @inbounds ℵ[i, j, k]
+    χ = smootherstep_activation(ℵᵢ, enabled, ℵ⁻, ℵ⁺)
+    return @inbounds χ * P★ * h[i, j, k] * exp(- C * (1 - ℵᵢ))
+end
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
@@ -297,6 +348,8 @@ end
 
     mᵢᶜᶜᶜ = ice_mass(i, j, 1, grid, h, ℵ, ρᵢ)
     mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
+    χᶜᶜᶜ = rheology_activation(i, j, 1, grid, rheology, ℵ)
+    χᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, rheology_activation, rheology, ℵ)
 
     # Update coefficients for substepping using dynamic substepping
     # with spatially varying coefficients as done by Kimmritz et al. (2016)
@@ -315,9 +368,9 @@ end
         σ₂₂★ = (σ₂₂ᵖ⁺¹ - σ₂₂[i, j, 1]) / γᶜᶜᶜ
         σ₁₂★ = (σ₁₂ᵖ⁺¹ - σ₁₂[i, j, 1]) / γᶠᶠᶜ
 
-        σ₁₁[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, σ₁₁★, zero(grid))
-        σ₂₂[i, j, 1] += ifelse(mᵢᶜᶜᶜ > 0, σ₂₂★, zero(grid))
-        σ₁₂[i, j, 1] += ifelse(mᵢᶠᶠᶜ > 0, σ₁₂★, zero(grid))
+        σ₁₁[i, j, 1] = ifelse(mᵢᶜᶜᶜ > 0, χᶜᶜᶜ * (σ₁₁[i, j, 1] + σ₁₁★), zero(grid))
+        σ₂₂[i, j, 1] = ifelse(mᵢᶜᶜᶜ > 0, χᶜᶜᶜ * (σ₂₂[i, j, 1] + σ₂₂★), zero(grid))
+        σ₁₂[i, j, 1] = ifelse(mᵢᶠᶠᶜ > 0, χᶠᶠᶜ * (σ₁₂[i, j, 1] + σ₁₂★), zero(grid))
           α[i, j, 1]  = γᶜᶜᶜ
     end
 end
