@@ -16,13 +16,14 @@ struct ElastoViscoPlasticRheology{FT, IP}
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
-    minimum_plastic_stress :: FT # minimum plastic parameter (transitions to viscous behaviour)
     min_relaxation_parameter :: FT # minimum number of substeps expressed as the dynamic coefficient
     max_relaxation_parameter :: FT # maximum number of substeps expressed as the dynamic coefficient
     relaxation_strength :: FT # strength of the relaxation parameter
     pressure_formulation :: IP # formulation of ice pressure
-    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, ip::IP) where {FT, IP}  =
-        new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
+
+    function ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, α⁻::FT, α⁺::FT, c::FT, ip::IP) where {FT, IP} 
+        return new{FT, IP}(P, C, e, α⁻, α⁺, c, ip)
+    end
 end
 
 function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
@@ -30,15 +31,26 @@ function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
     print(io, "├── ice_compressive_strength: ", evpr.ice_compressive_strength, '\n')
     print(io, "├── ice_compaction_hardening: ", evpr.ice_compaction_hardening, '\n')
     print(io, "├── yield_curve_eccentricity: ", evpr.yield_curve_eccentricity, '\n')
-    print(io, "├── minimum_plastic_stress: ", evpr.minimum_plastic_stress, '\n')
     print(io, "├── min_relaxation_parameter: ", evpr.min_relaxation_parameter, '\n')
     print(io, "├── max_relaxation_parameter: ", evpr.max_relaxation_parameter, '\n')
     print(io, "├── relaxation_strength: ", evpr.relaxation_strength, '\n')
     print(io, "└── pressure_formulation: ", summary(evpr.pressure_formulation))
 end
 
-struct ReplacementPressure end
+####
+#### Ice pressure formulations
+####
+
 struct IceStrength end
+
+struct ReplacementPressure{FT}
+    minimum_plastic_stress :: FT # minimum plastic parameter (transitions to viscous behaviour)
+end
+
+ReplacementPressure(FT; minimum_plastic_stress = 2e-9) = ReplacementPressure(convert(FT, minimum_plastic_stress))
+
+Adapt.adapt_structure(to, p::ReplacementPressure) = ReplacementPressure(Adapt.adapt(to, p.minimum_plastic_stress))
+
 
 """
     ElastoViscoPlasticRheology(FT = Oceananigans.defaults.FloatType;
@@ -89,8 +101,6 @@ Keyword Arguments
 - `ice_compressive_strength`: parameter expressing compressive strength (in Nm²). Default: `27500`.
 - `ice_compaction_hardening`: exponent coefficient for compaction hardening. Default: `20`.
 - `yield_curve_eccentricity`: eccentricity of the elliptic yield curve. Default: `2`.
-- `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice,
-           transitioning the ice from a plastic to a viscous behaviour. Default: `1e-10`.
 - `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`. Default: `30`.
 - `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default: `500`.
 - `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`;
@@ -102,16 +112,14 @@ function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatTy
                                     ice_compressive_strength = 27500,
                                     ice_compaction_hardening = 20,
                                     yield_curve_eccentricity = 2,
-                                    minimum_plastic_stress = 2e-9,
                                     min_relaxation_parameter = 50,
                                     max_relaxation_parameter = 300,
                                     relaxation_strength = π^2,
-                                    pressure_formulation = ReplacementPressure())
+                                    pressure_formulation = ReplacementPressure(FT; minimum_plastic_stress = 2e-9))
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength),
                                       convert(FT, ice_compaction_hardening),
                                       convert(FT, yield_curve_eccentricity),
-                                      convert(FT, minimum_plastic_stress),
                                       convert(FT, min_relaxation_parameter),
                                       convert(FT, max_relaxation_parameter),
                                       convert(FT, relaxation_strength),
@@ -159,7 +167,6 @@ Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) =
     ElastoViscoPlasticRheology(Adapt.adapt(to, r.ice_compressive_strength),
                                Adapt.adapt(to, r.ice_compaction_hardening),
                                Adapt.adapt(to, r.yield_curve_eccentricity),
-                               Adapt.adapt(to, r.minimum_plastic_stress),
                                Adapt.adapt(to, r.min_relaxation_parameter),
                                Adapt.adapt(to, r.max_relaxation_parameter),
                                Adapt.adapt(to, r.relaxation_strength),
@@ -248,12 +255,12 @@ end
     @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
 end
 
-@inline ice_pressure(i, j, k, grid, ::IceStrength, r, fields) = @inbounds fields.P[i, j, k]
+@inline ice_pressure(i, j, k, grid, ::IceStrength, fields) = @inbounds fields.P[i, j, k]
 
-@inline function ice_pressure(i, j, k, grid, ::ReplacementPressure, r, fields)
+@inline function ice_pressure(i, j, k, grid, p::ReplacementPressure, fields)
     Pᶜᶜᶜ = @inbounds fields.P[i, j, k]
     Δᶜᶜᶜ = @inbounds fields.Δ[i, j, k]
-    Δm   = r.minimum_plastic_stress
+    Δm   = p.minimum_plastic_stress
     return Pᶜᶜᶜ * Δᶜᶜᶜ / (Δᶜᶜᶜ + Δm)
 end
 
@@ -284,7 +291,7 @@ end
     ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, fields.ζ)
 
     # replacement pressure?
-    Pᵣ = ice_pressure(i, j, 1, grid, ip, rheology, fields)
+    Pᵣ = ice_pressure(i, j, 1, grid, ip, fields)
 
     ηᶜᶜᶜ = ζᶜᶜᶜ * e⁻²
     ηᶠᶠᶜ = ζᶠᶠᶜ * e⁻²
