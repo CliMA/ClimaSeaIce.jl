@@ -33,6 +33,7 @@ end
 
 if TEST_GROUP == "all" || TEST_GROUP == "timestepping"
     include("test_time_stepping.jl")
+    include("test_evp_smoothing.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "checkpointing"
