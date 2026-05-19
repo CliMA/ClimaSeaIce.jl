@@ -1,5 +1,5 @@
 using Oceananigans.Operators
-using Oceananigans.Grids: AbstractGrid, architecture, halo_size
+using Oceananigans.Grids: AbstractGrid, Center, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.ImmersedBoundaries: inactive_node
 using Oceananigans.Utils
@@ -20,9 +20,11 @@ struct ElastoViscoPlasticRheology{FT, IP}
     min_relaxation_parameter :: FT # minimum number of substeps expressed as the dynamic coefficient
     max_relaxation_parameter :: FT # maximum number of substeps expressed as the dynamic coefficient
     relaxation_strength :: FT # strength of the relaxation parameter
+    ice_strength_smoothing :: FT # local smoothing coefficient for regularized rheology strength
+    ice_strength_smoothing_threshold :: FT # local pressure-jump threshold for regularized rheology strength
     pressure_formulation :: IP # formulation of ice pressure
-    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, ip::IP) where {FT, IP}  =
-        new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, ip)
+    ElastoViscoPlasticRheology(P::FT, C::FT, e::FT, Δ_min::FT, α⁻::FT, α⁺::FT, c::FT, s::FT, st::FT, ip::IP) where {FT, IP}  =
+        new{FT, IP}(P, C, e, Δ_min, α⁻, α⁺, c, s, st, ip)
 end
 
 function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
@@ -34,6 +36,8 @@ function Base.show(io::IO, evpr::ElastoViscoPlasticRheology{FT}) where FT
     print(io, "├── min_relaxation_parameter: ", evpr.min_relaxation_parameter, '\n')
     print(io, "├── max_relaxation_parameter: ", evpr.max_relaxation_parameter, '\n')
     print(io, "├── relaxation_strength: ", evpr.relaxation_strength, '\n')
+    print(io, "├── ice_strength_smoothing: ", evpr.ice_strength_smoothing, '\n')
+    print(io, "├── ice_strength_smoothing_threshold: ", evpr.ice_strength_smoothing_threshold, '\n')
     print(io, "└── pressure_formulation: ", summary(evpr.pressure_formulation))
 end
 
@@ -49,6 +53,8 @@ struct IceStrength end
                                min_relaxation_parameter = 50,
                                max_relaxation_parameter = 300,
                                relaxation_strength = π^2,
+                               ice_strength_smoothing = 0.5,
+                               ice_strength_smoothing_threshold = 100,
                                pressure_formulation = ReplacementPressure())
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
@@ -95,6 +101,11 @@ Keyword Arguments
 - `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default: `500`.
 - `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`;
                          see Kimmritz et al. (2016). Default: `π² / 2`.
+- `ice_strength_smoothing`: Blending coefficient in `[0, 1]` for a local active-cell 3×3 smoothing
+                            of rheology ice strength `P`. The prognostic ice thickness and
+                            concentration are not smoothed. Default: `0.5`.
+- `ice_strength_smoothing_threshold`: Local max/min-positive `P` ratio above which ice strength
+                                      smoothing is applied. Default: `100`.
 - `pressure_formulation`: can use `ReplacementPressure` or `IceStrength`. The replacement pressure formulation avoids
                           ice motion in the absence of forcing. Default: `ReplacementPressure`.
 """
@@ -106,7 +117,17 @@ function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatTy
                                     min_relaxation_parameter = 50,
                                     max_relaxation_parameter = 300,
                                     relaxation_strength = π^2,
+                                    ice_strength_smoothing = 0.5,
+                                    ice_strength_smoothing_threshold = 100,
                                     pressure_formulation = ReplacementPressure())
+
+    if !(0 ≤ ice_strength_smoothing ≤ 1)
+        throw(ArgumentError("ice_strength_smoothing must satisfy 0 ≤ ice_strength_smoothing ≤ 1."))
+    end
+
+    if ice_strength_smoothing_threshold < 1
+        throw(ArgumentError("ice_strength_smoothing_threshold must be ≥ 1."))
+    end
 
     return ElastoViscoPlasticRheology(convert(FT, ice_compressive_strength),
                                       convert(FT, ice_compaction_hardening),
@@ -115,6 +136,8 @@ function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatTy
                                       convert(FT, min_relaxation_parameter),
                                       convert(FT, max_relaxation_parameter),
                                       convert(FT, relaxation_strength),
+                                      convert(FT, ice_strength_smoothing),
+                                      convert(FT, ice_strength_smoothing_threshold),
                                       pressure_formulation)
 end
 
@@ -163,6 +186,8 @@ Adapt.adapt_structure(to, r::ElastoViscoPlasticRheology) =
                                Adapt.adapt(to, r.min_relaxation_parameter),
                                Adapt.adapt(to, r.max_relaxation_parameter),
                                Adapt.adapt(to, r.relaxation_strength),
+                               Adapt.adapt(to, r.ice_strength_smoothing),
+                               Adapt.adapt(to, r.ice_strength_smoothing_threshold),
                                Adapt.adapt(to, r.pressure_formulation))
 
 """
@@ -174,27 +199,63 @@ In this step we calculate the ice strength given the ice mass (thickness and con
 function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     h = model.ice_thickness
     ℵ = model.ice_concentration
-
-    P★ = rheology.ice_compressive_strength
-    C  = rheology.ice_compaction_hardening
-
     u, v    = model.velocities
     fields  = model.dynamics.auxiliaries.fields
     kernels = model.dynamics.auxiliaries.kernels
-    kernels._initialize_rhology!(fields, model.grid, P★, C, h, ℵ, u, v)
+    kernels._initialize_rhology!(fields, model.grid, rheology, h, ℵ, u, v)
 
     return nothing
 end
 
-@kernel function _initialize_evp_rhology!(fields, grid, P★, C, h, ℵ, u, v)
+@kernel function _initialize_evp_rhology!(fields, grid, rheology, h, ℵ, u, v)
     i, j = @index(Global, NTuple)
-    @inbounds fields.P[i, j, 1]  = ice_strength(i, j, 1, grid, P★, C, h, ℵ)
+    @inbounds fields.P[i, j, 1]  = regularized_ice_strength(i, j, 1, grid, rheology, h, ℵ)
     @inbounds fields.uⁿ[i, j, 1] = u[i, j, 1]
     @inbounds fields.vⁿ[i, j, 1] = v[i, j, 1]
 end
 
 # The parameterization for an `ElastoViscoPlasticRheology`
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k]))
+@inline function ice_strength(i, j, k, grid, rheology::ElastoViscoPlasticRheology, h, ℵ)
+    P★ = rheology.ice_compressive_strength
+    C  = rheology.ice_compaction_hardening
+    return ice_strength(i, j, k, grid, P★, C, h, ℵ)
+end
+
+@inline function local_ice_strength_statistics(i, j, k, grid, rheology::ElastoViscoPlasticRheology, h, ℵ)
+    Σ = zero(grid)
+    N = zero(grid)
+    Pmin = typemax(typeof(Σ))
+    Pmax = zero(grid)
+
+    for j′ in -1:1, i′ in -1:1
+        active = !inactive_node(i + i′, j + j′, k, grid, Center(), Center(), Center())
+        P = ice_strength(i + i′, j + j′, k, grid, rheology, h, ℵ)
+        positive = P > 0
+
+        Σ += ifelse(active, P, zero(grid))
+        N += ifelse(active, one(grid), zero(grid))
+        Pmin = ifelse(active & positive, min(Pmin, P), Pmin)
+        Pmax = ifelse(active, max(Pmax, P), Pmax)
+    end
+
+    Pᶜ = ice_strength(i, j, k, grid, rheology, h, ℵ)
+    Pmean = ifelse(N > 0, Σ / N, Pᶜ)
+    Pmin = ifelse(Pmin == typemax(typeof(Σ)), Pᶜ, Pmin)
+    return Pmean, Pmin, Pmax
+end
+
+@inline function regularized_ice_strength(i, j, k, grid, rheology::ElastoViscoPlasticRheology, h, ℵ)
+    s = rheology.ice_strength_smoothing
+    threshold = rheology.ice_strength_smoothing_threshold
+    Pᶜ = ice_strength(i, j, k, grid, rheology, h, ℵ)
+    Pˢ, Pmin, Pmax = local_ice_strength_statistics(i, j, k, grid, rheology, h, ℵ)
+    jump = Pmax / max(Pmin, eps(typeof(Pmin)))
+    smooth = jump > threshold
+    return ifelse(smooth, (1 - s) * Pᶜ + s * Pˢ, Pᶜ)
+end
+
+
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
