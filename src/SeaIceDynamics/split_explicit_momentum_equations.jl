@@ -53,8 +53,8 @@ function maybe_extended_grid(mom::SplitExplicitMomentumEquation, grid::Distribut
     old_halos = halo_size(grid)
     Nsubsteps = mom.solver.substeps
     TX, TY, _ = topology(grid)
-    Hx = TX() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[1]) : old_halos[1]
-    Hy = TY() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[2]) : old_halos[2]
+    Hx = TX() isa ConnectedTopology ? max(2Nsubsteps + 3, old_halos[1]) : old_halos[1]
+    Hy = TY() isa ConnectedTopology ? max(2Nsubsteps + 3, old_halos[2]) : old_halos[2]
 
     new_halos = (Hx, Hy, old_halos[3])
     if new_halos == old_halos
