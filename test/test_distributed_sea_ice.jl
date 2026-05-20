@@ -32,20 +32,20 @@ run_distributed_jld2writer = """
 
     # @info "Testing (4, 1) Distributed sea ice halo extension"
 
-    # # Test extended halos
-    # write("distributed_halo_tests.jl", test_distributed_halos)
-    # run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_halo_tests.jl`)
-    # rm("distributed_halo_tests.jl")
+    # Test extended halos
+    write("distributed_halo_tests.jl", test_distributed_halos)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_halo_tests.jl`)
+    rm("distributed_halo_tests.jl")
 
-    # # Run the serial computation
-    # @info "Testing 4-ranks Distributed sea ice simulations equality"
+    # Run the serial computation
+    @info "Testing 4-ranks Distributed sea ice simulations equality"
 
-    # # Run the distributed grid simulation 
-    # write("distributed_simulation_tests.jl", run_distributed_grid)
-    # run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_simulation_tests.jl`)
-    # rm("distributed_simulation_tests.jl")
+    # Run the distributed grid simulation 
+    write("distributed_simulation_tests.jl", run_distributed_grid)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_simulation_tests.jl`)
+    rm("distributed_simulation_tests.jl")
 
-    # @info "Testing JLD2Writer on distributed sea ice simulations"
+    @info "Testing JLD2Writer on distributed sea ice simulations"
 
     write("distributed_jld2writer_tests.jl", run_distributed_jld2writer)
     run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_jld2writer_tests.jl`)

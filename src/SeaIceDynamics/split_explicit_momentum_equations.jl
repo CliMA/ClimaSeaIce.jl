@@ -176,6 +176,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         end
     end
 
+    finalize_rheology!(model_fields, rheology)
+
     return nothing
 end
 

@@ -1,4 +1,5 @@
 using Oceananigans.Operators
+using Oceananigans.DistributedComputations: synchronize_communication!
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.ImmersedBoundaries: inactive_node
@@ -183,9 +184,9 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     kernels = model.dynamics.auxiliaries.kernels
     kernels._initialize_rhology!(fields, model.grid, P★, C, h, ℵ, u, v)
 
-    fill!(parent(fields.σ₁₁), 0)
-    fill!(parent(fields.σ₁₂), 0)
-    fill!(parent(fields.σ₂₂), 0)
+    synchronize_communication!(fields.σ₁₁)
+    synchronize_communication!(fields.σ₁₂)
+    synchronize_communication!(fields.σ₂₂)
 
     return nothing
 end
@@ -256,6 +257,13 @@ end
     @inbounds fields.ζᶠᶠᶜ[i, j, 1] = Pᶠᶠᶜ / 2Δᶠᶠᶜ
     @inbounds fields.ζᶜᶜᶜ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
     @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
+end
+
+function finalize_rheology!(fields, ::ElastoViscoPlasticRheology)
+    fill_halo_regions!(fields.σ₁₁; async=true)
+    fill_halo_regions!(fields.σ₁₂; async=true)
+    fill_halo_regions!(fields.σ₂₂; async=true)
+    return nothing
 end
 
 @inline ice_pressure(i, j, k, grid, ::IceStrength, r, fields) = @inbounds fields.P[i, j, k]
