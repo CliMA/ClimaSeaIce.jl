@@ -96,7 +96,7 @@ function run_distributed_simulation(grid)
                                       top_momentum_stress = (u=τᵤ, v=τᵥ),
                                       bottom_momentum_stress = τₒ, 
                                       rheology = ElastoViscoPlasticRheology(),
-                                      coriolis = FPlane(f = 1e-4)
+                                      coriolis = FPlane(f = 1e-4),
                                       solver = SplitExplicitSolver(grid, substeps=10))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
