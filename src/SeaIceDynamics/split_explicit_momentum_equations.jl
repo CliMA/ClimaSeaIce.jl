@@ -80,9 +80,6 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
                                   mom.minimum_mass)
 end
 
-# maybe_extended_grid(mom::SplitExplicitMomentumEquation, grid::DistributedGrid) = grid
-# materialize_solver(mom::SplitExplicitMomentumEquation, grid) = mom
-
 # Reset the velocities to the previous time step
 # This does nothing for a FE model, but is necessary for an RK model.
 reset_velocities!(u, v, timestepper) = nothing

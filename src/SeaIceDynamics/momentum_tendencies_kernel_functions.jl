@@ -1,5 +1,4 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-using Oceananigans.DistributedComputations: @onrank
 
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt, rheology, fields, clock, coriolis,
                                                u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, forcing)
