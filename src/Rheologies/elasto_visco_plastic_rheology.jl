@@ -121,23 +121,20 @@ end
 # Extend Auxiliaries to hold auxiliaries for the ElastoViscoPlasticRheology
 function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 
-    arch      = architecture(grid)
-    Nx, Ny, _ = size(grid)
-    Hx, Hy, _ = halo_size(grid)
-
+    arch       = architecture(grid)
+    Nx, Ny, _  = size(grid)
+    Hx, Hy, _  = halo_size(grid)
     parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
 
-    # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Face,   Face,   Nothing}(grid)
-
-    uⁿ = Field{Face,   Center, Nothing}(grid)
-    vⁿ = Field{Center, Face,   Nothing}(grid)
-    P  = Field{Center, Center, Nothing}(grid)
-    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2016)
-    ζ  = Field{Center, Center, Nothing}(grid)
-    Δ  = Field{Center, Center, Nothing}(grid)
+    uⁿ  = Field{Face,   Center, Nothing}(grid)
+    vⁿ  = Field{Center, Face,   Nothing}(grid)
+    P   = Field{Center, Center, Nothing}(grid)
+    α   = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2016)
+    ζ   = Field{Center, Center, Nothing}(grid)
+    Δ   = Field{Center, Center, Nothing}(grid)
 
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)

@@ -203,9 +203,11 @@ end
 
 const SIM = SeaIceModel
 
-function set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing)
+function set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing, u=nothing, v=nothing)
     !isnothing(h)  && set!(model.ice_thickness, h)
     !isnothing(ℵ)  && set!(model.ice_concentration, ℵ)
+    !isnothing(u)  && set!(model.velocities.u, u)
+    !isnothing(v)  && set!(model.velocities.v, v)
 
     if !isnothing(hs)
         if isnothing(model.snow_thickness)

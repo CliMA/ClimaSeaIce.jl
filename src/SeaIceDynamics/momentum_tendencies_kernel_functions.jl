@@ -1,4 +1,20 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
+using Oceananigans.DistributedComputations: @onrank
+
+@kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt, rheology, fields, clock, coriolis,
+                                               u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, forcing)
+    i, j = @index(Global, NTuple)
+    kᴺ   = size(grid, 3)
+
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis,
+                                                u_immersed_bc, top_stress, bottom_stress, forcing.u)
+
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis,
+                                                v_immersed_bc, top_stress, bottom_stress, forcing.v)
+
+    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, top_stress,    clock, fields)
+    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, bottom_stress, clock, fields)
+end
 
 """Compute the sea ice ``u``-velocity tendencies."""
 @inline function u_velocity_tendency(i, j, grid, Δt,
@@ -11,26 +27,26 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
                                      u_bottom_stress,
                                      u_forcing)
 
-     kᴺ = size(grid, 3)
-     h  = model_fields.h
-     ℵ  = model_fields.ℵ
-     ρ  = model_fields.ρ
-     U  = (u = model_fields.u, v = model_fields.v)
-
-     # Ice mass (per unit area) interpolated on u points
-     ℵᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ℵ)
-     mᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
-
-     Gᵁ = ( - x_f_cross_U(i, j, kᴺ, grid, coriolis, U)
-            - explicit_τx(i, j, kᴺ, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + explicit_τx(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
-            + immersed_∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
-            + sum_of_forcing_u(i, j, kᴺ, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
-
-     Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
-
-     return Gᵁ
+    kᴺ = size(grid, 3)
+    h  = model_fields.h
+    ℵ  = model_fields.ℵ
+    ρ  = model_fields.ρ
+    U  = (u = model_fields.u, v = model_fields.v)
+    
+    # Ice mass (per unit area) interpolated on u points
+    ℵᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ℵ)
+    mᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
+    
+    Gᵁ = ( - x_f_cross_U(i, j, kᴺ, grid, coriolis, U)
+           - explicit_τx(i, j, kᴺ, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+           + explicit_τx(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+           + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
+           + immersed_∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
+           + sum_of_forcing_u(i, j, kᴺ, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
+    
+    Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
+    
+    return Gᵁ
 end
 
 """Compute the sea ice ``v``-velocity tendencies."""
@@ -44,24 +60,24 @@ end
                                      v_bottom_stress,
                                      v_forcing)
 
-     kᴺ = size(grid, 3)
-     h = model_fields.h
-     ℵ = model_fields.ℵ
-     ρ = model_fields.ρ
-     U = (u = model_fields.u, v = model_fields.v)
-
-     # Ice mass (per unit area) interpolated on v points
-     ℵᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ℵ)
-     mᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
-
-     Gⱽ = ( - y_f_cross_U(i, j, kᴺ, grid, coriolis, U)
-            - explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-            + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
-            + immersed_∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, v_immersed_bc, rheology, clock, model_fields) / mᵢ
-            + sum_of_forcing_v(i, j, kᴺ, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
-
-     Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
-
-     return Gⱽ
+    kᴺ = size(grid, 3)
+    h = model_fields.h
+    ℵ = model_fields.ℵ
+    ρ = model_fields.ρ
+    U = (u = model_fields.u, v = model_fields.v)
+    
+    # Ice mass (per unit area) interpolated on v points
+    ℵᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ℵ)
+    mᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
+    
+    Gⱽ = ( - y_f_cross_U(i, j, kᴺ, grid, coriolis, U)
+           - explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
+           + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
+           + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
+           + immersed_∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, v_immersed_bc, rheology, clock, model_fields) / mᵢ
+           + sum_of_forcing_v(i, j, kᴺ, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
+    
+    Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
+    
+    return Gⱽ
 end
