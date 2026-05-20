@@ -133,10 +133,12 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     vⁿ  = Field{Center, Face,   Nothing}(grid)
     P   = Field{Center, Center, Nothing}(grid)
     α   = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2016)
-    ζᶠᶠ = Field{Face,   Face,   Nothing}(grid)
-    ζᶜᶜ = Field{Center, Center, Nothing}(grid)
     Δ   = Field{Center, Center, Nothing}(grid)
 
+    # Viscosities
+    ζᶠᶠᶜ = Field{Face,   Face,   Nothing}(grid)
+    ζᶜᶜᶜ = Field{Center, Center, Nothing}(grid)
+    
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
 
@@ -146,7 +148,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     parameters = KernelParameters(size(P.data)[1:2], P.data.offsets[1:2])
     _initialize_rhology! = configure_kernel(arch, grid, parameters, _initialize_evp_rhology!)[1]
 
-    fields  = (; σ₁₁, σ₂₂, σ₁₂, ζᶠᶠ, ζᶜᶜ, Δ, α, uⁿ, vⁿ, P)
+    fields  = (; σ₁₁, σ₂₂, σ₁₂, ζᶠᶠᶜ, ζᶜᶜᶜ, Δ, α, uⁿ, vⁿ, P)
     kernels = (; _viscosity_kernel!, _stresses_kernel!, _initialize_rhology!)
 
     return Auxiliaries(fields, kernels)
@@ -251,8 +253,8 @@ end
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
     Pᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, P)
 
-    @inbounds fields.ζᶠᶠ[i, j, 1] = Pᶠᶠᶜ / 2Δᶠᶜᶜ
-    @inbounds fields.ζᶜᶜ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
+    @inbounds fields.ζᶠᶠᶜ[i, j, 1] = Pᶠᶠᶜ / 2Δᶠᶠᶜ
+    @inbounds fields.ζᶜᶜᶜ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
     @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
 end
 

@@ -96,7 +96,8 @@ function run_distributed_simulation(grid)
                                       top_momentum_stress = (u=τᵤ, v=τᵥ),
                                       bottom_momentum_stress = τₒ, 
                                       rheology = ElastoViscoPlasticRheology(),
-                                      solver = SplitExplicitSolver(grid, substeps=50))
+                                      coriolis = FPlane(f = 1e-4)
+                                      solver = SplitExplicitSolver(grid, substeps=10))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
     
@@ -105,6 +106,7 @@ function run_distributed_simulation(grid)
 
     set!(model, h = h₀)
     set!(model, ℵ = 1)
+    set!(model, u = 0.1)
 
     for N in 1:100
         time_step!(model, 1minutes)
@@ -126,7 +128,7 @@ function run_distributed_jld2_simulation(grid, filename)
                                       top_momentum_stress = (u=τᵤ, v=τᵥ),
                                       bottom_momentum_stress = τₒ, 
                                       rheology = ElastoViscoPlasticRheology(),
-                                      solver = SplitExplicitSolver(grid, substeps=50))
+                                      solver = SplitExplicitSolver(grid, substeps=10))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
     simulation = Simulation(model, Δt = 10, stop_iteration = 20)
