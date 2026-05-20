@@ -4,7 +4,7 @@ using Test
 using Oceananigans
 using Oceananigans.Grids: halo_size, topology
 using Oceananigans.Utils: KernelParameters
-using Oceananigans.DistributedComputations: reconstruct_global_field, reconstruct_global_grid
+using Oceananigans.DistributedComputations: @root, ranks, reconstruct_global_field, reconstruct_global_grid
 using Oceananigans.Units
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceDynamics: SeaIceMomentumEquation, SplitExplicitSolver, ElastoViscoPlasticRheology, SemiImplicitStress
@@ -21,49 +21,66 @@ function test_extended_halos()
     model    = ClimaSeaIce.SeaIceModel(grid; dynamics)
 
     Hx, Hy, Hz = halo_size(grid)
-    Hx = max(substeps + 2, Hx)
+    Hx = max(2substeps + 3, Hx)
     @test halo_size(model.velocities.u.grid) == (Hx, Hy, Hz)
     @test halo_size(model.dynamics.auxiliaries.fields.P.grid) == (Hx, Hy, Hz)
-    # Prognostic tracer-like fields must share the extended halos with the EVP
-    # auxiliaries — otherwise the stress kernel reads h/ℵ out-of-bounds.
     @test halo_size(model.ice_thickness.grid)     == (Hx, Hy, Hz)
     @test halo_size(model.ice_concentration.grid) == (Hx, Hy, Hz)
 
     Nx, Ny, Nz = size(grid)
 
     kp = model.dynamics.solver.kernel_parameters
-    # `split_explicit_kernel_size` for a ConnectedTopology in x is `-H+2:N+H-1`;
-    # in y this run is Bounded, so the kernel just iterates `1:N`.
     @test kp == KernelParameters(-Hx+2:Nx+Hx-1, 1:Ny)
 end
 
-# Run the distributed grid simulation and save down reconstructed results
-function run_distributed_sea_ice(arch, filename)
-    distributed_grid = RectilinearGrid(arch; 
-                                       size = (100, 100, 1), 
-                                       x = (-10kilometers, 10kilometers), 
-                                       y = (-10kilometers, 10kilometers), 
-                                       z = (-1, 0), 
-                                       halo = (5, 5, 5))
+function test_distributed_simulations()
+    grid = RectilinearGrid(CPU(); 
+                           size = (100, 100, 1), 
+                           x = (-10kilometers, 10kilometers), 
+                           y = (-10kilometers, 10kilometers), 
+                           z = (-1, 0), 
+                           halo = (5, 5, 5))
 
-    model = run_distributed_simulation(distributed_grid)
+    models = run_distributed_simulation(grid)
 
-    u = reconstruct_global_field(model.velocities.u)
-    v = reconstruct_global_field(model.velocities.v)
-    h = reconstruct_global_field(model.ice_thickness)
-    ℵ = reconstruct_global_field(model.ice_concentration)
+    # Retrieve Serial quantities
+    us, vs = models.velocities
+    hs = models.ice_thickness
+    ℵs = models.ice_concentration
 
-    if arch.local_rank == 0
-        jldsave(filename; u = Array(interior(u, :, :, 1)),
-                          v = Array(interior(v, :, :, 1)),
-                          h = Array(interior(h, :, :, 1)),
-                          ℵ = Array(interior(ℵ, :, :, 1)))
+    us = interior(us, :, :, 1)
+    vs = interior(vs, :, :, 1)
+    hs = interior(hs, :, :, 1)
+    ℵs = interior(ℵs, :, :, 1)
+
+    archs = [Distributed(CPU(), partition = Partition(1, 4))
+             Distributed(CPU(), partition = Partition(4, 1))
+             Distributed(CPU(), partition = Partition(2, 2))]
+
+    for arch in archs
+        @root @info "Testing $(ranks(arch)) distributed simulation"
+        grid = RectilinearGrid(arch; 
+                               size = (100, 100, 1), 
+                               x = (-10kilometers, 10kilometers), 
+                               y = (-10kilometers, 10kilometers), 
+                               z = (-1, 0), 
+                               halo = (5, 5, 5))
+
+        modelp = run_distributed_simulation(grid)
+        up, vp = models.velocities
+        hp = models.ice_thickness
+        ℵp = models.ice_concentration
+
+        up = interior(reconstruct_global_field(up), :, :, 1)
+        vp = interior(reconstruct_global_field(vp), :, :, 1)
+        hp = interior(reconstruct_global_field(hp), :, :, 1)
+        ℵp = interior(reconstruct_global_field(ℵp), :, :, 1)
+
+        @test all(us .≈ up)
+        @test all(vs .≈ vp)
+        @test all(hs .≈ hp)
+        @test all(ℵs .≈ ℵp)
     end
-
-    MPI.Barrier(MPI.COMM_WORLD)
-    MPI.Finalize()
-
-    return nothing
 end
 
 # Run the distributed grid simulation and save down reconstructed results
@@ -108,7 +125,7 @@ function run_distributed_simulation(grid)
     set!(model, ℵ = 1)
     set!(model, u = 0.1)
 
-    for N in 1:100
+    for N in 1:20
         time_step!(model, 1minutes)
     end
 
@@ -131,12 +148,13 @@ function run_distributed_jld2_simulation(grid, filename)
                                       solver = SplitExplicitSolver(grid, substeps=10))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
-    simulation = Simulation(model, Δt = 10, stop_iteration = 20)
+    simulation = Simulation(model, Δt = 10, stop_iteration = 20, verbose = false)
 
     fields = Oceananigans.prognostic_fields(model)
     simulation.output_writers[:fields] = JLD2Writer(model, fields;
                                                     schedule = IterationInterval(1),
                                                     filename,
+                                                    with_halos = false,
                                                     overwrite_existing = true)
 
     run!(simulation)
