@@ -40,6 +40,28 @@ end
     end
 end
 
+@testset "Volume-form advection conserves ∫(ℵ·h) dA" begin
+    grid = RectilinearGrid(size=(64, 64, 1), x=(0,1), y=(0,1), z=(-1,0), halo=(4,4,4), topology=(Periodic, Periodic, Bounded))
+
+    # Convergent/divergent flow toward (0.5, 0.5)
+    u = Field{Face, Center, Center}(grid)
+    v = Field{Center, Face, Center}(grid)
+    set!(u, (x, y, z) -> -0.1 * sin(2π*x) * cos(2π*y))
+    set!(v, (x, y, z) -> -0.1 * cos(2π*x) * sin(2π*y))
+
+    model = SeaIceModel(grid; velocities = (; u, v), advection = WENO(order=7))
+    set!(model, h = (x, y) -> 1.0 + 0.5*sin(2π*x)*cos(2π*y),
+                ℵ = (x, y) -> 0.5 + 0.3*sin(2π*x)*cos(2π*y))
+
+    V₀ = Field(Integral((model.ice_thickness * model.ice_concentration)))[1, 1, 1]
+    for _ in 1:50
+        time_step!(model, 0.01)
+    end
+    V₅₀ = Field(Integral((model.ice_thickness * model.ice_concentration)))[1, 1, 1]
+
+    @test isapprox(V₅₀, V₀; rtol = 1e-12)
+end
+
 @testset "Sea ice momentum equations" begin
     @info "Running sea ice momentum equations test"
 

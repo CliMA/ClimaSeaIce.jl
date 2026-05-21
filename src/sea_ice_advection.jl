@@ -6,14 +6,15 @@ using Oceananigans.Advection: FluxFormAdvection,
                               conditional_flux_fcc, 
                               conditional_flux_cfc
 
-# To obtain better numerical properties, the ice thickness is advected together 
-# with the concentration, i.e.:
-# 
-# A = ℵ⁻¹ ∇ ⋅ (uℵh) 
+# To obtain better numerical properties (conservation of `ℵ·h` in convergent flow
+# in the presence of WENO over/undershoots), ice volume per area `V = ℵ·h` is
+# transported instead of the bare thickness `h`. The tendency
 #
-# instead of the classical 
-# 
-# A = ∇ ⋅ (uh)
+#     ∂V/∂t = -∇·(U·V)
+#
+# is computed below by `div_Uℵh`. The recovery `h = V/ℵ` is then performed in
+# `_dynamic_step_tracers!` with a small-ℵ guard, following SI³
+# (Vancoppenolle et al. 2020, `icedyn_adv_pra.F90`).
 
 _advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h)
 _advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h)
@@ -40,13 +41,13 @@ end
 
 @inline div_Uℵh(i, j, k, grid, ::Nothing, U, ℵ, h) = zero(grid)
 
-# For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
+# Volume-per-area tendency: returns ∇·(U·ℵ·h).
 @inline function div_Uℵh(i, j, k, grid, advection, U, ℵ, h)
     return 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection, U.u, ℵ, h) +
                                       δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection, U.v, ℵ, h))
 end
 
-# For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
+# Volume-per-area tendency: returns ∇·(U·ℵ·h).
 @inline function div_Uℵh(i, j, k, grid, advection::FluxFormAdvection, U, ℵ, h)
     return 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
                                       δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))

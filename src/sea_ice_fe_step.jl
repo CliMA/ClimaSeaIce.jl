@@ -42,40 +42,52 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     hs = model.snow_thickness
     tracers = model.tracers
 
-    Gⁿ = model.timestepper.Gⁿ
+    Gⁿ   = model.timestepper.Gⁿ
+    ℵmin = model.concentration_floor
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, ℵmin, tracers, Gⁿ, Δt)
 
     return nothing
 end
 
-# Thickness and concentration are updated
-# We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging: 
-# if ℵ > 1, we reset the concentration to 1 and adjust the thickness 
-# to conserve the total ice volume in the cell.
-@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
+# Thickness and concentration are updated using a flux-form advection of the
+# intensive ice content per area `𝓋 = ℵ·h`
+#
+#     Gⁿ.h  ≡ ∂𝓋/∂t = -∇·(U·𝓋)    with 𝓋 = ℵ·h
+#     Gⁿ.ℵ  ≡ ∂ℵ/∂t = -∇·(U·ℵ)
+#
+# `𝓋⁺ = 𝓋ⁿ + Δt · Gⁿ.h` is updated directly, then `h = 𝓋/ℵ` is recovered with
+# a small-ℵ guard (`concentration_floor ≈ 1e-10`). Ridging is automatic: if
+# `ℵ⁺ > 1` we cap `ℵ = 1` and `h = 𝓋/1 = 𝓋`, conserving the content the
+# advection step produced.
+@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, ℵmin, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
 
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
 
-    # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = hⁿ[i, j, k] + Δt * Ghⁿ[i, j, k]
+        # Advect ice content per area `𝓋 = ℵ·h` (units m) and concentration ℵ. 
+        𝓋ⁿ = hⁿ[i, j, k] * ℵⁿ[i, j, k]
+        𝓋⁺ = 𝓋ⁿ + Δt * Ghⁿ[i, j, k]
         ℵ⁺ = ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k]
 
-        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
-        h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
+        # Clip undershoots.
+        𝓋⁺ = max(zero(𝓋⁺), 𝓋⁺)
+        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
 
-        ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺) # reset the concentration if there is no sea-ice
-        h⁺ = ifelse(ℵ⁺ == 0, zero(h⁺), h⁺) # reset the thickness if there is no sea-ice
+        # Ridging: cap concentration at 1
+        ℵ⁺ = min(ℵ⁺, one(ℵ⁺))
 
-        # Ridging and rafting caused by the advection step
-        V⁺ = h⁺ * ℵ⁺
+        # h recovery `h = 𝓋 / ℵ`, guarded by `model.concentration_floor`.
+        # Below the floor both 𝓋 and ℵ are zapped to zero (mass loss limited to O(ℵmin · h)).
+        active = ℵ⁺ > ℵmin
+        h⁺     = ifelse(active, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
+        ℵ⁺     = ifelse(active, ℵ⁺,      zero(ℵ⁺))
 
-        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
-        h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
+        ℵ[i, j, k] = ℵ⁺
+        h[i, j, k] = h⁺
     end
 
     dynamic_step_snow!(i, j, k, hs, hsⁿ, ℵ, Gⁿ, Δt)
