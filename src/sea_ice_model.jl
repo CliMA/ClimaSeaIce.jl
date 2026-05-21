@@ -4,15 +4,10 @@ using Oceananigans.Advection: materialize_advection
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
-using Oceananigans.Grids: halo_size, topology, with_halo,
-                          LeftConnected, RightConnected, FullyConnected,
-                          RightCenterFolded, RightFaceFolded,
-                          LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
-                          LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
 using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 
-using ClimaSeaIce.SeaIceDynamics: ExtendedSplitExplicitMomentumEquation
+using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
                                         PhaseTransitions, internal_flux_function
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
@@ -23,11 +18,6 @@ import Oceananigans.OutputWriters: default_included_properties
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
-
-const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
-                                RightCenterFolded, RightFaceFolded,
-                                LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
-                                LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
 struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
@@ -102,43 +92,30 @@ function SeaIceModel(grid;
 
     if isnothing(velocities)
         # Extend the halos for the velocity fields if the dynamics is
-        # an extended split explicit momentum equation
-        if dynamics isa ExtendedSplitExplicitMomentumEquation
-            old_halos = halo_size(grid)
-            raw_substeps = dynamics.solver.substeps
-            Nsubsteps = length(raw_substeps)
-            TX, TY    = topology(grid)
-            Hx = TX() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[1]) : old_halos[1]
-            Hy = TY() isa ConnectedTopology ? max(Nsubsteps + 2, old_halos[2]) : old_halos[2]
-
-            new_halos = (Hx, Hy, old_halos[3])
-            if new_halos == old_halos
-                velocity_grid = grid
-            else
-                velocity_grid = with_halo(new_halos, grid)
-            end
-        else
-            velocity_grid = grid
-        end
-
+        # an split explicit momentum equation on a Distributed grid
+        velocity_grid = maybe_extended_grid(dynamics, grid)
+        dynamics = materialize_solver(dynamics, velocity_grid)
         u = Field{Face, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.u)
         v = Field{Center, Face, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
+    else
+        velocity_grid = velocities.u.grid
     end
 
     tracers = TracerFields(tracers, grid, boundary_conditions)
 
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
-    # Wrap ice_salinity in a field
-    ice_salinity    = field((Center, Center, Nothing), ice_salinity, grid)
+    ice_salinity    = field((Center, Center, Nothing), ice_salinity,    grid)
     sea_ice_density = field((Center, Center, Nothing), sea_ice_density, grid)
-    snow_density    = field((Center, Center, Nothing), snow_density, grid)
+    snow_density    = field((Center, Center, Nothing), snow_density,    grid)
 
-    # Construct prognostic fields if not provided
-    ice_thickness = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.h)
-    ice_concentration = Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.ℵ)
+    # Thickness and concentration need to be on the velocity_grid because rheology needs both `h` and `ℵ`
+    # _inside_ the halos when running in an extended distributed grid. In serial cases and for solvers 
+    # other than split explicit velocity_grid == grid.
+    ice_thickness     = Field{Center, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.h)
+    ice_concentration = Field{Center, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.ℵ)
 
-    # Snow thickness (only allocated when snow_thermodynamics is provided)
+    # Snow thickness
     snow_thickness = if isnothing(snow_thermodynamics)
         nothing
     else
@@ -226,9 +203,11 @@ end
 
 const SIM = SeaIceModel
 
-function set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing)
+function set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing, u=nothing, v=nothing)
     !isnothing(h)  && set!(model.ice_thickness, h)
     !isnothing(ℵ)  && set!(model.ice_concentration, ℵ)
+    !isnothing(u)  && set!(model.velocities.u, u)
+    !isnothing(v)  && set!(model.velocities.v, v)
 
     if !isnothing(hs)
         if isnothing(model.snow_thickness)

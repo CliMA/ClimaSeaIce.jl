@@ -1,4 +1,5 @@
 using Oceananigans.Operators
+using Oceananigans.DistributedComputations: synchronize_communication!
 using Oceananigans.Grids: AbstractGrid, architecture, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.ImmersedBoundaries: inactive_node
@@ -121,24 +122,24 @@ end
 # Extend Auxiliaries to hold auxiliaries for the ElastoViscoPlasticRheology
 function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 
-    arch      = architecture(grid)
-    Nx, Ny, _ = size(grid)
-    Hx, Hy, _ = halo_size(grid)
-
+    arch       = architecture(grid)
+    Nx, Ny, _  = size(grid)
+    Hx, Hy, _  = halo_size(grid)
     parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
 
-    # TODO: What about boundary conditions?
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
-    σ₁₂ = Field{Face, Face, Nothing}(grid)
+    σ₁₂ = Field{Face,   Face,   Nothing}(grid)
+    uⁿ  = Field{Face,   Center, Nothing}(grid)
+    vⁿ  = Field{Center, Face,   Nothing}(grid)
+    P   = Field{Center, Center, Nothing}(grid)
+    α   = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2016)
+    Δ   = Field{Center, Center, Nothing}(grid)
 
-    uⁿ = Field{Face,   Center, Nothing}(grid)
-    vⁿ = Field{Center, Face,   Nothing}(grid)
-    P  = Field{Center, Center, Nothing}(grid)
-    α  = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2016)
-    ζ  = Field{Center, Center, Nothing}(grid)
-    Δ  = Field{Center, Center, Nothing}(grid)
-
+    # Viscosities
+    ζᶠᶠᶜ = Field{Face,   Face,   Nothing}(grid)
+    ζᶜᶜᶜ = Field{Center, Center, Nothing}(grid)
+    
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
 
@@ -148,7 +149,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     parameters = KernelParameters(size(P.data)[1:2], P.data.offsets[1:2])
     _initialize_rhology! = configure_kernel(arch, grid, parameters, _initialize_evp_rhology!)[1]
 
-    fields  = (; σ₁₁, σ₂₂, σ₁₂, ζ, Δ, α, uⁿ, vⁿ, P)
+    fields  = (; σ₁₁, σ₂₂, σ₁₂, ζᶠᶠᶜ, ζᶜᶜᶜ, Δ, α, uⁿ, vⁿ, P)
     kernels = (; _viscosity_kernel!, _stresses_kernel!, _initialize_rhology!)
 
     return Auxiliaries(fields, kernels)
@@ -182,6 +183,10 @@ function initialize_rheology!(model, rheology::ElastoViscoPlasticRheology)
     fields  = model.dynamics.auxiliaries.fields
     kernels = model.dynamics.auxiliaries.kernels
     kernels._initialize_rhology!(fields, model.grid, P★, C, h, ℵ, u, v)
+
+    synchronize_communication!(fields.σ₁₁)
+    synchronize_communication!(fields.σ₁₂)
+    synchronize_communication!(fields.σ₂₂)
 
     return nothing
 end
@@ -226,26 +231,39 @@ end
     P = fields.P
 
     # Strain rates
-    ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v)
-    ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v)
-
-    # Center - Center variables:
+    ϵ̇₁₁ᶜᶜᶜ = strain_rate_xx(i, j, kᴺ, grid, u, v)
+    ϵ̇₂₂ᶜᶜᶜ = strain_rate_yy(i, j, kᴺ, grid, u, v)
+    ϵ̇₁₂ᶠᶠᶜ = strain_rate_xy(i, j, kᴺ, grid, u, v)
+    ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, strain_rate_xx, u, v)
+    ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, strain_rate_yy, u, v)
     ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, kᴺ, grid, strain_rate_xy, u, v)
 
     # Ice divergence
-    δ = ϵ̇₁₁ + ϵ̇₂₂
+    δᶜᶜᶜ = ϵ̇₁₁ᶜᶜᶜ + ϵ̇₂₂ᶜᶜᶜ
+    δᶠᶠᶜ = ϵ̇₁₁ᶠᶠᶜ + ϵ̇₂₂ᶠᶠᶜ
 
     # Ice shear (at Centers)
-    s = sqrt((ϵ̇₁₁ - ϵ̇₂₂)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
+    sᶜᶜᶜ = sqrt((ϵ̇₁₁ᶜᶜᶜ - ϵ̇₂₂ᶜᶜᶜ)^2 + 4ϵ̇₁₂ᶜᶜᶜ^2)
+    sᶠᶠᶜ = sqrt((ϵ̇₁₁ᶠᶠᶜ - ϵ̇₂₂ᶠᶠᶜ)^2 + 4ϵ̇₁₂ᶠᶠᶜ^2)
 
     # Visco - Plastic parameter
     # if Δ is very small we assume a linear viscous response
     # adding a minimum Δ_min (at Centers)
-    Δᶜᶜᶜ = max(sqrt(δ^2 + s^2 * e⁻²), Δm)
+    Δᶜᶜᶜ = max(sqrt(δᶜᶜᶜ^2 + sᶜᶜᶜ^2 * e⁻²), Δm)
+    Δᶠᶠᶜ = max(sqrt(δᶠᶠᶜ^2 + sᶠᶠᶜ^2 * e⁻²), Δm)
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
+    Pᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, P)
 
-    @inbounds fields.ζ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
+    @inbounds fields.ζᶠᶠᶜ[i, j, 1] = Pᶠᶠᶜ / 2Δᶠᶠᶜ
+    @inbounds fields.ζᶜᶜᶜ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
     @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
+end
+
+function finalize_rheology!(fields, ::ElastoViscoPlasticRheology)
+    fill_halo_regions!(fields.σ₁₁; async=true)
+    fill_halo_regions!(fields.σ₁₂; async=true)
+    fill_halo_regions!(fields.σ₂₂; async=true)
+    return nothing
 end
 
 @inline ice_pressure(i, j, k, grid, ::IceStrength, r, fields) = @inbounds fields.P[i, j, k]
@@ -280,8 +298,8 @@ end
     ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v)
     ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
 
-    ζᶜᶜᶜ = @inbounds fields.ζ[i, j, 1]
-    ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, fields.ζ)
+    ζᶜᶜᶜ = @inbounds fields.ζᶜᶜᶜ[i, j, 1]
+    ζᶠᶠᶜ = @inbounds fields.ζᶠᶠᶜ[i, j, 1]
 
     # replacement pressure?
     Pᵣ = ice_pressure(i, j, 1, grid, ip, rheology, fields)

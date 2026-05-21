@@ -15,16 +15,17 @@ function time_step!(model::FESeaIceModel, Δt; kwargs...)
     # Be paranoid and update state at iteration 0
     model.clock.iteration == 0 && update_state!(model)
 
-    # Compute advective tendencies and update 
-    # advected tracers
+    # Compute advective tendencies and update advected tracers
     compute_tendencies!(model, Δt)
+
+    # This is an implicit (or split-explicit) step to advance momentum.
+    time_step_momentum!(model, model.dynamics, Δt)
+
+    # Dynamic step for tracers
     dynamic_time_step!(model, Δt)
 
     # Perform the thermodynamic step
     thermodynamic_time_step!(model, model.ice_thermodynamics, model.snow_thermodynamics, Δt)
-
-    # This is an implicit (or split-explicit) step to advance momentum.
-    time_step_momentum!(model, model.dynamics, Δt)
 
     tick!(model.clock, Δt)
     update_state!(model)

@@ -66,8 +66,8 @@ function SeaIceMomentumEquation(grid;
                                 minimum_mass = 1.0)
 
     auxiliaries = Auxiliaries(rheology, grid)
-    external_momentum_stresses = (top = top_momentum_stress,
-                                  bottom = bottom_momentum_stress)
+    external_momentum_stresses = (top = materialize_stress(top_momentum_stress, grid),
+                                  bottom = materialize_stress(bottom_momentum_stress, grid))
 
     FT = eltype(grid)
 
@@ -83,6 +83,10 @@ end
 
 fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
 prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+
+# Fallback: keep the same grid and dynamics
+maybe_extended_grid(mom, grid) = grid
+materialize_solver(mom, velocity_grid) = mom
 
 function Base.show(io::IO, sime::SeaIceMomentumEquation)
 

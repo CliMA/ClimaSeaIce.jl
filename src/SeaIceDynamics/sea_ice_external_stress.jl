@@ -20,7 +20,7 @@ using Oceananigans.Fields: ZeroField
 @inline implicit_τy_coefficient(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τy_coefficient(i, j, k, grid, stress.v, clock, fields)
 
 @inline explicit_τx(i, j, k, grid, stress::NamedTuple, clock, fields) = explicit_τx(i, j, k, grid, stress.u, clock, fields)
-@inline explicit_τy(i, j, k, grid, stress::NamedTuple, clock, fields) = explicit_τx(i, j, k, grid, stress.v, clock, fields)
+@inline explicit_τy(i, j, k, grid, stress::NamedTuple, clock, fields) = explicit_τy(i, j, k, grid, stress.v, clock, fields)
 
 #####
 ##### Utility for computing the total stress
@@ -33,14 +33,28 @@ using Oceananigans.Fields: ZeroField
     @inbounds explicit_τy(i, j, k, grid, stress, clock, fields) - implicit_τy_coefficient(i, j, k, grid, stress, clock, fields) * fields.v[i, j, k]
 
 #####
+##### Stress materialization
+#####
+
+materialize_stress(stress, grid) = stress
+
+#####
+##### Compute stress coefficients
+#####
+
+@inline compute_implicit_stress_coefficients!(i, j, k, grid, stress, args...) = nothing
+
+#####
 ##### SemiImplicitStress
 #####
 
-struct SemiImplicitStress{U, V, FT}
-    uₑ :: U
-    vₑ :: V
-    ρₑ :: FT
-    Cᴰ :: FT
+struct SemiImplicitStress{TU, TV, U, V, FT}
+    τᵢᵤ :: TU
+    τᵢᵥ :: TV
+    uₑ  :: U
+    vₑ  :: V
+    ρₑ  :: FT
+    Cᴰ  :: FT
 end
 
 """
@@ -79,22 +93,31 @@ function SemiImplicitStress(FT = Oceananigans.defaults.FloatType;
                             vₑ = ZeroField(FT),
                             ρₑ = 1026.0,
                             Cᴰ = 5.5e-3)
+    return SemiImplicitStress(nothing, nothing, uₑ, vₑ, convert(FT, ρₑ), convert(FT, Cᴰ))
+end
 
-    return SemiImplicitStress(uₑ, vₑ, convert(FT, ρₑ), convert(FT, Cᴰ))
+function materialize_stress(τ::SemiImplicitStress, grid)
+    τᵢᵤ = Field{Face, Center, Nothing}(grid)
+    τᵢᵥ = Field{Center, Face, Nothing}(grid)
+    return SemiImplicitStress(τᵢᵤ, τᵢᵥ, τ.uₑ, τ.vₑ, τ.ρₑ, τ.Cᴰ)
 end
 
 Adapt.adapt_structure(to, τ::SemiImplicitStress) =
-               SemiImplicitStress(Adapt.adapt(to, τ.uₑ),
+               SemiImplicitStress(Adapt.adapt(to, τ.τᵢᵤ),
+                                  Adapt.adapt(to, τ.τᵢᵥ),
+                                  Adapt.adapt(to, τ.uₑ),
                                   Adapt.adapt(to, τ.vₑ),
                                   τ.ρₑ,
                                   τ.Cᴰ)
 
 function Base.show(io::IO, τ::SemiImplicitStress)
     print(io, "SemiImplicitStress", '\n')
-    print(io, "├── uₑ: ", summary(τ.uₑ), '\n')
-    print(io, "├── vₑ: ", summary(τ.vₑ), '\n')
-    print(io, "├── ρₑ: ", τ.ρₑ, '\n')
-    print(io, "└── Cᴰ: ", τ.Cᴰ)
+    print(io, "├── τᵢᵤ: ", summary(τ.τᵢᵤ), '\n')
+    print(io, "├── τᵢᵥ: ", summary(τ.τᵢᵥ), '\n')
+    print(io, "├── uₑ:  ", summary(τ.uₑ), '\n')
+    print(io, "├── vₑ:  ", summary(τ.vₑ), '\n')
+    print(io, "├── ρₑ:  ", τ.ρₑ, '\n')
+    print(io, "└── Cᴰ:  ", τ.Cᴰ)
 end
 
 @inline function explicit_τx(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
@@ -111,14 +134,18 @@ end
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₑ
 end
 
-@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
-    Δu = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
-    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
-end
+@inline implicit_τx_coefficient(i, j, k, grid, stress::SemiImplicitStress, args...) = @inbounds stress.τᵢᵤ[i, j, k]
+@inline implicit_τy_coefficient(i, j, k, grid, stress::SemiImplicitStress, args...) = @inbounds stress.τᵢᵥ[i, j, k]
 
-@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
-    Δv = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k]
-    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
+@inline function compute_implicit_stress_coefficients!(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+    Δuᶠᶜᶜ = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
+    Δvᶠᶜᶜ = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
+
+    Δuᶜᶠᶜ = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
+    Δvᶜᶠᶜ = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k]
+
+    @inbounds τ.τᵢᵤ[i, j, k] = τ.ρₑ * τ.Cᴰ * sqrt(Δuᶠᶜᶜ^2 + Δvᶠᶜᶜ^2)
+    @inbounds τ.τᵢᵥ[i, j, k] = τ.ρₑ * τ.Cᴰ * sqrt(Δuᶜᶠᶜ^2 + Δvᶜᶠᶜ^2)
+
+    return nothing
 end
