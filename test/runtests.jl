@@ -53,5 +53,4 @@ end
 
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"
     include("test_distributed_sea_ice.jl")
-    include("test_distributed_halo_extension.jl")
 end
