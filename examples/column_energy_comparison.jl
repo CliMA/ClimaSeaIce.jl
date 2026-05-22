@@ -21,7 +21,7 @@
 
 using Printf
 using Oceananigans
-using Oceananigans.Fields: interior, set!
+using Oceananigans.Fields: Field, interior, set!
 using Oceananigans.Units
 using ClimaSeaIce.SeaIceThermodynamics
 using CairoMakie
@@ -214,3 +214,114 @@ end
 nothing # hide
 
 # ![](column_energy_temperature_evolution.mp4)
+
+# ## Surface melting
+#
+# The fixed-grid column solve does not move grid faces. To demonstrate melting,
+# we use `MeltingLimitedSurfaceFlux`: the requested surface flux warms the top
+# cell until it reaches complete melt, and any remaining flux is returned as a
+# Stefan residual. That residual then updates a separate ice-thickness field.
+
+melt_grid = RectilinearGrid(size = 1,
+                            z = (0, 1),
+                            topology = (Flat, Flat, Bounded))
+
+melt_salinity = 3.0
+melt_initial_temperature = -0.2
+requested_melt_flux = 1000.0 # W m^-2 into the surface
+melt_dt = 1hour
+melt_stop_time = 2days
+ρi = 900.0
+
+melt_boundary_conditions =
+    ColumnBoundaryConditions(top = MeltingLimitedSurfaceFlux(flux = requested_melt_flux),
+                             bottom = InsulatingBoundary())
+
+melt_column = prescribed_salinity_enthalpy_thermodynamics(melt_grid;
+    relation,
+    salinity_profile = melt_salinity,
+    energy_transport = ConductiveTemperatureTransport(conductivity = 0.0),
+    boundary_conditions = melt_boundary_conditions)
+
+set!(melt_column; bulk_salinity = melt_salinity,
+                  temperature = melt_initial_temperature)
+
+ice_thickness = Field{Center, Center, Nothing}(melt_grid)
+surface_residual_flux = Field{Center, Center, Nothing}(melt_grid)
+set!(ice_thickness, 1.0)
+
+melt_times = Float64[]
+melt_thicknesses = Float64[]
+melt_temperatures = Float64[]
+melt_residuals = Float64[]
+melt_budget_residuals = Float64[]
+
+function save_melt_state!(time, residual_flux, budget_residual)
+    push!(melt_times, time)
+    push!(melt_thicknesses, first(interior(ice_thickness)))
+    push!(melt_temperatures, first(interior(melt_column.fields.temperature)))
+    push!(melt_residuals, residual_flux)
+    push!(melt_budget_residuals, budget_residual)
+    return nothing
+end
+
+save_melt_state!(0, 0.0, 0.0)
+
+for n in 1:round(Int, melt_stop_time / melt_dt)
+    initial_energy = column_integrated_energy(melt_column)
+    residual_flux = column_surface_stefan_residual_flux(melt_column, melt_dt)
+    compute_column_surface_stefan_residual_flux!(surface_residual_flux, melt_column, melt_dt)
+
+    column_energy_time_step!(melt_column, melt_dt)
+    column_stefan_thickness_update!(ice_thickness,
+                                    relation.phase_transitions,
+                                    ρi,
+                                    surface_residual_flux,
+                                    melt_dt)
+
+    budget = column_energy_budget(melt_column, initial_energy, melt_dt;
+                                  surface_stefan_residual_flux = residual_flux)
+
+    save_melt_state!(n * melt_dt, residual_flux, budget.relative_residual)
+end
+
+melt_result = (
+    final_thickness = last(melt_thicknesses),
+    thickness_loss = first(melt_thicknesses) - last(melt_thicknesses),
+    final_temperature = last(melt_temperatures),
+    maximum_melt_flux = -minimum(melt_residuals),
+    maximum_budget_residual = maximum(abs.(melt_budget_residuals)),
+)
+
+println("Surface melting case after ", melt_stop_time / day, " days")
+@printf("  Final thickness:          %.3f m\n", melt_result.final_thickness)
+@printf("  Thickness lost:           %.3f m\n", melt_result.thickness_loss)
+@printf("  Final column temperature: %.3f °C\n", melt_result.final_temperature)
+@printf("  Maximum melt flux:        %.3f W m^-2\n", melt_result.maximum_melt_flux)
+@printf("  Max budget residual:      %.3e\n", melt_result.maximum_budget_residual)
+
+melt_fig = Figure(size = (980, 720))
+
+axh = Axis(melt_fig[1, 1],
+           xlabel = "Time (days)",
+           ylabel = "Ice thickness (m)",
+           title = "Surface melt from Stefan residual")
+
+axr = Axis(melt_fig[2, 1],
+           xlabel = "Time (days)",
+           ylabel = "Residual flux (W m⁻²)",
+           title = "Negative residual flux melts ice")
+
+axmT = Axis(melt_fig[3, 1],
+            xlabel = "Time (days)",
+            ylabel = "Column temperature (°C)",
+            title = "Fixed-grid cell warms to complete melt")
+
+lines!(axh, melt_times ./ day, melt_thicknesses, color = colors[3])
+lines!(axr, melt_times ./ day, melt_residuals, color = colors[4])
+lines!(axmT, melt_times ./ day, melt_temperatures, color = colors[5])
+
+save("column_energy_surface_melt.png", melt_fig)
+nothing # hide
+
+# ![](column_energy_surface_melt.png)
