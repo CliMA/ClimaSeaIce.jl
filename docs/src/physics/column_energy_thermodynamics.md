@@ -239,6 +239,9 @@ budget.relative_residual < 1e-12 &&
 The fixed-salinity preset is a strict subcase of the evolving-salinity preset
 when salinity transport is disabled. A side-by-side run with the same initial
 temperature and salinity profiles reports the resulting equivalence diagnostics.
+The examples section also includes a single-column comparison between a
+Bitz-Lipscomb-style fixed-salinity column and an evolving-salinity mushy column
+with bulk-salinity diffusion.
 
 ```@example column_equivalence
 using Oceananigans
