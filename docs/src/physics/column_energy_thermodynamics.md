@@ -75,7 +75,7 @@ abs(recovered_temperature + 10) < 1e-12 && 0 <= phi <= 1 && isfinite(brine_S)
 The column solves
 
 ```math
-\partial_t E = \partial_z Q_E + \partial_z I,
+\partial_t E = \partial_z J^E + \partial_z I,
 \qquad
 \partial_t S = \partial_z J_S.
 ```
@@ -83,11 +83,11 @@ The column solves
 The currently implemented energy flux closures are
 
 ```math
-Q_E = k \partial_z T,
+J^E = k \partial_z T,
 \qquad
-Q_E = \kappa_E \partial_z E,
+J^E = \kappa_E \partial_z E,
 \qquad
-Q_E = k \partial_z T + \kappa_E \partial_z E,
+J^E = k \partial_z T + \kappa_E \partial_z E,
 ```
 
 represented by [`ConductiveTemperatureTransport`](@ref),
@@ -305,12 +305,12 @@ diagnostics = (max_internal_energy_difference =
 
 ## Stefan Thickness Updates
 
-For a residual interface energy flux ``\delta Q`` that is not retained in the
+For a residual interface energy flux ``\delta J^E`` that is not retained in the
 fixed-grid internal-energy column, the conservative Stefan thickness increment
 is
 
 ```math
-\Delta h = \frac{\Delta t\,\delta Q}{\rho_i L_0}.
+\Delta h = \frac{\Delta t\,\delta J^E}{\rho_i L_0}.
 ```
 
 [`MeltingLimitedSurfaceFlux`](@ref) computes the surface residual by comparing
