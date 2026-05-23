@@ -1,0 +1,2 @@
+default_season = 'spring'
+calc_Tsfc = .false.

@@ -23,6 +23,8 @@ import Oceananigans.Utils: prettytime
 
 export SeaIceModel,
        MeltingConstrainedFluxBalance,
+       MeltingConstrainedSurfaceFluxBalance,
+       OceanFreezingTemperatureBoundary,
        PrescribedTemperature,
        RadiativeEmission,
        PhaseTransitions,
@@ -31,14 +33,52 @@ export SeaIceModel,
        SlabThermodynamics,
        snow_slab_thermodynamics,
        sea_ice_slab_thermodynamics,
-       SeaIceMomentumEquation, 
-       ExplicitSolver, 
-       SplitExplicitSolver, 
-       SemiImplicitStress, 
+       QuadraticLiquidusEnergyRelation,
+       FixedDrainedIceSalinityProfile,
+       salinity_at_normalized_depth,
+       salinity_at_normalized_height,
+       FixedSalinityBrinePocketEnergyRelation,
+       MaykutUntersteinerConductivity,
+       BubblyBrineConductivity,
+       ice_thermal_conductivity,
+       face_thermal_conductivity,
+       ColumnEnergyThermodynamics,
+       prescribed_salinity_enthalpy_thermodynamics,
+       evolving_salinity_mushy_thermodynamics,
+       PrescribedBulkSalinity,
+       PrognosticBulkSalinity,
+       ConductiveTemperatureTransport,
+       DiffusiveEnergyTransport,
+       ConductiveAndDiffusiveEnergyTransport,
+       NoSalinityTransport,
+       BulkSalinityDiffusion,
+       BrineSalinityDiffusion,
+       NoShortwaveAbsorption,
+       ExponentialShortwaveAbsorption,
+       ColumnBoundaryConditions,
+       InsulatingBoundary,
+       PrescribedEnergyFlux,
+       MeltingLimitedSurfaceFlux,
+       compute_column_surface_stefan_residual_flux!,
+       column_surface_stefan_residual_flux,
+       column_energy_time_step!,
+       column_salinity_time_step!,
+       column_energy_budget,
+       column_salt_budget,
+       column_stefan_thickness_change,
+       column_stefan_thickness_update!,
+       column_stefan_thickness_budget,
+       conservative_column_remap,
+       conservative_column_remap!,
+       column_layer_integral,
+       SeaIceMomentumEquation,
+       ExplicitSolver,
+       SplitExplicitSolver,
+       SemiImplicitStress,
        StressBalanceFreeDrift,
-       ViscousRheology, 
+       ViscousRheology,
        ElastoViscoPlasticRheology
-   
+
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
 
 # TODO: move this to Oceananigans
@@ -60,8 +100,8 @@ using .Rheologies
 include("sea_ice_fe_step.jl")
 include("sea_ice_rk_substep.jl")
 
-# Advection timescale for a `SeaIceModel`. Sea ice dynamics are two-dimensional so 
-# we reuse the `cell_advection_timescale` function defined in Oceananigans by passing 
+# Advection timescale for a `SeaIceModel`. Sea ice dynamics are two-dimensional so
+# we reuse the `cell_advection_timescale` function defined in Oceananigans by passing
 # `w = ZeroField()`.
 function cell_advection_timescale(model::SeaIceModel)
     velocities = merge(model.velocities, (; w = ZeroField()))

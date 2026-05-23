@@ -1,0 +1,55 @@
+#==============================================================================
+# Makefile macros for a local macOS Homebrew GNU toolchain.
+#==============================================================================
+
+CPPDEFS    := -DFORTRANUNDERSCORE ${ICE_CPPDEFS}
+
+CFLAGS     := -c -O2
+FREEFLAGS  := -ffree-form
+FFLAGS     := -fconvert=big-endian -fbacktrace -ffree-line-length-none -fallow-argument-mismatch
+
+ifeq ($(ICE_BLDDEBUG), true)
+  FFLAGS += -O0 -g -fcheck=bounds -finit-real=nan -fimplicit-none -ffpe-trap=zero,overflow
+else
+  FFLAGS += -O2
+endif
+
+SCC   := clang
+SFC   := gfortran
+MPICC := clang
+MPIFC := gfortran
+
+ifeq ($(ICE_COMMDIR), mpi)
+  FC := $(MPIFC)
+  CC := $(MPICC)
+else
+  FC := $(SFC)
+  CC := $(SCC)
+endif
+
+LD := $(FC)
+
+SDKPATH = $(shell xcrun --show-sdk-path 2>/dev/null)
+ifeq ($(strip $(SDKPATH)),)
+  CFLAGS_HOST :=
+else
+  CFLAGS_HOST := -isysroot $(SDKPATH)
+  CFLAGS += -isysroot $(SDKPATH)
+  LD += -L$(SDKPATH)/usr/lib
+endif
+
+INCLDIR      += $(shell nf-config --fflags)
+MODDIR       += $(shell nf-config --fflags)
+NETCDFF_LIBS := -L$(shell nf-config --prefix)/lib -lnetcdff
+NETCDF_LIBS  := $(shell nc-config --libs)
+SLIBS        := $(NETCDFF_LIBS) $(NETCDF_LIBS)
+
+ifeq ($(ICE_THREADED), true)
+  LDFLAGS += -fopenmp
+  CFLAGS  += -fopenmp
+  FFLAGS  += -fopenmp
+endif
+
+ifeq ($(ICE_IOTYPE), pio2)
+  SLIBS := $(SLIBS) -lpiof -lpioc
+endif

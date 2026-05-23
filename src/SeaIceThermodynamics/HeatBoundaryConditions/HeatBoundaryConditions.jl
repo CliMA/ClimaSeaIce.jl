@@ -1,6 +1,8 @@
 module HeatBoundaryConditions
 
 export MeltingConstrainedFluxBalance,
+       MeltingConstrainedSurfaceFluxBalance,
+       OceanFreezingTemperatureBoundary,
        PrescribedTemperature,
        RadiativeEmission,
        ConductiveFlux,
@@ -28,5 +30,19 @@ Adapt.adapt_structure(to, pt::PrescribedTemperature) =
 include("bottom_heat_boundary_conditions.jl")
 include("top_heat_boundary_conditions.jl")
 include("boundary_fluxes.jl")
+
+"""
+    MeltingConstrainedSurfaceFluxBalance(args...; kwargs...)
+
+Descriptive alias for `MeltingConstrainedFluxBalance`.
+"""
+const MeltingConstrainedSurfaceFluxBalance = MeltingConstrainedFluxBalance
+
+"""
+    OceanFreezingTemperatureBoundary(args...; kwargs...)
+
+Descriptive alias for `IceWaterThermalEquilibrium`.
+"""
+const OceanFreezingTemperatureBoundary = IceWaterThermalEquilibrium
 
 end
