@@ -72,7 +72,7 @@ abs(recovered_temperature + 10) < 1e-12 && 0 <= phi <= 1 && isfinite(brine_S)
 
 ## Transport Closures
 
-The column solves
+On a stationary vertical grid the column solves
 
 ```math
 \partial_t E = \partial_z J^E + \partial_z I,
@@ -102,9 +102,22 @@ step.
 Boundary energy fluxes are configured with [`ColumnBoundaryConditions`](@ref).
 [`InsulatingBoundary`](@ref) imposes zero flux. [`PrescribedEnergyFlux`](@ref)
 imposes a face flux that is positive in the increasing vertical-coordinate
-direction. [`MeltingLimitedSurfaceFlux`](@ref) imposes a top surface flux but
-caps the applied fixed-grid energy at the complete-melt threshold of the top
-cell, returning the excess as a Stefan residual for surface melt.
+direction. [`PrescribedTemperature`](@ref) imposes a one-sided conductive
+temperature boundary that is linearized implicitly into the energy system. At
+the bottom face this uses
+
+```math
+F^E_{1/2} = G_{1/2} (T_1^{n+1} - T_b),
+\qquad
+G_{1/2} = \frac{2 k_1^n}{\Delta z_1^{n+1}},
+```
+
+and the top face uses the corresponding
+``F^E_{N+1/2} = G_{N+1/2}(T_t - T_N^{n+1})``. This matches the BL99/Icepack
+bottom-ocean-temperature conductance used by the validation replay.
+[`MeltingLimitedSurfaceFlux`](@ref) imposes a top surface flux but caps the
+applied column energy at the complete-melt threshold of the top cell,
+returning the excess as a Stefan residual for surface melt.
 [`ExponentialShortwaveAbsorption`](@ref) adds a Beer-law shortwave flux ``I``
 with prescribed transmitted flux at the top face and an e-folding attenuation
 scale.
@@ -124,10 +137,129 @@ derivatives:
 ```
 
 This yields a backward-Euler tridiagonal system for ``E^{n+1}``. The scalar
-bulk-salinity diffusion step uses the same fixed-grid tridiagonal machinery when
-bulk salinity is prognostic. The CPU path uses an allocation-free Thomas sweep
-over the same coefficient fields; non-CPU architectures use the Oceananigans
-batched tridiagonal solver path.
+bulk-salinity diffusion step uses the same tridiagonal machinery when bulk
+salinity is prognostic. The CPU path uses an allocation-free Thomas sweep over
+the same coefficient fields; non-CPU architectures use the Oceananigans batched
+tridiagonal solver path.
+
+### Moving Vertical Metric
+
+When the grid uses `MutableVerticalDiscretization`, the vertical coordinate is
+treated in conservative moving-coordinate form. Let ``r`` be the reference
+coordinate and
+
+```math
+z(r, t) = \eta(t) + \mathcal{J}(t) r,
+\qquad
+\mathcal{J} = \partial z / \partial r,
+\qquad
+\Delta z_k^n = \mathcal{J}^n \Delta r_k.
+```
+
+During one time step the solver treats the conductive/diffusive flux
+implicitly and the metric motion explicitly. The implemented thermodynamic
+column holds ``\eta`` fixed over the scalar step and represents bottom-fixed
+top ablation or top-fixed basal growth by choosing the reference interval and
+``\eta`` before updating ``\mathcal{J}``. In the code this metric is Oceananigans'
+``\sigma`` field on `MutableVerticalDiscretization`; the previous metric
+``\sigma^-`` and current metric ``\sigma^n`` define the face displacement used by
+the moving-face flux,
+
+```math
+\delta z_{g,k+1/2}
+= z_{k+1/2}^{n+1} - z_{k+1/2}^n
+= \left(\mathcal{J}^{n+1} - \mathcal{J}^n\right) r_{k+1/2}
+= \left(\sigma^n_{k+1/2} - \sigma^-_{k+1/2}\right) r_{k+1/2}.
+```
+
+With the stationary-grid conductive/diffusive flux renamed ``F^E`` to avoid
+confusing it with the Jacobian ``\mathcal{J}``, the moving-coordinate equation
+represented by the discretization is
+
+```math
+\partial_t(\mathcal{J} E)
+= \partial_r(F^E + I) + \partial_r(\dot z_g E^{up}),
+\qquad
+\partial_t(\mathcal{J} S)
+= \partial_r F^S + \partial_r(\dot z_g S^{up}),
+```
+
+where ``\dot z_g`` is the grid-face velocity and ``E^{up}`` and ``S^{up}``
+are the upwind cell-centered values swept by each moving face. The
+finite-volume energy update used by the solver is therefore
+
+```math
+\mathcal{J}^{n+1} \Delta r_k E_k^{n+1}
+= \mathcal{J}^n \Delta r_k E_k^n
++ \left[
+\delta z_{g,k+1/2} E^{up}_{k+1/2}
+- \delta z_{g,k-1/2} E^{up}_{k-1/2}
+\right]
++ \Delta t \left[
+(F^E + I)_{k+1/2}^{n+1}
+- (F^E + I)_{k-1/2}^{n+1}
+\right],
+```
+
+where ``E^{up}`` is the piecewise-constant cell value swept across the moving
+face, ``F^E`` is the conductive/diffusive internal-energy flux (the same
+stationary-grid flux denoted ``J^E`` above), and ``I`` is the shortwave flux.
+Thus, after division by the current physical layer thickness,
+
+```math
+E_k^{n+1}
+= \frac{\mathcal{J}^n}{\mathcal{J}^{n+1}} E_k^n
++ \frac{\Delta t}{\Delta z_k^{n+1}}
+\left[(F^E + I)_{k+1/2}^{n+1}
+- (F^E + I)_{k-1/2}^{n+1}\right]
++ \frac{
+\delta z_{g,k+1/2} E^{up}_{k+1/2}
+- \delta z_{g,k-1/2} E^{up}_{k-1/2}}
+{\Delta z_k^{n+1}}.
+```
+
+This is the equation assembled by `column_energy_time_step!`: the right-hand
+side contains the old concentration scaled by the metric ratio
+``\sigma^-_k / \sigma^n_k``, the explicit swept-face enthalpy integral divided
+by ``\Delta z_k^{n+1}``, and the implicit conductive/diffusive flux divergence
+using current physical distances. The tridiagonal solve therefore advances
+``E^{n+1}`` as a concentration while conserving the layer integral
+``\mathcal{J}^{n+1}\Delta r_k E_k^{n+1}``.
+
+The implicit diffusion coefficients use current physical distances,
+
+```math
+a_{k,k+1}
+= \frac{\Delta t\,D_{k+1/2}}
+       {\Delta z_k^{n+1}\,\Delta z_{k+1/2}^{n+1}},
+```
+
+where ``D`` is the effective energy diffusivity from the linearized temperature
+transport. Prognostic bulk salinity uses the analogous conservative equation
+
+```math
+\mathcal{J}^{n+1} \Delta r_k S_k^{n+1}
+= \mathcal{J}^n \Delta r_k S_k^n
++ \left[
+\delta z_{g,k+1/2} S^{up}_{k+1/2}
+- \delta z_{g,k-1/2} S^{up}_{k-1/2}
+\right]
++ \Delta t \left[F^S_{k+1/2}^{n+1} - F^S_{k-1/2}^{n+1}\right].
+```
+
+Thus a no-flux moving-boundary step preserves uniform energy and salinity
+concentrations while changing the layer integrals with the column thickness. A
+nonuniform no-flux step uses the cell swept by the moving face: for
+``\Delta z_g > 0`` the face samples the cell above, and for
+``\Delta z_g < 0`` it samples the cell below. This is equivalent to a
+piecewise-constant conservative overlap remap when a face crosses at most one
+cell during the step. Boundary faces default to the adjacent interior value,
+which preserves uniform concentrations during no-flux expansion. When growth
+creates material with a distinct enthalpy, [`PrescribedEnergyFluxBoundaryEnergy`](@ref)
+can prescribe the volumetric internal energy swept in by the moving boundary
+while retaining the same imposed boundary flux. When
+``\mathcal{J}^{n+1}=\mathcal{J}^n``, the moving-face term vanishes and these
+equations reduce exactly to the stationary-grid system above.
 
 ```@example column_energy_step
 using Oceananigans
@@ -306,7 +438,7 @@ diagnostics = (max_internal_energy_difference =
 ## Stefan Thickness Updates
 
 For a residual interface energy flux ``\delta J^E`` that is not retained in the
-fixed-grid internal-energy column, the conservative Stefan thickness increment
+column internal-energy state, the conservative Stefan thickness increment
 is
 
 ```math
@@ -393,11 +525,96 @@ budget = column_stefan_thickness_budget(1.0, 1.0 + Δh,
 budget.relative_residual < 1e-12
 ```
 
+## Split Thickness Remapping
+
+CICE/Icepack `thickness_changes` first advances the temperature solve, then
+repartitions layer enthalpy onto the new equal-layer geometry. ClimaSeaIce
+exposes the corresponding split operation with
+[`column_energy_thickness_remap!`](@ref). The helper conservatively remaps
+layer-averaged internal energy from `source_faces` to `target_faces`, fills
+uncovered target intervals with a supplied `fill_energy`, and recomputes
+diagnostics. Passing `bulk_salinity` resets fixed-salinity profiles after the
+remap instead of remapping salinity as a prognostic tracer.
+
+For old source intervals ``[z^-_{\ell-1/2}, z^-_{\ell+1/2}]`` and new target
+intervals ``[z^+_{k-1/2}, z^+_{k+1/2}]``, the remapped internal energy is
+
+```math
+E^+_k =
+\frac{1}{\Delta z^+_k}
+\left[
+\sum_\ell E^-_\ell
+\left|[z^-_{\ell-1/2}, z^-_{\ell+1/2}]
+      \cap
+      [z^+_{k-1/2}, z^+_{k+1/2}]\right|
++ E_\mathrm{fill}
+\left(\Delta z^+_k -
+\sum_\ell
+\left|[z^-_{\ell-1/2}, z^-_{\ell+1/2}]
+      \cap
+      [z^+_{k-1/2}, z^+_{k+1/2}]\right|
+\right)
+\right].
+```
+
+This is the finite-volume counterpart of the moving-metric swept-face term
+above, applied as a split geometry update. It is used when the CICE-compatible
+sequence requires a temperature solve on the old equal-layer grid followed by
+Icepack-style equal-layer repartitioning on the new thickness.
+
+For top ablation, `source_faces` and `target_faces` share the bottom face and
+the top part of the old column is removed. For basal growth, the old source
+faces are offset upward by the growth amount and the exposed lower interval is
+filled with the new-ice enthalpy.
+
+```@example column_thickness_remap
+using Oceananigans
+using Oceananigans.Fields: set!, interior
+using ClimaSeaIce.SeaIceThermodynamics:
+    ColumnBoundaryConditions,
+    ConductiveTemperatureTransport,
+    InsulatingBoundary,
+    QuadraticLiquidusEnergyRelation,
+    column_energy_thickness_remap!,
+    conservative_column_remap,
+    prescribed_salinity_enthalpy_thermodynamics
+
+grid = RectilinearGrid(size = 4,
+                       z = (0, 1),
+                       topology = (Flat, Flat, Bounded))
+
+relation = QuadraticLiquidusEnergyRelation(Float64)
+thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
+    relation,
+    salinity_profile = 0,
+    energy_transport = ConductiveTemperatureTransport(conductivity = 0),
+    boundary_conditions = ColumnBoundaryConditions(top = InsulatingBoundary(),
+                                                   bottom = InsulatingBoundary()))
+
+set!(thermodynamics; bulk_salinity = 0, temperature = z -> -12 + 8z)
+
+source_faces = collect(range(0, 4; length = 5))
+target_faces = collect(range(0, 3; length = 5))
+source_energy = vec(Array(interior(thermodynamics.fields.internal_energy)))
+expected_energy = conservative_column_remap(source_energy,
+                                            source_faces,
+                                            target_faces)
+
+column_energy_thickness_remap!(thermodynamics,
+                               source_faces,
+                               target_faces;
+                               bulk_salinity = z -> 1 + z)
+
+maximum(abs.(vec(Array(interior(thermodynamics.fields.internal_energy))) .-
+             expected_energy)) < 1e-12
+```
+
 ## Validation
 
 The focused `column_energy` test group checks the thermodynamic relation,
-container interfaces, fixed-grid energy budgets, salinity budgets, CPU
-allocation discipline, runtime scaling, conservative Stefan thickness updates,
-and a manufactured pure-ice conductive mode. The manufactured case verifies
-second order spatial convergence of the finite-volume diffusion operator and
-first order temporal convergence of the backward-Euler step.
+container interfaces, stationary and moving-grid energy budgets, salinity
+budgets, CPU allocation discipline, runtime scaling, conservative Stefan
+thickness updates, conservative split thickness remapping, and a manufactured
+pure-ice conductive mode. The manufactured case verifies second order spatial
+convergence of the finite-volume diffusion operator and first order temporal
+convergence of the backward-Euler step.

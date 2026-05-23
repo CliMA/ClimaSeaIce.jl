@@ -58,6 +58,9 @@ pages = [
     ],
 
     "Examples" => example_pages,
+    "Validation" => [
+        "Bitz-Lipscomb CICE" => "validation/bitz_lipscomb_cice.md",
+    ],
     "Timestepping" => "timestepping.md",
 
     "Library" => [

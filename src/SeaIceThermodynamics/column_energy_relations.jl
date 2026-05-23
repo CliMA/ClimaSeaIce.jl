@@ -189,3 +189,211 @@ Return the volumetric energy threshold above which sea ice with bulk salinity
     return liquid_density * reference_latent_heat -
            liquid_density * liquid_heat_capacity * m * bulk_salinity
 end
+
+"""
+    FixedDrainedIceSalinityProfile([FT=Oceananigans.defaults.FloatType; maximum_salinity=3.2,
+                                    shape_parameter_a=0.407, shape_parameter_b=0.573])
+
+CICE/Icepack BL99 fixed drained-ice salinity profile. The callable form expects
+normalized height above the ice base, `zeta`, so that normalized downward depth
+from the surface is `s = 1 - zeta`.
+"""
+struct FixedDrainedIceSalinityProfile{FT}
+    maximum_salinity :: FT
+    shape_parameter_a :: FT
+    shape_parameter_b :: FT
+end
+
+function FixedDrainedIceSalinityProfile(FT::DataType=Oceananigans.defaults.FloatType;
+                                        maximum_salinity = 3.2,
+                                        shape_parameter_a = 0.407,
+                                        shape_parameter_b = 0.573)
+    return FixedDrainedIceSalinityProfile(convert(FT, maximum_salinity),
+                                          convert(FT, shape_parameter_a),
+                                          convert(FT, shape_parameter_b))
+end
+
+Base.summary(::FixedDrainedIceSalinityProfile) = "FixedDrainedIceSalinityProfile"
+
+function Base.show(io::IO, profile::FixedDrainedIceSalinityProfile{FT}) where FT
+    print(io, "FixedDrainedIceSalinityProfile{", FT, "}", '\n')
+    print(io, "|-- maximum_salinity: ", profile.maximum_salinity, '\n')
+    print(io, "|-- shape_parameter_a: ", profile.shape_parameter_a, '\n')
+    print(io, "`-- shape_parameter_b: ", profile.shape_parameter_b)
+end
+
+function Adapt.adapt_structure(to, profile::FixedDrainedIceSalinityProfile)
+    return FixedDrainedIceSalinityProfile(Adapt.adapt(to, profile.maximum_salinity),
+                                          Adapt.adapt(to, profile.shape_parameter_a),
+                                          Adapt.adapt(to, profile.shape_parameter_b))
+end
+
+@inline function salinity_at_normalized_depth(profile::FixedDrainedIceSalinityProfile,
+                                              normalized_depth_from_surface)
+    s = normalized_depth_from_surface
+    exponent = profile.shape_parameter_a / (s + profile.shape_parameter_b)
+    return profile.maximum_salinity / 2 *
+           (one(s) - cos(oftype(s, pi) * s^exponent))
+end
+
+@inline function salinity_at_normalized_height(profile::FixedDrainedIceSalinityProfile,
+                                               normalized_height_above_base)
+    return salinity_at_normalized_depth(profile, one(normalized_height_above_base) - normalized_height_above_base)
+end
+
+@inline (profile::FixedDrainedIceSalinityProfile)(normalized_height_above_base) =
+    salinity_at_normalized_height(profile, normalized_height_above_base)
+
+"""
+    FixedSalinityBrinePocketEnergyRelation([FT=Oceananigans.defaults.FloatType; phase_transitions])
+
+Fixed-salinity drained-ice thermodynamic relation for reproducing CICE/Icepack
+BL99 column physics. The shifted internal energy is
+`E = rho_i c_i T - rho_i (c_w - c_i) mu S - rho_i L_0 mu S / T`.
+"""
+struct FixedSalinityBrinePocketEnergyRelation{PT}
+    phase_transitions :: PT
+end
+
+function FixedSalinityBrinePocketEnergyRelation(FT::DataType=Oceananigans.defaults.FloatType;
+                                                phase_transitions = PhaseTransitions(FT;
+                                                    heat_capacity = 2106,
+                                                    liquid_heat_capacity = 4218))
+    return FixedSalinityBrinePocketEnergyRelation(phase_transitions)
+end
+
+Base.summary(::FixedSalinityBrinePocketEnergyRelation) = "FixedSalinityBrinePocketEnergyRelation"
+
+function Base.show(io::IO, relation::FixedSalinityBrinePocketEnergyRelation)
+    print(io, "FixedSalinityBrinePocketEnergyRelation", '\n')
+    print(io, "`-- phase_transitions: ", summary(relation.phase_transitions))
+end
+
+@inline function liquidus_slope(relation::FixedSalinityBrinePocketEnergyRelation)
+    return relation.phase_transitions.liquidus.slope
+end
+
+@inline function reference_temperature(relation::FixedSalinityBrinePocketEnergyRelation)
+    return relation.phase_transitions.reference_temperature
+end
+
+@inline function solid_volumetric_heat_capacity(relation::FixedSalinityBrinePocketEnergyRelation)
+    phase_transitions = relation.phase_transitions
+    return phase_transitions.density * phase_transitions.heat_capacity
+end
+
+@inline function liquid_volumetric_heat_capacity(relation::FixedSalinityBrinePocketEnergyRelation)
+    phase_transitions = relation.phase_transitions
+    return phase_transitions.density * phase_transitions.liquid_heat_capacity
+end
+
+@inline function reference_volumetric_latent_heat(relation::FixedSalinityBrinePocketEnergyRelation)
+    phase_transitions = relation.phase_transitions
+    return phase_transitions.density * phase_transitions.reference_latent_heat
+end
+
+@inline function internal_energy(relation::FixedSalinityBrinePocketEnergyRelation,
+                                 temperature,
+                                 bulk_salinity)
+    T0 = reference_temperature(relation)
+    m = liquidus_slope(relation)
+    a = solid_volumetric_heat_capacity(relation)
+    b = liquid_volumetric_heat_capacity(relation) - a
+    c = reference_volumetric_latent_heat(relation)
+
+    tau = temperature - T0
+    mS = m * bulk_salinity
+    mS == 0 && return a * tau
+
+    return a * tau - b * mS - c * mS / tau
+end
+
+@inline function temperature(relation::FixedSalinityBrinePocketEnergyRelation,
+                             internal_energy,
+                             bulk_salinity)
+    T0 = reference_temperature(relation)
+    m = liquidus_slope(relation)
+    a = solid_volumetric_heat_capacity(relation)
+    b = liquid_volumetric_heat_capacity(relation) - a
+    c = reference_volumetric_latent_heat(relation)
+
+    mS = m * bulk_salinity
+    mS == 0 && return T0 + internal_energy / a
+
+    E_plus_bmS = internal_energy + b * mS
+    discriminant = E_plus_bmS^2 + 4 * a * c * mS
+    sqrt_discriminant = sqrt(discriminant)
+
+    tau = if E_plus_bmS > 0
+        -2 * c * mS / (sqrt_discriminant + E_plus_bmS)
+    else
+        (E_plus_bmS - sqrt_discriminant) / (2 * a)
+    end
+
+    return T0 + tau
+end
+
+@inline function temperature_denominator(relation::FixedSalinityBrinePocketEnergyRelation,
+                                         internal_energy,
+                                         bulk_salinity)
+    T0 = reference_temperature(relation)
+    m = liquidus_slope(relation)
+    a = solid_volumetric_heat_capacity(relation)
+    c = reference_volumetric_latent_heat(relation)
+    mS = m * bulk_salinity
+    mS == 0 && return a
+
+    tau = temperature(relation, internal_energy, bulk_salinity) - T0
+    return a + c * mS / tau^2
+end
+
+@inline function temperature_energy_derivative(relation::FixedSalinityBrinePocketEnergyRelation,
+                                               internal_energy,
+                                               bulk_salinity)
+    return inv(temperature_denominator(relation, internal_energy, bulk_salinity))
+end
+
+@inline function temperature_salinity_derivative(relation::FixedSalinityBrinePocketEnergyRelation,
+                                                 internal_energy,
+                                                 bulk_salinity)
+    T0 = reference_temperature(relation)
+    m = liquidus_slope(relation)
+    a = solid_volumetric_heat_capacity(relation)
+    b = liquid_volumetric_heat_capacity(relation) - a
+    c = reference_volumetric_latent_heat(relation)
+
+    tau = temperature(relation, internal_energy, bulk_salinity) - T0
+    denominator = a + c * m * bulk_salinity / tau^2
+    return m * (b + c / tau) / denominator
+end
+
+@inline function liquid_fraction(relation::FixedSalinityBrinePocketEnergyRelation,
+                                 internal_energy,
+                                 bulk_salinity)
+    T0 = reference_temperature(relation)
+    m = liquidus_slope(relation)
+    T = temperature(relation, internal_energy, bulk_salinity)
+
+    return ifelse(bulk_salinity == 0, zero(T), m * bulk_salinity / (T0 - T))
+end
+
+@inline function brine_salinity(relation::FixedSalinityBrinePocketEnergyRelation,
+                                internal_energy,
+                                bulk_salinity)
+    T0 = reference_temperature(relation)
+    m = liquidus_slope(relation)
+    T = temperature(relation, internal_energy, bulk_salinity)
+
+    return (T0 - T) / m
+end
+
+@inline function complete_melt_energy(relation::FixedSalinityBrinePocketEnergyRelation,
+                                      bulk_salinity)
+    phase_transitions = relation.phase_transitions
+    m = liquidus_slope(relation)
+    density = phase_transitions.density
+    liquid_heat_capacity = phase_transitions.liquid_heat_capacity
+    reference_latent_heat = phase_transitions.reference_latent_heat
+
+    return density * (reference_latent_heat - liquid_heat_capacity * m * bulk_salinity)
+end
