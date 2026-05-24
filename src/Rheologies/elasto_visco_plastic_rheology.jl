@@ -13,7 +13,7 @@ using KernelAbstractions: @kernel, @index
 # Where:
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
 #
-struct ElastoViscoPlasticRheology{FT, IP}
+struct ElastoViscoPlasticRheology{FT, IP} <: AbstractRheology
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity

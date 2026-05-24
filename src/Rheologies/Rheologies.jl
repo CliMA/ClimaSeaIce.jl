@@ -18,6 +18,8 @@ using Oceananigans.Utils: Utils, KernelParameters, configure_kernel
 
 using ClimaSeaIce: ice_mass
 
+abstract type AbstractRheology end
+
 struct Auxiliaries{F, K}
     fields :: F
     kernels :: K
@@ -43,7 +45,7 @@ initialize_rheology!(model, rheology) = nothing
 finalize_rheology!(fields, rheology) = nothing
 
 compute_stresses!(dynamics, fields, grid, rheology, Δt) = nothing
-prognostic_fields(mom, rheology) = NamedTuple()
+prognostic_fields(mom, ::AbstractRheology) = NamedTuple()
 
 # Nothing rheology or viscous rheology
 @inline compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields) = Δt / substeps
