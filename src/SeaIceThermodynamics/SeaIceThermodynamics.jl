@@ -13,6 +13,7 @@ export SlabThermodynamics,
 
 using Adapt: Adapt
 using Oceananigans: Oceananigans
+using Oceananigans.DistributedComputations: Distributed
 using Oceananigans.Utils: Utils, launch!
 
 #####

@@ -6,6 +6,7 @@ export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, Auxiliaries
 using Adapt: Adapt
 using Oceananigans: Oceananigans
 using Oceananigans.Grids: AbstractGrid, Center, Face
+using Oceananigans.Fields: Field
 using Oceananigans.Operators: Operators, Vᶜᶠᶜ, Vᶠᶜᶜ,
                               Axᶜᶜᶜ, Axᶠᶠᶜ, Ayᶜᶜᶜ, Ayᶠᶠᶜ, Azᶜᶜᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
                               Δx_qᶜᶜᶜ, Δx_qᶜᶠᶜ, Δx_qᶠᶜᶜ, Δx_qᶠᶠᶜ,
