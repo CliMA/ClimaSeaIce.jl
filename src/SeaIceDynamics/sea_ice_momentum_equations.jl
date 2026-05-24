@@ -115,3 +115,5 @@ function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
     restore_prognostic_state!(fields(mom), state.fields)
     return mom
 end
+
+restore_prognostic_state!(mom::SeaIceMomentumEquation, ::Nothing) = nothing
