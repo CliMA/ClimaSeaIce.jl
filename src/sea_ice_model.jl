@@ -8,7 +8,7 @@ using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
-using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
+using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction,
                                         PhaseTransitions, internal_flux_function
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
@@ -110,7 +110,7 @@ function SeaIceModel(grid;
     snow_density    = field((Center, Center, Nothing), snow_density,    grid)
 
     # Thickness and concentration need to be on the velocity_grid because rheology needs both `h` and `ℵ`
-    # _inside_ the halos when running in an extended distributed grid. In serial cases and for solvers 
+    # _inside_ the halos when running in an extended distributed grid. In serial cases and for solvers
     # other than split explicit velocity_grid == grid.
     ice_thickness     = Field{Center, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.h)
     ice_concentration = Field{Center, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.ℵ)
@@ -171,7 +171,7 @@ function SeaIceModel(grid;
 
     # Fill any settings in advection scheme that might have been deferred until
     # the grid and backend is known
-    advection = materialize_advection(advection, grid) 
+    advection = materialize_advection(advection, grid)
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,
@@ -248,9 +248,6 @@ initialize!(::SIM) = nothing
 default_included_properties(::SIM) = [:grid]
 checkpointer_address(::SeaIceModel) = "SeaIceModel"
 
-# Fallback
-fields(::Nothing) = NamedTuple()
-
 snow_fields(::Nothing) = NamedTuple()
 snow_fields(hs) = (; hs)
 
@@ -262,8 +259,6 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            model.velocities,
                            fields(model.ice_thermodynamics),
                            fields(model.dynamics))
-
-prognostic_fields(::Nothing) = NamedTuple()
 
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),

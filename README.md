@@ -3,6 +3,9 @@
   <a href="https://doi.org/10.5281/zenodo.16143708" >
     <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.16143708.svg?style=flat-square"/>
   </a>
+  <a href="https://github.com/JuliaTesting/Aqua.jl" >
+    <img src="https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg"/>
+  </a>
   <a href="https://codecov.io/gh/CliMA/ClimaSeaIce.jl" >
     <img src="https://codecov.io/gh/CliMA/ClimaSeaIce.jl/graph/badge.svg?token=3Smw4jVzZG"/>
   </a>

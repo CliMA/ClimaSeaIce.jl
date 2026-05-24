@@ -1,18 +1,14 @@
-using Oceananigans: boundary_conditions
-using Oceananigans.Architectures: convert_to_device
-using Oceananigans.Fields: instantiated_location
-using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
+using Oceananigans: instantiated_location
+using Oceananigans.Architectures: convert_to_device, architecture
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
-using Oceananigans.Fields: instantiated_location
-using Oceananigans.Grids: AbstractGrid, architecture, halo_size
-using Oceananigans.ImmersedBoundaries: peripheral_node
-using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
-using Oceananigans.Utils: configure_kernel
-using Oceananigans.Grids: halo_size, topology, with_halo,
+using Oceananigans.Grids: AbstractGrid, halo_size, halo_size, topology, with_halo, peripheral_node,
                           LeftConnected, RightConnected, FullyConnected,
                           RightCenterFolded, RightFaceFolded,
                           LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                           LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
+using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
+using Oceananigans.Utils: configure_kernel
 
 const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 RightCenterFolded, RightFaceFolded,
@@ -126,7 +122,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     initialize_rheology!(model, dynamics.rheology)
     reset_velocities!(u, v, model.timestepper)
-    
+
     params = dynamics.solver.kernel_parameters
 
     tendencies_kernel!, _ = configure_kernel(arch, grid, params, _compute_velocity_tendencies!)
@@ -182,7 +178,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 end
 
 @kernel function _u_velocity_step!(u, Gu, grid, Δt, substeps, rheology,
-                                   fields, free_drift, clock, 
+                                   fields, free_drift, clock,
                                    minimum_mass, minimum_concentration,
                                    u_top_stress, u_bottom_stress)
 
@@ -211,7 +207,7 @@ end
 end
 
 @kernel function _v_velocity_step!(v, Gv, grid, Δt, substeps, rheology,
-                                   fields, free_drift, clock, 
+                                   fields, free_drift, clock,
                                    minimum_mass, minimum_concentration,
                                    v_top_stress, v_bottom_stress)
 

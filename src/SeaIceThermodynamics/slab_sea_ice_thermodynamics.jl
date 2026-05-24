@@ -182,3 +182,5 @@ function restore_prognostic_state!(therm::SlabThermodynamics, state)
     restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)
     return therm
 end
+
+restore_prognostic_state!(therm::SlabThermodynamics, ::Nothing) = nothing

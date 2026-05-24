@@ -4,12 +4,15 @@ module SeaIceDynamics
 export compute_momentum_tendencies!, time_step_momentum!
 export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
 
-using Oceananigans
-using Oceananigans.Grids
-using Oceananigans.Grids: architecture
-using Oceananigans.Operators
+using Adapt: Adapt
+using Oceananigans: Oceananigans
+using Oceananigans.Architectures: architecture
+using Oceananigans.DistributedComputations: Distributed
+using Oceananigans.Fields: Field
+using Oceananigans.Grids: Center, Face
+using Oceananigans.Operators: Operators, ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
-using Oceananigans.Utils: launch!
+using Oceananigans.Utils: Utils, KernelParameters, launch!
 using KernelAbstractions: @kernel, @index
 
 using ClimaSeaIce

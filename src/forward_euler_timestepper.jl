@@ -1,7 +1,5 @@
 #TODO: Move to Oceananigans??
 using Oceananigans.TimeSteppers: AbstractTimeStepper
-using Oceananigans.Fields: FunctionField, location
-using Oceananigans.Utils: @apply_regionally, apply_regionally!
 
 import Oceananigans: prognostic_state, restore_prognostic_state!
 import Oceananigans.TimeSteppers: TimeStepper
