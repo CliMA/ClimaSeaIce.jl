@@ -11,8 +11,9 @@ export SlabThermodynamics,
        IceSnowConductiveFlux,
        FluxFunction
 
-using Adapt
-using Oceananigans
+using Adapt: Adapt
+using Oceananigans: Oceananigans
+using Oceananigans.Utils: Utils, launch!
 
 #####
 ##### A bit of ice_thermodynamics to start the day
@@ -177,17 +178,10 @@ using .HeatBoundaryConditions:
     PrescribedTemperature,
     getflux
 
-using Oceananigans.TimeSteppers: Clock
-using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
+using Oceananigans.Fields: field, Field, Center
 
 # Simulations interface
 import Oceananigans: fields, prognostic_fields
-import Oceananigans.Fields: set!
-import Oceananigans.Models: AbstractModel
-import Oceananigans.Simulations: reset!, initialize!, iteration
-import Oceananigans.TimeSteppers: time_step!, update_state!
-
-import Oceananigans.Utils: prettytime
 
 # TODO: Fix this after this PR
 # include("EnthalpyMethodThermodynamics.jl")

@@ -1,10 +1,10 @@
-using Oceananigans.Operators
+using Adapt: Adapt
+using Oceananigans.Architectures: architecture
+using Oceananigans.Operators: Operators
 using Oceananigans.DistributedComputations: synchronize_communication!
-using Oceananigans.Grids: AbstractGrid, architecture, halo_size
+using Oceananigans.Grids: AbstractGrid, halo_size
 using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.ImmersedBoundaries: inactive_node
-using Oceananigans.Utils
-using Adapt
+using Oceananigans.Utils: Utils
 using KernelAbstractions: @kernel, @index
 
 ## The equations are solved in an iterative form following the EVP rheology of
@@ -139,7 +139,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     # Viscosities
     ζᶠᶠᶜ = Field{Face,   Face,   Nothing}(grid)
     ζᶜᶜᶜ = Field{Center, Center, Nothing}(grid)
-    
+
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
 

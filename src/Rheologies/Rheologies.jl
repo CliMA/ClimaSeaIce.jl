@@ -3,11 +3,19 @@ module Rheologies
 export ViscousRheology, ElastoViscoPlasticRheology
 export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, Auxiliaries
 
-using Oceananigans
-using Oceananigans.Operators
-using Oceananigans.Grids: AbstractGrid
+using Adapt: Adapt
+using Oceananigans: Oceananigans
+using Oceananigans.Grids: AbstractGrid, Center, Face
+using Oceananigans.Operators: Operators, Vᶜᶠᶜ, Vᶠᶜᶜ,
+                              Axᶜᶜᶜ, Axᶠᶠᶜ, Ayᶜᶜᶜ, Ayᶠᶠᶜ, Azᶜᶜᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
+                              Δx_qᶜᶜᶜ, Δx_qᶜᶠᶜ, Δx_qᶠᶜᶜ, Δx_qᶠᶠᶜ,
+                              Δy_qᶜᶜᶜ, Δy_qᶜᶠᶜ, Δy_qᶠᶜᶜ, Δy_qᶠᶠᶜ,
+                              δxᶜᵃᵃ, δxᶜᶜᶜ, δxᶠᵃᵃ, δxᶠᶠᶜ,
+                              δyᵃᶜᵃ, δyᵃᶠᵃ, δyᶜᶜᶜ, δyᶠᶠᶜ,
+                              ℑxyᶜᶜᵃ, ℑxyᶠᶠᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
+using Oceananigans.Utils: Utils, KernelParameters, configure_kernel
+
 using ClimaSeaIce: ice_mass
-using Adapt 
 
 struct Auxiliaries{F, K}
     fields :: F
@@ -16,13 +24,13 @@ end
 
 # When adapted, only the fields need to be passed to the GPU.
 # kernels operate only on the CPU.
-Adapt.adapt_structure(to, a::Auxiliaries) = 
+Adapt.adapt_structure(to, a::Auxiliaries) =
     Auxiliaries(Adapt.adapt(to, a.fields), nothing)
 
-""" 
+"""
     Auxiliaries(rheology, grid)
 
-A struct holding any auxiliary fields and kernels needed for the computation of 
+A struct holding any auxiliary fields and kernels needed for the computation of
 sea ice stresses.
 """
 Auxiliaries(rheology, grid::AbstractGrid) = Auxiliaries(NamedTuple(), nothing)

@@ -1,17 +1,11 @@
 module EnthalpyMethodSeaIceModels
 
-using Oceananigans.BoundaryConditions:
-    fill_halo_regions!,
-    regularize_field_boundary_conditions,
-    FieldBoundaryConditions,
-    compute_z_bcs!,
-    ValueBoundaryCondition
-
-using Oceananigans.Utils: prettytime, launch!
-using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior, TracerFields
-using Oceananigans.Models: AbstractModel
+using Oceananigans: AbstractModel
+using Oceananigans.BoundaryConditions: fill_halo_regions!, regularize_field_boundary_conditions, compute_z_bcs!
+using Oceananigans.Fields: CenterField, interior, TracerFields
+using Oceananigans.Operators: ℑzᵃᵃᶠ, ∂zᶜᶜᶜ, ∂zᶜᶜᶠ
 using Oceananigans.TimeSteppers: Clock, tick!
-using Oceananigans.Operators
+using Oceananigans.Utils: prettytime, launch!
 
 using KernelAbstractions: @kernel, @index
 
@@ -19,7 +13,6 @@ using KernelAbstractions: @kernel, @index
 import Oceananigans: fields, prognostic_fields
 import Oceananigans.Fields: set!
 import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.Simulations: reset!
 
 mutable struct EnthalpyMethodSeaIceModel{Grid,
                                          Tim,
@@ -130,14 +123,14 @@ function compute_porosity!(model)
     return nothing
 end
 
-@kernel function _compute_porosity!(ϕ, grid, T)   
-    i, j, k = @index(Global, NTuple) 
+@kernel function _compute_porosity!(ϕ, grid, T)
+    i, j, k = @index(Global, NTuple)
 
     FT = eltype(grid)
     Tₘ = zero(FT) # melting temperature
 
     @inbounds begin
-        Tᵢ = T[i, j, k] 
+        Tᵢ = T[i, j, k]
         ϕ[i, j, k] = ifelse(Tᵢ < Tₘ, one(FT), zero(FT))
     end
 end
@@ -242,7 +235,7 @@ function compute_diffusivity!(closure::MolecularDiffusivity, model)
 end
 
 @kernel function _compute_molecular_diffusivity!(κ, κ_ice, κ_water, ϕ)
-    i, j, k = @index(Global, NTuple) 
+    i, j, k = @index(Global, NTuple)
     @inbounds begin
         ϕᵢ = ϕ[i, j, k] # porosity or liquid fraction
         κ[i, j, k] = κ_ice * (1 - ϕᵢ) + κ_water * ϕᵢ

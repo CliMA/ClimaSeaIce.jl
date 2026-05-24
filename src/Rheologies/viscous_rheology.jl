@@ -1,5 +1,6 @@
-using Oceananigans.Fields: AbstractField, location
-using Oceananigans.TurbulenceClosures: νᶜᶜᶜ, νᶠᶜᶠ, νᶜᶠᶠ, νᶠᶠᶜ, convert_diffusivity
+using Oceananigans: location
+using Oceananigans.Fields: AbstractField
+using Oceananigans.TurbulenceClosures: νᶜᶜᶜ, νᶠᶠᶜ, convert_diffusivity
 
 struct ViscousRheology{N}
     ν :: N
