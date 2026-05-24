@@ -1,11 +1,12 @@
 using Oceananigans: tupleit, tracernames
-using Oceananigans.Architectures: architecture
 using Oceananigans.Advection: materialize_advection
+using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
+using Oceananigans.Utils: prettysummary
 
 using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
