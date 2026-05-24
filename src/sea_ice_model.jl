@@ -248,9 +248,6 @@ initialize!(::SIM) = nothing
 default_included_properties(::SIM) = [:grid]
 checkpointer_address(::SeaIceModel) = "SeaIceModel"
 
-# Fallback
-fields(::Nothing) = NamedTuple()
-
 snow_fields(::Nothing) = NamedTuple()
 snow_fields(hs) = (; hs)
 
@@ -262,8 +259,6 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            model.velocities,
                            fields(model.ice_thermodynamics),
                            fields(model.dynamics))
-
-prognostic_fields(::Nothing) = NamedTuple()
 
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
