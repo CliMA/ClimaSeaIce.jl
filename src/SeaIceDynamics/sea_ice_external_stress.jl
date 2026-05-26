@@ -148,8 +148,19 @@ end
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₑ
 end
 
-@inline implicit_τx_coefficient(i, j, k, grid, stress::SemiImplicitStress, args...) = @inbounds stress.τᵢᵤ[i, j, k]
-@inline implicit_τy_coefficient(i, j, k, grid, stress::SemiImplicitStress, args...) = @inbounds stress.τᵢᵥ[i, j, k]
+# Computed on the fly from the current velocities so that, inside the alternating substep,
+# v's drag sees the just-updated u (and vice versa).
+@inline function implicit_τx_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
+    Δu = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
+end
+
+@inline function implicit_τy_coefficient(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
+    Δv = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k]
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
+end
 
 @inline function compute_implicit_stress_coefficients!(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
     Δuᶠᶜᶜ = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
