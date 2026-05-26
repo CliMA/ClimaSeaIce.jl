@@ -299,7 +299,7 @@ end
     ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
 
     ζᶜᶜᶜ = @inbounds fields.ζᶜᶜᶜ[i, j, 1]
-    ζᶠᶠᶜ = @inbounds fields.ζᶠᶠᶜ[i, j, 1]
+    ζᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, k, grid, fields.ζᶜᶜᶜ) # @inbounds fields.ζᶠᶠᶜ[i, j, 1]
 
     # replacement pressure?
     Pᵣ = ice_pressure(i, j, 1, grid, ip, rheology, fields)
