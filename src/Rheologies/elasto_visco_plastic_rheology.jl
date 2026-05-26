@@ -340,6 +340,15 @@ end
 ##### Internal stress divergence for the EVP model
 #####
 
+# ===== Strain rates: OLD (flux-form) — ACTIVE for A/B testing. =====
+# Toggle this together with the ∂ⱼ_σ operators in ice_stress_divergence.jl:
+# both must be the OLD pair or both the NEW pair (they are an adjoint pair).
+@inline strain_rate_xx(i, j, k, grid, u, v) =  δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_yy(i, j, k, grid, u, v) =  δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
+@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
+
+# ===== Strain rates: NEW (metric-consistent divergence/tension/shear) — commented for testing. =====
+#=
 @inline q_over_Δyᶠᶜᶜ(i, j, k, grid, u) = @inbounds u[i, j, k] / Δyᶠᶜᶜ(i, j, k, grid)
 @inline q_over_Δxᶜᶠᶜ(i, j, k, grid, v) = @inbounds v[i, j, k] / Δxᶜᶠᶜ(i, j, k, grid)
 @inline q_over_Δxᶠᶜᶜ(i, j, k, grid, u) = @inbounds u[i, j, k] / Δxᶠᶜᶜ(i, j, k, grid)
@@ -356,6 +365,7 @@ end
 @inline strain_rate_xx(i, j, k, grid, u, v) = (ice_divergence(i, j, k, grid, u, v) + ice_tension(i, j, k, grid, u, v)) / 2
 @inline strain_rate_yy(i, j, k, grid, u, v) = (ice_divergence(i, j, k, grid, u, v) - ice_tension(i, j, k, grid, u, v)) / 2
 @inline strain_rate_xy(i, j, k, grid, u, v) = ice_shear(i, j, k, grid, u, v) / 2
+=#
 
 # Here we extend all the functions that a rheology model needs to support:
 @inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₁₁[i, j, k]

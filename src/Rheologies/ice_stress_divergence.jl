@@ -38,6 +38,21 @@ const f = Face()
 @inline σI( i, j, k, grid, args...) = _ice_stress_ux(i, j, k, grid, args...) + _ice_stress_vy(i, j, k, grid, args...)
 @inline σII(i, j, k, grid, args...) = _ice_stress_ux(i, j, k, grid, args...) - _ice_stress_vy(i, j, k, grid, args...)
 
+# ===== Stress divergence: OLD (flux-form) — ACTIVE for A/B testing. =====
+# Toggle together with the strain rates in elasto_visco_plastic_rheology.jl.
+# (The σI/σII and Δ²_q helpers above are used only by the NEW operators.)
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields)
+    return 1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, _ice_stress_ux, rheology, clock, fields) +
+                                       δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields))
+end
+
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields)
+    return 1 / Azᶜᶠᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields) +
+                                       δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, _ice_stress_vy, rheology, clock, fields))
+end
+
+# ===== Stress divergence: NEW (metric-consistent) — commented for testing. =====
+#=
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields)
     δ = Δyᶠᶜᶜ(i, j, k, grid) * δxᶠᵃᵃ(i, j, k, grid, σI, rheology, clock, fields) / 2
     T = δxᶠᵃᵃ(i, j, k, grid, Δy²_qᶜᶜᶜ, σII, rheology, clock, fields) / Δyᶠᶜᶜ(i, j, k, grid) / 2
@@ -51,6 +66,7 @@ end
     S =    δxᶜᵃᵃ(i, j, k, grid, Δy²_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields) / Δyᶜᶠᶜ(i, j, k, grid)
     return (δ + T + S) / Azᶜᶠᶜ(i, j, k, grid)
 end
+=#
 
 #####
 ##### Immersed Stress divergence
