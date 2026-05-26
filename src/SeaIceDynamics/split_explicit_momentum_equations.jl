@@ -124,9 +124,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                           ℵ = model.ice_concentration,
                           ρ = model.sea_ice_density))
 
-    initialize_rheology!(model, dynamics.rheology)
     reset_velocities!(u, v, model.timestepper)
-    
+    initialize_rheology!(model, dynamics.rheology)
+
     params = dynamics.solver.kernel_parameters
 
     tendencies_kernel!, _ = configure_kernel(arch, grid, params, _compute_velocity_tendencies!)
