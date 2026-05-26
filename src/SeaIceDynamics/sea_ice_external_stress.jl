@@ -174,3 +174,13 @@ end
 
     return nothing
 end
+
+# Race-free reader of the implicit drag precomputed by `compute_implicit_stress_coefficients!`.
+# The explicit solver updates u and v in a single kernel, so evaluating the drag on the fly
+# there would read neighbour velocities that the same kernel is simultaneously writing.
+@inline implicit_τx_coefficient_field(i, j, k, grid, stress, clock, fields) = zero(grid)
+@inline implicit_τy_coefficient_field(i, j, k, grid, stress, clock, fields) = zero(grid)
+@inline implicit_τx_coefficient_field(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τx_coefficient_field(i, j, k, grid, stress.u, clock, fields)
+@inline implicit_τy_coefficient_field(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τy_coefficient_field(i, j, k, grid, stress.v, clock, fields)
+@inline implicit_τx_coefficient_field(i, j, k, grid, τ::SemiImplicitStress, clock, fields) = @inbounds τ.τᵢᵤ[i, j, k]
+@inline implicit_τy_coefficient_field(i, j, k, grid, τ::SemiImplicitStress, clock, fields) = @inbounds τ.τᵢᵥ[i, j, k]

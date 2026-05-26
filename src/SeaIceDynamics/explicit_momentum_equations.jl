@@ -47,13 +47,14 @@ end
     ℵᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, fields.ℵ)
     mᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
-   # Implicit part of the stress that depends linearly on the velocity
-   τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
-         - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
+   # Implicit part of the stress that depends linearly on the velocity. Read the value
+   # precomputed by `compute_implicit_stress_coefficients!`, since this kernel updates u and v
+   # together and an on-the-fly evaluation would race on the neighbour velocities.
+   τuᵢ = ( implicit_τx_coefficient_field(i, j, kᴺ, grid, bottom_stress, clock, fields)
+         - implicit_τx_coefficient_field(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ
 
-   # Implicit part of the stress that depends linearly on the velocity
-   τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
-         - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
+   τvᵢ = ( implicit_τy_coefficient_field(i, j, kᴺ, grid, bottom_stress, clock, fields)
+         - implicit_τy_coefficient_field(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ
 
     @inbounds begin
         uᴰ = (u⁻[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
