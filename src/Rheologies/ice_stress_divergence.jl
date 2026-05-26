@@ -29,14 +29,27 @@ const f = Face()
 ##### Stress divergence
 #####
 
+@inline Δy²_qᶜᶜᶜ(i, j, k, grid, q, args...) = Δyᶜᶜᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+@inline Δx²_qᶠᶠᶜ(i, j, k, grid, q, args...) = Δxᶠᶠᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+@inline Δy²_qᶠᶠᶜ(i, j, k, grid, q, args...) = Δyᶠᶠᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+@inline Δx²_qᶜᶜᶜ(i, j, k, grid, q, args...) = Δxᶜᶜᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+
+# Stress invariants at their native locations
+@inline σI( i, j, k, grid, args...) = _ice_stress_ux(i, j, k, grid, args...) + _ice_stress_vy(i, j, k, grid, args...)
+@inline σII(i, j, k, grid, args...) = _ice_stress_ux(i, j, k, grid, args...) - _ice_stress_vy(i, j, k, grid, args...)
+
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, _ice_stress_ux, rheology, clock, fields) +
-                                       δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields))
+    δ = Δyᶠᶜᶜ(i, j, k, grid) * δxᶠᵃᵃ(i, j, k, grid, σI, rheology, clock, fields) / 2
+    T = δxᶠᵃᵃ(i, j, k, grid, Δy²_qᶜᶜᶜ, σII, rheology, clock, fields) / Δyᶠᶜᶜ(i, j, k, grid) / 2
+    S = δyᵃᶜᵃ(i, j, k, grid, Δx²_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields) / Δxᶠᶜᶜ(i, j, k, grid)
+    return (δ + T + S) / Azᶠᶜᶜ(i, j, k, grid)
 end
 
 @inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶜᶠᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields) +
-                                       δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, _ice_stress_vy, rheology, clock, fields))
+    δ  =   Δxᶜᶠᶜ(i, j, k, grid) * δyᵃᶠᵃ(i, j, k, grid, σI, rheology, clock, fields) / 2
+    T  = - δyᵃᶠᵃ(i, j, k, grid, Δx²_qᶜᶜᶜ, σII, rheology, clock, fields) / Δxᶜᶠᶜ(i, j, k, grid) / 2
+    S =    δxᶜᵃᵃ(i, j, k, grid, Δy²_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields) / Δyᶜᶠᶜ(i, j, k, grid)
+    return (δ + T + S) / Azᶜᶠᶜ(i, j, k, grid)
 end
 
 #####
