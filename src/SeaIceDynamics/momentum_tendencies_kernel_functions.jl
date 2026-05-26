@@ -15,6 +15,25 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
     compute_implicit_stress_coefficients!(i, j, kᴺ, grid, bottom_stress, clock, fields)
 end
 
+# Split-explicit substepping: the tendency must see the substep Δτ = Δt/α, not the outer Δt.
+@kernel function _compute_substepped_velocity_tendencies!(Gu, Gv, grid, Δt, substeps, rheology, fields, clock, coriolis,
+                                                          u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, forcing)
+    i, j = @index(Global, NTuple)
+    kᴺ   = size(grid, 3)
+
+    Δτᶠᶜᶜ = compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields)
+    Δτᶜᶠᶜ = compute_substep_Δtᶜᶠᶜ(i, j, grid, Δt, rheology, substeps, fields)
+
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δτᶠᶜᶜ, rheology, fields, clock, coriolis,
+                                                u_immersed_bc, top_stress, bottom_stress, forcing.u)
+
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δτᶜᶠᶜ, rheology, fields, clock, coriolis,
+                                                v_immersed_bc, top_stress, bottom_stress, forcing.v)
+
+    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, top_stress,    clock, fields)
+    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, bottom_stress, clock, fields)
+end
+
 """Compute the sea ice ``u``-velocity tendencies."""
 @inline function u_velocity_tendency(i, j, grid, Δt,
                                      rheology,

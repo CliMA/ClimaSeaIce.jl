@@ -129,15 +129,15 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     params = dynamics.solver.kernel_parameters
 
-    tendencies_kernel!, _ = configure_kernel(arch, grid, params, _compute_velocity_tendencies!)
+    tendencies_kernel!, _ = configure_kernel(arch, grid, params, _compute_substepped_velocity_tendencies!)
     u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
 
-    u_args = (u, Gu, grid, Δt, substeps, rheology, model_fields, free_drift, clock, massmin, ℵmin, top_stress, bottom_stress)
-    v_args = (v, Gv, grid, Δt, substeps, rheology, model_fields, free_drift, clock, massmin, ℵmin, top_stress, bottom_stress)
-    G_args = (Gu, Gv, grid, Δt, rheology, model_fields, clock, coriolis, u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, model.forcing)
+    u_args = (u,  Gu, grid, Δt, substeps, rheology, model_fields, free_drift, clock, massmin, ℵmin, top_stress, bottom_stress)
+    v_args = (v,  Gv, grid, Δt, substeps, rheology, model_fields, free_drift, clock, massmin, ℵmin, top_stress, bottom_stress)
+    G_args = (Gu, Gv, grid, Δt, substeps, rheology, model_fields, clock, coriolis, u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, model.forcing)
 
     u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
     v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
