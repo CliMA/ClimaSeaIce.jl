@@ -189,6 +189,9 @@ end
     # When hs = 0: Tsi = Tus (snow layer has zero resistance)
     Tsi = interface_temperature(i, j, grid, combined_flux, bottom_bc, liquidus, Tus, model_fields)
 
+    # Store Tsi as the ice top surface temperature
+    @inbounds ice_thermodynamics.top_surface_temperature[i, j, 1] = Tsi
+
     # Snow-surface energy balance (Qis per-ice column flux, Qui per-cell from
     # the coupler). Converting Qui to per-ice...
     Qis = ifelse(consolidated_ice, getflux(Qic, i, j, grid, Tus, clock, model_fields), zero(grid))

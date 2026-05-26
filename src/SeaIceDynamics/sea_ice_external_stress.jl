@@ -120,16 +120,30 @@ function Base.show(io::IO, τ::SemiImplicitStress)
     print(io, "└── Cᴰ:  ", τ.Cᴰ)
 end
 
+@inline x_momentum_stress(i, j, k, grid, stress::SemiImplicitStress, clock, fields) 
+    uₑ = @inbounds τ.uₑ[i, j, k]
+    Δu = @inbounds uₑ - fields.u[i, j, k]
+    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * Δu
+end
+
+@inline y_momentum_stress(i, j, k, grid, stress::SemiImplicitStress, clock, fields) 
+    vₑ = @inbounds τ.vₑ[i, j, k]
+    Δv = @inbounds vₑ - fields.v[i, j, k]
+    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
+    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * Δv
+end
+
 @inline function explicit_τx(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
     uₑ = @inbounds τ.uₑ[i, j, k]
-    Δu = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
+    Δu = @inbounds uₑ - fields.u[i, j, k]
     Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * uₑ
 end
 
 @inline function explicit_τy(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
     vₑ = @inbounds τ.vₑ[i, j, k]
-    Δv = @inbounds τ.vₑ[i, j, k] - fields.v[i, j, k]
+    Δv = @inbounds vₑ - fields.v[i, j, k]
     Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * vₑ
 end
