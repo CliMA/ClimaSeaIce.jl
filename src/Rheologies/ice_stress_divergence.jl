@@ -39,8 +39,8 @@ const f = Face()
 @inline σII(i, j, k, grid, args...) = _ice_stress_ux(i, j, k, grid, args...) - _ice_stress_vy(i, j, k, grid, args...)
 
 # ===== Stress divergence: OLD (flux-form) — ACTIVE for A/B testing. =====
-Toggle together with the strain rates in elasto_visco_plastic_rheology.jl.
-(The σI/σII and Δ²_q helpers above are used only by the NEW operators.)
+# Toggle together with the strain rates in elasto_visco_plastic_rheology.jl.
+# (The σI/σII and Δ²_q helpers above are used only by the NEW operators.)
 @inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields)
     return 1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, _ice_stress_ux, rheology, clock, fields) +
                                        δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields))
