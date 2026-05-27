@@ -1,7 +1,7 @@
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Architectures: architecture
 using Oceananigans.Advection: materialize_advection
-using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
+using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions, FieldBoundaryConditions, BoundaryCondition, Zipper
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.OutputReaders: FieldTimeSeries
