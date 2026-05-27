@@ -31,6 +31,7 @@ import Oceananigans: prognostic_fields
 
 # Nothing rheology
 initialize_rheology!(model, rheology) = nothing
+finalize_rheology!(fields, rheology) = nothing
 
 compute_stresses!(dynamics, fields, grid, rheology, Δt) = nothing
 prognostic_fields(mom, rheology) = NamedTuple()
