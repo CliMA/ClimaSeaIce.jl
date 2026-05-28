@@ -52,7 +52,7 @@ end
 end
 
 
-function rightcenterfolded_evp_diagnostics(; Nx = 48, Ny = 24, Δt = 1.0)
+function tripolar_evp_diagnostics(fold_topology; Nx = 48, Ny = 24, Δt = 1.0)
     grid = TripolarGrid(CPU(); size = (Nx, Ny, 1), z = (-1, 0), halo = (5, 5, 1), fold_topology = RightCenterFolded)
     solver = SplitExplicitSolver(; substeps = 8)
     dynamics = SeaIceMomentumEquation(grid; rheology = ElastoViscoPlasticRheology(), solver)
