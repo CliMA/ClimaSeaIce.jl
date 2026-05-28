@@ -122,6 +122,7 @@ end
 function evp_kernel_parameters(grid)
     Sx, Sy, _ = worksize(grid)
     TX, TY, _ = topology(grid)
+    Hx, Hy, _ = halo_size(grid)
     single_column_grid = Sx == 1 && Sy == 1
 
     if single_column_grid
@@ -130,8 +131,8 @@ function evp_kernel_parameters(grid)
 
     # Folded and connected topologies need halo-inclusive launches so the
     # fold-adjacent EVP updates populate the rows used by stress diagnostics.
-    x_range = TX === Flat ? (1:Sx) : (0:Sx+1)
-    y_range = TY === Flat ? (1:Sy) : (0:Sy+1)
+    x_range = TX === Flat ? (1:Sx) : (-Hx+2:Sx+Hx-1)
+    y_range = TY === Flat ? (1:Sy) : (-Hy+2:Sy+Hy-1)
     return KernelParameters(x_range, y_range)
 end
 
