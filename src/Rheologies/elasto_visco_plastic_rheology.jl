@@ -1,9 +1,9 @@
 using Oceananigans.Operators
 using Oceananigans.DistributedComputations: synchronize_communication!
-using Oceananigans.Grids: AbstractGrid, Flat, architecture, topology, worksize
+using Oceananigans.Grids: AbstractGrid, Flat, architecture, topology
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.ImmersedBoundaries: inactive_node
-using Oceananigans.Utils
+using Oceananigans.Utils: KernelParameters, configure_kernel, worksize
 using Adapt
 using KernelAbstractions: @kernel, @index
 
