@@ -1,7 +1,7 @@
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Architectures: architecture
 using Oceananigans.Advection: materialize_advection
-using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
+using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions, FieldBoundaryConditions, BoundaryCondition, Zipper
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.OutputReaders: FieldTimeSeries
@@ -52,6 +52,15 @@ assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Center, Nothing) 
                                        name === :v  ? (Center, Face,   Nothing) :
                                                       (Center, Center, Nothing)
 
+function default_sea_ice_boundary_conditions(grid, name)
+    bcs = FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
+    if (name === :u || name === :v) && bcs.north isa BoundaryCondition && bcs.north.classification isa Zipper
+        north = BoundaryCondition(bcs.north.classification, - bcs.north.condition)
+        bcs = FieldBoundaryConditions(bcs.west, bcs.east, bcs.south, north, bcs.bottom, bcs.top, bcs.immersed)
+    end
+    return bcs
+end
+
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
                      ice_consolidation_thickness = 0.05, # m
@@ -81,8 +90,7 @@ function SeaIceModel(grid;
     # Next, we form a list of default boundary conditions:
     field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
 
-    bc_tuple = Tuple(FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
-                     for name in field_names)
+    bc_tuple = Tuple(default_sea_ice_boundary_conditions(grid, name) for name in field_names)
     default_boundary_conditions = NamedTuple{field_names}(bc_tuple)
 
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
