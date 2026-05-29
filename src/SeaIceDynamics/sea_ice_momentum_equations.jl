@@ -69,6 +69,9 @@ function SeaIceMomentumEquation(grid;
     external_momentum_stresses = (top = materialize_stress(top_momentum_stress, grid),
                                   bottom = materialize_stress(bottom_momentum_stress, grid))
 
+    # Keep the free drift pointing at the same (materialized) stress fields as the external stresses.
+    free_drift = materialize_free_drift(free_drift, external_momentum_stresses.top, external_momentum_stresses.bottom)
+
     FT = eltype(grid)
 
     return SeaIceMomentumEquation(coriolis,

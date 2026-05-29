@@ -1,5 +1,7 @@
 using Adapt
-using Oceananigans.Fields: ZeroField
+using Oceananigans.Fields: ZeroField, interior
+using Oceananigans.Grids: halo_size
+using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions, BoundaryCondition, Zipper
 
 # Fallback
 @inline implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
@@ -36,7 +38,42 @@ using Oceananigans.Fields: ZeroField
 ##### Stress materialization
 #####
 
-materialize_stress(stress, grid) = stress
+# Whether `field` already lives on `grid`, so it can be read across `grid`'s halo as-is. 
+@inline grids_match(field, grid) = field.grid === grid || (field.grid == grid && halo_size(field.grid) == halo_size(grid))
+
+# By default a stress is left untouched (e.g. `nothing`, a `Number`, a `ZeroField`).
+extended_external_variable(src, grid) = src
+
+function extended_external_variable(src::Field, grid)
+    grids_match(src, grid) && return src
+    field = Field{Oceananigans.location(src)...}(grid; boundary_conditions = src.boundary_conditions)
+    interior(field) .= interior(src)
+    return field
+end
+
+# Refresh an extended external velocity from its source, then fill its halo.
+function refresh_and_fill_external_velocity!(dst::Field, src)
+    interior(dst) .= interior(src)
+    fill_halo_regions!(dst)
+    return nothing
+end
+
+materialize_stress(stress, grid) = extended_external_variable(stress, grid)
+
+function materialize_stress(stress::NamedTuple, grid)
+    u = extended_external_variable(stress.u, grid)
+    v = extended_external_variable(stress.v, grid)
+    return (; u, v)
+end
+
+# Fill the external stresses' halos once per time step, before substepping (coupler owns interiors).
+update_external_stress!(stress, grid) = nothing
+
+function update_external_stress!(stress::NamedTuple, grid)
+    stress.u isa Field && fill_halo_regions!(stress.u)
+    stress.v isa Field && fill_halo_regions!(stress.v)
+    return nothing
+end
 
 #####
 ##### Compute stress coefficients
@@ -48,11 +85,13 @@ materialize_stress(stress, grid) = stress
 ##### SemiImplicitStress
 #####
 
-struct SemiImplicitStress{TU, TV, U, V, FT}
+struct SemiImplicitStress{TU, TV, U, V, US, VS, FT}
     τᵢᵤ :: TU
     τᵢᵥ :: TV
-    uₑ  :: U
-    vₑ  :: V
+    uₑ  :: U   # external x-velocity read by the kernel (an extended copy after materialization)
+    vₑ  :: V   # external y-velocity read by the kernel
+    uₑ₀ :: US  # source x-velocity (e.g. live ocean-surface field); copied into uₑ each time step
+    vₑ₀ :: VS  # source y-velocity
     ρₑ  :: FT
     Cᴰ  :: FT
 end
@@ -93,22 +132,34 @@ function SemiImplicitStress(FT = Oceananigans.defaults.FloatType;
                             vₑ = ZeroField(FT),
                             ρₑ = 1026.0,
                             Cᴰ = 5.5e-3)
-    return SemiImplicitStress(nothing, nothing, uₑ, vₑ, convert(FT, ρₑ), convert(FT, Cᴰ))
+    return SemiImplicitStress(nothing, nothing, uₑ, vₑ, uₑ, vₑ, convert(FT, ρₑ), convert(FT, Cᴰ))
 end
 
 function materialize_stress(τ::SemiImplicitStress, grid)
     τᵢᵤ = Field{Face, Center, Nothing}(grid)
     τᵢᵥ = Field{Center, Face, Nothing}(grid)
-    return SemiImplicitStress(τᵢᵤ, τᵢᵥ, τ.uₑ, τ.vₑ, τ.ρₑ, τ.Cᴰ)
+    # Extended copies of the external velocities, refreshed from the original source each time step.
+    uₑ  = extended_external_variable(τ.uₑ₀, grid)
+    vₑ  = extended_external_variable(τ.vₑ₀, grid)
+    return SemiImplicitStress(τᵢᵤ, τᵢᵥ, uₑ, vₑ, τ.uₑ₀, τ.vₑ₀, τ.ρₑ, τ.Cᴰ)
 end
 
+# drop source velocities on the device.
 Adapt.adapt_structure(to, τ::SemiImplicitStress) =
                SemiImplicitStress(Adapt.adapt(to, τ.τᵢᵤ),
                                   Adapt.adapt(to, τ.τᵢᵥ),
                                   Adapt.adapt(to, τ.uₑ),
                                   Adapt.adapt(to, τ.vₑ),
+                                  nothing,
+                                  nothing,
                                   τ.ρₑ,
                                   τ.Cᴰ)
+
+function update_external_stress!(τ::SemiImplicitStress, grid)
+    τ.uₑ === τ.uₑ₀ || refresh_and_fill_external_velocity!(τ.uₑ, τ.uₑ₀)
+    τ.vₑ === τ.vₑ₀ || refresh_and_fill_external_velocity!(τ.vₑ, τ.vₑ₀)
+    return nothing
+end
 
 function Base.show(io::IO, τ::SemiImplicitStress)
     print(io, "SemiImplicitStress", '\n')
@@ -162,7 +213,7 @@ end
     return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2)
 end
 
-@inline function compute_implicit_stress_coefficients!(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+@inline function compute_implicit_stress_coefficients!(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
     Δuᶠᶜᶜ = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
     Δvᶠᶜᶜ = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
 

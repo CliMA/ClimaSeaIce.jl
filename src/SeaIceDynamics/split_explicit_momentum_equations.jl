@@ -49,9 +49,12 @@ function SplitExplicitSolver(grid::DistributedGrid; substeps=120)
     return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
 end
 
-function maybe_extended_grid(mom::SplitExplicitMomentumEquation, grid::DistributedGrid)
+maybe_extended_grid(mom::SplitExplicitMomentumEquation, grid::DistributedGrid) = maybe_extended_grid(mom.solver, grid)
+
+# Halo-extended velocity grid for a split-explicit solver on a distributed grid.
+function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
     old_halos = halo_size(grid)
-    Nsubsteps = mom.solver.substeps
+    Nsubsteps = solver.substeps
     TX, TY, _ = topology(grid)
     Hx = TX() isa ConnectedTopology ? max(2Nsubsteps + 3, old_halos[1]) : old_halos[1]
     Hy = TY() isa ConnectedTopology ? max(2Nsubsteps + 3, old_halos[2]) : old_halos[2]
@@ -70,11 +73,14 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
     new_stress      = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
                        top    = materialize_stress(mom.external_momentum_stresses.top, grid))
 
+    # Repoint the free drift at the re-gridded stresses so it shares the same (extended) fields
+    new_free_drift  = materialize_free_drift(mom.free_drift, new_stress.top, new_stress.bottom)
+
     return SeaIceMomentumEquation(mom.coriolis,
                                   mom.rheology,
                                   new_auxiliaries,
                                   new_solver,
-                                  mom.free_drift,
+                                  new_free_drift,
                                   new_stress,
                                   mom.minimum_concentration,
                                   mom.minimum_mass)
@@ -126,6 +132,12 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     reset_velocities!(u, v, model.timestepper)
     initialize_rheology!(model, dynamics.rheology)
+
+    # Refresh the externally-provided stresses / velocities and fill their (extended) halos once
+    # per time step. Substepping then only touches local halos, so every field the kernel reads
+    # across the wide halo holds valid, correctly-folded data.
+    update_external_stress!(top_stress, grid)
+    update_external_stress!(bottom_stress, grid)
 
     params = dynamics.solver.kernel_parameters
 
