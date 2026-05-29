@@ -49,11 +49,11 @@ Keyword Arguments
 
 - `coriolis`: Parameters for the background rotation rate of the model.
 - `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
-- `free_drift`: The free drift velocities used to limit sea ice momentum when the mass or the concentration are
-                below a certain threshold. Default is `nothing` (indicating that the free drift velocities are zero).
+- `free_drift`: The free drift velocities used when nonzero sea ice mass or concentration are below
+                the dynamical momentum thresholds. Default is `nothing`.
 - `solver`: The momentum solver to be used.
-- `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
-- `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
+- `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated; below this threshold nonzero sea ice moves with free drift, and roundoff-level concentration cells are set to zero. Default is `1e-3`.
+- `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated; below this threshold nonzero sea ice moves with free drift, and roundoff-level mass cells are set to zero. Default is `1.0 kg/m²`.
 """
 function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,

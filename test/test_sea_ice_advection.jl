@@ -22,6 +22,21 @@ using Oceananigans.Architectures: architecture
     end
 end
 
+@testset "Sea ice velocities" begin
+    @info "Testing sea ice velocities on a TripolarGrid"
+    grid  = TripolarGrid(size = (10, 10, 1))
+    model = SeaIceModel(grid)
+
+    @test model.velocities.u.boundary_conditions.north.condition == -1
+    @test model.velocities.v.boundary_conditions.north.condition == -1
+    
+    grid  = TripolarGrid(size = (10, 10, 1), fold_topology = Oceananigans.Grids.RightFaceFolded)
+    model = SeaIceModel(grid)
+
+    @test model.velocities.u.boundary_conditions.north.condition == -1
+    @test model.velocities.v.boundary_conditions.north.condition == -1
+end
+
 @testset "Sea ice advection with snow" begin
     @info "Running sea ice advection with snow test"
 
