@@ -80,6 +80,23 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
                                   mom.minimum_mass)
 end
 
+function reconcile_dynamics!(model, mom::SplitExplicitMomentumEquation)
+    grid = model.velocities.u.grid
+    arch = architecture(grid)
+
+    fields = merge(mom.auxiliaries.fields, model.velocities,
+                   (; h = model.ice_thickness,
+                      ℵ = model.ice_concentration,
+                      ρ = model.sea_ice_density))
+
+    launch!(arch, grid, mom.solver.kernel_parameters, _reconcile_external_stress_coefficients!,
+            grid, model.clock, fields,
+            mom.external_momentum_stresses.top,
+            mom.external_momentum_stresses.bottom)
+
+    return nothing
+end
+
 # Reset the velocities to the previous time step
 # This does nothing for a FE model, but is necessary for an RK model.
 reset_velocities!(u, v, timestepper) = nothing
