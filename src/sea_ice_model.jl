@@ -8,7 +8,7 @@ using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans.Utils: prettysummary
 
-using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
+using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid, reconcile_dynamics!
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
                                         PhaseTransitions, internal_flux_function
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
@@ -16,6 +16,7 @@ using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 import Oceananigans.Architectures: architecture
 import Oceananigans.Models: update_model_field_time_series!
 import Oceananigans.OutputWriters: default_included_properties
+import Oceananigans.TimeSteppers: update_state!, reconcile_state!
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
@@ -341,7 +342,14 @@ function restore_prognostic_state!(model::SeaIceModel, state)
     restore_prognostic_state!(model.ice_thermodynamics, state.ice_thermodynamics)
     restore_prognostic_state!(model.snow_thermodynamics, state.snow_thermodynamics)
     restore_prognostic_state!(model.dynamics, state.dynamics)
+    update_state!(model)
+    reconcile_state!(model)
     return model
 end
 
 restore_prognostic_state!(::SeaIceModel, ::Nothing) = nothing
+
+function reconcile_state!(model::SeaIceModel)
+    reconcile_dynamics!(model, model.dynamics)
+    return nothing
+end

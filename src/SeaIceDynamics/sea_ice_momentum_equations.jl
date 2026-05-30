@@ -1,7 +1,9 @@
 using ClimaSeaIce.Rheologies
 using Adapt
-
-import Oceananigans: prognostic_state, restore_prognostic_state!
+using KernelAbstractions: @kernel, @index
+using Oceananigans: restore_prognostic_state!, prognostic_state
+using Oceananigans.Architectures: architecture
+using Oceananigans.Utils: launch!
 
 struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C
@@ -88,6 +90,33 @@ prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, 
 maybe_extended_grid(mom, grid) = grid
 materialize_solver(mom, velocity_grid) = mom
 
+@kernel function _reconcile_external_stress_coefficients!(grid, clock, fields, top_stress, bottom_stress)
+    i, j = @index(Global, NTuple)
+    kᴺ = size(grid, 3)
+
+    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, top_stress, clock, fields)
+    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, bottom_stress, clock, fields)
+end
+
+reconcile_dynamics!(model, ::Nothing) = nothing
+
+function reconcile_dynamics!(model, mom::SeaIceMomentumEquation)
+    grid = model.velocities.u.grid
+    arch = architecture(grid)
+
+    fields = merge(mom.auxiliaries.fields, model.velocities,
+                   (; h = model.ice_thickness,
+                      ℵ = model.ice_concentration,
+                      ρ = model.sea_ice_density))
+
+    launch!(arch, grid, mom.solver.kernel_parameters, _reconcile_external_stress_coefficients!,
+            grid, model.clock, fields,
+            mom.external_momentum_stresses.top,
+            mom.external_momentum_stresses.bottom)
+
+    return nothing
+end
+
 function Base.show(io::IO, sime::SeaIceMomentumEquation)
 
     aux_fields = keys(sime.auxiliaries.fields)
@@ -107,11 +136,11 @@ end
 ##### Checkpointing
 #####
 
-function prognostic_state(mom::SeaIceMomentumEquation)
+function Oceananigans.prognostic_state(mom::SeaIceMomentumEquation)
     return (; fields = prognostic_state(fields(mom)))
 end
 
-function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
+function Oceananigans.restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
     restore_prognostic_state!(fields(mom), state.fields)
     return mom
 end
