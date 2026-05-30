@@ -99,23 +99,7 @@ materialize_solver(mom, velocity_grid) = mom
 end
 
 reconcile_dynamics!(model, ::Nothing) = nothing
-
-function reconcile_dynamics!(model, mom::SeaIceMomentumEquation)
-    grid = model.velocities.u.grid
-    arch = architecture(grid)
-
-    fields = merge(mom.auxiliaries.fields, model.velocities,
-                   (; h = model.ice_thickness,
-                      ℵ = model.ice_concentration,
-                      ρ = model.sea_ice_density))
-
-    launch!(arch, grid, mom.solver.kernel_parameters, _reconcile_external_stress_coefficients!,
-            grid, model.clock, fields,
-            mom.external_momentum_stresses.top,
-            mom.external_momentum_stresses.bottom)
-
-    return nothing
-end
+reconcile_dynamics!(model, mom::SeaIceMomentumEquation) = nothing
 
 function Base.show(io::IO, sime::SeaIceMomentumEquation)
 
