@@ -1,5 +1,4 @@
 using Oceananigans: tupleit, tracernames
-using Oceananigans.Architectures: architecture
 using Oceananigans.Advection: materialize_advection
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions, FieldBoundaryConditions,
                                        BoundaryCondition, Zipper
@@ -7,6 +6,7 @@ using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
+using Oceananigans.Utils: prettysummary
 
 using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
@@ -237,10 +237,17 @@ end
 
 set!(model::SIM, new_clock::Clock) = set!(model.clock, new_clock)
 
-Base.summary(model::SIM) = "SeaIceModel"
 prettytime(model::SIM) = prettytime(model.clock.time)
 iteration(model::SIM) = model.clock.iteration
 architecture(model::SIM) = model.architecture
+
+function Base.summary(model::SIM)
+    A = Base.summary(architecture(model.grid))
+    G = nameof(typeof(model.grid))
+    return string("SeaIceModel{$A, $G}",
+                  "(time = ", prettytime(model.clock.time),
+                  ", iteration = ", prettysummary(model.clock.iteration), ")")
+end
 
 function Base.show(io::IO, model::SIM)
     grid = model.grid
