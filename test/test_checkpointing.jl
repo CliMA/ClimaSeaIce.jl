@@ -3,7 +3,7 @@ using ClimaSeaIce.SeaIceDynamics
 using ClimaSeaIce.SeaIceThermodynamics
 using Test
 
-using Oceananigans.Fields: @allowscalar
+using Oceananigans.Fields: @allowscalar, ConstantField
 using Oceananigans: prognostic_fields
 
 # Same test as in Oceananigans
@@ -179,4 +179,97 @@ end
     end
 
     run_checkpointer_tests(true_model, test_model, Δt)
+end
+
+@testset "Checkpointing SemiImplicitStress caches" begin
+    # Regression test: `SemiImplicitStress` (used for ice-ocean and
+    # ice-atmosphere drag) caches per-cell implicit-stress coefficients in
+    # `τᵢᵤ`/`τᵢᵥ` Fields. They are written by `compute_implicit_stress_coefficients!`
+    # inside the EVP substep loop and read by `_compute_sea_ice_ocean_stress!`
+    # (via `implicit_τx_coefficient`) every time the coupled `update_state!`
+    # runs — including the call triggered by `initialize_simulation!` on a
+    # restored simulation. If `prognostic_state(::SeaIceMomentumEquation)`
+    # doesn't walk `external_momentum_stresses`, these caches do not
+    # round-trip and the first post-restore flux computation reads zeros,
+    # producing ocean-velocity drift in a coupled simulation.
+
+    Δt = 1
+    grid = RectilinearGrid(CPU(), size=(16, 16), x=(0, 100), y=(0, 100),
+                           topology=(Bounded, Bounded, Flat))
+
+    # SeaIceModel with `SemiImplicitStress` on both ice surfaces — exercises
+    # both top and bottom branches of `external_momentum_stresses`.
+    function make_model(grid)
+        top    = SemiImplicitStress(; uₑ=ConstantField(10), vₑ=ConstantField(5),
+                                      ρₑ=1.225,  Cᴰ=1.5e-3)
+        bottom = SemiImplicitStress(; uₑ=ConstantField(0),  vₑ=ConstantField(0),
+                                      ρₑ=1026.0, Cᴰ=5.5e-3)
+        dynamics = SeaIceMomentumEquation(grid; top_momentum_stress    = top,
+                                                bottom_momentum_stress = bottom)
+        SeaIceModel(grid; dynamics, ice_thermodynamics=SlabThermodynamics(grid))
+    end
+
+    function set_random_initial_conditions!(model)
+        for field in merge(model.velocities,
+                           (h = model.ice_thickness, ℵ = model.ice_concentration))
+            set!(field, (x, y) -> rand() * 1e-5)
+        end
+    end
+
+    # Per-cache snapshot helper for the τᵢᵤ/τᵢᵥ Fields.
+    cache(model, side, name) =
+        Array(parent(getproperty(getproperty(model.dynamics.external_momentum_stresses, side), name)))
+
+    # Outer round-trip via the existing helper — `prognostic_fields` equality,
+    # for `SeaIceMomentumEquation`-with-`SemiImplicitStress` configurations.
+    true_model = make_model(grid)
+    test_model = deepcopy(true_model)
+    set_random_initial_conditions!(true_model)
+    run_checkpointer_tests(true_model, test_model, Δt)
+
+    # Focused cache round-trip. `test_model_equality` only covers
+    # `prognostic_fields(::SeaIceModel)`, which does not include
+    # `external_momentum_stresses` — so the τᵢᵤ/τᵢᵥ round-trip must be checked
+    # directly here.
+    @testset "τᵢᵤ/τᵢᵥ cache round-trip" begin
+        prefix = "semi_implicit_stress_checkpoint"
+
+        # Save: run the EVP loop long enough to populate the caches.
+        saved = make_model(grid)
+        set_random_initial_conditions!(saved)
+        sim_save = Simulation(saved; Δt, stop_iteration=5)
+        sim_save.output_writers[:checkpointer] =
+            Checkpointer(saved; schedule=IterationInterval(5),
+                                overwrite_existing=true, prefix)
+        run!(sim_save)
+
+        saved_caches = (top    = (τᵢᵤ = cache(saved, :top, :τᵢᵤ),
+                                  τᵢᵥ = cache(saved, :top, :τᵢᵥ)),
+                        bottom = (τᵢᵤ = cache(saved, :bottom, :τᵢᵤ),
+                                  τᵢᵥ = cache(saved, :bottom, :τᵢᵥ)))
+
+        # Sanity: the substep loop actually populated the caches — otherwise
+        # the round-trip is vacuously satisfied by both sides being zero.
+        @test maximum(abs.(saved_caches.top.τᵢᵤ))    > 0
+        @test maximum(abs.(saved_caches.bottom.τᵢᵤ)) > 0
+
+        # Restore: fresh model, pull state from disk.
+        restored = make_model(grid)
+        sim_restore = Simulation(restored; Δt, stop_iteration=5)
+        sim_restore.output_writers[:checkpointer] =
+            Checkpointer(restored; schedule=IterationInterval(5),
+                                   overwrite_existing=true, prefix)
+        set!(sim_restore, checkpoint="$(prefix)_iteration5.jld2")
+
+        # Round-trip equality must be bit-exact: every τᵢᵤ/τᵢᵥ Field is a
+        # deterministic function of the saved prognostic state.
+        @test cache(restored, :top,    :τᵢᵤ) == saved_caches.top.τᵢᵤ
+        @test cache(restored, :top,    :τᵢᵥ) == saved_caches.top.τᵢᵥ
+        @test cache(restored, :bottom, :τᵢᵤ) == saved_caches.bottom.τᵢᵤ
+        @test cache(restored, :bottom, :τᵢᵥ) == saved_caches.bottom.τᵢᵥ
+
+        for f in filter(p -> startswith(p, prefix), readdir())
+            rm(f; force=true)
+        end
+    end
 end
