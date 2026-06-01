@@ -50,3 +50,56 @@ end
         end
     end
 end
+
+
+function tripolar_evp_diagnostics(; fold_topology=RightFaceFolded, Nx = 48, Ny = 24, Hx = 5, Hy = 5, Δt = 1.0)
+    grid = TripolarGrid(CPU(); size = (Nx, Ny, 1), z = (-1, 0), halo = (Hx, Hy, 1), fold_topology = fold_topology)
+    solver = SplitExplicitSolver(; substeps = 8)
+    dynamics = SeaIceMomentumEquation(grid; rheology = ElastoViscoPlasticRheology(), solver)
+    model = SeaIceModel(grid; dynamics, ice_thermodynamics = nothing, advection = nothing)
+
+    set!(model,
+     h = 1,
+     ℵ = 1,
+     u = (x, y) -> cosd(x) * exp(-((y - 78) / 7)^2),
+     v = (x, y) -> sind(2x) * exp(-((y - 78) / 7)^2))
+  
+    Oceananigans.BoundaryConditions.fill_halo_regions!(model.velocities.u)
+    Oceananigans.BoundaryConditions.fill_halo_regions!(model.velocities.v)
+
+    model_fields = merge(fields(model.dynamics),
+                         model.velocities,
+                         (; h = model.ice_thickness,
+                            ℵ = model.ice_concentration,
+                            ρ = model.sea_ice_density))
+
+    rheology = model.dynamics.rheology
+    ClimaSeaIce.Rheologies.initialize_rheology!(model, rheology)
+    ClimaSeaIce.Rheologies.compute_stresses!(model.dynamics, model_fields, grid, rheology, Δt)
+    ClimaSeaIce.Rheologies.finalize_rheology!(model_fields, rheology)
+
+    Sx, Sy, _ = Oceananigans.Utils.worksize(grid)
+    kp = ClimaSeaIce.Rheologies.evp_kernel_parameters(grid)
+
+    divu = [ClimaSeaIce.Rheologies.∂ⱼ_σ₁ⱼ(i, j, 1, grid, rheology, model.clock, model_fields) for i in 1:Nx, j in 1:Ny]
+    divv = [ClimaSeaIce.Rheologies.∂ⱼ_σ₂ⱼ(i, j, 1, grid, rheology, model.clock, model_fields) for i in 1:Nx, j in 1:Ny]
+    combined = max.(abs.(divu), abs.(divv))
+
+    return (; kp,
+              Sx,
+              Sy,
+              Hx,
+              Hy,
+              row_nm2 = maximum(@view combined[:, Ny-2]),
+              row_nm1 = maximum(@view combined[:, Ny-1]),
+              row_n = maximum(@view combined[:, Ny]))
+end
+
+@testset "RightFaceFolded EVP diagnostics" begin
+    diagnostics = tripolar_evp_diagnostics()
+
+    @test diagnostics.kp == Oceananigans.Utils.KernelParameters(-diagnostics.Hx+2:diagnostics.Sx+diagnostics.Hx-1, -diagnostics.Hy+2:diagnostics.Sy+diagnostics.Hy-1)
+
+    neighbor_scale = max(diagnostics.row_nm2, diagnostics.row_n, sqrt(eps(typeof(diagnostics.row_nm1))))
+    @test diagnostics.row_nm1 <= 5 * neighbor_scale
+end
