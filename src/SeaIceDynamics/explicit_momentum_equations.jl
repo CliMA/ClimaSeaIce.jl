@@ -29,46 +29,58 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
-    launch!(arch, grid, :xy, _step_velocities!, u, v, u⁻, v⁻, grid, Gⁿ, Δt, 
-            top_stress, bottom_stress, free_drift, 
-            minimum_mass, minimum_concentration, clock, model_fields)
+    # u and v step in separate kernels with a halo fill in between, so the implicit drag reads fully-updated neighbour velocities rather than racing them.
+    launch!(arch, grid, :xy, _step_u_velocity!, u, u⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
+    fill_halo_regions!(u)
+
+    launch!(arch, grid, :xy, _step_v_velocity!, v, v⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
+    fill_halo_regions!(v)
 
     return nothing
 end
 
-@kernel function _step_velocities!(u, v, u⁻, v⁻, grid, Gⁿ, Δt, 
-                                   top_stress, bottom_stress, 
+@kernel function _step_u_velocity!(u, u⁻, grid, Gⁿ, Δt,
+                                   top_stress, bottom_stress,
                                    free_drift, minimum_mass, minimum_concentration, clock, fields)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
     ℵᶠᶜ  = ℑxᶠᵃᵃ(i, j, kᴺ, grid, fields.ℵ)
     mᶠᶜ  = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
-    ℵᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, fields.ℵ)
-    mᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
-   # Implicit part of the stress that depends linearly on the velocity
-   τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
-         - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ 
-
-   # Implicit part of the stress that depends linearly on the velocity
-   τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) 
-         - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ 
+    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields)
+          - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ
 
     @inbounds begin
         uᴰ = (u⁻[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
         uᶠ = free_drift_u(i, j, kᴺ, grid, free_drift, clock, fields)
-        vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, fields)
-        vᴰ = (v⁻[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
 
         marginal_ice = (mᶠᶜ > eps(typeof(mᶠᶜ))) & (ℵᶠᶜ > eps(typeof(ℵᶠᶜ)))
         active_ice = (mᶠᶜ ≥ minimum_mass) & (ℵᶠᶜ ≥ minimum_concentration)
         u[i, j, 1] = ifelse(active_ice, uᴰ, ifelse(marginal_ice, uᶠ, zero(grid)))
+    end
+end
+
+@kernel function _step_v_velocity!(v, v⁻, grid, Gⁿ, Δt,
+                                   top_stress, bottom_stress,
+                                   free_drift, minimum_mass, minimum_concentration, clock, fields)
+
+    i, j = @index(Global, NTuple)
+    kᴺ   = size(grid, 3)
+    ℵᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, fields.ℵ)
+    mᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
+
+    τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields)
+          - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ
+
+    @inbounds begin
+        vᴰ = (v⁻[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
+        vᶠ = free_drift_v(i, j, kᴺ, grid, free_drift, clock, fields)
 
         marginal_ice = (mᶜᶠ > eps(typeof(mᶜᶠ))) & (ℵᶜᶠ > eps(typeof(ℵᶜᶠ)))
         active_ice = (mᶜᶠ ≥ minimum_mass) & (ℵᶜᶠ ≥ minimum_concentration)
         v[i, j, 1] = ifelse(active_ice, vᴰ, ifelse(marginal_ice, vᶠ, zero(grid)))
-    end 
+    end
 end
 
 # Compute the tendencies for the explicit momentum equations

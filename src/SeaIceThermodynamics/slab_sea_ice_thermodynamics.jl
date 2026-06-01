@@ -88,6 +88,17 @@ on `SeaIceModel` (as `sea_ice_density` and `phase_transitions` respectively).
 """
 sea_ice_slab_thermodynamics(grid; kw...) = SlabThermodynamics(grid; kw...)
 
+writable_top_surface_temperature(therm, grid) = therm
+
+function writable_top_surface_temperature(therm::SSIT{<:ConstantField}, grid)
+    Tu = Field{Center, Center, Nothing}(grid)
+    set!(Tu, therm.top_surface_temperature[1, 1, 1])
+    return SlabThermodynamics(Tu,
+                              therm.heat_boundary_conditions,
+                              therm.internal_heat_flux,
+                              therm.concentration_evolution)
+end
+
 #####
 ##### Flux-function assembly (used by tendency kernels)
 #####
