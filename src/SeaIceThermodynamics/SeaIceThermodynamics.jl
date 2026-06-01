@@ -4,7 +4,68 @@ export SlabThermodynamics,
        snow_slab_thermodynamics,
        sea_ice_slab_thermodynamics,
        PhaseTransitions,
+       QuadraticLiquidusEnergyRelation,
+       FixedDrainedIceSalinityProfile,
+       salinity_at_normalized_depth,
+       salinity_at_normalized_height,
+       FixedSalinityBrinePocketEnergyRelation,
+       internal_energy,
+       temperature,
+       temperature_energy_derivative,
+       temperature_salinity_derivative,
+       liquid_fraction,
+       brine_salinity,
+       complete_melt_energy,
+       MaykutUntersteinerConductivity,
+       BubblyBrineConductivity,
+       ice_thermal_conductivity,
+       face_thermal_conductivity,
+       ColumnEnergyThermodynamics,
+       prescribed_salinity_enthalpy_thermodynamics,
+       evolving_salinity_mushy_thermodynamics,
+       PrescribedBulkSalinity,
+       PrognosticBulkSalinity,
+       ConductiveTemperatureTransport,
+       DiffusiveEnergyTransport,
+       ConductiveAndDiffusiveEnergyTransport,
+       NoSalinityTransport,
+       BulkSalinityDiffusion,
+       BrineSalinityDiffusion,
+       NoShortwaveAbsorption,
+       ExponentialShortwaveAbsorption,
+       ColumnBoundaryConditions,
+       InsulatingBoundary,
+       PrescribedEnergyFlux,
+       PrescribedEnergyFluxBoundaryEnergy,
+       MeltingLimitedSurfaceFlux,
+       compute_column_internal_energy!,
+       compute_column_thermodynamic_diagnostics!,
+       compute_column_transport_coefficients!,
+       compute_column_salinity_diffusivity!,
+       compute_column_shortwave_flux!,
+       compute_column_surface_stefan_residual_flux!,
+       column_surface_stefan_residual_flux,
+       assemble_column_energy_system!,
+       solve_column_energy_system!,
+       assemble_column_salinity_system!,
+       solve_column_salinity_system!,
+       column_energy_time_step!,
+       icepack_temperature_matrix_step!,
+       column_salinity_time_step!,
+       column_integrated_energy,
+       column_integrated_salinity,
+       column_energy_budget,
+       column_salt_budget,
+       column_stefan_thickness_change,
+       column_stefan_thickness_update!,
+       column_stefan_thickness_budget,
+       conservative_column_remap,
+       conservative_column_remap!,
+       column_energy_thickness_remap!,
+       column_layer_integral,
        MeltingConstrainedFluxBalance,
+       MeltingConstrainedSurfaceFluxBalance,
+       OceanFreezingTemperatureBoundary,
        PrescribedTemperature,
        RadiativeEmission,
        ConductiveFlux,
@@ -164,6 +225,8 @@ density of that medium.
     return ℒ₀ + (ρℓ * cℓ / ρ - c) * (T - T₀)
 end
 
+include("column_energy_relations.jl")
+
 # Fallback for no ice_thermodynamics
 @inline thermodynamic_tendency(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
@@ -172,16 +235,18 @@ include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 using .HeatBoundaryConditions:
     IceWaterThermalEquilibrium,
     MeltingConstrainedFluxBalance,
+    MeltingConstrainedSurfaceFluxBalance,
+    OceanFreezingTemperatureBoundary,
     RadiativeEmission,
     FluxFunction,
     PrescribedTemperature,
     getflux
 
 using Oceananigans.TimeSteppers: Clock
-using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
+using Oceananigans.Fields: field, Field, Center, Face, ZeroField, ConstantField
 
 # Simulations interface
-import Oceananigans: fields, prognostic_fields
+import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
 import Oceananigans.Fields: set!
 import Oceananigans.Models: AbstractModel
 import Oceananigans.Simulations: reset!, initialize!, iteration
@@ -193,6 +258,7 @@ import Oceananigans.Utils: prettytime
 # include("EnthalpyMethodThermodynamics.jl")
 
 include("slab_heat_and_tracer_fluxes.jl")
+include("column_energy_thermodynamics.jl")
 include("slab_sea_ice_thermodynamics.jl")
 include("slab_thermodynamics_tendencies.jl")
 include("thermodynamic_time_step.jl")

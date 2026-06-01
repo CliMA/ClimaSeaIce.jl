@@ -20,6 +20,16 @@ import Oceananigans.OutputWriters: default_included_properties
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
 
+"""
+    SeaIceModel(grid; kwargs...)
+
+Sea-ice model coupling thermodynamics, optional snow, optional horizontal
+dynamics, advection, forcing, and timestepper state on an Oceananigans grid.
+The model owns the prognostic sea-ice thickness and concentration fields,
+shared phase-transition parameters, bulk ice and snow densities, external heat
+fluxes, and any prognostic fields registered by the selected thermodynamics
+component.
+"""
 struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
@@ -152,6 +162,8 @@ function SeaIceModel(grid;
         merge(prognostic_fields, (; S = ice_salinity))
     end
 
+    thermodynamic_prognostic_fields = Oceananigans.prognostic_fields(ice_thermodynamics)
+    prognostic_fields = merge(prognostic_fields, thermodynamic_prognostic_fields)
     prognostic_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, velocities)
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
@@ -161,7 +173,8 @@ function SeaIceModel(grid;
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
-            if isnothing(snow_thermodynamics) &&
+            if hasproperty(ice_thermodynamics, :heat_boundary_conditions) &&
+               isnothing(snow_thermodynamics) &&
                ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
                 # Default: external top flux is in equilibrium with internal fluxes.
                 # Build a FluxFunction wrapper using the model's shared liquidus.
