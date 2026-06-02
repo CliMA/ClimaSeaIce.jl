@@ -178,9 +178,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
             # Compute stresses! depending on the particular rheology implementation
             compute_stresses!(dynamics, converted_stresses_args...)
 
-            # Alternating leap-frog: on even substeps advance u then v (so v's tendency and
-            # implicit drag, both computed inside the v-kernel, see uⁿ⁺¹), on odd substeps
-            # reverse. The updated velocity's halo is refreshed before the partner reads it.
+            # Alternating leap-frog.
             if iseven(substep)
                 u_velocity_kernel!(converted_u_args...)
                 fill_halo_regions!(converted_u_halo...; only_local_halos = true)
