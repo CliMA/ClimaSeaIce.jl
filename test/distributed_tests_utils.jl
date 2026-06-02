@@ -167,9 +167,6 @@ function run_distributed_jld2_simulation(grid, filename)
     return model
 end
 
-# Mask the two tripolar singularities (within `radius` degrees of each north pole) and the
-# southernmost row. Their metric is degenerate, and unmasked the EVP rheology divides by it →
-# NaN. A realistic run masks them via bathymetry; here we do it analytically.
 function analytical_immersed_tripolar_grid(underlying_grid::TripolarGrid; radius = 5)
     λp = underlying_grid.conformal_mapping.first_pole_longitude
     φp = underlying_grid.conformal_mapping.north_poles_latitude
