@@ -133,9 +133,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     reset_velocities!(u, v, model.timestepper)
     initialize_rheology!(model, dynamics.rheology)
 
-    # Refresh the externally-provided stresses / velocities and fill their (extended) halos once
-    # per time step. Substepping then only touches local halos, so every field the kernel reads
-    # across the wide halo holds valid, correctly-folded data.
+    # Refresh the externally-provided stresses / velocities and fill their (extended) halos once per time step.
     update_external_stress!(top_stress, grid)
     update_external_stress!(bottom_stress, grid)
 
