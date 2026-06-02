@@ -29,7 +29,6 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
-    # u and v step in separate kernels with a halo fill in between, so the implicit drag reads fully-updated neighbour velocities rather than racing them.
     launch!(arch, grid, :xy, _step_u_velocity!, u, u⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
     fill_halo_regions!(u)
 
