@@ -171,8 +171,6 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
         converted_stresses_args = convert_to_device(arch, stresses_args)
 
-        # Seed the halos before the first substep; afterwards each velocity's halo is
-        # refreshed immediately after it is updated (see the loop body).
         fill_halo_regions!(converted_u_halo...; only_local_halos = true)
         fill_halo_regions!(converted_v_halo...; only_local_halos = true)
 
