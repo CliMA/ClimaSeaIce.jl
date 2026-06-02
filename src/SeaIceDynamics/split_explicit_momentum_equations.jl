@@ -211,7 +211,6 @@ end
 
     Δτ = compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields)
 
-    # Tendency and implicit drag are computed here
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, fields, clock, coriolis,
                              u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
 
