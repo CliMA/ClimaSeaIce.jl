@@ -1,7 +1,7 @@
 using Adapt
+using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions, BoundaryCondition, Zipper
 using Oceananigans.Fields: ZeroField, interior
 using Oceananigans.Grids: halo_size
-using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions, BoundaryCondition, Zipper
 
 # Fallback
 @inline implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
