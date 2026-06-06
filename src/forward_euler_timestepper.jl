@@ -57,5 +57,4 @@ reset!(::ForwardEulerTimeStepper) = nothing
 
 # Forward Euler is a self-starting timestepper, so no state needs to be saved
 Oceananigans.prognostic_state(::ForwardEulerTimeStepper) = nothing
-Oceananigans.restore_prognostic_state!(ts::ForwardEulerTimeStepper, state) = ts
 Oceananigans.restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::Nothing) = ts
