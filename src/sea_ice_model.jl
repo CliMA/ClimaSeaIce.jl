@@ -282,7 +282,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
                                       snow_fields(model.snow_thickness),
-                                      prognostic_fields(model, model.dynamics),
+                                      component_prognostic_fields(model.dynamics),
                                       component_prognostic_fields(model.ice_thermodynamics))
 
 function update_state!(model::SIM, callbacks=[])
