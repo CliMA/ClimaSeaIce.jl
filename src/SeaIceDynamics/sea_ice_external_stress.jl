@@ -1,11 +1,13 @@
 using Adapt
 using Oceananigans.Fields: ZeroField
 
-# Fallback
+# Default no-op implicit stress coefficients for stress types without
+# an implicit component.
 @inline implicit_τx_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
 @inline implicit_τy_coefficient(i, j, k, grid, stress, clock, fields) = zero(grid)
 
-# Fallback
+# Default no-op explicit stresses for stress types without
+# an explicit component.
 @inline explicit_τx(i, j, k, grid, stress, clock, fields) = zero(grid)
 @inline explicit_τy(i, j, k, grid, stress, clock, fields) = zero(grid)
 
@@ -15,7 +17,7 @@ using Oceananigans.Fields: ZeroField
 @inline explicit_τx(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k]
 @inline explicit_τy(i, j, k, grid, stress::AbstractArray, clock, fields) =  @inbounds stress[i, j, k]
 
-# NamedTuple stess (assuming it is `u` and `v`)
+# NamedTuple stress (assuming it is `u` and `v`)
 @inline implicit_τx_coefficient(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τx_coefficient(i, j, k, grid, stress.u, clock, fields)
 @inline implicit_τy_coefficient(i, j, k, grid, stress::NamedTuple, clock, fields) = implicit_τy_coefficient(i, j, k, grid, stress.v, clock, fields)
 

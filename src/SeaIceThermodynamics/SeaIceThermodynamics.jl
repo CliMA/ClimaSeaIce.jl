@@ -189,7 +189,7 @@ import Oceananigans.TimeSteppers: time_step!, update_state!
 
 import Oceananigans.Utils: prettytime
 
-# TODO: Fix this after this PR
+# Enthalpy thermodynamics is not included in this module yet.
 # include("EnthalpyMethodThermodynamics.jl")
 
 include("slab_heat_and_tracer_fluxes.jl")
