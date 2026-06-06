@@ -1,4 +1,4 @@
-#TODO: Move to Oceananigans??
+# Candidate for upstreaming to Oceananigans.
 using Oceananigans.TimeSteppers: AbstractTimeStepper
 using Oceananigans.Fields: FunctionField, location
 using Oceananigans.Utils: @apply_regionally, apply_regionally!
