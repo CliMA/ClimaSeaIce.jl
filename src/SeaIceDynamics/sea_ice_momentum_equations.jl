@@ -1,4 +1,4 @@
-using ClimaSeaIce.Rheologies
+using ..Rheologies
 using Adapt
 
 import Oceananigans: prognostic_state, restore_prognostic_state!

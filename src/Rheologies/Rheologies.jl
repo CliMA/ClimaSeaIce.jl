@@ -16,7 +16,7 @@ using Oceananigans.Operators: Operators, Vᶜᶠᶜ, Vᶠᶜᶜ,
                               ℑxyᶜᶜᵃ, ℑxyᶠᶠᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
 using Oceananigans.Utils: Utils, KernelParameters, configure_kernel
 
-using ClimaSeaIce: ice_mass
+using ..ClimaSeaIce: ice_mass
 
 abstract type AbstractRheology end
 

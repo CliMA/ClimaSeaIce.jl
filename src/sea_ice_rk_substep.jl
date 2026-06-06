@@ -1,6 +1,6 @@
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
-using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
-using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
+using .SeaIceDynamics: time_step_momentum!
+using .SeaIceThermodynamics: thermodynamic_time_step!
 
 import Oceananigans.TimeSteppers: rk_substep!, cache_current_fields!, step_lagrangian_particles!
 

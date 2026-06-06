@@ -1,5 +1,5 @@
 using Oceananigans.Advection
-using ClimaSeaIce.SeaIceDynamics: compute_momentum_tendencies!
+using .SeaIceDynamics: compute_momentum_tendencies!
 
 function compute_tendencies!(model::SIM, Δt)
     compute_tracer_tendencies!(model)

@@ -15,20 +15,19 @@ using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 using Oceananigans.Utils: Utils, KernelParameters, launch!
 using KernelAbstractions: @kernel, @index
 
-using ClimaSeaIce
-using ClimaSeaIce: ice_mass
-using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
-                              ∂ⱼ_σ₂ⱼ,
-                              immersed_∂ⱼ_σ₁ⱼ,
-                              immersed_∂ⱼ_σ₂ⱼ,
-                              Auxiliaries,
-                              compute_stresses!,
-                              initialize_rheology!,
-                              finalize_rheology!,
-                              compute_substep_Δtᶠᶜᶜ,
-                              compute_substep_Δtᶜᶠᶜ,
-                              sum_of_forcing_u,
-                              sum_of_forcing_v
+using ..ClimaSeaIce: ice_mass
+using ..Rheologies: ∂ⱼ_σ₁ⱼ,
+                    ∂ⱼ_σ₂ⱼ,
+                    immersed_∂ⱼ_σ₁ⱼ,
+                    immersed_∂ⱼ_σ₂ⱼ,
+                    Auxiliaries,
+                    compute_stresses!,
+                    initialize_rheology!,
+                    finalize_rheology!,
+                    compute_substep_Δtᶠᶜᶜ,
+                    compute_substep_Δtᶜᶠᶜ,
+                    sum_of_forcing_u,
+                    sum_of_forcing_v
 
 import Oceananigans: fields, prognostic_fields
 

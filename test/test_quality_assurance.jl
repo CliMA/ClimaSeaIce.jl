@@ -35,7 +35,6 @@ end
     end
 end
 
-
 @testset "Explicit Imports" begin
     @test ExplicitImports.check_no_implicit_imports(ClimaSeaIce) === nothing
 end

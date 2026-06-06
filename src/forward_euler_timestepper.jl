@@ -1,7 +1,6 @@
 #TODO: Move to Oceananigans??
 using Oceananigans.TimeSteppers: AbstractTimeStepper
 
-import Oceananigans: prognostic_state, restore_prognostic_state!
 import Oceananigans.TimeSteppers: TimeStepper
 
 mutable struct ForwardEulerTimeStepper{FT, GT, IT} <: AbstractTimeStepper
@@ -57,6 +56,6 @@ reset!(::ForwardEulerTimeStepper) = nothing
 #####
 
 # Forward Euler is a self-starting timestepper, so no state needs to be saved
-prognostic_state(::ForwardEulerTimeStepper) = nothing
-restore_prognostic_state!(ts::ForwardEulerTimeStepper, state) = ts
-restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::Nothing) = ts
+Oceananigans.prognostic_state(::ForwardEulerTimeStepper) = nothing
+Oceananigans.restore_prognostic_state!(ts::ForwardEulerTimeStepper, state) = ts
+Oceananigans.restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::Nothing) = ts

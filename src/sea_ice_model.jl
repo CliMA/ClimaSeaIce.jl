@@ -4,17 +4,14 @@ using Oceananigans.Advection: materialize_advection
 using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
+using Oceananigans.Models: update_model_field_time_series!
 using Oceananigans.OutputReaders: FieldTimeSeries
 using Oceananigans.TimeSteppers: TimeStepper
 
-using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
-using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction,
-                                        PhaseTransitions, internal_flux_function
-using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
-
-import Oceananigans.Architectures: architecture
-import Oceananigans.Models: update_model_field_time_series!
-import Oceananigans.OutputWriters: default_included_properties
+using .SeaIceDynamics: materialize_solver, maybe_extended_grid
+using .SeaIceThermodynamics: PrescribedTemperature, FluxFunction,
+                             PhaseTransitions, internal_flux_function
+using .SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
@@ -224,7 +221,7 @@ set!(model::SIM, new_clock::Clock) = set!(model.clock, new_clock)
 Base.summary(model::SIM) = "SeaIceModel"
 prettytime(model::SIM) = prettytime(model.clock.time)
 iteration(model::SIM) = model.clock.iteration
-architecture(model::SIM) = model.architecture
+Oceananigans.Architectures.architecture(model::SIM) = model.architecture
 
 function Base.show(io::IO, model::SIM)
     grid = model.grid
@@ -245,11 +242,17 @@ end
 
 reset!(::SIM) = nothing
 initialize!(::SIM) = nothing
-default_included_properties(::SIM) = [:grid]
+Oceananigans.OutputWriters.default_included_properties(::SIM) = [:grid]
 checkpointer_address(::SeaIceModel) = "SeaIceModel"
 
 snow_fields(::Nothing) = NamedTuple()
 snow_fields(hs) = (; hs)
+
+component_fields(component) = fields(component)
+component_fields(::Nothing) = NamedTuple()
+
+component_prognostic_fields(component) = prognostic_fields(component)
+component_prognostic_fields(::Nothing) = NamedTuple()
 
 fields(model::SIM) = merge((; h  = model.ice_thickness,
                               ℵ  = model.ice_concentration,
@@ -257,14 +260,14 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
                            snow_fields(model.snow_thickness),
                            model.tracers,
                            model.velocities,
-                           fields(model.ice_thermodynamics),
-                           fields(model.dynamics))
+                           component_fields(model.ice_thermodynamics),
+                           component_fields(model.dynamics))
 
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
                                       snow_fields(model.snow_thickness),
                                       prognostic_fields(model, model.dynamics),
-                                      prognostic_fields(model.ice_thermodynamics))
+                                      component_prognostic_fields(model.ice_thermodynamics))
 
 function update_state!(model::SIM, callbacks=[])
 
@@ -278,7 +281,7 @@ function update_state!(model::SIM, callbacks=[])
     return nothing
 end
 
-function update_model_field_time_series!(model::SeaIceModel, clock::Clock)
+function Oceananigans.Models.update_model_field_time_series!(model::SeaIceModel, clock::Clock)
     time = Time(clock.time)
 
     possible_fts = (model.tracers, model.external_heat_fluxes, model.snowfall, model.dynamics)
