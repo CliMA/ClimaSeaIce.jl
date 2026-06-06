@@ -11,7 +11,7 @@ end
 
 A free drift parameterization that computes the free drift velocities as a balance between top and bottom stresses ``τₐ ≈ τₒ``.
 
-The only supported configuration is when either the `top_momentum_stess` or the `bottom_momentum_stress` are a
+The only supported configuration is when either the `top_momentum_stress` or the `bottom_momentum_stress` are a
 `SemiImplicitStress`. The model will compute the free drift velocity exactly assuming that the other stress does
 not depend on the sea ice velocity.
 
@@ -23,11 +23,11 @@ function StressBalanceFreeDrift(; top_momentum_stress = nothing,
 
     if top_momentum_stress isa SemiImplicitStress
         if bottom_momentum_stress isa SemiImplicitStress
-            throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for the `top_momentum_stess` or the `bottom_momentum_stress`, not both"))
+            throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for the `top_momentum_stress` or the `bottom_momentum_stress`, not both"))
         end
     else
         if !(bottom_momentum_stress isa SemiImplicitStress)
-            throw(ArgumentError("`StressBalanceFreeDrift` requires using a `SemiImplicitStress` for either the `top_momentum_stess` or the `bottom_momentum_stress`"))
+            throw(ArgumentError("`StressBalanceFreeDrift` requires using a `SemiImplicitStress` for either the `top_momentum_stress` or the `bottom_momentum_stress`"))
         end
     end
 
@@ -81,7 +81,7 @@ end
     τyᴮ = ℑxyᶠᶜᵃ(i, j, k, grid, y_momentum_stress, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
-    τᵀ = f.top_momentum_stess
+    τᵀ = f.top_momentum_stress
     uᵀ = @inbounds τᵀ.uₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
@@ -93,7 +93,7 @@ end
     τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
-    τᵀ = f.top_momentum_stess
+    τᵀ = f.top_momentum_stress
     vᵀ = @inbounds τᵀ.vₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
