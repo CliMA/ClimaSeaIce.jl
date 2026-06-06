@@ -269,6 +269,8 @@ component_fields(::Nothing) = NamedTuple()
 
 component_prognostic_fields(component) = prognostic_fields(component)
 component_prognostic_fields(::Nothing) = NamedTuple()
+component_prognostic_fields(model, component) = prognostic_fields(model, component)
+component_prognostic_fields(model, ::Nothing) = NamedTuple()
 
 fields(model::SIM) = merge((; h  = model.ice_thickness,
                               ℵ  = model.ice_concentration,
@@ -282,7 +284,7 @@ fields(model::SIM) = merge((; h  = model.ice_thickness,
 prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
                                          ℵ  = model.ice_concentration),
                                       snow_fields(model.snow_thickness),
-                                      component_prognostic_fields(model.dynamics),
+                                      component_prognostic_fields(model, model.dynamics),
                                       component_prognostic_fields(model.ice_thermodynamics))
 
 function update_state!(model::SIM, callbacks=[])
