@@ -8,7 +8,7 @@ using Oceananigans: Oceananigans
 using Oceananigans.Grids: AbstractGrid, Center, Face
 using Oceananigans.Fields: Field
 using Oceananigans.Operators: Operators, Vᶜᶠᶜ, Vᶠᶜᶜ,
-                              Axᶜᶜᶜ, Axᶠᶠᶜ, Ayᶜᶜᶜ, Ayᶠᶠᶜ, Azᶜᶜᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
+                              Axᶜᶜᶜ, Axᶠᶠᶜ, Ayᶜᶜᶜ, Ayᶠᶠᶜ, Azᶜᶜᶜ, Azᶜᶠᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
                               Δx_qᶜᶜᶜ, Δx_qᶜᶠᶜ, Δx_qᶠᶜᶜ, Δx_qᶠᶠᶜ,
                               Δy_qᶜᶜᶜ, Δy_qᶜᶠᶜ, Δy_qᶠᶜᶜ, Δy_qᶠᶠᶜ,
                               δxᶜᵃᵃ, δxᶜᶜᶜ, δxᶠᵃᵃ, δxᶠᶠᶜ,
