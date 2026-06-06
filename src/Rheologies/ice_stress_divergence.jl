@@ -1,4 +1,4 @@
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, 
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid,
                                        ImmersedBoundaryCondition
 
 using Oceananigans.BoundaryConditions: FBC, getbc

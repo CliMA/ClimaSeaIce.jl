@@ -34,11 +34,11 @@ function test_extended_halos()
 end
 
 function test_distributed_simulations()
-    grid = RectilinearGrid(CPU(); 
-                           size = (100, 100, 1), 
-                           x = (-10kilometers, 10kilometers), 
-                           y = (-10kilometers, 10kilometers), 
-                           z = (-1, 0), 
+    grid = RectilinearGrid(CPU();
+                           size = (100, 100, 1),
+                           x = (-10kilometers, 10kilometers),
+                           y = (-10kilometers, 10kilometers),
+                           z = (-1, 0),
                            halo = (5, 5, 5))
 
     models = run_distributed_simulation(grid)
@@ -59,11 +59,11 @@ function test_distributed_simulations()
 
     for arch in archs
         @root @info "Testing $(ranks(arch)) distributed simulation"
-        grid = RectilinearGrid(arch; 
-                               size = (100, 100, 1), 
-                               x = (-10kilometers, 10kilometers), 
-                               y = (-10kilometers, 10kilometers), 
-                               z = (-1, 0), 
+        grid = RectilinearGrid(arch;
+                               size = (100, 100, 1),
+                               x = (-10kilometers, 10kilometers),
+                               y = (-10kilometers, 10kilometers),
+                               z = (-1, 0),
                                halo = (5, 5, 5))
 
         modelp = run_distributed_simulation(grid)
@@ -85,11 +85,11 @@ end
 
 # Run the distributed grid simulation and save down reconstructed results
 function run_distributed_sea_ice_jl2dwriter(arch, filename)
-    distributed_grid = RectilinearGrid(arch; 
-                                       size = (100, 100, 1), 
-                                       x = (-10kilometers, 10kilometers), 
-                                       y = (-10kilometers, 10kilometers), 
-                                       z = (-1, 0), 
+    distributed_grid = RectilinearGrid(arch;
+                                       size = (100, 100, 1),
+                                       x = (-10kilometers, 10kilometers),
+                                       y = (-10kilometers, 10kilometers),
+                                       z = (-1, 0),
                                        halo = (5, 5, 5))
 
     model = run_distributed_jld2_simulation(distributed_grid, filename)
@@ -107,17 +107,17 @@ function run_distributed_simulation(grid)
     τᵥ = 0.01
     τₒ = SemiImplicitStress()
 
-    # We use an elasto-visco-plastic rheology and WENO seventh order 
+    # We use an elasto-visco-plastic rheology and WENO seventh order
     # for advection of h and ℵ
-    dynamics = SeaIceMomentumEquation(grid; 
+    dynamics = SeaIceMomentumEquation(grid;
                                       top_momentum_stress = (u=τᵤ, v=τᵥ),
-                                      bottom_momentum_stress = τₒ, 
+                                      bottom_momentum_stress = τₒ,
                                       rheology = ElastoViscoPlasticRheology(),
                                       coriolis = FPlane(f = 1e-4),
                                       solver = SplitExplicitSolver(grid, substeps=10))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
-    
+
     # Initialize with non-trivial values
     h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 20kilometers) + sin(30 * y / 20kilometers))
 
@@ -139,11 +139,11 @@ function run_distributed_jld2_simulation(grid, filename)
     τᵥ = 0.01
     τₒ = SemiImplicitStress()
 
-    # We use an elasto-visco-plastic rheology and WENO seventh order 
+    # We use an elasto-visco-plastic rheology and WENO seventh order
     # for advection of h and ℵ
-    dynamics = SeaIceMomentumEquation(grid; 
+    dynamics = SeaIceMomentumEquation(grid;
                                       top_momentum_stress = (u=τᵤ, v=τᵥ),
-                                      bottom_momentum_stress = τₒ, 
+                                      bottom_momentum_stress = τₒ,
                                       rheology = ElastoViscoPlasticRheology(),
                                       solver = SplitExplicitSolver(grid, substeps=10))
 
@@ -158,6 +158,6 @@ function run_distributed_jld2_simulation(grid, filename)
                                                     overwrite_existing = true)
 
     run!(simulation)
-    
+
     return model
 end

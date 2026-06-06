@@ -115,7 +115,7 @@ end
 
 # When snow is present, it sits on top of ice as an independent layer. The
 # column-top surface solve happens at the atmosphere-snow surface using the
-# combined snow+ice conductive flux (`IceSnowConductiveFlux`). 
+# combined snow+ice conductive flux (`IceSnowConductiveFlux`).
 #
 # The snow-ice interface temperature Tsi is computed analytically from the
 # resistance ratio and handed to `ice_melt_freeze_tendency` as an argument,
@@ -153,12 +153,12 @@ end
     Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
     Tm = melting_temperature(liquidus, Si)
 
-    # Snow surface solve using the combined snow+ice conductive flux with a 
-    # resistors in series formulation: F = (Tb - Tu) / (hs/ks + hi/ki). 
+    # Snow surface solve using the combined snow+ice conductive flux with a
+    # resistors in series formulation: F = (Tb - Tu) / (hs/ks + hi/ki).
     ks = snow_thermodynamics.internal_heat_flux.conductivity
     ki = ice_thermodynamics.internal_heat_flux.conductivity
     combined_flux = IceSnowConductiveFlux(ks, ki)
-    
+
     # Column internal heat flux
     Qic = internal_flux_function(combined_flux, liquidus, bottom_bc)
 

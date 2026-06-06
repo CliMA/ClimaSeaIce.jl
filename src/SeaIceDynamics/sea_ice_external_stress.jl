@@ -137,7 +137,7 @@ end
 @inline implicit_τx_coefficient(i, j, k, grid, stress::SemiImplicitStress, args...) = @inbounds stress.τᵢᵤ[i, j, k]
 @inline implicit_τy_coefficient(i, j, k, grid, stress::SemiImplicitStress, args...) = @inbounds stress.τᵢᵥ[i, j, k]
 
-@inline function compute_implicit_stress_coefficients!(i, j, k, grid, τ::SemiImplicitStress, clock, fields) 
+@inline function compute_implicit_stress_coefficients!(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
     Δuᶠᶜᶜ = @inbounds τ.uₑ[i, j, k] - fields.u[i, j, k]
     Δvᶠᶜᶜ = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
 

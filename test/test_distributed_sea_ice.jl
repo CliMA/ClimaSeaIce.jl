@@ -40,7 +40,7 @@ run_distributed_jld2writer = """
     # Run the serial computation
     @info "Testing 4-ranks Distributed sea ice simulations equality"
 
-    # Run the distributed grid simulation 
+    # Run the distributed grid simulation
     write("distributed_simulation_tests.jl", run_distributed_grid)
     run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_simulation_tests.jl`)
     rm("distributed_simulation_tests.jl")
@@ -56,7 +56,7 @@ run_distributed_jld2writer = """
     @test isfile("distributed_jld2_writer_rank2.jld2")
     @test isfile("distributed_jld2_writer_rank3.jld2")
 
-    # This does not work, see https://github.com/CliMA/Oceananigans.jl/pull/5188 
+    # This does not work, see https://github.com/CliMA/Oceananigans.jl/pull/5188
     h = FieldTimeSeries("distributed_jld2_writer_rank0.jld2", "h")
     ℵ = FieldTimeSeries("distributed_jld2_writer_rank0.jld2", "ℵ")
 
