@@ -12,7 +12,7 @@ export SlabThermodynamics,
        FluxFunction
 
 using Adapt: Adapt
-using Oceananigans: Oceananigans
+using Oceananigans: Oceananigans, fields
 using Oceananigans.Utils: Utils, launch!
 
 #####
@@ -80,12 +80,12 @@ end
 
 """
     PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                     density               = 917,   # kg m⁻³
-                     heat_capacity          = 2000,  # J / (kg ᵒC)
-                     liquid_density         = 999.8, # kg m⁻³
-                     liquid_heat_capacity   = 4186,  # J / (kg ᵒC)
-                     reference_latent_heat  = 334e3, # J kg⁻³
-                     reference_temperature  = 0,     # ᵒC
+                     density               = 917,    # kg m⁻³
+                     heat_capacity         = 2000,   # J / (kg ᵒC)
+                     liquid_density        = 999.8,  # kg m⁻³
+                     liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
+                     reference_latent_heat = 334e3,  # J kg⁻³
+                     reference_temperature = 0,      # ᵒC
                      liquidus = LinearLiquidus(FT))  # default assumes psu, ᵒC
 
 Return a representation of transitions between the solid and liquid phases
@@ -106,12 +106,12 @@ The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
 @inline function PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                                  density                = 917,    # kg m⁻³
-                                  heat_capacity          = 2000,   # J / (kg ᵒC)
-                                  liquid_density         = 999.8,  # kg m⁻³
-                                  liquid_heat_capacity   = 4186,   # J / (kg ᵒC)
-                                  reference_latent_heat  = 334e3,  # J kg⁻³
-                                  reference_temperature  = 0,      # ᵒC
+                                  density               = 917,    # kg m⁻³
+                                  heat_capacity         = 2000,   # J / (kg ᵒC)
+                                  liquid_density        = 999.8,  # kg m⁻³
+                                  liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
+                                  reference_latent_heat = 334e3,  # J kg⁻³
+                                  reference_temperature = 0,      # ᵒC
                                   liquidus = LinearLiquidus(FT))
 
     return PhaseTransitions(convert(FT, density),
