@@ -1,4 +1,4 @@
-#TODO: Move to Oceananigans??
+# Candidate for upstreaming to Oceananigans.
 using Oceananigans.TimeSteppers: AbstractTimeStepper
 
 import Oceananigans.TimeSteppers: TimeStepper
