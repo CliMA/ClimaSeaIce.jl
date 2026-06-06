@@ -125,6 +125,7 @@ end
 
 @inline restore_stress!(s, ::Nothing) = nothing
 @inline restore_stress!(s, _) = nothing
+@inline restore_stress!(::SemiImplicitStress, ::Nothing) = nothing
 function restore_stress!(s::SemiImplicitStress, state)
     restore_prognostic_state!(s.τᵢᵤ, state.τᵢᵤ)
     restore_prognostic_state!(s.τᵢᵥ, state.τᵢᵥ)
