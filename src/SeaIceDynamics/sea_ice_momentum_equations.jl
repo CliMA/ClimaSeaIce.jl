@@ -49,11 +49,11 @@ Keyword Arguments
 
 - `coriolis`: Parameters for the background rotation rate of the model.
 - `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
-- `free_drift`: The free drift velocities used to limit sea ice momentum when the mass or the concentration are
-                below a certain threshold. Default is `nothing` (indicating that the free drift velocities are zero).
+- `free_drift`: The free drift velocities used when nonzero sea ice mass or concentration are below
+                the dynamical momentum thresholds. Default is `nothing`.
 - `solver`: The momentum solver to be used.
-- `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
-- `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
+- `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated; below this threshold nonzero sea ice moves with free drift, and roundoff-level concentration cells are set to zero. Default is `1e-3`.
+- `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated; below this threshold nonzero sea ice moves with free drift, and roundoff-level mass cells are set to zero. Default is `1.0 kg/m²`.
 """
 function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
@@ -107,12 +107,44 @@ end
 ##### Checkpointing
 #####
 
+# `external_momentum_stresses` is a `NamedTuple` of `(top, bottom)`. Most
+# stress types are stateless (a `NamedTuple` of externally-supplied flux fields,
+# `NoFreeDrift`, `Nothing`), but `SemiImplicitStress` caches per-cell implicit
+# coefficients in its `τᵢᵤ`/`τᵢᵥ` Fields. Those caches are written by
+# `compute_implicit_stress_coefficients!` during the EVP substep loop and read
+# by `_compute_sea_ice_ocean_stress!` (via `implicit_τx_coefficient`) every
+# time the coupled `update_state!` runs — including the call triggered by
+# `initialize_simulation!` on a restored simulation. They must round-trip
+# through the checkpoint, otherwise the first post-restore flux computation
+# reads zeros, the sea-ice → ocean stress is recomputed wrong, and the ocean
+# trajectory drifts ~1e-9 per step.
+
+@inline stress_state(s) = nothing
+@inline stress_state(s::SemiImplicitStress) =
+    (τᵢᵤ = prognostic_state(s.τᵢᵤ), τᵢᵥ = prognostic_state(s.τᵢᵥ))
+
+@inline restore_stress!(s, ::Nothing) = nothing
+@inline restore_stress!(s, _) = nothing
+function restore_stress!(s::SemiImplicitStress, state)
+    restore_prognostic_state!(s.τᵢᵤ, state.τᵢᵤ)
+    restore_prognostic_state!(s.τᵢᵥ, state.τᵢᵥ)
+    return nothing
+end
+
 function prognostic_state(mom::SeaIceMomentumEquation)
-    return (; fields = prognostic_state(fields(mom)))
+    return (; fields = prognostic_state(fields(mom)),
+              external_momentum_stresses = (top    = stress_state(mom.external_momentum_stresses.top),
+                                            bottom = stress_state(mom.external_momentum_stresses.bottom)))
 end
 
 function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
     restore_prognostic_state!(fields(mom), state.fields)
+    # Backwards-compatible: older checkpoints predate this fix and omit the
+    # `external_momentum_stresses` entry.
+    if hasproperty(state, :external_momentum_stresses)
+        restore_stress!(mom.external_momentum_stresses.top,    state.external_momentum_stresses.top)
+        restore_stress!(mom.external_momentum_stresses.bottom, state.external_momentum_stresses.bottom)
+    end
     return mom
 end
 
