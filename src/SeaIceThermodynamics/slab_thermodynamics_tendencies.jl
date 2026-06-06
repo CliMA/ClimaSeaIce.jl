@@ -1,5 +1,3 @@
-using Oceananigans
-
 using .HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 
 #####
