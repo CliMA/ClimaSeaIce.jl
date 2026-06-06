@@ -180,9 +180,6 @@ using .HeatBoundaryConditions:
 
 using Oceananigans.Fields: field, Field, Center
 
-# Simulations interface
-import Oceananigans: fields, prognostic_fields
-
 # TODO: Fix this after this PR
 # include("EnthalpyMethodThermodynamics.jl")
 

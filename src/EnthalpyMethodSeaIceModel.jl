@@ -1,18 +1,13 @@
 module EnthalpyMethodSeaIceModels
 
-using Oceananigans: AbstractModel
+using Oceananigans: Oceananigans, AbstractModel
 using Oceananigans.BoundaryConditions: fill_halo_regions!, regularize_field_boundary_conditions, compute_z_bcs!
-using Oceananigans.Fields: CenterField, interior, TracerFields
+using Oceananigans.Fields: CenterField, interior, TracerFields, set!
 using Oceananigans.Operators: ℑzᵃᵃᶠ, ∂zᶜᶜᶜ, ∂zᶜᶜᶠ
-using Oceananigans.TimeSteppers: Clock, tick!
+using Oceananigans.TimeSteppers: Clock, tick!, update_state!
 using Oceananigans.Utils: prettytime, launch!
 
 using KernelAbstractions: @kernel, @index
-
-# Simulations interface
-import Oceananigans: fields, prognostic_fields
-import Oceananigans.Fields: set!
-import Oceananigans.TimeSteppers: time_step!, update_state!
 
 mutable struct EnthalpyMethodSeaIceModel{Grid,
                                          Tim,
@@ -83,7 +78,7 @@ function EnthalpyMethodSeaIceModel(; grid,
                                     tendencies)
 end
 
-function set!(model::ETSIM; T=nothing, H=nothing)
+function Oceananigans.Fields.set!(model::ETSIM; T=nothing, H=nothing)
 
     setting_temperature = !isnothing(T)
     setting_enthalpy = !isnothing(H)
@@ -107,8 +102,8 @@ end
 ##### Utilities
 #####
 
-fields(model::ETSIM) = model.state
-prognostic_fields(model::ETSIM) = (; model.state.H)
+Oceananigans.fields(model::ETSIM) = model.state
+Oceananigans.prognostic_fields(model::ETSIM) = (; model.state.H)
 
 #####
 ##### Time-stepping
@@ -165,7 +160,7 @@ function update_enthalpy!(model)
     return nothing
 end
 
-function update_state!(model::ETSIM)
+function Oceananigans.TimeSteppers.update_state!(model::ETSIM)
     grid = model.grid
     arch = grid.architecture
     args = (model.clock, fields(model))
@@ -175,7 +170,7 @@ function update_state!(model::ETSIM)
     return nothing
 end
 
-function time_step!(model::ETSIM, Δt; callbacks=nothing)
+function Oceananigans.TimeSteppers.time_step!(model::ETSIM, Δt; callbacks=nothing)
     grid = model.grid
     arch = grid.architecture
     Ψ = model.state

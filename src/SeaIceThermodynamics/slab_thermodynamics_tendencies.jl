@@ -1,5 +1,6 @@
-using .HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 using Oceananigans
+
+using .HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 
 #####
 ##### Ice interior conductive flux

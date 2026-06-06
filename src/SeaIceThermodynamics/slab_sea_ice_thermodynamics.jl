@@ -1,4 +1,4 @@
-import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
+using Oceananigans: prognostic_state, restore_prognostic_state!
 
 struct ProportionalEvolution end
 
@@ -40,8 +40,8 @@ function Base.show(io::IO, therm::SSIT)
     print(io, "└── top_surface_temperature: ", summary(therm.top_surface_temperature))
 end
 
-fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
-prognostic_fields(therm::SSIT) = NamedTuple()
+Oceananigans.fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
+Oceananigans.prognostic_fields(therm::SSIT) = NamedTuple()
 
 """
     SlabThermodynamics(grid; kw...)
@@ -174,13 +174,13 @@ Built-in dispatches:
 ##### Checkpointing
 #####
 
-function prognostic_state(therm::SlabThermodynamics)
+function Oceananigans.prognostic_state(therm::SlabThermodynamics)
     return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
 end
 
-function restore_prognostic_state!(therm::SlabThermodynamics, state)
+function Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, state)
     restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)
     return therm
 end
 
-restore_prognostic_state!(therm::SlabThermodynamics, ::Nothing) = nothing
+Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, ::Nothing) = nothing
