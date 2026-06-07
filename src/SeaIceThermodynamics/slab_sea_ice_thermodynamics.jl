@@ -1,4 +1,5 @@
 using Oceananigans: prognostic_state, restore_prognostic_state!
+using Oceananigans.Fields: set!
 
 struct ProportionalEvolution end
 
