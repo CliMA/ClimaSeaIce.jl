@@ -3,16 +3,8 @@ using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt, rheology, fields, clock, coriolis,
                                                u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, forcing)
     i, j = @index(Global, NTuple)
-    kᴺ   = size(grid, 3)
-
-    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis,
-                                                u_immersed_bc, top_stress, bottom_stress, forcing.u)
-
-    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis,
-                                                v_immersed_bc, top_stress, bottom_stress, forcing.v)
-
-    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, top_stress,    clock, fields)
-    compute_implicit_stress_coefficients!(i, j, kᴺ, grid, bottom_stress, clock, fields)
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis, u_immersed_bc, top_stress, bottom_stress, forcing.u)
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis, v_immersed_bc, top_stress, bottom_stress, forcing.v)
 end
 
 """Compute the sea ice ``u``-velocity tendencies."""

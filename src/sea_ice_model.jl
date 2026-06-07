@@ -1,7 +1,7 @@
 using Oceananigans: tupleit, tracernames
 using Oceananigans.Advection: materialize_advection
-using Oceananigans.Architectures: architecture
-using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions, FieldBoundaryConditions, BoundaryCondition, Zipper
+using Oceananigans.BoundaryConditions: regularize_field_boundary_conditions, FieldBoundaryConditions,
+                                       BoundaryCondition, Zipper
 using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.OutputReaders: FieldTimeSeries
@@ -10,7 +10,8 @@ using Oceananigans.Utils: prettysummary
 
 using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
-                                        PhaseTransitions, internal_flux_function
+                                        PhaseTransitions, internal_flux_function,
+                                        writable_top_surface_temperature
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 import Oceananigans.Architectures: architecture
@@ -158,6 +159,12 @@ function SeaIceModel(grid;
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
     timestepper = TimeStepper(timestepper, grid, prognostic_fields)
+
+    # The layered (snow + ice) step writes the ice top surface temperature, so it
+    # must be writable when snow is present; bare-ice models keep their field as-is.
+    if !isnothing(ice_thermodynamics) && !isnothing(snow_thermodynamics)
+        ice_thermodynamics = writable_top_surface_temperature(ice_thermodynamics, grid)
+    end
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
