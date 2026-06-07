@@ -38,6 +38,10 @@ Adapt.adapt_structure(to, s::StressBalanceFreeDrift) =
     StressBalanceFreeDrift(Adapt.adapt(to, s.top_momentum_stress),
                            Adapt.adapt(to, s.bottom_momentum_stress))
 
+# Repoint a free drift at already-materialized external stresses (see `materialize_solver`).
+materialize_free_drift(free_drift, top_momentum_stress, bottom_momentum_stress) = free_drift
+materialize_free_drift(::StressBalanceFreeDrift, top_momentum_stress, bottom_momentum_stress) = StressBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress)
+
 fields(::StressBalanceFreeDrift) = NamedTuple()
 
 # Stress balance when exactly one of the top or bottom stresses is

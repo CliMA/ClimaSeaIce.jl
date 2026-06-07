@@ -39,4 +39,4 @@ When things have progressed, we'll put an outline here.
 If you use ClimaSeaIce for your research, teaching, or fun 🤩, everyone in our community will be grateful
 if you give credit by citing the corresponding Zenodo record, e.g.,
 
-> Silvestri, S. et al. (2026). CliMA/ClimaSeaIce.jl: v0.5.1 (v0.5.1). Zenodo. https://doi.org/10.5281/zenodo.16143708
+> Silvestri, S. et al. (2026). CliMA/ClimaSeaIce.jl: v0.5.6 (v0.5.6). Zenodo. https://doi.org/10.5281/zenodo.16143708
