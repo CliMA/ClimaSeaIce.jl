@@ -178,7 +178,7 @@ using .HeatBoundaryConditions:
     PrescribedTemperature,
     getflux
 
-using Oceananigans.Fields: field, Field, Center
+using Oceananigans.Fields: field, Field, Center, ConstantField
 
 # Enthalpy thermodynamics is not included in this module yet.
 # include("EnthalpyMethodThermodynamics.jl")

@@ -1,5 +1,5 @@
 using Adapt
-using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions, BoundaryCondition, Zipper
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Fields: ZeroField, interior
 using Oceananigans.Grids: halo_size
 
