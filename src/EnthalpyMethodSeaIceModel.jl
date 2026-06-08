@@ -1,14 +1,12 @@
 module EnthalpyMethodSeaIceModels
 
-using Oceananigans: Oceananigans, AbstractModel
-import Oceananigans: fields
+using KernelAbstractions: @kernel, @index
+using Oceananigans: Oceananigans, AbstractModel, fields
 using Oceananigans.BoundaryConditions: fill_halo_regions!, regularize_field_boundary_conditions, compute_z_bcs!
 using Oceananigans.Fields: CenterField, interior, TracerFields, set!
 using Oceananigans.Operators: ℑzᵃᵃᶠ, ∂zᶜᶜᶜ, ∂zᶜᶜᶠ
 using Oceananigans.TimeSteppers: Clock, tick!, update_state!
 using Oceananigans.Utils: prettytime, launch!
-
-using KernelAbstractions: @kernel, @index
 
 mutable struct EnthalpyMethodSeaIceModel{Grid,
                                          Tim,

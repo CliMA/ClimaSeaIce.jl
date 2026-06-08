@@ -3,8 +3,6 @@ using Oceananigans.Advection: FluxFormAdvection,
                               _advective_tracer_flux_y,
                               conditional_flux_fcc,
                               conditional_flux_cfc
-using Oceananigans.ImmersedBoundaries
-using Oceananigans.Operators
 
 # To obtain better numerical properties, the ice thickness is advected together
 # with the concentration, i.e.:

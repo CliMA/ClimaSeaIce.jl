@@ -186,9 +186,8 @@ Built-in dispatches:
 ##### Checkpointing
 #####
 
-function Oceananigans.prognostic_state(therm::SlabThermodynamics)
-    return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
-end
+Oceananigans.prognostic_state(therm::SlabThermodynamics) =
+    (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
 
 function Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, state)
     restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)

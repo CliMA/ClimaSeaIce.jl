@@ -49,7 +49,7 @@ function Base.show(io::IO, ts::ForwardEulerTimeStepper)
     print(io, "└── implicit_solver: ", isnothing(ts.implicit_solver) ? "nothing" : nameof(typeof(ts.implicit_solver)))
 end
 
-reset!(::ForwardEulerTimeStepper) = nothing
+Oceananigans.TimeSteppers.reset!(::ForwardEulerTimeStepper) = nothing
 
 #####
 ##### Checkpointing

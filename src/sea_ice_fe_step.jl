@@ -10,7 +10,7 @@ const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:Any, <:ForwardEulerTime
 
 # We separate the thermodynamic step from the advection (dynamic) step.
 # The thermodynamic step is column physics and is performed all at once.
-function time_step!(model::FESeaIceModel, Δt; kwargs...)
+function Oceananigans.TimeSteppers.time_step!(model::FESeaIceModel, Δt; kwargs...)
 
     # Be paranoid and update state at iteration 0
     model.clock.iteration == 0 && update_state!(model)
