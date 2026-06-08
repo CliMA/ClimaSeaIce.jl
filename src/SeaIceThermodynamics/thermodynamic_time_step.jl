@@ -2,7 +2,6 @@ using KernelAbstractions: @kernel, @index
 using Oceananigans.Architectures: architecture
 using Oceananigans.OutputReaders: FieldTimeSeries, GPUAdaptedFieldTimeSeries
 using Oceananigans.Units: Time
-# using Oceananigans.Utils
 
 # No ice, no thermodynamics!
 thermodynamic_time_step!(model, ::Nothing, snow_thermodynamics, Δt) = nothing
