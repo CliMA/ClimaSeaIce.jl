@@ -7,11 +7,11 @@ using Oceananigans.Advection: FluxFormAdvection,
 # To obtain better numerical properties, the ice thickness is advected together
 # with the concentration, i.e.:
 #
-# A = ℵ⁻¹ ∇ ⋅ (uℵh)
+#     A = ℵ⁻¹ ∇ ⋅ (uℵh)
 #
 # instead of the classical
 #
-# A = ∇ ⋅ (uh)
+#     A = ∇ ⋅ (uh)
 
 _advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h)
 _advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h)
@@ -39,16 +39,14 @@ end
 @inline div_Uℵh(i, j, k, grid, ::Nothing, U, ℵ, h) = zero(grid)
 
 # For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
-@inline function div_Uℵh(i, j, k, grid, advection, U, ℵ, h)
-    return 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection, U.u, ℵ, h) +
-                                      δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection, U.v, ℵ, h))
-end
+@inline div_Uℵh(i, j, k, grid, advection, U, ℵ, h) =
+    1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection, U.u, ℵ, h) +
+                               δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection, U.v, ℵ, h))
 
 # For thickness, we compute [ℵ⁻¹ ∇ ⋅ (uℵh)]
-@inline function div_Uℵh(i, j, k, grid, advection::FluxFormAdvection, U, ℵ, h)
-    return 1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
-                                      δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))
-end
+@inline div_Uℵh(i, j, k, grid, advection::FluxFormAdvection, U, ℵ, h) =
+    1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
+                               δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))
 
 @inline horizontal_div_Uc(i, j, k, grid, ::Nothing, U, c) = zero(grid)
 @inline horizontal_div_Uc(i, j, k, grid, advection, U, c) =

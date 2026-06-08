@@ -92,9 +92,11 @@ end
     Qu = top_external_heat_flux
     Tu = ice_thermodynamics.top_surface_temperature
 
-    @inbounds hi = ice_thickness[i, j, k]
-    @inbounds hc = ice_consolidation_thickness[i, j, k]
-    @inbounds Si = model_fields.S[i, j, k]
+    @inbounds begin
+        hi = ice_thickness[i, j, k]
+        hc = ice_consolidation_thickness[i, j, k]
+        Si = model_fields.S[i, j, k]
+    end
 
     consolidated_ice = hi ≥ hc
 

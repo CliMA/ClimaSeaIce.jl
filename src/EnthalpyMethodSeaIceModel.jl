@@ -67,14 +67,14 @@ function EnthalpyMethodSeaIceModel(; grid,
     clock = Clock{eltype(grid)}(time = 0)
 
     return EnthalpyMethodSeaIceModel(grid,
-                                    nothing,
-                                    clock,
-                                    closure,
-                                    state,
-                                    ice_heat_capacity,
-                                    water_heat_capacity,
-                                    fusion_enthalpy,
-                                    tendencies)
+                                     nothing,
+                                     clock,
+                                     closure,
+                                     state,
+                                     ice_heat_capacity,
+                                     water_heat_capacity,
+                                     fusion_enthalpy,
+                                     tendencies)
 end
 
 function Oceananigans.Fields.set!(model::ETSIM; T=nothing, H=nothing)
@@ -153,16 +153,12 @@ function update_enthalpy!(model)
     # set temperature from enthalpy via dH = c dT + ℒ ϕ
     interior(H) .= c .* interior(T) + ℒ * interior(ϕ)
 
-    arch = model.grid.architecture
     fill_halo_regions!(H, model.clock, fields(model))
 
     return nothing
 end
 
 function Oceananigans.TimeSteppers.update_state!(model::ETSIM)
-    grid = model.grid
-    arch = grid.architecture
-    args = (model.clock, fields(model))
     compute_temperature!(model)
     compute_porosity!(model)
     compute_diffusivity!(model.closure, model)

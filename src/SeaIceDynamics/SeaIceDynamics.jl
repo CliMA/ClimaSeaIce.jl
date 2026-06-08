@@ -19,16 +19,14 @@ using Oceananigans.Utils: KernelParameters, launch!
 using ..ClimaSeaIce: ice_mass
 using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
                     immersed_∂ⱼ_σ₁ⱼ, immersed_∂ⱼ_σ₂ⱼ,
-                    Auxiliaries, compute_stresses!,
+                    Auxiliaries,compute_stresses!,
                     initialize_rheology!, finalize_rheology!,
                     compute_substep_Δtᶠᶜᶜ, compute_substep_Δtᶜᶠᶜ,
                     sum_of_forcing_u, sum_of_forcing_v
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ##
-##     ∂u           ∇ ⋅ σ   τₒ    τₐ
-##     -- + f x u = ----- + --  + -- + g ∇η
-##     ∂t            mᵢ     mᵢ    mᵢ
+##     ∂u/∂t + f x u = ∇ ⋅ σ / mᵢ  + τₒ / mᵢ + τₐ / mᵢ + g ∇η
 ##
 ## where the terms (left to right) represent the
 ## - time derivative of the ice velocity

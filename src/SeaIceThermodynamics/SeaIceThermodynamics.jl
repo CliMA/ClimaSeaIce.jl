@@ -170,15 +170,11 @@ end
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
-using .HeatBoundaryConditions:
-    IceWaterThermalEquilibrium,
-    MeltingConstrainedFluxBalance,
-    RadiativeEmission,
-    FluxFunction,
-    PrescribedTemperature,
-    getflux
-
 using Oceananigans.Fields: field, Field, Center, ConstantField
+
+using .HeatBoundaryConditions: IceWaterThermalEquilibrium, MeltingConstrainedFluxBalance,
+                               RadiativeEmission, FluxFunction, PrescribedTemperature,
+                               getflux
 
 # Enthalpy thermodynamics is not included in this module yet.
 # include("EnthalpyMethodThermodynamics.jl")
