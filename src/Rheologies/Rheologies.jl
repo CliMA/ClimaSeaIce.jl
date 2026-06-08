@@ -7,14 +7,14 @@ using Adapt: Adapt
 using Oceananigans: Oceananigans
 using Oceananigans.Grids: AbstractGrid, Center, Face
 using Oceananigans.Fields: Field
-using Oceananigans.Operators: Operators, Vᶜᶠᶜ, Vᶠᶜᶜ,
-                              Axᶜᶜᶜ, Axᶠᶠᶜ, Ayᶜᶜᶜ, Ayᶠᶠᶜ, Azᶜᶜᶜ, Azᶜᶠᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
+using Oceananigans.Operators: Axᶜᶜᶜ, Axᶠᶠᶜ, Ayᶜᶜᶜ, Ayᶠᶠᶜ, Azᶜᶜᶜ, Azᶜᶠᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
                               Δx_qᶜᶜᶜ, Δx_qᶜᶠᶜ, Δx_qᶠᶜᶜ, Δx_qᶠᶠᶜ,
                               Δy_qᶜᶜᶜ, Δy_qᶜᶠᶜ, Δy_qᶠᶜᶜ, Δy_qᶠᶠᶜ,
+                              Vᶜᶠᶜ, Vᶠᶜᶜ,
                               δxᶜᵃᵃ, δxᶜᶜᶜ, δxᶠᵃᵃ, δxᶠᶠᶜ,
                               δyᵃᶜᵃ, δyᵃᶠᵃ, δyᶜᶜᶜ, δyᶠᶠᶜ,
                               ℑxyᶜᶜᵃ, ℑxyᶠᶠᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
-using Oceananigans.Utils: Utils, KernelParameters, configure_kernel
+using Oceananigans.Utils: KernelParameters, configure_kernel
 
 using ..ClimaSeaIce: ice_mass
 

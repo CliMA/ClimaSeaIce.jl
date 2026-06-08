@@ -40,7 +40,7 @@ using Oceananigans.Grids: halo_size
 ##### Stress materialization
 #####
 
-# Whether `field` already lives on `grid`, so it can be read across `grid`'s halo as-is. 
+# Whether `field` already lives on `grid`, so it can be read across `grid`'s halo as-is.
 @inline grids_match(field, grid) = field.grid === grid || (field.grid == grid && halo_size(field.grid) == halo_size(grid))
 
 # By default a stress is left untouched (e.g. `nothing`, a `Number`, a `ZeroField`).
@@ -153,10 +153,10 @@ end
 
 function Base.show(io::IO, τ::SemiImplicitStress)
     print(io, "SemiImplicitStress", '\n')
-    print(io, "├── uₑ:  ", summary(τ.uₑ), '\n')
-    print(io, "├── vₑ:  ", summary(τ.vₑ), '\n')
-    print(io, "├── ρₑ:  ", τ.ρₑ, '\n')
-    print(io, "└── Cᴰ:  ", τ.Cᴰ)
+    print(io, "├── uₑ: ", summary(τ.uₑ), '\n')
+    print(io, "├── vₑ: ", summary(τ.vₑ), '\n')
+    print(io, "├── ρₑ: ", τ.ρₑ, '\n')
+    print(io, "└── Cᴰ: ", τ.Cᴰ)
 end
 
 @inline function x_momentum_stress(i, j, k, grid, τ::SemiImplicitStress, clock, fields)

@@ -23,14 +23,13 @@ export SeaIceModel,
 using KernelAbstractions: @kernel, @index
 using Oceananigans: Oceananigans, AbstractModel, fields, prognostic_fields,
                     prognostic_state, restore_prognostic_state!
-using Oceananigans.Advection: Advection, cell_advection_timescale,
-                              advective_tracer_flux_x, advective_tracer_flux_y
+using Oceananigans.Advection: cell_advection_timescale, advective_tracer_flux_x, advective_tracer_flux_y
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions
-using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField, set!
+using Oceananigans.Fields: field, set!, Center, Field, ZeroField, ConstantField
 using Oceananigans.Grids: Face, RectilinearGrid, LatitudeLongitudeGrid, OrthogonalSphericalShellGrid
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaries, ImmersedBoundaryGrid
-using Oceananigans.Operators: Operators, Axᶠᶜᶜ, Ayᶜᶠᶜ, Vᶜᶜᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
+using Oceananigans.Operators: Axᶠᶜᶜ, Ayᶜᶠᶜ, Vᶜᶜᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
 using Oceananigans.TimeSteppers: tick!, Clock, update_state!
 using Oceananigans.Utils: launch!, prettytime
 
@@ -64,7 +63,7 @@ function Oceananigans.Advection.cell_advection_timescale(model::SeaIceModel)
 end
 
 # No diffusion timescale for sea ice for now
-Oceananigans.TurbulenceClosures.cell_diffusion_timescale(model::SeaIceModel) = Inf
+Oceananigans.TurbulenceClosures.cell_diffusion_timescale(::SeaIceModel) = Inf
 
 #####
 ##### Default output attributes for NetCDF output

@@ -12,9 +12,9 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.DistributedComputations: Distributed
 using Oceananigans.Fields: Field
 using Oceananigans.Grids: Center, Face
-using Oceananigans.Operators: Operators, ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
+using Oceananigans.Operators: ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
-using Oceananigans.Utils: Utils, KernelParameters, launch!
+using Oceananigans.Utils: KernelParameters, launch!
 
 using ..ClimaSeaIce: ice_mass
 using ..Rheologies: ∂ⱼ_σ₁ⱼ,
