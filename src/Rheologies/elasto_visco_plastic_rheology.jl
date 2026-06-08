@@ -102,7 +102,8 @@ Keyword Arguments
 References
 ==========
 
-- Kimmritz, M., Losch, M., and Danilov, S. (2017). A comparison of viscous-plastic sea ice solvers with and without replacement pressure. Ocean Modelling, 115, 59-69. doi:10.1016/j.ocemod.2017.05.006.
+- Kimmritz, M., Losch, M., and Danilov, S. (2017). A comparison of viscous-plastic sea ice solvers with and without
+  replacement pressure. Ocean Modelling, 115, 59-69. doi:10.1016/j.ocemod.2017.05.006.
 """
 function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType;
                                     ice_compressive_strength = 27500,
@@ -138,7 +139,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     uⁿ  = Field{Face,   Center, Nothing}(grid)
     vⁿ  = Field{Center, Face,   Nothing}(grid)
     P   = Field{Center, Center, Nothing}(grid)
-    α   = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2016)
+    α   = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2017)
     Δ   = Field{Center, Center, Nothing}(grid)
 
     # Viscosities
@@ -282,7 +283,7 @@ end
 
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
-# following the αEVP formulation of Kimmritz et al. (2016).
+# following the αEVP formulation of Kimmritz et al. (2017).
 @kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
@@ -322,7 +323,7 @@ end
     mᵢᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, ice_mass, h, ℵ, ρᵢ)
 
     # Update coefficients for substepping using dynamic substepping
-    # with spatially varying coefficients as done by Kimmritz et al. (2016)
+    # with spatially varying coefficients as done by Kimmritz et al. (2017)
     γ²ᶜᶜᶜ = ζᶜᶜᶜ * cα * Δt / mᵢᶜᶜᶜ / Azᶜᶜᶜ(i, j, 1, grid)
     γ²ᶜᶜᶜ = ifelse(isnan(γ²ᶜᶜᶜ), α⁺^2, γ²ᶜᶜᶜ) # In case both ζᶜᶜᶜ and mᵢᶜᶜᶜ are zero
     γᶜᶜᶜ  = clamp(sqrt(γ²ᶜᶜᶜ), α⁻, α⁺)
