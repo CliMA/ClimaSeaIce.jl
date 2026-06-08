@@ -97,7 +97,7 @@ for file in files
     rm(file)
 end
 
- deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
-            deploy_repo = "github.com/CliMA/ClimaSeaIceDocumentation",
-            devbranch = "main",
-            push_preview = true)
+deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
+           deploy_repo = "github.com/CliMA/ClimaSeaIceDocumentation",
+           devbranch = "main",
+           push_preview = true)
