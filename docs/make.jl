@@ -1,5 +1,6 @@
 using
   Documenter,
+  DocumenterCitations,
   Literate,
   ClimaSeaIce
 
@@ -43,7 +44,10 @@ format = Documenter.HTML(
   collapselevel = 2,
      prettyurls = get(ENV, "CI", nothing) == "true",
       canonical = "https://clima.github.io/ClimaSeaIceDocumentation/dev/",
+         assets = ["assets/citations.css"],
 )
+
+bibliography = CitationBibliography(joinpath(@__DIR__, "climaseaice.bib"), style = :authoryear)
 
 pages = [
     "Home" => "index.md",
@@ -56,6 +60,7 @@ pages = [
 
     "Examples" => example_pages,
     "Timestepping" => "timestepping.md",
+    "References" => "references.md",
 
     "Library" => [
         "Contents"       => "library/outline.md",
@@ -73,7 +78,8 @@ makedocs(
      doctest = true,
     warnonly = [:cross_references],
        clean = true,
-   checkdocs = :exports
+   checkdocs = :exports,
+     plugins = [bibliography]
 )
 
 @info "Clean up temporary .jld2/.nc files created by doctests..."

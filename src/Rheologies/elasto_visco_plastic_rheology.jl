@@ -8,7 +8,7 @@ using Adapt
 using KernelAbstractions: @kernel, @index
 
 ## The equations are solved in an iterative form following the EVP rheology of
-## Kimmritz et al. (2016); doi: 10.1016/j.ocemod.2017.05.006
+## Kimmritz et al. (2017); doi: 10.1016/j.ocemod.2017.05.006
 #
 # Where:
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
@@ -53,7 +53,8 @@ struct IceStrength end
                                pressure_formulation = ReplacementPressure())
 
 Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
-rheology for slab sea ice dynamics that follows the implementation of Kimmritz et al. (2016).
+rheology for slab sea ice dynamics that follows the implementation of
+[Kimmritz et al. 2017](@cite Kimmritz2017).
 The stress tensor is computed following the constitutive relation:
 ```math
 σᵢⱼ = 2η ϵ̇ᵢⱼ + [(ζ - η) (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
@@ -64,7 +65,8 @@ parameterized as ``P_\\star h \\exp[ - C ( 1 - ℵ )]`` where ``P_\\star`` is th
 ``C`` is the `ice_compaction_hardening`, ``h`` is the ice thickness, and ``ℵ`` is the ice concentration.
 
 The stresses are substepped using a dynamic substepping coefficient ``α`` that is
-spatially varying and computed dynamically as done by Kimmritz et al. (2016).
+spatially varying and computed dynamically as done by
+[Kimmritz et al. 2017](@cite Kimmritz2017).
 In particular: ``α = \\sqrt{γ²}``, where ``γ² = ζ c_α (Δt / mᵢ) / A_z`` is a stability parameter
 with ``A_z`` is the area of the grid cell, ``mᵢ`` the ice mass, ``Δt`` the time step, and ``c_α`` a
 numerical stability parameter which controls the strength of ``γ²``.
@@ -95,9 +97,14 @@ Keyword Arguments
 - `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`. Default: `30`.
 - `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default: `500`.
 - `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`;
-                         see Kimmritz et al. (2016). Default: `π² / 2`.
+                         see [Kimmritz et al. 2017](@cite Kimmritz2017). Default: `π² / 2`.
 - `pressure_formulation`: can use `ReplacementPressure` or `IceStrength`. The replacement pressure formulation avoids
                           ice motion in the absence of forcing. Default: `ReplacementPressure`.
+
+References
+==========
+
+- Kimmritz, M., Losch, M., and Danilov, S. (2017). A comparison of viscous-plastic sea ice solvers with and without replacement pressure. Ocean Modelling, 115, 59-69. doi:10.1016/j.ocemod.2017.05.006.
 """
 function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatType;
                                     ice_compressive_strength = 27500,
