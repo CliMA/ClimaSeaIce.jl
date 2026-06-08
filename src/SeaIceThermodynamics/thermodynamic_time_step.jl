@@ -63,13 +63,11 @@ end
 
 # The thermodynamic step is computed in a single kernel following:
 #
-# ∂t_V = ∂t_h * ℵ + h * ∂t_ℵ
+#     ∂t_V = ∂t_h * ℵ + h * ∂t_ℵ
 #
 # Therefore:
 #
-#                     h⁺ * ℵ⁺ - hⁿ * ℵⁿ
-#  ∂t_V = Gᴸ + Gⱽ  = -------------------
-#                             Δt
+#     ∂t_V = Gᴸ + Gⱽ = (h⁺ * ℵ⁺ - hⁿ * ℵⁿ) / Δt
 #
 # The two will be adjusted conservatively after the thermodynamic step to ensure that ℵ ≤ 1.
 @kernel function _ice_thermodynamic_time_step!(ice_thickness,
@@ -211,7 +209,7 @@ end
     # Closed-form self-consistent solve for ℵⁿ⁺¹. The ice-top effective flux
     # Quiᵉᶠᶠ = Qui + Qs·ℵⁿ⁺¹ couples Quiᵉᶠᶠ and ℵⁿ⁺¹ linearly; the slab's
     # concentration rule is also linear in ∂t_V, so the fixed point
-    #   ∂t_V = α + β·ℵⁿ⁺¹,    α = (Qui − Qbi)/(ρᵢℒ),  β = Qs/(ρᵢℒ)
+    #   ∂t_V = α + β·ℵⁿ⁺¹,    α = (Qui − Qbi) / (ρᵢℒ),  β = Qs/(ρᵢℒ)
     #   ℵⁿ⁺¹ = ℵⁿ + K·∂t_V,   K = Δt · C,
     #   C = ℵⁿ/(2hⁿ) (melt)  or  (1−ℵⁿ)/hᶜ (freeze)
     # has the explicit solution  ℵⁿ⁺¹ = (ℵⁿ + K·α) / (1 − K·β).
@@ -302,7 +300,7 @@ end
 
 const FTS = Union{FieldTimeSeries, GPUAdaptedFieldTimeSeries}
 
-@inline get_precipitation(i, j, Ps, clock)      = @inbounds Ps[i, j, 1]
+@inline get_precipitation(i, j, Ps,      clock) = @inbounds Ps[i, j, 1]
 @inline get_precipitation(i, j, Ps::FTS, clock) = @inbounds Ps[i, j, 1, Time(clock.time)]
 
 @inline function snow_accumulation(i, j, snowfall, ρs, ℵ, clock)
