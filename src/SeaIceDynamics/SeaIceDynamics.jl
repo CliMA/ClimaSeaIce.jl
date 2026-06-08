@@ -7,7 +7,6 @@ export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicit
 using Adapt: Adapt
 using Oceananigans: Oceananigans, prognostic_state, prognostic_fields, restore_prognostic_state!
 using Oceananigans.Architectures: architecture
-using Oceananigans.DistributedComputations: Distributed
 using Oceananigans.Fields: Field
 using Oceananigans.Grids: Center, Face
 using Oceananigans.Operators: Operators, ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
