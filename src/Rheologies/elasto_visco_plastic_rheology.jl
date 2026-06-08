@@ -1,11 +1,9 @@
 using Adapt: Adapt
+using KernelAbstractions: @kernel, @index
 using Oceananigans.Architectures: architecture
-using Oceananigans.Operators: Operators
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: synchronize_communication!
 using Oceananigans.Grids: AbstractGrid, halo_size
-using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.Utils: Utils
-using KernelAbstractions: @kernel, @index
 
 ## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al. (2016); doi: 10.1016/j.ocemod.2017.05.006

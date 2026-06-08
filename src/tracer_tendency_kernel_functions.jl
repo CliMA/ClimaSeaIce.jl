@@ -1,4 +1,3 @@
-using Oceananigans.Advection
 using .SeaIceDynamics: compute_momentum_tendencies!
 
 function compute_tendencies!(model::SIM, Δt)

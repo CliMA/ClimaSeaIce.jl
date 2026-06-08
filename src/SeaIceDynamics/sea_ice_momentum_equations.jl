@@ -1,7 +1,4 @@
 using ..Rheologies
-using Adapt
-
-import Oceananigans: prognostic_state, restore_prognostic_state!
 
 struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C

@@ -1,5 +1,3 @@
-using Oceananigans.Utils
-
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
 previous_velocities(model, timestepper) = model.velocities
