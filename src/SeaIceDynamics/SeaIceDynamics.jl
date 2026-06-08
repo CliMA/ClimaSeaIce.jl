@@ -5,7 +5,8 @@ export compute_momentum_tendencies!, time_step_momentum!
 export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
 
 using Adapt: Adapt
-using Oceananigans: Oceananigans, prognostic_state, prognostic_fields, restore_prognostic_state!
+using Oceananigans: Oceananigans, prognostic_state, prognostic_fields,
+                    restore_prognostic_state!, fields
 using Oceananigans.Architectures: architecture
 using Oceananigans.Fields: Field
 using Oceananigans.Grids: Center, Face
