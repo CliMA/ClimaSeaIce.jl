@@ -79,7 +79,7 @@ end
 
 """
     PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                     density               = 917,   # kg m⁻³
+                     density                = 917,   # kg m⁻³
                      heat_capacity          = 2000,  # J / (kg ᵒC)
                      liquid_density         = 999.8, # kg m⁻³
                      liquid_heat_capacity   = 4186,  # J / (kg ᵒC)
