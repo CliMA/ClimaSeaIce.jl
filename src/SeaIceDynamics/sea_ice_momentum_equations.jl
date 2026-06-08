@@ -1,7 +1,4 @@
-using ClimaSeaIce.Rheologies
-using Adapt
-
-import Oceananigans: prognostic_state, restore_prognostic_state!
+using ..Rheologies
 
 struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C
@@ -84,8 +81,8 @@ function SeaIceMomentumEquation(grid;
                                   convert(FT, minimum_mass))
 end
 
-fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
-prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+Oceananigans.fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
+Oceananigans.prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
 
 # Fallback: keep the same grid and dynamics
 maybe_extended_grid(mom, grid) = grid
@@ -110,11 +107,12 @@ end
 ##### Checkpointing
 #####
 
-function prognostic_state(mom::SeaIceMomentumEquation)
-    return (; fields = prognostic_state(fields(mom)))
-end
+Oceananigans.prognostic_state(mom::SeaIceMomentumEquation) =
+    (; fields = prognostic_state(fields(mom)))
 
-function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
+function Oceananigans.restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
     restore_prognostic_state!(fields(mom), state.fields)
     return mom
 end
+
+Oceananigans.restore_prognostic_state!(mom::SeaIceMomentumEquation, ::Nothing) = nothing

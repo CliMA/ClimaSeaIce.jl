@@ -29,7 +29,7 @@ end
 
     @test model.velocities.u.boundary_conditions.north.condition == -1
     @test model.velocities.v.boundary_conditions.north.condition == -1
-    
+
     grid  = TripolarGrid(size = (10, 10, 1), fold_topology = Oceananigans.Grids.RightFaceFolded)
     model = SeaIceModel(grid)
 
