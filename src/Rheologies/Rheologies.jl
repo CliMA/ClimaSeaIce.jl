@@ -38,8 +38,6 @@ sea ice stresses.
 """
 Auxiliaries(rheology, grid::AbstractGrid) = Auxiliaries(NamedTuple(), nothing)
 
-import Oceananigans: prognostic_fields
-
 # Nothing rheology
 initialize_rheology!(model, rheology) = nothing
 finalize_rheology!(fields, rheology) = nothing

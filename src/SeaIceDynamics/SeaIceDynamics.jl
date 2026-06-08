@@ -29,8 +29,6 @@ using ..Rheologies: ∂ⱼ_σ₁ⱼ,
                     sum_of_forcing_u,
                     sum_of_forcing_v
 
-import Oceananigans: fields, prognostic_fields
-
 ## A Framework to solve for the ice momentum equation, in the form:
 ##
 ##     ∂u           ∇ ⋅ σ   τₒ    τₐ
