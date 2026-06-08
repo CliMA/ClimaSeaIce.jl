@@ -42,7 +42,7 @@ Adapt.adapt_structure(to, s::StressBalanceFreeDrift) =
 materialize_free_drift(free_drift, top_momentum_stress, bottom_momentum_stress) = free_drift
 materialize_free_drift(::StressBalanceFreeDrift, top_momentum_stress, bottom_momentum_stress) = StressBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress)
 
-fields(::StressBalanceFreeDrift) = NamedTuple()
+Oceananigans.fields(::StressBalanceFreeDrift) = NamedTuple()
 
 # Stress balance when exactly one of the top or bottom stresses is
 # ice-velocity dependent. In this case we have a simplified closed-form
