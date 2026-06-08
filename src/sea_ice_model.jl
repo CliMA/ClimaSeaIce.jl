@@ -61,6 +61,64 @@ function default_sea_ice_boundary_conditions(grid, name)
     return bcs
 end
 
+"""
+    SeaIceModel(grid;
+                clock                       = Clock{eltype(grid)}(time = 0),
+                ice_consolidation_thickness = 0.05, # m
+                ice_salinity                = 0,    # psu
+                sea_ice_density             = 900,  # kg m⁻³, bulk sea-ice
+                snow_density                = 330,  # kg m⁻³, bulk snow
+                phase_transitions           = PhaseTransitions(eltype(grid)),
+                top_heat_flux               = nothing,
+                bottom_heat_flux            = 0,    # W m⁻²
+                velocities                  = nothing,
+                advection                   = nothing,
+                tracers                     = (),
+                timestepper                 = :SplitRungeKutta3,
+                boundary_conditions         = NamedTuple(),
+                ice_thermodynamics          = sea_ice_slab_thermodynamics(grid),
+                snow_thermodynamics         = nothing,
+                snowfall                    = 0,
+                dynamics                    = nothing,
+                forcing                     = NamedTuple())
+
+Construct a sea-ice model on `grid` with slab thermodynamics, optional momentum
+equations, and optional snow thermodynamics.
+
+The model evolves sea-ice thickness `h`, concentration `ℵ`, optional salinity
+`S`, optional snow thickness `hs`, and, when `dynamics` is provided, the
+horizontal ice velocity components `u` and `v`.
+
+Arguments
+=========
+
+- `grid`: The computational grid.
+
+Keyword Arguments
+=================
+
+- `clock`: Model clock. Defaults to `Clock{eltype(grid)}(time = 0)`.
+- `ice_consolidation_thickness`: Threshold thickness above which the slab is
+                                 treated as consolidated ice. Default: 0.05 meters.
+- `ice_salinity`: Sea-ice salinity field or constant. When non-constant it is
+                  included in the prognostic state as `S`. Default: 0 psu.
+- `sea_ice_density`: Bulk sea-ice density. Default: 900 kg m⁻³.
+- `snow_density`: Bulk snow density. Default: 330 kg m⁻³.
+- `phase_transitions`: Thermodynamic phase-transition parameters.
+- `top_heat_flux`: External top heat flux. Default: `nothing`.
+- `bottom_heat_flux`: External bottom heat flux. Default: 0 W m⁻².
+- `velocities`: Pre-existing velocity fields. If omitted, they are allocated by
+                the constructor. Default: `nothing`.
+- `advection`: Advection scheme for prognostic tracers. Default: `nothing`.
+- `tracers`: Additional prognostic tracers.
+- `timestepper`: Time stepper specification passed to `TimeStepper`. Default: `:SplitRungeKutta3`.
+- `boundary_conditions`: Boundary conditions for allocated prognostic fields.
+- `ice_thermodynamics`: Ice thermodynamics model. Default: `sea_ice_slab_thermodynamics(grid)`.
+- `snow_thermodynamics`: Optional snow thermodynamics model.
+- `snowfall`: Snowfall forcing. Defaults to 0, but can be also a `Field` or a `FieldTimeSeries`.
+- `dynamics`: Optional sea-ice dynamics model, for example, `SeaIceMomentumEquation(grid)`.
+- `forcing`: Additional model forcing passed through `model_forcing`.
+"""
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
                      ice_consolidation_thickness = 0.05, # m
