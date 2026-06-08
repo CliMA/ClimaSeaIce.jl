@@ -1,8 +1,6 @@
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, 
-                                       ImmersedBoundaryCondition
-
+using Oceananigans.Advection: conditional_flux_ccc, conditional_flux_ffc
 using Oceananigans.BoundaryConditions: FBC, getbc
-using Oceananigans.Advection:conditional_flux_ccc, conditional_flux_ffc
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, ImmersedBoundaryCondition
 using Oceananigans.Operators: index_left, index_right
 
 const IBG = ImmersedBoundaryGrid
@@ -29,15 +27,13 @@ const f = Face()
 ##### Stress divergence
 #####
 
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, _ice_stress_ux, rheology, clock, fields) +
-                                       δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields))
-end
+@inline ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields) =
+    1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, _ice_stress_ux, rheology, clock, fields) +
+                                δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields))
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶜᶠᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields) +
-                                       δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, _ice_stress_vy, rheology, clock, fields))
-end
+@inline ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields) =
+    1 / Azᶜᶠᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields) +
+                                δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, _ice_stress_vy, rheology, clock, fields))
 
 #####
 ##### Immersed Stress divergence

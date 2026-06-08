@@ -1,9 +1,8 @@
-using Oceananigans.Utils
-
 const ExplicitMomentumEquation = SeaIceMomentumEquation{<:ExplicitSolver}
 
 previous_velocities(model, timestepper) = model.velocities
-previous_velocities(model, timestepper::SplitRungeKuttaTimeStepper) = (u = model.timestepper.Ψ⁻.u, v = model.timestepper.Ψ⁻.v)
+previous_velocities(model, timestepper::SplitRungeKuttaTimeStepper) =
+    (u = model.timestepper.Ψ⁻.u, v = model.timestepper.Ψ⁻.v)
 
 # Simple explicit stepping of the momentum equations
 function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
@@ -16,11 +15,11 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
 
     dynamics = model.dynamics
 
-    model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
-                      (; h = model.ice_thickness, 
-                         ℵ = model.ice_concentration, 
+    model_fields = merge(dynamics.auxiliaries.fields, model.velocities,
+                      (; h = model.ice_thickness,
+                         ℵ = model.ice_concentration,
                          ρ = model.sea_ice_density))
-                
+
     free_drift = dynamics.free_drift
     clock = model.clock
     minimum_mass = dynamics.minimum_mass
@@ -84,7 +83,6 @@ end
 
 # Compute the tendencies for the explicit momentum equations
 function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
-    
     dynamics = model.dynamics
     grid = model.grid
 
@@ -92,10 +90,10 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     coriolis = dynamics.coriolis
     rheology = dynamics.rheology
 
-    model_fields = merge(dynamics.auxiliaries.fields, model.velocities, 
-            (; h = model.ice_thickness, 
-               ℵ = model.ice_concentration, 
-               ρ = model.sea_ice_density))
+    model_fields = merge(dynamics.auxiliaries.fields, model.velocities,
+                         (; h = model.ice_thickness,
+                            ℵ = model.ice_concentration,
+                            ρ = model.sea_ice_density))
 
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom

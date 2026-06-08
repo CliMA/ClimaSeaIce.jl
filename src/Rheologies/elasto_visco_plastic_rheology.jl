@@ -1,11 +1,9 @@
-using Oceananigans.Operators
-using Oceananigans.DistributedComputations: synchronize_communication!
-using Oceananigans.Grids: AbstractGrid, architecture, halo_size
-using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.ImmersedBoundaries: inactive_node
-using Oceananigans.Utils
-using Adapt
+using Adapt: Adapt
 using KernelAbstractions: @kernel, @index
+using Oceananigans.Architectures: architecture
+using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.DistributedComputations: synchronize_communication!
+using Oceananigans.Grids: AbstractGrid, halo_size
 
 ## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al. (2016); doi: 10.1016/j.ocemod.2017.05.006
@@ -13,7 +11,7 @@ using KernelAbstractions: @kernel, @index
 # Where:
 # σᵢⱼ(u) = 2η ϵ̇ᵢⱼ + [(ζ - η) * (ϵ̇₁₁ + ϵ̇₂₂) - P / 2] δᵢⱼ
 #
-struct ElastoViscoPlasticRheology{FT, IP}
+struct ElastoViscoPlasticRheology{FT, IP} <: AbstractRheology
     ice_compressive_strength :: FT # compressive strength
     ice_compaction_hardening :: FT # compaction hardening
     yield_curve_eccentricity :: FT # elliptic yield curve eccentricity
@@ -139,7 +137,7 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     # Viscosities
     ζᶠᶠᶜ = Field{Face,   Face,   Nothing}(grid)
     ζᶜᶜᶜ = Field{Center, Center, Nothing}(grid)
-    
+
     # An initial (safe) educated guess
     fill!(α, r.max_relaxation_parameter)
 

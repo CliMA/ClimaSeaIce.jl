@@ -3,6 +3,7 @@ using ClimaSeaIce.SeaIceDynamics
 using ClimaSeaIce.SeaIceThermodynamics
 using Test
 
+using Oceananigans
 using Oceananigans.Fields: @allowscalar, ConstantField
 using Oceananigans: prognostic_fields
 
