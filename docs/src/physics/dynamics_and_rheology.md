@@ -225,7 +225,7 @@ rheology = ElastoViscoPlasticRheology(
 
 #### Dynamic substepping
 
-The EVP formulation uses dynamic substepping following [Kimmritz et al. 2017](@cite Kimmritz2017).
+The EVP formulation uses dynamic substepping following [Kimmritz2017](@citet).
 Rather than fixed substeps, a spatially-varying relaxation parameter ``\alpha`` accelerates
 convergence where the ice is weak and allows slower relaxation where it is strong:
 
