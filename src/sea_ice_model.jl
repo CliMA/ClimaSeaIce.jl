@@ -124,12 +124,12 @@ Keyword Arguments
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
                      ice_consolidation_thickness = 0.05, # m
-                     ice_salinity                = 0, # psu
-                     sea_ice_density             = 900, # kg m⁻³, bulk sea-ice
-                     snow_density                = 330, # kg m⁻³, bulk snow
+                     ice_salinity                = 0,    # psu
+                     sea_ice_density             = 900,  # kg m⁻³, bulk sea-ice
+                     snow_density                = 330,  # kg m⁻³, bulk snow
                      phase_transitions           = PhaseTransitions(eltype(grid)),
                      top_heat_flux               = nothing,
-                     bottom_heat_flux            = 0,
+                     bottom_heat_flux            = 0,    # W m⁻²
                      velocities                  = nothing,
                      advection                   = nothing,
                      tracers                     = (),
