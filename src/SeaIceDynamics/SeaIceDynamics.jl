@@ -5,6 +5,7 @@ export compute_momentum_tendencies!, time_step_momentum!
 export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
 
 using Adapt: Adapt
+using KernelAbstractions: @kernel, @index
 using Oceananigans: Oceananigans, prognostic_state, prognostic_fields,
                     restore_prognostic_state!, fields
 using Oceananigans.Architectures: architecture
@@ -13,7 +14,6 @@ using Oceananigans.Grids: Center, Face
 using Oceananigans.Operators: Operators, ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 using Oceananigans.Utils: Utils, KernelParameters, launch!
-using KernelAbstractions: @kernel, @index
 
 using ..ClimaSeaIce: ice_mass
 using ..Rheologies: ∂ⱼ_σ₁ⱼ,
