@@ -135,7 +135,7 @@ function SeaIceModel(grid;
         snowfall = field((Center, Center, Nothing), snowfall, grid)
     end
 
-    # Adding thickness and concentration if not there
+    # Adding sea-ice thickness and concentration to prognostic fields if not there already
     prognostic_fields = merge(tracers, (; h = ice_thickness, ℵ = ice_concentration))
 
     # Add snow thickness to prognostic fields when present
@@ -240,7 +240,7 @@ Oceananigans.Simulations.iteration(model::SIM) = model.clock.iteration
 Oceananigans.Utils.prettytime(model::SIM) = prettytime(model.clock.time)
 
 function Base.summary(model::SIM)
-    A = Base.summary(architecture(model.grid))
+    A = Base.summary(architecture(model))
     G = nameof(typeof(model.grid))
     return string("SeaIceModel{$A, $G}",
                   "(time = ", prettytime(model.clock.time),
@@ -266,8 +266,8 @@ end
 
 Oceananigans.initialize!(::SIM) = nothing
 Oceananigans.OutputWriters.default_included_properties(::SIM) = [:grid]
+Oceananigans.OutputWriters.checkpointer_address(::SIM) = "SeaIceModel"
 Oceananigans.TimeSteppers.reset!(::SIM) = nothing
-checkpointer_address(::SeaIceModel) = "SeaIceModel"
 
 snow_fields(::Nothing) = NamedTuple()
 snow_fields(hs) = (; hs)
@@ -307,7 +307,7 @@ function Oceananigans.TimeSteppers.update_state!(model::SIM, callbacks=[])
     return nothing
 end
 
-function Oceananigans.Models.update_model_field_time_series!(model::SeaIceModel, clock::Clock)
+function Oceananigans.Models.update_model_field_time_series!(model::SIM, clock::Clock)
     time = Time(clock.time)
 
     possible_fts = (model.tracers, model.external_heat_fluxes, model.snowfall, model.dynamics)
@@ -325,7 +325,7 @@ end
 ##### Checkpointing
 #####
 
-function Oceananigans.prognostic_state(model::SeaIceModel)
+function Oceananigans.prognostic_state(model::SIM)
     return (clock = prognostic_state(model.clock),
             velocities = prognostic_state(model.velocities),
             ice_thickness = prognostic_state(model.ice_thickness),
@@ -338,7 +338,7 @@ function Oceananigans.prognostic_state(model::SeaIceModel)
             dynamics = prognostic_state(model.dynamics))
 end
 
-function Oceananigans.restore_prognostic_state!(model::SeaIceModel, state)
+function Oceananigans.restore_prognostic_state!(model::SIM, state)
     restore_prognostic_state!(model.clock, state.clock)
     restore_prognostic_state!(model.velocities, state.velocities)
     restore_prognostic_state!(model.ice_thickness, state.ice_thickness)
@@ -352,4 +352,4 @@ function Oceananigans.restore_prognostic_state!(model::SeaIceModel, state)
     return model
 end
 
-Oceananigans.restore_prognostic_state!(::SeaIceModel, ::Nothing) = nothing
+Oceananigans.restore_prognostic_state!(::SIM, ::Nothing) = nothing
