@@ -12,11 +12,11 @@ function time_step_sea_ice_model_works(grid;
         set!(model, h=1, ℵ=1, hs=0.1)
     end
 
-    simulation = Simulation(model, Δt=1.0, stop_iteration=1)
+    simulation = Simulation(model, Δt=1.1, stop_iteration=1, verbose=false)
 
     run!(simulation)
 
-    return model.clock.iteration == 1
+    return model.clock.iteration == 1 && model.clock.time == 1.1
 end
 
 @testset "Sea ice Models" begin

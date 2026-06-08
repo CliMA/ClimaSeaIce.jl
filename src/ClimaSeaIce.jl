@@ -10,7 +10,7 @@ using Oceananigans.Grids: Face, RectilinearGrid, LatitudeLongitudeGrid, Orthogon
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaries, ImmersedBoundaryGrid
 using Oceananigans.Operators: Operators, Axᶠᶜᶜ, Ayᶜᶠᶜ, Vᶜᶜᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
 using Oceananigans.TimeSteppers: tick!, Clock
-using Oceananigans.Utils: Utils, launch!
+using Oceananigans.Utils: launch!
 
 using KernelAbstractions: @kernel, @index
 
