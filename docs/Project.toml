@@ -11,5 +11,5 @@ ClimaSeaIce = {path = ".."}
 
 [compat]
 CairoMakie = "0.15"
-Documenter = "1"
+Documenter = "1.11"
 Literate = "2.9"
