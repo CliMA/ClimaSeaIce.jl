@@ -1,6 +1,18 @@
 using Oceananigans: prognostic_state, restore_prognostic_state!
 using Oceananigans.Fields: set!
 
+"""
+    ProportionalEvolution()
+
+Parameterize sea-ice concentration changes by partitioning thermodynamic volume
+change between lateral and vertical growth using the proportional-evolution rule
+introduced by [Hibler 1979](@cite Hibler1979).
+
+References
+==========
+
+- Hibler, W. D. III (1979). A Dynamic Thermodynamic Sea Ice Model. Journal of Physical Oceanography, 9(4), 815-846. doi:10.1175/1520-0485(1979)009<0815:ADTSIM>2.0.CO;2.
+"""
 struct ProportionalEvolution end
 
 struct SlabThermodynamics{ST, HBC, CF, CE}

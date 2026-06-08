@@ -1,9 +1,10 @@
 # # Arctic basin seasonal cycle example
 #
-# This example reproduces results from Semtner (1976), which simulates the seasonal
-# cycle of sea ice in the Arctic basin. The model uses climatological forcing data
-# from Fletcher (1965) for shortwave radiation, longwave radiation, sensible heat
-# flux, and latent heat flux. This example demonstrates how to:
+# This example reproduces results from [Semtner1976](@citet), which
+# simulates the seasonal cycle of sea ice in the Arctic basin. The model uses
+# climatological forcing data from [Fletcher1965](@citet) for
+# shortwave radiation, longwave radiation, sensible heat flux, and latent heat
+# flux. This example demonstrates how to:
 #
 #   * use time-varying climatological forcing data,
 #   * set up seasonal cycles with `FieldTimeSeries` and cyclical indexing,
@@ -33,10 +34,10 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 # ## Climatological forcing data
 #
-# The forcing data comes from Semtner (1976, table 1), originally tabulated by
-# Fletcher (1965). Note: these are in kcal, which was deprecated in the ninth
-# General Conference on Weights and Measures in 1948. We convert these to Joules
-# (and then to Watts) below.
+# The forcing data comes from Table 1 by [Semtner1976](@citet),
+# originally tabulated by [Fletcher1965](@citet). Note: these are
+# in kcal, which was deprecated in the ninth General Conference on Weights and
+# Measures in 1948. We convert these to Joules (and then to Watts) below.
 #
 # Month:        Jan    Feb    Mar    Apr    May    Jun    Jul    Aug    Sep   Oct    Nov    Dec
 
@@ -111,7 +112,7 @@ end
 # !!! note "Slightly wrong value for Stefan-Boltzmann constant"
 #
 #     Semtner (1976) uses a wrong value for the Stefan-Boltzmann constant
-#     (roughly 2% higher) to match the results of Maykut & Untersteiner (1965).
+#     (roughly 2% higher) to match the results of [Maykut & Untersteiner 1971](@cite MaykutUntersteiner1971).
 #     We use here the same value here for comparison purposes.
 
 σ = 5.67e-8 * 1.02 # Wrong value, but used for comparison!
@@ -133,7 +134,7 @@ top_heat_flux = (Q_shortwave, Q_longwave, Q_sensible, Q_latent, Q_emission)
 # We assemble the model and initialize it with 30 cm of ice at full concentration:
 
 model = SeaIceModel(grid; top_heat_flux)
-set!(model, h=0.3, ℵ=1) # Start from 30 cm of ice and full concentration
+set!(model, h=0.3, ℵ=1) # Start with 30 cm of ice and full concentration
 
 # ## Running the simulation
 #
