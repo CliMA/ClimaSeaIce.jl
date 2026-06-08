@@ -54,3 +54,7 @@ end
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"
     include("test_distributed_sea_ice.jl")
 end
+
+if TEST_GROUP == "all" || TEST_GROUP == "quality_assurance"
+    include("test_quality_assurance.jl")
+end

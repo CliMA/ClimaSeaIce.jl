@@ -11,8 +11,9 @@ export SlabThermodynamics,
        IceSnowConductiveFlux,
        FluxFunction
 
-using Adapt
-using Oceananigans
+using Adapt: Adapt
+using Oceananigans: Oceananigans, fields
+using Oceananigans.Utils: launch!
 
 #####
 ##### A bit of ice_thermodynamics to start the day
@@ -79,12 +80,12 @@ end
 
 """
     PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                     density                = 917,   # kg m⁻³
-                     heat_capacity          = 2000,  # J / (kg ᵒC)
-                     liquid_density         = 999.8, # kg m⁻³
-                     liquid_heat_capacity   = 4186,  # J / (kg ᵒC)
-                     reference_latent_heat  = 334e3, # J kg⁻³
-                     reference_temperature  = 0,     # ᵒC
+                     density               = 917,    # kg m⁻³
+                     heat_capacity         = 2000,   # J / (kg ᵒC)
+                     liquid_density        = 999.8,  # kg m⁻³
+                     liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
+                     reference_latent_heat = 334e3,  # J kg⁻³
+                     reference_temperature = 0,      # ᵒC
                      liquidus = LinearLiquidus(FT))  # default assumes psu, ᵒC
 
 Return a representation of transitions between the solid and liquid phases
@@ -105,12 +106,12 @@ The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
 @inline function PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                                  density                = 917,    # kg m⁻³
-                                  heat_capacity          = 2000,   # J / (kg ᵒC)
-                                  liquid_density         = 999.8,  # kg m⁻³
-                                  liquid_heat_capacity   = 4186,   # J / (kg ᵒC)
-                                  reference_latent_heat  = 334e3,  # J kg⁻³
-                                  reference_temperature  = 0,      # ᵒC
+                                  density               = 917,    # kg m⁻³
+                                  heat_capacity         = 2000,   # J / (kg ᵒC)
+                                  liquid_density        = 999.8,  # kg m⁻³
+                                  liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
+                                  reference_latent_heat = 334e3,  # J kg⁻³
+                                  reference_temperature = 0,      # ᵒC
                                   liquidus = LinearLiquidus(FT))
 
     return PhaseTransitions(convert(FT, density),
@@ -169,25 +170,11 @@ end
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
-using .HeatBoundaryConditions:
-    IceWaterThermalEquilibrium,
-    MeltingConstrainedFluxBalance,
-    RadiativeEmission,
-    FluxFunction,
-    PrescribedTemperature,
-    getflux
+using Oceananigans.Fields: field, Field, Center, ConstantField
 
-using Oceananigans.TimeSteppers: Clock
-using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
-
-# Simulations interface
-import Oceananigans: fields, prognostic_fields
-import Oceananigans.Fields: set!
-import Oceananigans.Models: AbstractModel
-import Oceananigans.Simulations: reset!, initialize!, iteration
-import Oceananigans.TimeSteppers: time_step!, update_state!
-
-import Oceananigans.Utils: prettytime
+using .HeatBoundaryConditions: IceWaterThermalEquilibrium, MeltingConstrainedFluxBalance,
+                               RadiativeEmission, FluxFunction, PrescribedTemperature,
+                               getflux
 
 # Enthalpy thermodynamics is not included in this module yet.
 # include("EnthalpyMethodThermodynamics.jl")

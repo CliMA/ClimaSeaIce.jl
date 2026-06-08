@@ -1,12 +1,11 @@
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
-using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
-using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
 
-import Oceananigans.TimeSteppers: rk_substep!, cache_current_fields!, step_lagrangian_particles!
+using .SeaIceDynamics: time_step_momentum!
+using .SeaIceThermodynamics: thermodynamic_time_step!
 
 const RKSeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:Any, <:SplitRungeKuttaTimeStepper}
 
-step_lagrangian_particles!(model::SeaIceModel, Δτ) = nothing
+Oceananigans.TimeSteppers.step_lagrangian_particles!(model::SeaIceModel, Δτ) = nothing
 
 """
     cache_current_fields!(model::RKSeaIceModel)
@@ -19,7 +18,7 @@ full time step to store the state `Uⁿ` that is needed for computing the RK3 we
 
 See also: [`rk_substep!`](@ref), [`dynamic_time_step!`](@ref)
 """
-function cache_current_fields!(model::RKSeaIceModel)
+function Oceananigans.TimeSteppers.cache_current_fields!(model::RKSeaIceModel)
     previous_fields = model.timestepper.Ψ⁻
     model_fields = prognostic_fields(model)
     grid = model.grid
@@ -62,7 +61,7 @@ Arguments
 
 See also: [`cache_current_fields!`](@ref), [`dynamic_time_step!`](@ref)
 """
-function rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
+function Oceananigans.TimeSteppers.rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
 
     # Compute advective tendencies and update advected tracers
     compute_tendencies!(model, Δτ)

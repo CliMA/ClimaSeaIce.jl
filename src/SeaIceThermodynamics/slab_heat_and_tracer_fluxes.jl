@@ -2,7 +2,8 @@ struct ConductiveFlux{K}
     conductivity :: K
 end
 
-ConductiveFlux(FT::DataType=Oceananigans.defaults.FloatType; conductivity) = ConductiveFlux(convert(FT, conductivity))
+ConductiveFlux(FT::DataType=Oceananigans.defaults.FloatType; conductivity) =
+    ConductiveFlux(convert(FT, conductivity))
 
 @inline function slab_internal_heat_flux(conductive_flux::ConductiveFlux,
                                          top_surface_temperature,

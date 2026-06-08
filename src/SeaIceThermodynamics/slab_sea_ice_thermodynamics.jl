@@ -1,4 +1,5 @@
-import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
+using Oceananigans: prognostic_state, restore_prognostic_state!
+using Oceananigans.Fields: set!
 
 struct ProportionalEvolution end
 
@@ -18,18 +19,20 @@ Adapt.adapt_structure(to, t::SlabThermodynamics) =
 const SSIT = SlabThermodynamics
 
 """
-    snow_slab_thermodynamics(grid; kw...)
+    snow_slab_thermodynamics(grid;
+                             conductivity = 0.31,
+                             kw...)
 
 Construct a `SlabThermodynamics` with default parameters appropriate for snow:
 conductivity = 0.31 W/(m K). Bulk density and all phase-transition parameters
 live on `SeaIceModel` (as `snow_density` and `phase_transitions` respectively).
 """
 function snow_slab_thermodynamics(grid;
-                                  conductivity = 0.31,
+                                  conductivity = 0.31, # W/(m K)
                                   kw...)
 
     FT = eltype(grid)
-    internal_heat_flux = ConductiveFlux(FT, conductivity = conductivity)
+    internal_heat_flux = ConductiveFlux(FT; conductivity)
     return SlabThermodynamics(grid; internal_heat_flux, kw...)
 end
 
@@ -40,8 +43,8 @@ function Base.show(io::IO, therm::SSIT)
     print(io, "└── top_surface_temperature: ", summary(therm.top_surface_temperature))
 end
 
-fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
-prognostic_fields(therm::SSIT) = NamedTuple()
+Oceananigans.fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
+Oceananigans.prognostic_fields(therm::SSIT) = NamedTuple()
 
 """
     SlabThermodynamics(grid; kw...)
@@ -185,11 +188,12 @@ Built-in dispatches:
 ##### Checkpointing
 #####
 
-function prognostic_state(therm::SlabThermodynamics)
-    return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
-end
+Oceananigans.prognostic_state(therm::SlabThermodynamics) =
+    (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
 
-function restore_prognostic_state!(therm::SlabThermodynamics, state)
+function Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, state)
     restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)
     return therm
 end
+
+Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, ::Nothing) = nothing
