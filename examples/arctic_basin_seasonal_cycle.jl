@@ -1,8 +1,8 @@
 # # Arctic basin seasonal cycle example
 #
-# This example reproduces results from [Semtner 1976](@cite Semtner1976), which
+# This example reproduces results from [Semtner1976](@citet), which
 # simulates the seasonal cycle of sea ice in the Arctic basin. The model uses
-# climatological forcing data from [Fletcher 1965](@cite Fletcher1965) for
+# climatological forcing data from [Fletcher1965](@citet) for
 # shortwave radiation, longwave radiation, sensible heat flux, and latent heat
 # flux. This example demonstrates how to:
 #
@@ -34,8 +34,8 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
 # ## Climatological forcing data
 #
-# The forcing data comes from [Semtner 1976](@cite Semtner1976, table 1),
-# originally tabulated by [Fletcher 1965](@cite Fletcher1965). Note: these are
+# The forcing data comes from Table 1 by [Semtner1976](@citet),
+# originally tabulated by [Fletcher1965](@citet). Note: these are
 # in kcal, which was deprecated in the ninth General Conference on Weights and
 # Measures in 1948. We convert these to Joules (and then to Watts) below.
 #
