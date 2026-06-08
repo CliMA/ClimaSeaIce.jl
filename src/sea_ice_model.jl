@@ -6,6 +6,7 @@ using Oceananigans.Fields: TracerFields, ConstantField
 using Oceananigans.Forcings: model_forcing
 using Oceananigans.Models: update_model_field_time_series!
 using Oceananigans.OutputReaders: FieldTimeSeries
+using Oceananigans.Simulations: iteration
 using Oceananigans.TimeSteppers: TimeStepper
 using Oceananigans.Utils: prettysummary
 
