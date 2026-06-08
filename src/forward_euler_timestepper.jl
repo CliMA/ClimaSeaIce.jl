@@ -1,8 +1,6 @@
 # Candidate for upstreaming to Oceananigans.
 using Oceananigans.TimeSteppers: AbstractTimeStepper
 
-import Oceananigans.TimeSteppers: TimeStepper
-
 mutable struct ForwardEulerTimeStepper{FT, GT, IT} <: AbstractTimeStepper
                  Gⁿ :: GT
     implicit_solver :: IT
@@ -36,10 +34,10 @@ function ForwardEulerTimeStepper(grid, prognostic_fields;
     return ForwardEulerTimeStepper{FT, GT, IT}(Gⁿ, implicit_solver)
 end
 
-TimeStepper(ts::Val{:ForwardEuler}, grid, prognostic_fields; kw...) =
+Oceananigans.TimeSteppers.TimeStepper(ts::Val{:ForwardEuler}, grid, prognostic_fields; kw...) =
     ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
 
-TimeStepper(ts::ForwardEulerTimeStepper, grid, prognostic_fields; kw...) =
+Oceananigans.TimeSteppers.TimeStepper(ts::ForwardEulerTimeStepper, grid, prognostic_fields; kw...) =
     ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
 
 Base.summary(::ForwardEulerTimeStepper) = "ForwardEulerTimeStepper"

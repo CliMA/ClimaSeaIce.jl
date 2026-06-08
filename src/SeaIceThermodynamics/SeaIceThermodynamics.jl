@@ -13,7 +13,7 @@ export SlabThermodynamics,
 
 using Adapt: Adapt
 using Oceananigans: Oceananigans, fields
-using Oceananigans.Utils: Utils, launch!
+using Oceananigans.Utils: launch!
 
 #####
 ##### A bit of ice_thermodynamics to start the day
