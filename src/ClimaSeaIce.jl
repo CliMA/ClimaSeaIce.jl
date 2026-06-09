@@ -1,5 +1,11 @@
-""" Ocean 🌊 Sea ice component of CliMa's Earth system model. """
 module ClimaSeaIce
+
+# Use the README as the module docs.
+@doc let
+    path = joinpath(dirname(@__DIR__), "README.md")
+    include_dependency(path)
+    read(path, String)
+end ClimaSeaIce
 
 export SeaIceModel,
        MeltingConstrainedFluxBalance,
