@@ -11,14 +11,13 @@ Oceananigans.TimeSteppers.step_lagrangian_particles!(model::SeaIceModel, Δτ) =
     cache_current_fields!(model::RKSeaIceModel)
 
 Cache the current prognostic fields (ice thickness `h`, ice concentration `ℵ`, and any additional
-tracers) into the timestepper's `Ψ⁻` storage before performing a Runge-Kutta substep.
+tracers) into the timestepper's `Ψ⁻` storage before performing a Runge--Kutta substep.
 
 This function is called by Oceananigans' `SplitRungeKuttaTimeStepper` at the beginning
 of each full time step to store the state `Uⁿ` that is needed for computing the
 RK3 weighted average in the low-storage framework of [Silvestri et al. 2026](@cite SilvestriEtAl2026).
 
-See also: [`rk_substep!`],
-[`dynamic_time_step!`](@ref ClimaSeaIce.dynamic_time_step!)
+See also: `rk_substep!`, [`dynamic_time_step!`](@ref ClimaSeaIce.dynamic_time_step!).
 
 References
 ==========
@@ -45,12 +44,14 @@ end
 """
     rk_substep!(model::RKSeaIceModel, Δτ, callbacks)
 
-Perform a single Runge--Kutta substep for the sea ice model, advancing the state by `Δτ`.
+Perform a single Runge--Kutta substep for the sea-ice model, advancing the
+state by `Δτ`.
 
 The substep consists of three sequential operations:
 
-1. **Dynamic step**: Compute advective tendencies and update ice thickness `h` and
-   concentration `ℵ` via [`dynamic_time_step!`](@ref).
+1. **Dynamic step**: Compute advective tendencies and update ice thickness `h`
+   and concentration `ℵ` via [`dynamic_time_step!`](@ref
+   ClimaSeaIce.dynamic_time_step!).
 
 2. **Thermodynamic step**: Apply column physics (melting/freezing) via
    `thermodynamic_time_step!`. This step is performed all at once since thermodynamics
@@ -70,7 +71,7 @@ Arguments
 - `callbacks`: Callbacks to execute during the substep (currently unused).
 
 See also: `cache_current_fields!`,
-[`dynamic_time_step!`](@ref ClimaSeaIce.dynamic_time_step!)
+[`dynamic_time_step!`](@ref ClimaSeaIce.dynamic_time_step!).
 
 References
 ==========
@@ -95,12 +96,12 @@ end
 """
     dynamic_time_step!(model::RKSeaIceModel, Δt)
 
-Update ice thickness `h` and concentration `ℵ` based on advective tendencies stored in
-`model.timestepper.Gⁿ` for a Runge--Kutta substep.
+Update ice thickness `h` and concentration `ℵ` using the advective tendencies
+stored in `model.timestepper.Gⁿ` for a Runge--Kutta substep.
 
-Unlike the Forward Euler version, this function uses the cached previous state `Ψ⁻`
-(stored by `cache_current_fields!`)
-as the base state for the update:
+Unlike the Forward Euler version, this method updates the state from the cached
+previous state `Ψ⁻` (stored by `cache_current_fields!`) rather than from the
+already-updated fields:
 
 ```math
 \\begin{align*}
@@ -123,8 +124,7 @@ Arguments
            low-storage framework of [Silvestri et al. 2026](@cite SilvestriEtAl2026).
 - `Δt`: The time increment for this substep.
 
-See also: `rk_substep!`,
-`cache_current_fields!`
+See also: `rk_substep!`, `cache_current_fields!`.
 
 References
 ==========

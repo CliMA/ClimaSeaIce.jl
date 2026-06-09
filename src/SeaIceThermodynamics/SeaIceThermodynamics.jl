@@ -38,9 +38,9 @@ Tₘ(S) = T₀ - m S ,
 
 where ``Tₘ(S)`` is the melting temperature as a function of salinity ``S``,
 ``T₀`` is the melting temperature of freshwater, and ``m`` is the ratio
-between the melting temperature and salinity (in other words the linear model
-should be thought of as defining ``m`` and could be written ``m ≡ (T₀ - Tₘ) / S``.
-The signs are arranged so that ``m > 0`` for saltwater).
+between the melting temperature and salinity (equivalently,
+``m ≡ (T₀ - Tₘ) / S``). The sign convention is chosen so that ``m > 0`` for
+saltwater, meaning the melting temperature decreases as salinity increases.
 
 The defaults assume that salinity is given in practical salinity units `psu` and
 temperature is in degrees Celsius.
@@ -90,6 +90,10 @@ end
 
 Return a representation of transitions between the solid and liquid phases
 of salty water: in other words, the freezing and melting of sea ice.
+
+`PhaseTransitions` stores the thermodynamic parameters shared by the slab sea-ice
+and snow parameterizations in `SeaIceModel`, including densities, heat
+capacities, a reference latent heat, and the liquidus relation.
 
 The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
 a function of temperature ``T`` via

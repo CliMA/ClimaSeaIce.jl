@@ -52,21 +52,36 @@ Base.show(io::IO, flux::FluxFunction) = print(io, summary(flux))
 """
     FluxFunction(func; parameters=nothing, top_temperature_dependent=false)
 
-Return `FluxFunction` representing a flux across an air-ice, air-snow, or ice-water interface.
-The flux is computed by `func` with the signature
+Return a `FluxFunction` representing a flux across an air-ice, air-snow, or
+ice-water interface.
+
+The wrapped callable `func` must have one of the following signatures:
 
 ```julia
 flux = func(i, j, grid, clock, top_temperature, model_fields)
 ```
 
-if `isnothing(parameters)`, or
+when `isnothing(parameters)`, or
 
 ```julia
 flux = func(i, j, grid, clock, top_temperature, model_fields, parameters)
 ```
 
-if `!isnothing(parameters)`. If `func` is `top_temperature_dependent`, then it will be recomputed
-during a diagnostic solve for the top temperature.
+when `!isnothing(parameters)`.
+
+Set `top_temperature_dependent = true` when the flux must be recomputed during
+the diagnostic solve for the surface temperature.
+
+Example
+=======
+
+```julia
+@inline sensible_heat_flux(i, j, grid, Tₛ, clock, fields, coefficient) =
+    coefficient * (fields.T_air[i, j, 1] - Tₛ)
+
+Q = FluxFunction(sensible_heat_flux; parameters = 15.0,
+                 top_temperature_dependent = true)
+```
 """
 function FluxFunction(func; parameters=nothing, top_temperature_dependent=false)
     T = top_temperature_dependent ? SurfaceTemperatureDependent() : Nothing

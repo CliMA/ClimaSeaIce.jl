@@ -61,12 +61,19 @@ Oceananigans.prognostic_fields(therm::SSIT) = NamedTuple()
 """
     SlabThermodynamics(grid; kw...)
 
-A minimal slab representation of a single sea-ice or snow layer. Stores
-the top surface temperature, top/bottom heat boundary conditions, the raw
-internal-flux coefficient (e.g. a `ConductiveFlux`), and the concentration
-evolution rule. Phase-transition parameters (densities, latent heats,
-liquidus) are stored at the `SeaIceModel` level and threaded into the
-tendency kernels via `model.phase_transitions`.
+A minimal slab representation of a single sea-ice or snow layer.
+
+The object stores:
+
+- the prognostic top surface temperature,
+- top and bottom heat boundary conditions,
+- an internal heat-flux model (for example `ConductiveFlux`), and
+- the concentration-evolution rule used when thermodynamic growth or melt
+  changes ice volume.
+
+Shared thermodynamic material properties such as densities, latent heat, and
+the liquidus relation are stored at the `SeaIceModel` level and threaded into
+the tendency kernels via `model.phase_transitions`.
 """
 function SlabThermodynamics(grid;
                             top_surface_temperature        = nothing,
@@ -185,6 +192,21 @@ ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::MyFlux) = my_flux_kernel
 
 where `my_flux_kernel(i, j, grid, Tu, clock, fields, parameters)` returns a
 heat flux with `parameters.flux::MyFlux`.
+
+Minimal example:
+
+```julia
+struct MyFlux{T}
+    coefficient :: T
+end
+
+@inline function my_flux_kernel(i, j, grid, Tu, clock, fields, parameters)
+    flux = parameters.flux
+    return flux.coefficient * (fields.h[i, j, 1] - Tu)
+end
+
+ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::MyFlux) = my_flux_kernel
+```
 
 Built-in dispatches:
 
