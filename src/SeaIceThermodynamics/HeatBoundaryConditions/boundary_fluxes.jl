@@ -34,7 +34,6 @@ struct FluxFunction{P, T, F}
     end
 end
 
-
 function Adapt.adapt_structure(to, ff::FluxFunction{P, T}) where {P, T}
     return FluxFunction{T}(adapt(to, ff.func),
                            adapt(to, ff.parameters))
@@ -88,9 +87,12 @@ struct RadiativeEmission{FT}
 end
 
 """
-    RadiativeEmission(FT=Oceananigans.defaults.FloatType; kw...)
+    RadiativeEmission(FT=Oceananigans.defaults.FloatType;
+                      emissivity = 1,
+                      stefan_boltzmann_constant = 5.67e-8,
+                      reference_temperature = 273.15)
 
-Returns a flux representing radiative emission from a surface.
+Return a flux representing radiative emission from a surface.
 """
 function RadiativeEmission(FT=Oceananigans.defaults.FloatType;
                            emissivity = 1,
@@ -103,15 +105,15 @@ function RadiativeEmission(FT=Oceananigans.defaults.FloatType;
 end
 
 @inline function getflux(emission::RadiativeEmission, i, j, grid, T, clock, fields)
-    ϵ = emission.emissivity
-    σ = emission.stefan_boltzmann_constant
+    ϵ  = emission.emissivity
+    σ  = emission.stefan_boltzmann_constant
     Tᵣ = emission.reference_temperature
     return ϵ * σ * (T + Tᵣ)^4
 end
 
 function Base.summary(flux::RadiativeEmission)
-    σ = flux.stefan_boltzmann_constant
-    ϵ = flux.emissivity
+    σ  = flux.stefan_boltzmann_constant
+    ϵ  = flux.emissivity
     Tᵣ = flux.reference_temperature
     return string("RadiativeEmission(",
                   "emissivity = ", summary(ϵ), ", ",
