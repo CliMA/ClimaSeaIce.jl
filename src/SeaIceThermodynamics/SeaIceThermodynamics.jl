@@ -143,12 +143,12 @@ Return the per-mass latent heat of fusion of pure ice at temperature `T`,
 ℒ(T) = ℒ₀ + \\left(\\frac{ρ_ℓ c_ℓ}{ρ} - c\\right)(T - T₀) ,
 ```
 
-where `ρ`, `c` are the microscopic pure-ice density and heat capacity,
-`ρ_ℓ`, `c_ℓ` are the liquid density and heat capacity, and `T₀` is the
-reference temperature at which the reference latent heat `ℒ₀` is defined.
+where ``ρ``, ``c`` are the microscopic pure-ice density and heat capacity,
+``ρ_ℓ``, ``c_ℓ`` are the liquid density and heat capacity, and ``T₀`` is the
+reference temperature at which the reference latent heat ``ℒ₀`` is defined.
 
 This is the per-mass form of the volumetric expression
-`ρ ℒ(T) = ρ ℒ₀ + (ρ_ℓ c_ℓ - ρ c)(T - T₀)` (divided through by `ρ`).
+``ρ ℒ(T) = ρ ℒ₀ + (ρ_ℓ c_ℓ - ρ c)(T - T₀)`` (divided through by ``ρ``).
 
 The returned quantity is per unit mass of pure ice. To obtain energy per
 unit volume of a porous medium (snow or sea ice), multiply by the bulk
