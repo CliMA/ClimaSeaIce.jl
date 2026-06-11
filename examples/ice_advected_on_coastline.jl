@@ -40,7 +40,8 @@ arch = CPU()
 
 # ## Grid configuration
 #
-# We create a rectilinear grid with periodic boundaries in x and bounded boundaries in y:
+# We create a rectilinear grid with periodic boundaries in ``x`` and bounded
+# boundaries in ``y``:
 
 grid = RectilinearGrid(arch; size = (Nx, Ny),
                                 x = (-Lx/2, Lx/2),
@@ -96,19 +97,19 @@ immersed_v_bc = FluxBoundaryCondition(immersed_v_drag, discrete_form=true, param
 immersed_u_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, west=nothing,  east=nothing,  south=immersed_u_bc, north=immersed_u_bc)
 immersed_v_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, south=nothing, north=nothing, west=immersed_v_bc,  east=immersed_v_bc)
 
-u_bcs = FieldBoundaryConditions(grid, (Face(), Center(), nothing); 
+u_bcs = FieldBoundaryConditions(grid, (Face(), Center(), nothing);
                                 north = ValueBoundaryCondition(0),
                                 south = ValueBoundaryCondition(0),
                                 immersed = immersed_u_bc)
 
-v_bcs = FieldBoundaryConditions(grid, (Center(), Face(), nothing); 
+v_bcs = FieldBoundaryConditions(grid, (Center(), Face(), nothing);
                                 immersed = immersed_v_bc)
 
 # We define the model with WENO advection and no thermodynamics:
 
 model = SeaIceModel(grid;
                     advection = WENO(order=7),
-                    dynamics = dynamics,
+                    dynamics,
                     boundary_conditions = (; u=u_bcs, v=v_bcs),
                     ice_thermodynamics = nothing)
 
@@ -121,7 +122,7 @@ set!(model, ℵ = 1)
 #
 # We run the model for 3 days with a 5-minute time step:
 
-simulation = Simulation(model, Δt = 5minutes, stop_time=3days)
+simulation = Simulation(model, Δt=5minutes, stop_time=3days)
 
 # ## Collecting data
 #
@@ -143,7 +144,7 @@ function accumulate_timeseries(sim)
     push!(vtimeseries, deepcopy(Array(interior(v))))
 end
 
-simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(10))
+simulation.callbacks[:save] = Callback(accumulate_timeseries, IterationInterval(10))
 
 run!(simulation)
 

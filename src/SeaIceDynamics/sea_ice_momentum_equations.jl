@@ -45,12 +45,24 @@ Keyword Arguments
 =================
 
 - `coriolis`: Parameters for the background rotation rate of the model.
-- `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
+- `rheology`: The sea-ice rheology model. Default:
+              `ElastoViscoPlasticRheology(eltype(grid))`.
+- `top_momentum_stress`: Atmosphere-to-ice momentum stress, or an object that can
+                         be materialized into one. Default: `nothing`.
+- `bottom_momentum_stress`: Ocean-to-ice momentum stress, or an object that can
+                            be materialized into one. Default: `nothing`.
 - `free_drift`: The free drift velocities used when nonzero sea ice mass or concentration are below
                 the dynamical momentum thresholds. Default is `nothing`.
-- `solver`: The momentum solver to be used.
-- `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated; below this threshold nonzero sea ice moves with free drift, and roundoff-level concentration cells are set to zero. Default is `1e-3`.
-- `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated; below this threshold nonzero sea ice moves with free drift, and roundoff-level mass cells are set to zero. Default is `1.0 kg/m²`.
+- `solver`: Momentum solver used to advance the velocity field. Default:
+            `SplitExplicitSolver(grid; substeps = 150)`.
+- `minimum_concentration`: Minimum sea-ice concentration above which the velocity
+                           is evolved dynamically. Below this threshold, nonzero
+                           ice moves with free drift and roundoff-level
+                           concentration cells are set to zero. Default: `1e-3`.
+- `minimum_mass`: Minimum sea-ice mass per area above which the velocity is
+                  evolved dynamically. Below this threshold, nonzero ice moves
+                  with free drift and roundoff-level mass cells are set to zero.
+                  Default: `1.0 kg/m²`.
 """
 function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,

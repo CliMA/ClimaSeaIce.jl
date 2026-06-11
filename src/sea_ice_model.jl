@@ -104,19 +104,29 @@ Keyword Arguments
                   included in the prognostic state as `S`. Default: 0 psu.
 - `sea_ice_density`: Bulk sea-ice density. Default: 900 kg m⁻³.
 - `snow_density`: Bulk snow density. Default: 330 kg m⁻³.
-- `phase_transitions`: Thermodynamic phase-transition parameters.
-- `top_heat_flux`: External top heat flux. Default: `nothing`.
-- `bottom_heat_flux`: External bottom heat flux. Default: 0 W m⁻².
+- `phase_transitions`: Thermodynamic phase-transition parameters shared by the
+                       ice and snow slabs. Default:
+                       `PhaseTransitions(eltype(grid))`.
+- `top_heat_flux`: External top heat flux, or tuple of fluxes, passed to the
+                   ice upper boundary condition. Default: `nothing`.
+- `bottom_heat_flux`: External bottom heat flux passed to the ice lower
+                      boundary condition. Default: `0` W m⁻².
 - `velocities`: Pre-existing velocity fields. If omitted, they are allocated by
-                the constructor. Default: `nothing`.
+                the constructor, possibly on an extended grid required by the
+                selected dynamics solver. Default: `nothing`.
 - `advection`: Advection scheme for prognostic tracers. Default: `nothing`.
 - `tracers`: Additional prognostic tracers.
-- `timestepper`: Time stepper specification passed to `TimeStepper`. Default: `:SplitRungeKutta3`.
+- `timestepper`: Time stepper specification passed to `TimeStepper`. Default:
+                 `:SplitRungeKutta3`.
 - `boundary_conditions`: Boundary conditions for allocated prognostic fields.
-- `ice_thermodynamics`: Ice thermodynamics model. Default: `sea_ice_slab_thermodynamics(grid)`.
-- `snow_thermodynamics`: Optional snow thermodynamics model.
-- `snowfall`: Snowfall forcing. Defaults to 0, but can be also a `Field` or a `FieldTimeSeries`.
-- `dynamics`: Optional sea-ice dynamics model, for example, `SeaIceMomentumEquation(grid)`.
+- `ice_thermodynamics`: Ice thermodynamics model. Default:
+                        `sea_ice_slab_thermodynamics(grid)`.
+- `snow_thermodynamics`: Optional snow thermodynamics model. When provided, the
+                         model allocates prognostic snow thickness `hs`.
+- `snowfall`: Snowfall forcing applied only when `snow_thermodynamics` is
+              present. May be a constant, `Field`, or `FieldTimeSeries`.
+- `dynamics`: Optional sea-ice dynamics model, for example,
+              `SeaIceMomentumEquation(grid)`.
 - `forcing`: Additional model forcing passed through `model_forcing`.
 """
 function SeaIceModel(grid;

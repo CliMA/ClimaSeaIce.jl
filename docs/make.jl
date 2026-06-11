@@ -76,6 +76,7 @@ makedocs(
       format = format,
        pages = pages,
      doctest = true,
+       draft = false,
     warnonly = [:cross_references],
        clean = true,
    checkdocs = :exports,

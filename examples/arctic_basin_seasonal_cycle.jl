@@ -111,8 +111,8 @@ end
 
 # !!! note "Slightly wrong value for Stefan-Boltzmann constant"
 #
-#     Semtner (1976) uses a wrong value for the Stefan-Boltzmann constant
-#     (roughly 2% higher) to match the results of [Maykut & Untersteiner 1971](@cite MaykutUntersteiner1971).
+#     [Semtner1976](@citet) Semtner1976uses a wrong value for the Stefan-Boltzmann constant
+#     (roughly 2% higher) to match the results of [MaykutUntersteiner1971](@citet).
 #     We use here the same value here for comparison purposes.
 
 σ = 5.67e-8 * 1.02 # Wrong value, but used for comparison!

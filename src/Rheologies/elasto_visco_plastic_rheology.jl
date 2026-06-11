@@ -50,8 +50,8 @@ struct IceStrength end
                                relaxation_strength = π^2,
                                pressure_formulation = ReplacementPressure())
 
-Constructs an `ElastoViscoPlasticRheology` object representing a "modified" elasto-visco-plastic
-rheology for slab sea ice dynamics that follows the implementation of
+Construct an `ElastoViscoPlasticRheology` object representing a modified
+elasto-visco-plastic rheology for sea-ice dynamics following
 [Kimmritz et al. 2017](@cite Kimmritz2017).
 The stress tensor is computed following the constitutive relation:
 ```math
@@ -74,30 +74,41 @@ The stresses are substepped with:
 σᵢⱼᵖ⁺¹ = σᵢⱼᵖ + (σᵢⱼᵖ⁺¹ - σᵢⱼᵖ) / α
 ```
 
-This formulation allows fast convergence in regions where α is small. Regions where
+This formulation allows fast convergence in regions where ``α`` is small. Regions where
 ``α`` is large correspond to regions where the ice is more solid and the convergence is slower.
-``α`` can be thougth of as a "pseudo substep number" or a "relaxation parameter".
+``α`` can be thought of as a "pseudo substep number" or a "relaxation parameter".
 If we are using a subcycling solver, then if ``α`` ≪ number of substeps, the convergence is faster.
 
 Arguments
 =========
 
-- `grid`: the `SlabSeaIceModel` grid
+- `grid`: The computational grid.
 
 Keyword Arguments
 =================
 
-- `ice_compressive_strength`: parameter expressing compressive strength (in Nm²). Default: `27500`.
-- `ice_compaction_hardening`: exponent coefficient for compaction hardening. Default: `20`.
-- `yield_curve_eccentricity`: eccentricity of the elliptic yield curve. Default: `2`.
-- `Δ_min`: Minimum value for the visco-plastic parameter. Limits the maximum viscosity of the ice,
-           transitioning the ice from a plastic to a viscous behaviour. Default: `1e-10`.
-- `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`. Default: `30`.
-- `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`. Default: `500`.
-- `relaxation_strength`: parameter controlling the strength of the relaxation parameter. The maximum value is `π²`;
-                         see [Kimmritz et al. 2017](@cite Kimmritz2017). Default: `π² / 2`.
-- `pressure_formulation`: can use `ReplacementPressure` or `IceStrength`. The replacement pressure formulation avoids
-                          ice motion in the absence of forcing. Default: `ReplacementPressure`.
+- `ice_compressive_strength`: Parameter expressing compressive strength
+                              (in N m⁻²). Default: `27500`.
+- `ice_compaction_hardening`: Exponent coefficient for compaction hardening.
+                              Default: `20`.
+- `yield_curve_eccentricity`: Eccentricity of the elliptic yield curve.
+                              Default: `2`.
+- `minimum_plastic_stress`: Minimum value for the visco-plastic parameter.
+                            Limits the maximum viscosity of the ice, transitioning
+                            the rheology from plastic to viscous behavior.
+                            Default: `2e-9`.
+- `min_relaxation_parameter`: Minimum value for the relaxation parameter `α`.
+                              Default: `50`.
+- `max_relaxation_parameter`: Maximum value for the relaxation parameter `α`.
+                              Default: `300`.
+- `relaxation_strength`: Parameter controlling the strength of the relaxation
+                         parameter. The maximum value is `π²`; see
+                         [Kimmritz et al. 2017](@cite Kimmritz2017).
+                         Default: `π²`.
+- `pressure_formulation`: Either `ReplacementPressure()` or `IceStrength()`.
+                          The replacement-pressure formulation avoids ice motion
+                          in the absence of forcing. Default:
+                          `ReplacementPressure()`.
 
 References
 ==========
