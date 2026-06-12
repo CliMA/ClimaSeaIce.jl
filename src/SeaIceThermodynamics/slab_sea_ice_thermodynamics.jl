@@ -1,5 +1,18 @@
-import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
+using Oceananigans: prognostic_state, restore_prognostic_state!
+using Oceananigans.Fields: set!
 
+"""
+    ProportionalEvolution()
+
+Parameterize sea-ice concentration changes by partitioning thermodynamic volume
+change between lateral and vertical growth using the proportional-evolution rule
+introduced by [Hibler 1979](@cite Hibler1979).
+
+References
+==========
+
+- Hibler, W. D. III (1979). A Dynamic Thermodynamic Sea Ice Model. Journal of Physical Oceanography, 9(4), 815-846. doi:10.1175/1520-0485(1979)009<0815:ADTSIM>2.0.CO;2.
+"""
 struct ProportionalEvolution end
 
 struct SlabThermodynamics{ST, HBC, CF, CE}
@@ -18,18 +31,20 @@ Adapt.adapt_structure(to, t::SlabThermodynamics) =
 const SSIT = SlabThermodynamics
 
 """
-    snow_slab_thermodynamics(grid; kw...)
+    snow_slab_thermodynamics(grid;
+                             conductivity = 0.31,
+                             kw...)
 
 Construct a `SlabThermodynamics` with default parameters appropriate for snow:
 conductivity = 0.31 W/(m K). Bulk density and all phase-transition parameters
 live on `SeaIceModel` (as `snow_density` and `phase_transitions` respectively).
 """
 function snow_slab_thermodynamics(grid;
-                                  conductivity = 0.31,
+                                  conductivity = 0.31, # W/(m K)
                                   kw...)
 
     FT = eltype(grid)
-    internal_heat_flux = ConductiveFlux(FT, conductivity = conductivity)
+    internal_heat_flux = ConductiveFlux(FT; conductivity)
     return SlabThermodynamics(grid; internal_heat_flux, kw...)
 end
 
@@ -40,18 +55,25 @@ function Base.show(io::IO, therm::SSIT)
     print(io, "└── top_surface_temperature: ", summary(therm.top_surface_temperature))
 end
 
-fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
-prognostic_fields(therm::SSIT) = NamedTuple()
+Oceananigans.fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
+Oceananigans.prognostic_fields(therm::SSIT) = NamedTuple()
 
 """
     SlabThermodynamics(grid; kw...)
 
-A minimal slab representation of a single sea-ice or snow layer. Stores
-the top surface temperature, top/bottom heat boundary conditions, the raw
-internal-flux coefficient (e.g. a `ConductiveFlux`), and the concentration
-evolution rule. Phase-transition parameters (densities, latent heats,
-liquidus) are stored at the `SeaIceModel` level and threaded into the
-tendency kernels via `model.phase_transitions`.
+A minimal slab representation of a single sea-ice or snow layer.
+
+The object stores:
+
+- the prognostic top surface temperature,
+- top and bottom heat boundary conditions,
+- an internal heat-flux model (for example `ConductiveFlux`), and
+- the concentration-evolution rule used when thermodynamic growth or melt
+  changes ice volume.
+
+Shared thermodynamic material properties such as densities, latent heat, and
+the liquidus relation are stored at the `SeaIceModel` level and threaded into
+the tendency kernels via `model.phase_transitions`.
 """
 function SlabThermodynamics(grid;
                             top_surface_temperature        = nothing,
@@ -171,6 +193,21 @@ ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::MyFlux) = my_flux_kernel
 where `my_flux_kernel(i, j, grid, Tu, clock, fields, parameters)` returns a
 heat flux with `parameters.flux::MyFlux`.
 
+Minimal example:
+
+```julia
+struct MyFlux{T}
+    coefficient :: T
+end
+
+@inline function my_flux_kernel(i, j, grid, Tu, clock, fields, parameters)
+    flux = parameters.flux
+    return flux.coefficient * (fields.h[i, j, 1] - Tu)
+end
+
+ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::MyFlux) = my_flux_kernel
+```
+
 Built-in dispatches:
 
 - `ConductiveFlux` → `slab_internal_heat_flux` (single-layer Fourier)
@@ -185,11 +222,12 @@ Built-in dispatches:
 ##### Checkpointing
 #####
 
-function prognostic_state(therm::SlabThermodynamics)
-    return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
-end
+Oceananigans.prognostic_state(therm::SlabThermodynamics) =
+    (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
 
-function restore_prognostic_state!(therm::SlabThermodynamics, state)
+function Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, state)
     restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)
     return therm
 end
+
+Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, ::Nothing) = nothing

@@ -143,8 +143,7 @@ function run_distributed_jld2_simulation(grid, filename)
     τᵥ = 0.01
     τₒ = SemiImplicitStress()
 
-    # We use an elasto-visco-plastic rheology and WENO seventh order
-    # for advection of h and ℵ
+    # We use an elasto-visco-plastic rheology and WENO seventh order for advection of h and ℵ
     dynamics = SeaIceMomentumEquation(grid;
                                       top_momentum_stress = (u=τᵤ, v=τᵥ),
                                       bottom_momentum_stress = τₒ,
@@ -152,6 +151,8 @@ function run_distributed_jld2_simulation(grid, filename)
                                       solver = SplitExplicitSolver(grid, substeps=10))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
+    set!(model, h = 1, ℵ = 0.5)
+
     simulation = Simulation(model, Δt = 10, stop_iteration = 20, verbose = false)
 
     fields = Oceananigans.prognostic_fields(model)
@@ -166,9 +167,6 @@ function run_distributed_jld2_simulation(grid, filename)
     return model
 end
 
-# Mask the two tripolar singularities (within `radius` degrees of each north pole) and the
-# southernmost row. Their metric is degenerate, and unmasked the EVP rheology divides by it →
-# NaN. A realistic run masks them via bathymetry; here we do it analytically.
 function analytical_immersed_tripolar_grid(underlying_grid::TripolarGrid; radius = 5)
     λp = underlying_grid.conformal_mapping.first_pole_longitude
     φp = underlying_grid.conformal_mapping.north_poles_latitude
@@ -251,17 +249,6 @@ function test_distributed_tripolar_simulations()
     vp = interior(reconstruct_global_field(distributed.velocities.v), :, :, 1)
     hp = interior(reconstruct_global_field(distributed.ice_thickness), :, :, 1)
     ℵp = interior(reconstruct_global_field(distributed.ice_concentration), :, :, 1)
-
-    @root for (name, a, b) in (("u", us, up), ("v", vs, vp), ("h", hs, hp), ("ℵ", ℵs, ℵp))
-        d = abs.(a .- b)
-        mx, idx = findmax(d)
-        ref = maximum(abs, a)
-        # Per-row (j) maximum difference, to see whether the mismatch sits at the fold (j≈Ny) or
-        # at the rank boundaries (j = 30, 60, 90 for Partition(1,4) over Ny=120).
-        rowmax = [maximum(@view d[:, j]) for j in axes(d, 2)]
-        bad = findall(>(1e-10), rowmax)
-        @info "$name: maxdiff=$mx (ref=$ref) at $(Tuple(idx)); rows with diff>1e-10: $(isempty(bad) ? "none" : "$(first(bad))…$(last(bad)) of $(length(rowmax))")"
-    end
 
     @test all(us .≈ up)
     @test all(vs .≈ vp)

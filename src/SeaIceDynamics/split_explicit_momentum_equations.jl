@@ -1,18 +1,14 @@
-using Oceananigans: boundary_conditions
-using Oceananigans.Architectures: convert_to_device
-using Oceananigans.Fields: instantiated_location
-using Oceananigans.BoundaryConditions: fill_halo_regions!, fill_halo_size, fill_halo_offset
+using Oceananigans: instantiated_location
+using Oceananigans.Architectures: convert_to_device, architecture
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
-using Oceananigans.Fields: instantiated_location
-using Oceananigans.Grids: AbstractGrid, architecture, halo_size
-using Oceananigans.ImmersedBoundaries: peripheral_node
-using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
-using Oceananigans.Utils: configure_kernel
-using Oceananigans.Grids: halo_size, topology, with_halo,
+using Oceananigans.Grids: AbstractGrid, halo_size, halo_size, topology, with_halo, peripheral_node,
                           LeftConnected, RightConnected, FullyConnected,
                           RightCenterFolded, RightFaceFolded,
                           LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                           LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
+using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
+using Oceananigans.Utils: configure_kernel
 
 const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 RightCenterFolded, RightFaceFolded,
@@ -133,9 +129,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     reset_velocities!(u, v, model.timestepper)
     initialize_rheology!(model, dynamics.rheology)
 
-    # Refresh the externally-provided stresses / velocities and fill their (extended) halos once
-    # per time step. Substepping then only touches local halos, so every field the kernel reads
-    # across the wide halo holds valid, correctly-folded data.
+    # Refresh the externally-provided stresses / velocities and fill their (extended) halos once per time step.
     update_external_stress!(top_stress, grid)
     update_external_stress!(bottom_stress, grid)
 
@@ -173,8 +167,6 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
         converted_stresses_args = convert_to_device(arch, stresses_args)
 
-        # Seed the halos before the first substep; afterwards each velocity's halo is
-        # refreshed immediately after it is updated (see the loop body).
         fill_halo_regions!(converted_u_halo...; only_local_halos = true)
         fill_halo_regions!(converted_v_halo...; only_local_halos = true)
 
@@ -182,9 +174,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
             # Compute stresses! depending on the particular rheology implementation
             compute_stresses!(dynamics, converted_stresses_args...)
 
-            # Alternating leap-frog: on even substeps advance u then v (so v's tendency and
-            # implicit drag, both computed inside the v-kernel, see uⁿ⁺¹), on odd substeps
-            # reverse. The updated velocity's halo is refreshed before the partner reads it.
+            # Alternating leap-frog.
             if iseven(substep)
                 u_velocity_kernel!(converted_u_args...)
                 fill_halo_regions!(converted_u_halo...; only_local_halos = true)
@@ -217,7 +207,6 @@ end
 
     Δτ = compute_substep_Δtᶠᶜᶜ(i, j, grid, Δt, rheology, substeps, fields)
 
-    # Tendency and implicit drag are computed here
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, fields, clock, coriolis,
                              u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
 
