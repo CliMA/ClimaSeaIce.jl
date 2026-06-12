@@ -151,32 +151,12 @@ function update_external_stress!(τ::SemiImplicitStress, grid)
     return nothing
 end
 
-function update_external_stress!(τ::SemiImplicitStress, grid)
-    τ.uₑ === τ.uₑ₀ || refresh_and_fill_external_velocity!(τ.uₑ, τ.uₑ₀)
-    τ.vₑ === τ.vₑ₀ || refresh_and_fill_external_velocity!(τ.vₑ, τ.vₑ₀)
-    return nothing
-end
-
 function Base.show(io::IO, τ::SemiImplicitStress)
     print(io, "SemiImplicitStress", '\n')
     print(io, "├── uₑ: ", summary(τ.uₑ), '\n')
     print(io, "├── vₑ: ", summary(τ.vₑ), '\n')
     print(io, "├── ρₑ: ", τ.ρₑ, '\n')
     print(io, "└── Cᴰ: ", τ.Cᴰ)
-end
-
-@inline function x_momentum_stress(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
-    uₑ = @inbounds τ.uₑ[i, j, k]
-    Δu = @inbounds uₑ - fields.u[i, j, k]
-    Δv = ℑxyᶠᶜᵃ(i, j, k, grid, τ.vₑ) - ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
-    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * Δu
-end
-
-@inline function y_momentum_stress(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
-    vₑ = @inbounds τ.vₑ[i, j, k]
-    Δv = @inbounds vₑ - fields.v[i, j, k]
-    Δu = ℑxyᶜᶠᵃ(i, j, k, grid, τ.uₑ) - ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
-    return τ.ρₑ * τ.Cᴰ * sqrt(Δu^2 + Δv^2) * Δv
 end
 
 @inline function x_momentum_stress(i, j, k, grid, τ::SemiImplicitStress, clock, fields)
