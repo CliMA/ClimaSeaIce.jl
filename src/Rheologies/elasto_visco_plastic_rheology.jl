@@ -233,10 +233,6 @@ function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticR
     return nothing
 end
 
-@inline strain_rate_xx(i, j, k, grid, u, v) =  δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_yy(i, j, k, grid, u, v) =  δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v) / Azᶜᶜᶜ(i, j, k, grid)
-@inline strain_rate_xy(i, j, k, grid, u, v) = (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶠᶜ, v) + δyᵃᶠᵃ(i, j, k, grid, Δx_qᶠᶜᶜ, u)) / Azᶠᶠᶜ(i, j, k, grid) / 2
-
 @kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
@@ -360,6 +356,23 @@ end
 #####
 ##### Internal stress divergence for the EVP model
 #####
+
+@inline q_over_Δyᶠᶜᶜ(i, j, k, grid, u) = @inbounds u[i, j, k] / Δyᶠᶜᶜ(i, j, k, grid)
+@inline q_over_Δxᶜᶠᶜ(i, j, k, grid, v) = @inbounds v[i, j, k] / Δxᶜᶠᶜ(i, j, k, grid)
+@inline q_over_Δxᶠᶜᶜ(i, j, k, grid, u) = @inbounds u[i, j, k] / Δxᶠᶜᶜ(i, j, k, grid)
+@inline q_over_Δyᶜᶠᶜ(i, j, k, grid, v) = @inbounds v[i, j, k] / Δyᶜᶠᶜ(i, j, k, grid)
+
+@inline ϵ̇D(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) + δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
+
+@inline ϵ̇T(i, j, k, grid, u, v) = (Δyᶜᶜᶜ(i, j, k, grid)^2 * δxᶜᵃᵃ(i, j, k, grid, q_over_Δyᶠᶜᶜ, u) -
+                                            Δxᶜᶜᶜ(i, j, k, grid)^2 * δyᵃᶜᵃ(i, j, k, grid, q_over_Δxᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
+
+@inline ϵ̇S(i, j, k, grid, u, v) = (Δxᶠᶠᶜ(i, j, k, grid)^2 * δyᵃᶠᵃ(i, j, k, grid, q_over_Δxᶠᶜᶜ, u) +
+                                          Δyᶠᶠᶜ(i, j, k, grid)^2 * δxᶠᵃᵃ(i, j, k, grid, q_over_Δyᶜᶠᶜ, v)) / Azᶠᶠᶜ(i, j, k, grid)
+
+@inline strain_rate_xx(i, j, k, grid, u, v) = (ϵ̇D(i, j, k, grid, u, v) + ϵ̇T(i, j, k, grid, u, v)) / 2
+@inline strain_rate_yy(i, j, k, grid, u, v) = (ϵ̇D(i, j, k, grid, u, v) - ϵ̇T(i, j, k, grid, u, v)) / 2
+@inline strain_rate_xy(i, j, k, grid, u, v) = ϵ̇S(i, j, k, grid, u, v) / 2
 
 # Here we extend all the functions that a rheology model needs to support:
 @inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₁₁[i, j, k]
