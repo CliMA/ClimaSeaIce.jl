@@ -362,17 +362,17 @@ end
 @inline q_over_Δxᶠᶜᶜ(i, j, k, grid, u) = @inbounds u[i, j, k] / Δxᶠᶜᶜ(i, j, k, grid)
 @inline q_over_Δyᶜᶠᶜ(i, j, k, grid, v) = @inbounds v[i, j, k] / Δyᶜᶠᶜ(i, j, k, grid)
 
-@inline ice_divergence(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) + δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
+@inline ϵ̇D(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) + δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
 
-@inline ice_tension(i, j, k, grid, u, v) = (Δyᶜᶜᶜ(i, j, k, grid)^2 * δxᶜᵃᵃ(i, j, k, grid, q_over_Δyᶠᶜᶜ, u) -
+@inline ϵ̇T(i, j, k, grid, u, v) = (Δyᶜᶜᶜ(i, j, k, grid)^2 * δxᶜᵃᵃ(i, j, k, grid, q_over_Δyᶠᶜᶜ, u) -
                                             Δxᶜᶜᶜ(i, j, k, grid)^2 * δyᵃᶜᵃ(i, j, k, grid, q_over_Δxᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
 
-@inline ice_shear(i, j, k, grid, u, v) = (Δxᶠᶠᶜ(i, j, k, grid)^2 * δyᵃᶠᵃ(i, j, k, grid, q_over_Δxᶠᶜᶜ, u) +
+@inline ϵ̇S(i, j, k, grid, u, v) = (Δxᶠᶠᶜ(i, j, k, grid)^2 * δyᵃᶠᵃ(i, j, k, grid, q_over_Δxᶠᶜᶜ, u) +
                                           Δyᶠᶠᶜ(i, j, k, grid)^2 * δxᶠᵃᵃ(i, j, k, grid, q_over_Δyᶜᶠᶜ, v)) / Azᶠᶠᶜ(i, j, k, grid)
 
-@inline strain_rate_xx(i, j, k, grid, u, v) = (ice_divergence(i, j, k, grid, u, v) + ice_tension(i, j, k, grid, u, v)) / 2
-@inline strain_rate_yy(i, j, k, grid, u, v) = (ice_divergence(i, j, k, grid, u, v) - ice_tension(i, j, k, grid, u, v)) / 2
-@inline strain_rate_xy(i, j, k, grid, u, v) = ice_shear(i, j, k, grid, u, v) / 2
+@inline strain_rate_xx(i, j, k, grid, u, v) = (ϵ̇D(i, j, k, grid, u, v) + ϵ̇T(i, j, k, grid, u, v)) / 2
+@inline strain_rate_yy(i, j, k, grid, u, v) = (ϵ̇D(i, j, k, grid, u, v) - ϵ̇T(i, j, k, grid, u, v)) / 2
+@inline strain_rate_xy(i, j, k, grid, u, v) = ϵ̇S(i, j, k, grid, u, v) / 2
 
 # Here we extend all the functions that a rheology model needs to support:
 @inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₁₁[i, j, k]
