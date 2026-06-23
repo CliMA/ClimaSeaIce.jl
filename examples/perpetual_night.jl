@@ -27,7 +27,7 @@ using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: prescribed_salinity_enthalpy_thermodynamics,
                                         SeaIceColumnDiscretization,
                                         ConductiveTemperatureTransport,
-                                        OceanFreezingTemperatureBoundary
+                                        IceWaterThermalEquilibrium
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission
 import ClimaSeaIce.SeaIceThermodynamics: initialize_column_interfaces!
 using CairoMakie
@@ -97,7 +97,7 @@ column_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(column_grid;
     salinity_profile = 0.0,
     energy_transport = ConductiveTemperatureTransport(conductivity = 2),
     heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
-                                bottom = OceanFreezingTemperatureBoundary(salinity = 0)))
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
 
 column_model = SeaIceModel(column_grid;
                            top_heat_flux = (RadiativeEmission(), -200.0),

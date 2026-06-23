@@ -13,10 +13,10 @@ using ClimaSeaIce.SeaIceThermodynamics:
     FluxFunction,
     MeltingConstrainedFluxBalance,
     MeltingConstrainedSurfaceFluxBalance,
+    IceWaterThermalEquilibrium,
     MaykutUntersteinerConductivity,
     NoSalinityTransport,
     NoShortwaveAbsorption,
-    OceanFreezingTemperatureBoundary,
     PrescribedBulkSalinity,
     PrescribedTemperature,
     PrognosticBulkSalinity,
@@ -79,9 +79,9 @@ column_step!(thermodynamics, external_heat_fluxes, Δt) =
 column_budget(thermodynamics, external_heat_fluxes, initial_energy, Δt; kw...) =
     column_energy_budget(thermodynamics, external_heat_fluxes, TEST_CLOCK, NO_FIELDS, initial_energy, Δt; kw...)
 
-@testset "BL99 public boundary aliases" begin
+@testset "BL99 public boundary conditions" begin
     @test MeltingConstrainedSurfaceFluxBalance === MeltingConstrainedFluxBalance
-    @test OceanFreezingTemperatureBoundary(; salinity = 34).salinity == 34
+    @test IceWaterThermalEquilibrium(; salinity = 34).salinity == 34
 end
 
 function column_relation_test_states(::Type{FT}) where FT

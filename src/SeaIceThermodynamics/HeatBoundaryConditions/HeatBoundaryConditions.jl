@@ -2,7 +2,7 @@ module HeatBoundaryConditions
 
 export MeltingConstrainedFluxBalance,
        MeltingConstrainedSurfaceFluxBalance,
-       OceanFreezingTemperatureBoundary,
+       IceWaterThermalEquilibrium,
        PrescribedTemperature,
        RadiativeEmission,
        ConductiveFlux,
@@ -39,12 +39,5 @@ include("column_heat_boundary_conditions.jl")
 Descriptive alias for `MeltingConstrainedFluxBalance`.
 """
 const MeltingConstrainedSurfaceFluxBalance = MeltingConstrainedFluxBalance
-
-"""
-    OceanFreezingTemperatureBoundary(args...; kwargs...)
-
-Descriptive alias for `IceWaterThermalEquilibrium`.
-"""
-const OceanFreezingTemperatureBoundary = IceWaterThermalEquilibrium
 
 end

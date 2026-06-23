@@ -24,7 +24,7 @@ import Oceananigans.Utils: prettytime
 export SeaIceModel,
        MeltingConstrainedFluxBalance,
        MeltingConstrainedSurfaceFluxBalance,
-       OceanFreezingTemperatureBoundary,
+       IceWaterThermalEquilibrium,
        PrescribedTemperature,
        RadiativeEmission,
        PhaseTransitions,

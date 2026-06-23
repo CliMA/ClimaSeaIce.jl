@@ -28,7 +28,12 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: prescribed_salinity_enthalpy_thermodynamics,
+                                        SeaIceColumnDiscretization,
+                                        ConductiveTemperatureTransport,
+                                        IceWaterThermalEquilibrium
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission
+import ClimaSeaIce.SeaIceThermodynamics: initialize_column_interfaces!
 using CairoMakie
 
 grid = RectilinearGrid(size=4, x=(0, 1), topology=(Periodic, Flat, Flat))
@@ -150,6 +155,46 @@ end
 snowy_ice_simulation.callbacks[:save] = Callback(accumulate_snow)
 run!(snowy_ice_simulation)
 
+# ## Resolved-column bare-ice simulation
+#
+# `ColumnEnergyThermodynamics` reads the same `top_heat_flux` tuple as the slab, so we melt the same four bare-ice
+# columns with a vertically-resolved column to compare. We give the columns a `SeaIceColumnDiscretization` grid (a
+# vertical coordinate added to the same four horizontal cells) and the same forcing and consolidation thickness.
+
+column_grid = RectilinearGrid(size=(4, 16), x=(0, 1),
+                              z=SeaIceColumnDiscretization((0, 2)),
+                              topology=(Periodic, Flat, Bounded))
+
+column_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(column_grid;
+    salinity_profile = 0,
+    energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+    heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
+
+column_ice_model = SeaIceModel(column_grid;
+                              ice_consolidation_thickness = 0.05,
+                              ice_thermodynamics = column_thermodynamics,
+                              top_heat_flux)
+
+set!(column_ice_model, h=1, ℵ=1)
+initialize_column_interfaces!(column_grid, column_ice_model.ice_thickness)
+set!(column_thermodynamics; bulk_salinity = 0, temperature = -2)
+
+column_simulation = Simulation(column_ice_model, Δt=Δt, stop_time=30days)
+
+series_column = []
+function accumulate_column(sim)
+    h = sim.model.ice_thickness
+    ℵ = sim.model.ice_concentration
+    push!(series_column, (time(sim),
+                          h[1, 1, 1], ℵ[1, 1, 1],
+                          h[2, 1, 1], ℵ[2, 1, 1],
+                          h[3, 1, 1], ℵ[3, 1, 1],
+                          h[4, 1, 1], ℵ[4, 1, 1]))
+end
+column_simulation.callbacks[:save] = Callback(accumulate_column)
+run!(column_simulation)
+
 # ## Extracting the time series
 
 t_bare = [d[1]  for d in series_bare]
@@ -162,6 +207,10 @@ h_snow  = [[d[4*(c-1)+2] for d in series_snow] for c in 1:4]
 ℵ_snow  = [[d[4*(c-1)+3] for d in series_snow] for c in 1:4]
 T_snow  = [[d[4*(c-1)+4] for d in series_snow] for c in 1:4]
 hs_snow = [[d[4*(c-1)+5] for d in series_snow] for c in 1:4]
+
+t_column = [d[1]  for d in series_column]
+h_column = [[d[2*(c-1)+2] for d in series_column] for c in 1:4]
+ℵ_column = [[d[2*(c-1)+3] for d in series_column] for c in 1:4]
 
 # ## Visualizing the results
 
@@ -183,18 +232,20 @@ axislegend(axT, position=:rt)
 
 # Ice concentration
 axℵ = Axis(fig[2, 1], ylabel="Ice concentration (-)",
-           title="Ice concentration: bare (solid) vs snow-covered (dashed)")
+           title="Ice concentration: bare slab (solid), snow (dashed), resolved column (dotted)")
 for c in 1:4
-    lines!(axℵ, t_bare ./ day, ℵ_bare[c], color=colors[c])
-    lines!(axℵ, t_snow ./ day, ℵ_snow[c], color=colors[c], linestyle=:dash)
+    lines!(axℵ, t_bare   ./ day, ℵ_bare[c],   color=colors[c])
+    lines!(axℵ, t_snow   ./ day, ℵ_snow[c],   color=colors[c], linestyle=:dash)
+    lines!(axℵ, t_column ./ day, ℵ_column[c], color=colors[c], linestyle=:dot)
 end
 
-# Ice thickness
+# Ice thickness — bare slab (solid), snow-covered slab (dashed), resolved bare column (dotted)
 axh = Axis(fig[3, 1], ylabel="Ice thickness (m)",
-           title="Ice thickness: bare (solid) vs snow-covered (dashed)")
+           title="Ice thickness: bare slab (solid), snow (dashed), resolved column (dotted)")
 for c in 1:4
-    lines!(axh, t_bare ./ day, h_bare[c], color=colors[c])
-    lines!(axh, t_snow ./ day, h_snow[c], color=colors[c], linestyle=:dash)
+    lines!(axh, t_bare   ./ day, h_bare[c],   color=colors[c])
+    lines!(axh, t_snow   ./ day, h_snow[c],   color=colors[c], linestyle=:dash)
+    lines!(axh, t_column ./ day, h_column[c], color=colors[c], linestyle=:dot)
 end
 
 # Snow thickness

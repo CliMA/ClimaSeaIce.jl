@@ -365,7 +365,7 @@ column_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(column_grid;
     salinity_profile = 0.0,
     energy_transport = ConductiveTemperatureTransport(conductivity = 2.0),
     heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
-                                bottom = OceanFreezingTemperatureBoundary(salinity = 0)))
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
 
 column_model = SeaIceModel(column_grid;
     ice_thermodynamics = column_thermodynamics,

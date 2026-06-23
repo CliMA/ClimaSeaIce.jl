@@ -30,6 +30,11 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: prescribed_salinity_enthalpy_thermodynamics,
+                                        SeaIceColumnDiscretization,
+                                        ConductiveTemperatureTransport,
+                                        IceWaterThermalEquilibrium
+import ClimaSeaIce.SeaIceThermodynamics: initialize_column_interfaces!
 using CairoMakie
 
 # to load ClimaSeaIce functions and objects into our script.
@@ -134,6 +139,47 @@ V = h .* ℵ
 
 dVdt = @. (h[2:end] .* ℵ[2:end] - h[1:end-1] .* ℵ[1:end-1]) / simulation.Δt
 
+# ## The same bucket with the resolved column thermodynamics
+#
+# `ColumnEnergyThermodynamics` reads the same `model.external_heat_fluxes` as the slab, so we can freeze an
+# identical bucket with a vertically-resolved column and compare. We give the column a vertical grid (a
+# `SeaIceColumnDiscretization`) and the same cold lid, internal conductivity, and frazil flux. The column needs a
+# tiny non-zero seed thickness for its moving grid, but it still nucleates from open water (ℵ = 0) just like the
+# slab. The two freeze nearly identically.
+
+column_grid = RectilinearGrid(size=16, z=SeaIceColumnDiscretization((0, 1)), topology=(Flat, Flat, Bounded))
+
+column_relation = QuadraticLiquidusEnergyRelation(eltype(column_grid); phase_transitions)
+
+column_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(column_grid;
+    relation = column_relation,
+    salinity_profile = 0,
+    energy_transport = ConductiveTemperatureTransport(; conductivity),
+    heat_boundary_conditions = (top = top_heat_boundary_condition,
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
+
+column_model = SeaIceModel(column_grid;
+    ice_thermodynamics = column_thermodynamics,
+    phase_transitions, sea_ice_density = 900,
+    top_heat_flux = 0, bottom_heat_flux)
+
+set!(column_model, h=0.01, ℵ=0)
+initialize_column_interfaces!(column_grid, column_model.ice_thickness)
+set!(column_thermodynamics; bulk_salinity = 0, temperature = -5)
+
+column_simulation = Simulation(column_model, Δt=10minute, stop_time=10days)
+
+column_timeseries = []
+accumulate_column(sim) = push!(column_timeseries, (time(sim),
+                                                   first(sim.model.ice_thickness),
+                                                   first(sim.model.ice_concentration)))
+column_simulation.callbacks[:save] = Callback(accumulate_column)
+run!(column_simulation)
+
+tc = [datum[1] for datum in column_timeseries]
+hc = [datum[2] for datum in column_timeseries]
+ℵc = [datum[3] for datum in column_timeseries]
+
 # All that's left, really, is to put those `lines!` in an `Axis`:
 
 set_theme!(Theme(fontsize=24, linewidth=4))
@@ -144,9 +190,12 @@ axh = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Ice thickness (cm)")
 axℵ = Axis(fig[1, 2], xlabel="Time (days)", ylabel="Ice concentration (-)")
 axV = Axis(fig[1, 3], xlabel="Ice volume (cm)", ylabel="Freezing rate (μm s⁻¹)")
 
-lines!(axh, t ./ day, 1e2 .* h)
-lines!(axℵ, t ./ day, ℵ)
+lines!(axh, t  ./ day, 1e2 .* h,  label="slab")
+lines!(axh, tc ./ day, 1e2 .* hc, linestyle=:dash, label="resolved column")
+lines!(axℵ, t  ./ day, ℵ,  label="slab")
+lines!(axℵ, tc ./ day, ℵc, linestyle=:dash, label="resolved column")
 lines!(axV, 1e2 .* V[1:end-1], 1e6 .* dVdt)
+axislegend(axh, position=:lt)
 
 save("freezing_bucket.png", fig)
 nothing # hide

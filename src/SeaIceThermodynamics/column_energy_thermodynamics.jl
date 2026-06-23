@@ -247,7 +247,7 @@ struct ColumnThermodynamicFields{E, S, T, LF, BS, TE, TS}
     temperature_salinity_derivative :: TS
 end
 
-struct ColumnAuxiliaryFields{K, KE, KS, DE, CS, I, RHS, A, B, C, ST}
+struct ColumnAuxiliaryFields{K, KE, KS, DE, CS, I, RHS, A, B, C, ST, BF}
     thermal_conductivity :: K
     energy_diffusivity :: KE
     salinity_diffusivity :: KS
@@ -259,6 +259,7 @@ struct ColumnAuxiliaryFields{K, KE, KS, DE, CS, I, RHS, A, B, C, ST}
     diagonal :: B
     upper_diagonal :: C
     surface_temperature :: ST
+    bottom_external_flux :: BF
 end
 
 struct ColumnSolvers{ES, SS}
@@ -319,7 +320,8 @@ function Adapt.adapt_structure(to, auxiliary::ColumnAuxiliaryFields)
                                  Adapt.adapt(to, auxiliary.lower_diagonal),
                                  Adapt.adapt(to, auxiliary.diagonal),
                                  Adapt.adapt(to, auxiliary.upper_diagonal),
-                                 Adapt.adapt(to, auxiliary.surface_temperature))
+                                 Adapt.adapt(to, auxiliary.surface_temperature),
+                                 Adapt.adapt(to, auxiliary.bottom_external_flux))
 end
 
 function Adapt.adapt_structure(to, solvers::ColumnSolvers)
@@ -371,6 +373,7 @@ function column_auxiliary_fields(grid)
     diagonal = Field{Center, Center, Center}(grid)
     upper_diagonal = Field{Center, Center, Center}(grid)
     surface_temperature = Field{Center, Center, Nothing}(grid)
+    bottom_external_flux = Field{Center, Center, Nothing}(grid)
 
     return ColumnAuxiliaryFields(thermal_conductivity,
                                  energy_diffusivity,
@@ -382,7 +385,8 @@ function column_auxiliary_fields(grid)
                                  lower_diagonal,
                                  diagonal,
                                  upper_diagonal,
-                                 surface_temperature)
+                                 surface_temperature,
+                                 bottom_external_flux)
 end
 
 settable_column_field_value(value) = value
@@ -861,9 +865,19 @@ end
     return δbase + (σᶜᶜⁿ - σᶜᶜ⁻) * r
 end
 
+# Dirichlet boundaries (`PrescribedTemperature`, `IceWaterThermalEquilibrium`) add an implicit conductance factor
+# and a conductive flux; every other boundary injects its paired external flux directly.
+const ColumnDirichletBoundary = Union{PrescribedTemperature, IceWaterThermalEquilibrium}
+
 # The temperature of a Dirichlet boundary (ocean equilibrium or prescribed), shared with the slab vocabulary.
 @inline column_dirichlet_temperature(bc, i, j, grid, relation) =
     bottom_temperature(i, j, grid, bc, relation.phase_transitions.liquidus)
+
+# A representative bottom temperature for the latent-heat scaling: the Dirichlet interface temperature where one
+# exists, otherwise the adjacent bottom-cell temperature (e.g. a `FluxBoundary` base driven by a prescribed flux).
+@inline column_bottom_reference_temperature(bc, i, j, grid, fields, relation) = @inbounds fields.temperature[i, j, 1]
+@inline column_bottom_reference_temperature(bc::ColumnDirichletBoundary, i, j, grid, fields, relation) =
+    column_dirichlet_temperature(bc, i, j, grid, relation)
 
 # Swept material on a moving interface takes the adjacent interior enthalpy by default. A Dirichlet basal interface
 # (congelation) instead lays down ice at the interface temperature — the CICE BL99 new-ice enthalpy.
@@ -939,8 +953,6 @@ end
 ##### `IceWaterThermalEquilibrium`) additionally add an implicit conductance factor (LHS) and a conductive flux.
 #####
 
-const ColumnDirichletBoundary = Union{PrescribedTemperature, IceWaterThermalEquilibrium}
-
 @inline column_bottom_boundary_energy_factor(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(Δt)
 @inline column_top_boundary_energy_factor(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(Δt)
 
@@ -969,6 +981,9 @@ end
     return - getflux(ext, i, j, grid, T, clock, model_fields)
 end
 
+# A Dirichlet base pins the interface temperature, so the interior couples to it by conduction only — the paired
+# ocean/lake `external_heat_fluxes` enters the basal Stefan balance (`column_basal_stefan_flux`), not the interior
+# solve, exactly as in SlabThermodynamics (and CICE: basal growth = (Q_cond − Q_ocean)/ℒ).
 @inline function column_bottom_boundary_energy_flux(bc::ColumnDirichletBoundary,
                                                     ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
     conductance = column_boundary_temperature_conductance(i, j, 1, k, grid, auxiliary)
@@ -976,7 +991,7 @@ end
     E  = @inbounds fields.internal_energy[i, j, k]
     TE = @inbounds fields.temperature_energy_derivative[i, j, k]
     Tᵇ = column_dirichlet_temperature(bc, i, j, grid, relation)
-    return conductance * (T - Tᵇ - TE * E) - getflux(ext, i, j, grid, Tᵇ, clock, model_fields)
+    return conductance * (T - Tᵇ - TE * E)
 end
 
 @inline function column_top_boundary_energy_flux(bc::ColumnDirichletBoundary, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
@@ -1586,13 +1601,17 @@ function column_layer_integral(values, faces)
     return integral
 end
 
-@inline column_basal_stefan_flux(boundary, fields, auxiliary, grid, relation, i, j) = zero(eltype(grid))
+# Basal Stefan growth flux (positive = congelation). A `FluxBoundary` base injects its flux into the interior, so
+# it drives no separate basal growth. A Dirichlet base (ocean/prescribed) grows ice from the conductive flux into
+# the base minus the paired ocean heat flux Qᵇ — the same `(Q_cond − Q_ocean)/ℒ` balance SlabThermodynamics uses.
+@inline column_basal_stefan_flux(boundary, ext, fields, auxiliary, grid, relation, clock, model_fields, i, j) = zero(eltype(grid))
 
-@inline function column_basal_stefan_flux(boundary::ColumnDirichletBoundary, fields, auxiliary, grid, relation, i, j)
+@inline function column_basal_stefan_flux(boundary::ColumnDirichletBoundary, ext, fields, auxiliary, grid, relation, clock, model_fields, i, j)
     conductance = column_boundary_temperature_conductance(i, j, 1, 1, grid, auxiliary)
     T₁ = @inbounds fields.temperature[i, j, 1]
     Tᵇ = column_dirichlet_temperature(boundary, i, j, grid, relation)
-    return conductance * (Tᵇ - T₁)
+    Qᵇ = getflux(ext, i, j, grid, Tᵇ, clock, model_fields)
+    return conductance * (Tᵇ - T₁) - Qᵇ
 end
 
 # Unconsolidated top heat loss (upward-positive), mirroring SlabThermodynamics so a thin column behaves like a
@@ -1604,9 +1623,10 @@ end
 
 @inline function column_unconsolidated_top_flux(bc::ColumnDirichletBoundary, ext, conductivity, Tᵇ, h, i, j, grid, fields, relation, clock, model_fields)
     Tᵗ = column_dirichlet_temperature(bc, i, j, grid, relation)
-    S = @inbounds fields.bulk_salinity[i, j, 1]
-    k = ice_thermal_conductivity(conductivity, Tᵗ, S)
-    return k / h * (Tᵇ - Tᵗ) + getflux(ext, i, j, grid, Tᵗ, clock, model_fields)
+    S  = @inbounds fields.bulk_salinity[i, j, 1]
+    k  = ice_thermal_conductivity(conductivity, Tᵗ, S)
+    Qi = ifelse(h ≤ zero(h), zero(h), k / h * (Tᵇ - Tᵗ))
+    return Qi + getflux(ext, i, j, grid, Tᵗ, clock, model_fields)
 end
 
 @kernel function _column_stefan_volume_update!(ice_thickness, ice_concentration, consolidation_thickness,
@@ -1628,7 +1648,8 @@ end
 
         if hⁿ ≥ hᶜ
             # Consolidated: resolved conduction drives basal congelation and the surface melt residual.
-            basal_flux = column_basal_stefan_flux(heat_boundary_conditions.bottom, fields, auxiliary, grid, relation, i, j)
+            basal_flux = column_basal_stefan_flux(heat_boundary_conditions.bottom, external_heat_fluxes.bottom,
+                                                  fields, auxiliary, grid, relation, clock, model_fields, i, j)
             surface_flux = column_surface_stefan_residual_flux(heat_boundary_conditions.top, external_heat_fluxes.top,
                                                                i, j, Nz, grid, auxiliary, fields, relation, clock, model_fields, Δt)
 
@@ -1643,7 +1664,7 @@ end
             # Unconsolidated: no resolved interior profile, so the column behaves as a single-layer slab. Net growth
             # is ℰ⁻¹ (Qᵘ − Qᵇ) with the shared upward-positive fluxes, where a Dirichlet top contributes its
             # single-layer conduction k/h just as SlabThermodynamics does.
-            Tᵇ = column_dirichlet_temperature(heat_boundary_conditions.bottom, i, j, grid, relation)
+            Tᵇ = column_bottom_reference_temperature(heat_boundary_conditions.bottom, i, j, grid, fields, relation)
             ℰ = ρᵢ * latent_heat(phase_transitions, Tᵇ)
             Qᵘ = column_unconsolidated_top_flux(heat_boundary_conditions.top, external_heat_fluxes.top,
                                                 conductivity, Tᵇ, hⁿ, i, j, grid, fields, relation, clock, model_fields)
@@ -1658,24 +1679,45 @@ end
         # Keep the grid metric consistent with the (area-averaged) ice thickness: surface melt moves the surface,
         # and the base is placed so the column height equals the updated thickness. For ℵ = 1 this is exactly the
         # basal Stefan move (z.hbⁿ -= δhᵇ); for evolving ℵ it follows the redistributed thickness from ice_volume_update.
+        # An ice-free column (h⁺ = 0) keeps its previous placeholder height so the metric never collapses to zero
+        # (a zero Δz would make the resolved solve and the surface conductance singular).
+        column_metric_height = ifelse(h⁺ > 0, h⁺, z.hs⁻[i, j, 1] - z.hb⁻[i, j, 1])
         z.hsⁿ[i, j, 1] = z.hs⁻[i, j, 1] + surface_shift
-        z.hbⁿ[i, j, 1] = z.hsⁿ[i, j, 1] - h⁺
+        z.hbⁿ[i, j, 1] = z.hsⁿ[i, j, 1] - column_metric_height
 
         ice_thickness[i, j, 1] = h⁺
         ice_concentration[i, j, 1] = ℵ⁺
     end
 end
 
-function column_stefan_volume_update!(thermodynamics::ColumnEnergyThermodynamics, model, Δt)
+function column_stefan_volume_update!(thermodynamics::ColumnEnergyThermodynamics, model, external_heat_fluxes, Δt)
     grid = thermodynamics.fields.internal_energy.grid
     launch!(architecture(grid), grid, :xy, _column_stefan_volume_update!,
             model.ice_thickness, model.ice_concentration, model.ice_consolidation_thickness,
             model.sea_ice_density, model.phase_transitions, sea_ice_discretization(grid),
             thermodynamics.fields, thermodynamics.auxiliary, grid,
-            thermodynamics.heat_boundary_conditions, model.external_heat_fluxes, thermodynamics.relation,
+            thermodynamics.heat_boundary_conditions, external_heat_fluxes, thermodynamics.relation,
             thermal_conductivity(thermodynamics.energy_transport),
             model.clock, fields(model), Δt)
     return nothing
+end
+
+# Evaluate the bottom external flux exactly once per step into a field, so a stateful coupler (e.g. an evolving
+# lake/ocean) fires its side effect only once even though the energy solve and the volume update both read it.
+# `getflux` of the resulting 2D field is a plain array read. The top flux stays live because a melting surface
+# solve must evaluate it at trial temperatures, exactly as SlabThermodynamics's root-finder does.
+@kernel function _cache_column_bottom_external_flux!(cache, fields, grid, external_bottom_flux, clock, model_fields)
+    i, j = @index(Global, NTuple)
+    T = @inbounds fields.temperature[i, j, 1]
+    @inbounds cache[i, j, 1] = getflux(external_bottom_flux, i, j, grid, T, clock, model_fields)
+end
+
+function cached_external_heat_fluxes(thermodynamics::ColumnEnergyThermodynamics, external_heat_fluxes, clock, model_fields)
+    grid = thermodynamics.fields.internal_energy.grid
+    cache = thermodynamics.auxiliary.bottom_external_flux
+    launch!(architecture(grid), grid, :xy, _cache_column_bottom_external_flux!,
+            cache, thermodynamics.fields, grid, external_heat_fluxes.bottom, clock, model_fields)
+    return (top = external_heat_fluxes.top, bottom = cache)
 end
 
 # The surface energy solve is a single tridiagonal pass for direct-flux and Dirichlet tops; a
@@ -1745,9 +1787,12 @@ function thermodynamic_time_step!(model,
                                   thermodynamics::ColumnEnergyThermodynamics,
                                   ::Nothing,
                                   Δt)
-    column_energy_time_step!(thermodynamics, model.external_heat_fluxes, model.clock, fields(model),
+    # Evaluate stateful external fluxes once per step, then drive both the energy solve and the volume update from
+    # the cached values so their side effects (e.g. an evolving lake) fire exactly once — as in SlabThermodynamics.
+    external_heat_fluxes = cached_external_heat_fluxes(thermodynamics, model.external_heat_fluxes, model.clock, fields(model))
+    column_energy_time_step!(thermodynamics, external_heat_fluxes, model.clock, fields(model),
                              model.ice_consolidation_thickness, Δt)
-    column_stefan_volume_update!(thermodynamics, model, Δt)
+    column_stefan_volume_update!(thermodynamics, model, external_heat_fluxes, Δt)
     return nothing
 end
 
