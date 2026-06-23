@@ -1,23 +1,14 @@
 import Oceananigans: prognostic_state, restore_prognostic_state!
 using KernelAbstractions: @kernel, @index
+using RootSolvers: SecantMethod, find_zero, CompactSolution
 using Oceananigans.Architectures: CPU, architecture
-using Oceananigans.Fields: AbstractField
+using Oceananigans.Fields: AbstractField, interior
 using Oceananigans.Grids: ZDirection, rnode, znode
-using Oceananigans.Operators: Δzᵃᵃᶜ, Δzᵃᵃᶠ, σ⁻, σⁿ
+using Oceananigans.Operators: Δzᶜᶜᶜ, Δzᶜᶜᶠ, σ⁻, σⁿ
 using Oceananigans.Solvers: BatchedTridiagonalSolver, solve!
 using Oceananigans.Utils: launch!
 
 @inline on_cpu(grid) = architecture(grid) isa CPU
-
-@inline function current_column_cell_thickness(i, j, k, grid)
-    σᶜᶜⁿ = σⁿ(i, j, k, grid, Center(), Center(), Center())
-    return Δzᵃᵃᶜ(i, j, k, grid) * σᶜᶜⁿ
-end
-
-@inline function current_column_face_spacing(i, j, k, grid)
-    σᶜᶜⁿ = σⁿ(i, j, k, grid, Center(), Center(), Face())
-    return Δzᵃᵃᶠ(i, j, k, grid) * σᶜᶜⁿ
-end
 
 """
     PrescribedBulkSalinity(profile=nothing)
@@ -246,79 +237,6 @@ ExponentialShortwaveAbsorption(FT::DataType=Oceananigans.defaults.FloatType;
     ExponentialShortwaveAbsorption(convert(FT, surface_transmission),
                                    convert(FT, attenuation_scale))
 
-"""
-    InsulatingBoundary()
-
-Column energy boundary condition with zero normal energy flux.
-"""
-struct InsulatingBoundary end
-
-"""
-    PrescribedEnergyFlux([FT=Oceananigans.defaults.FloatType; flux=0])
-
-Column energy boundary condition with prescribed face energy flux. Flux is
-positive in the increasing vertical-coordinate direction.
-"""
-struct PrescribedEnergyFlux{F}
-    flux :: F
-end
-
-PrescribedEnergyFlux(FT::DataType=Oceananigans.defaults.FloatType; flux = 0) =
-    PrescribedEnergyFlux(convert(FT, flux))
-
-"""
-    PrescribedEnergyFluxBoundaryEnergy([FT=Oceananigans.defaults.FloatType; flux=0, boundary_energy=0])
-
-Column energy boundary condition with a prescribed face energy flux and a
-prescribed volumetric internal energy for material swept into the column by a
-moving boundary. This reduces to [`PrescribedEnergyFlux`](@ref) on static grids.
-"""
-struct PrescribedEnergyFluxBoundaryEnergy{F, E}
-    flux :: F
-    boundary_energy :: E
-end
-
-PrescribedEnergyFluxBoundaryEnergy(FT::DataType=Oceananigans.defaults.FloatType;
-                                   flux = 0,
-                                   boundary_energy = 0) =
-    PrescribedEnergyFluxBoundaryEnergy(convert(FT, flux),
-                                       convert(FT, boundary_energy))
-
-function Adapt.adapt_structure(to, boundary::PrescribedEnergyFluxBoundaryEnergy)
-    return PrescribedEnergyFluxBoundaryEnergy(Adapt.adapt(to, boundary.flux),
-                                             Adapt.adapt(to, boundary.boundary_energy))
-end
-
-"""
-    MeltingLimitedSurfaceFlux([FT=Oceananigans.defaults.FloatType; flux=0])
-
-Top energy boundary condition with an imposed surface flux that is capped by
-the complete-melt energy of the top cell. The applied flux warms the column
-column up to the complete-melt threshold; the excess is available as a
-conservative Stefan residual for surface melt.
-"""
-struct MeltingLimitedSurfaceFlux{F}
-    flux :: F
-end
-
-MeltingLimitedSurfaceFlux(FT::DataType=Oceananigans.defaults.FloatType; flux = 0) =
-    MeltingLimitedSurfaceFlux(convert(FT, flux))
-
-"""
-    ColumnBoundaryConditions(; top=InsulatingBoundary(), bottom=InsulatingBoundary())
-
-Top and bottom energy boundary conditions for the column energy
-solve.
-"""
-struct ColumnBoundaryConditions{T, B}
-    top :: T
-    bottom :: B
-end
-
-ColumnBoundaryConditions(; top = InsulatingBoundary(),
-                         bottom = InsulatingBoundary()) =
-    ColumnBoundaryConditions(top, bottom)
-
 struct ColumnThermodynamicFields{E, S, T, LF, BS, TE, TS}
     internal_energy :: E
     bulk_salinity :: S
@@ -329,7 +247,7 @@ struct ColumnThermodynamicFields{E, S, T, LF, BS, TE, TS}
     temperature_salinity_derivative :: TS
 end
 
-struct ColumnAuxiliaryFields{K, KE, KS, DE, CS, I, RHS, A, B, C}
+struct ColumnAuxiliaryFields{K, KE, KS, DE, CS, I, RHS, A, B, C, ST}
     thermal_conductivity :: K
     energy_diffusivity :: KE
     salinity_diffusivity :: KS
@@ -340,6 +258,7 @@ struct ColumnAuxiliaryFields{K, KE, KS, DE, CS, I, RHS, A, B, C}
     lower_diagonal :: A
     diagonal :: B
     upper_diagonal :: C
+    surface_temperature :: ST
 end
 
 struct ColumnSolvers{ES, SS}
@@ -362,7 +281,7 @@ struct ColumnEnergyThermodynamics{R, SC, ET, ST, SW, BC, F, A, SOL}
     energy_transport :: ET
     salinity_transport :: ST
     shortwave_absorption :: SW
-    boundary_conditions :: BC
+    heat_boundary_conditions :: BC
     fields :: F
     auxiliary :: A
     solvers :: SOL
@@ -399,7 +318,8 @@ function Adapt.adapt_structure(to, auxiliary::ColumnAuxiliaryFields)
                                  Adapt.adapt(to, auxiliary.energy_rhs),
                                  Adapt.adapt(to, auxiliary.lower_diagonal),
                                  Adapt.adapt(to, auxiliary.diagonal),
-                                 Adapt.adapt(to, auxiliary.upper_diagonal))
+                                 Adapt.adapt(to, auxiliary.upper_diagonal),
+                                 Adapt.adapt(to, auxiliary.surface_temperature))
 end
 
 function Adapt.adapt_structure(to, solvers::ColumnSolvers)
@@ -415,7 +335,7 @@ function Adapt.adapt_structure(to, thermodynamics::ColumnEnergyThermodynamics)
                                       Adapt.adapt(to, thermodynamics.energy_transport),
                                       Adapt.adapt(to, thermodynamics.salinity_transport),
                                       Adapt.adapt(to, thermodynamics.shortwave_absorption),
-                                      Adapt.adapt(to, thermodynamics.boundary_conditions),
+                                      Adapt.adapt(to, thermodynamics.heat_boundary_conditions),
                                       adapted_fields,
                                       adapted_auxiliary,
                                       Adapt.adapt(to, thermodynamics.solvers))
@@ -450,6 +370,7 @@ function column_auxiliary_fields(grid)
     lower_diagonal = Field{Center, Center, Center}(grid)
     diagonal = Field{Center, Center, Center}(grid)
     upper_diagonal = Field{Center, Center, Center}(grid)
+    surface_temperature = Field{Center, Center, Nothing}(grid)
 
     return ColumnAuxiliaryFields(thermal_conductivity,
                                  energy_diffusivity,
@@ -460,7 +381,8 @@ function column_auxiliary_fields(grid)
                                  energy_rhs,
                                  lower_diagonal,
                                  diagonal,
-                                 upper_diagonal)
+                                 upper_diagonal,
+                                 surface_temperature)
 end
 
 settable_column_field_value(value) = value
@@ -488,13 +410,16 @@ function column_solvers(grid, auxiliary)
     return ColumnSolvers(energy_solver, energy_solver)
 end
 
+# A resting column with zero `external_heat_fluxes` is insulating on both faces.
+default_column_heat_boundary_conditions() = (top = FluxBoundary(), bottom = FluxBoundary())
+
 function ColumnEnergyThermodynamics(grid;
                                     relation = QuadraticLiquidusEnergyRelation(eltype(grid)),
                                     salinity_closure = PrognosticBulkSalinity(),
                                     energy_transport = ConductiveTemperatureTransport(eltype(grid)),
                                     salinity_transport = NoSalinityTransport(),
                                     shortwave_absorption = NoShortwaveAbsorption(),
-                                    boundary_conditions = ColumnBoundaryConditions(),
+                                    heat_boundary_conditions = default_column_heat_boundary_conditions(),
                                     fields = column_thermodynamic_fields(grid),
                                     auxiliary = column_auxiliary_fields(grid),
                                     solvers = column_solvers(grid, auxiliary))
@@ -505,7 +430,7 @@ function ColumnEnergyThermodynamics(grid;
                                       energy_transport,
                                       salinity_transport,
                                       shortwave_absorption,
-                                      boundary_conditions,
+                                      heat_boundary_conditions,
                                       fields,
                                       auxiliary,
                                       solvers)
@@ -522,7 +447,7 @@ function prescribed_salinity_enthalpy_thermodynamics(grid;
                                                      salinity_profile = 0,
                                                      energy_transport = ConductiveTemperatureTransport(eltype(grid)),
                                                      shortwave_absorption = NoShortwaveAbsorption(),
-                                                     boundary_conditions = ColumnBoundaryConditions(),
+                                                     heat_boundary_conditions = default_column_heat_boundary_conditions(),
                                                      kw...)
     return ColumnEnergyThermodynamics(grid;
                                       relation,
@@ -530,7 +455,7 @@ function prescribed_salinity_enthalpy_thermodynamics(grid;
                                       energy_transport,
                                       salinity_transport = NoSalinityTransport(),
                                       shortwave_absorption,
-                                      boundary_conditions,
+                                      heat_boundary_conditions,
                                       kw...)
 end
 
@@ -545,7 +470,7 @@ function evolving_salinity_mushy_thermodynamics(grid;
                                                 energy_transport = ConductiveAndDiffusiveEnergyTransport(eltype(grid)),
                                                 salinity_transport = BulkSalinityDiffusion(eltype(grid)),
                                                 shortwave_absorption = NoShortwaveAbsorption(),
-                                                boundary_conditions = ColumnBoundaryConditions(),
+                                                heat_boundary_conditions = default_column_heat_boundary_conditions(),
                                                 kw...)
     return ColumnEnergyThermodynamics(grid;
                                       relation,
@@ -553,7 +478,7 @@ function evolving_salinity_mushy_thermodynamics(grid;
                                       energy_transport,
                                       salinity_transport,
                                       shortwave_absorption,
-                                      boundary_conditions,
+                                      heat_boundary_conditions,
                                       kw...)
 end
 
@@ -648,19 +573,6 @@ end
     end
 end
 
-function _compute_column_internal_energy_cpu!(fields, relation)
-    grid = fields.internal_energy.grid
-
-    for k in 1:size(grid, 3), j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds fields.internal_energy[i, j, k] =
-            internal_energy(relation,
-                            fields.temperature[i, j, k],
-                            fields.bulk_salinity[i, j, k])
-    end
-
-    return nothing
-end
-
 """
     compute_column_internal_energy!(thermodynamics)
 
@@ -671,15 +583,10 @@ function compute_column_internal_energy!(thermodynamics::ColumnEnergyThermodynam
     grid = thermodynamics.fields.internal_energy.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _compute_column_internal_energy_cpu!(thermodynamics.fields,
-                                             thermodynamics.relation)
-    else
-        launch!(arch, grid, :xyz,
-                _compute_column_internal_energy!,
-                thermodynamics.fields,
-                thermodynamics.relation)
-    end
+    launch!(arch, grid, :xyz,
+            _compute_column_internal_energy!,
+            thermodynamics.fields,
+            thermodynamics.relation)
 
     return nothing
 end
@@ -708,34 +615,6 @@ end
     end
 end
 
-function _compute_column_thermodynamic_diagnostics_cpu!(fields, relation)
-    grid = fields.internal_energy.grid
-
-    for k in 1:size(grid, 3), j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            E = fields.internal_energy[i, j, k]
-            S = fields.bulk_salinity[i, j, k]
-
-            fields.temperature[i, j, k] =
-                temperature(relation, E, S)
-
-            fields.liquid_fraction[i, j, k] =
-                liquid_fraction(relation, E, S)
-
-            fields.brine_salinity[i, j, k] =
-                brine_salinity(relation, E, S)
-
-            fields.temperature_energy_derivative[i, j, k] =
-                temperature_energy_derivative(relation, E, S)
-
-            fields.temperature_salinity_derivative[i, j, k] =
-                temperature_salinity_derivative(relation, E, S)
-        end
-    end
-
-    return nothing
-end
-
 """
     compute_column_thermodynamic_diagnostics!(thermodynamics)
 
@@ -746,15 +625,10 @@ function compute_column_thermodynamic_diagnostics!(thermodynamics::ColumnEnergyT
     grid = thermodynamics.fields.internal_energy.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _compute_column_thermodynamic_diagnostics_cpu!(thermodynamics.fields,
-                                                       thermodynamics.relation)
-    else
-        launch!(arch, grid, :xyz,
-                _compute_column_thermodynamic_diagnostics!,
-                thermodynamics.fields,
-                thermodynamics.relation)
-    end
+    launch!(arch, grid, :xyz,
+            _compute_column_thermodynamic_diagnostics!,
+            thermodynamics.fields,
+            thermodynamics.relation)
 
     return nothing
 end
@@ -792,10 +666,10 @@ end
                 face_thermal_conductivity(kappa_T,
                                           T[i, j, k-1],
                                           S[i, j, k-1],
-                                          current_column_cell_thickness(i, j, k-1, grid),
+                                          Δzᶜᶜᶜ(i, j, k-1, grid),
                                           T[i, j, k],
                                           S[i, j, k],
-                                          current_column_cell_thickness(i, j, k, grid))
+                                          Δzᶜᶜᶜ(i, j, k, grid))
 
             auxiliary.thermal_conductivity[i, j, k] = face_conductivity
             auxiliary.energy_diffusivity[i, j, k] = kappa_E
@@ -817,63 +691,6 @@ end
     end
 end
 
-function _compute_column_transport_coefficients_cpu!(auxiliary, fields, energy_transport)
-    grid = fields.internal_energy.grid
-    Nz = size(grid, 3)
-
-    kappa_T = thermal_conductivity(energy_transport)
-    kappa_E = energy_diffusivity(energy_transport)
-
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            T = fields.temperature
-            S = fields.bulk_salinity
-
-            boundary_conductivity = ice_thermal_conductivity(kappa_T, T[i, j, 1], S[i, j, 1])
-            TE = fields.temperature_energy_derivative[i, j, 1]
-            TS = fields.temperature_salinity_derivative[i, j, 1]
-
-            auxiliary.thermal_conductivity[i, j, 1] = boundary_conductivity
-            auxiliary.energy_diffusivity[i, j, 1] = kappa_E
-            auxiliary.effective_energy_diffusivity[i, j, 1] = boundary_conductivity * TE + kappa_E
-            auxiliary.salinity_coupling_diffusivity[i, j, 1] = boundary_conductivity * TS
-
-            for k in 2:Nz
-                TE = (fields.temperature_energy_derivative[i, j, k-1] +
-                      fields.temperature_energy_derivative[i, j, k]) / 2
-
-                TS = (fields.temperature_salinity_derivative[i, j, k-1] +
-                      fields.temperature_salinity_derivative[i, j, k]) / 2
-
-                face_conductivity =
-                    face_thermal_conductivity(kappa_T,
-                                              T[i, j, k-1],
-                                              S[i, j, k-1],
-                                              current_column_cell_thickness(i, j, k-1, grid),
-                                              T[i, j, k],
-                                              S[i, j, k],
-                                              current_column_cell_thickness(i, j, k, grid))
-
-                auxiliary.thermal_conductivity[i, j, k] = face_conductivity
-                auxiliary.energy_diffusivity[i, j, k] = kappa_E
-                auxiliary.effective_energy_diffusivity[i, j, k] = face_conductivity * TE + kappa_E
-                auxiliary.salinity_coupling_diffusivity[i, j, k] = face_conductivity * TS
-            end
-
-            boundary_conductivity = ice_thermal_conductivity(kappa_T, T[i, j, Nz], S[i, j, Nz])
-            TE = fields.temperature_energy_derivative[i, j, Nz]
-            TS = fields.temperature_salinity_derivative[i, j, Nz]
-
-            auxiliary.thermal_conductivity[i, j, Nz+1] = boundary_conductivity
-            auxiliary.energy_diffusivity[i, j, Nz+1] = kappa_E
-            auxiliary.effective_energy_diffusivity[i, j, Nz+1] = boundary_conductivity * TE + kappa_E
-            auxiliary.salinity_coupling_diffusivity[i, j, Nz+1] = boundary_conductivity * TS
-        end
-    end
-
-    return nothing
-end
-
 """
     compute_column_transport_coefficients!(thermodynamics)
 
@@ -884,18 +701,12 @@ function compute_column_transport_coefficients!(thermodynamics::ColumnEnergyTher
     grid = thermodynamics.fields.internal_energy.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _compute_column_transport_coefficients_cpu!(thermodynamics.auxiliary,
-                                                    thermodynamics.fields,
-                                                    thermodynamics.energy_transport)
-    else
-        launch!(arch, grid, :xyz,
-                _compute_column_transport_coefficients!,
-                thermodynamics.auxiliary,
-                thermodynamics.fields,
-                grid,
-                thermodynamics.energy_transport)
-    end
+    launch!(arch, grid, :xyz,
+            _compute_column_transport_coefficients!,
+            thermodynamics.auxiliary,
+            thermodynamics.fields,
+            grid,
+            thermodynamics.energy_transport)
 
     return nothing
 end
@@ -921,26 +732,6 @@ end
     end
 end
 
-function _compute_column_salinity_diffusivity_cpu!(auxiliary, fields, salinity_transport)
-    grid = fields.bulk_salinity.grid
-    Nz = size(grid, 3)
-    kappa_S = salinity_diffusivity(salinity_transport)
-
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            auxiliary.salinity_diffusivity[i, j, 1] = zero(kappa_S)
-
-            for k in 2:Nz
-                auxiliary.salinity_diffusivity[i, j, k] = kappa_S
-            end
-
-            auxiliary.salinity_diffusivity[i, j, Nz+1] = zero(kappa_S)
-        end
-    end
-
-    return nothing
-end
-
 """
     compute_column_salinity_diffusivity!(thermodynamics)
 
@@ -950,17 +741,11 @@ function compute_column_salinity_diffusivity!(thermodynamics::ColumnEnergyThermo
     grid = thermodynamics.fields.bulk_salinity.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _compute_column_salinity_diffusivity_cpu!(thermodynamics.auxiliary,
-                                                  thermodynamics.fields,
-                                                  thermodynamics.salinity_transport)
-    else
-        launch!(arch, grid, :xyz,
-                _compute_column_salinity_diffusivity!,
-                thermodynamics.auxiliary,
-                thermodynamics.fields,
-                thermodynamics.salinity_transport)
-    end
+    launch!(arch, grid, :xyz,
+            _compute_column_salinity_diffusivity!,
+            thermodynamics.auxiliary,
+            thermodynamics.fields,
+            thermodynamics.salinity_transport)
 
     return nothing
 end
@@ -990,31 +775,6 @@ end
     end
 end
 
-function _compute_column_shortwave_flux_cpu!(auxiliary, grid, shortwave_absorption)
-    Nz = size(grid, 3)
-
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        z_top = znode(i, j, Nz+1, grid, Center(), Center(), Face())
-
-        @inbounds begin
-            z_bottom = znode(i, j, 1, grid, Center(), Center(), Face())
-            auxiliary.shortwave_flux[i, j, 1] =
-                shortwave_flux(shortwave_absorption, z_bottom, z_top)
-
-            for k in 2:Nz
-                z_face = znode(i, j, k, grid, Center(), Center(), Face())
-                auxiliary.shortwave_flux[i, j, k] =
-                    shortwave_flux(shortwave_absorption, z_face, z_top)
-            end
-
-            auxiliary.shortwave_flux[i, j, Nz+1] =
-                shortwave_flux(shortwave_absorption, z_top, z_top)
-        end
-    end
-
-    return nothing
-end
-
 """
     compute_column_shortwave_flux!(thermodynamics)
 
@@ -1025,180 +785,98 @@ function compute_column_shortwave_flux!(thermodynamics::ColumnEnergyThermodynami
     grid = thermodynamics.fields.internal_energy.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _compute_column_shortwave_flux_cpu!(thermodynamics.auxiliary,
-                                            grid,
-                                            thermodynamics.shortwave_absorption)
-    else
-        launch!(arch, grid, :xyz,
-                _compute_column_shortwave_flux!,
-                thermodynamics.auxiliary,
-                grid,
-                thermodynamics.shortwave_absorption)
-    end
+    launch!(arch, grid, :xyz,
+            _compute_column_shortwave_flux!,
+            thermodynamics.auxiliary,
+            grid,
+            thermodynamics.shortwave_absorption)
 
     return nothing
 end
 
 @kernel function _compute_column_surface_stefan_residual_flux!(residual_flux,
+                                                               auxiliary,
                                                                fields,
                                                                grid,
-                                                               boundary_conditions,
+                                                               heat_boundary_conditions,
+                                                               external_heat_fluxes,
                                                                relation,
+                                                               clock,
+                                                               model_fields,
                                                                Δt)
     i, j = @index(Global, NTuple)
     Nz = size(grid, 3)
 
-    @inbounds begin
-        E = fields.internal_energy[i, j, Nz]
-        S = fields.bulk_salinity[i, j, Nz]
-        Δz = current_column_cell_thickness(i, j, Nz, grid)
-
-        residual_flux[i, j, 1] =
-            column_surface_stefan_residual_flux(boundary_conditions.top,
-                                                relation,
-                                                E,
-                                                S,
-                                                Δz,
-                                                Δt)
-    end
-end
-
-function _compute_column_surface_stefan_residual_flux_cpu!(residual_flux,
-                                                           fields,
-                                                           grid,
-                                                           boundary_conditions,
-                                                           relation,
-                                                           Δt)
-    Nz = size(grid, 3)
-
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            E = fields.internal_energy[i, j, Nz]
-            S = fields.bulk_salinity[i, j, Nz]
-            Δz = current_column_cell_thickness(i, j, Nz, grid)
-
-            residual_flux[i, j, 1] =
-                column_surface_stefan_residual_flux(boundary_conditions.top,
-                                                    relation,
-                                                    E,
-                                                    S,
-                                                    Δz,
-                                                    Δt)
-        end
-    end
-
-    return nothing
+    @inbounds residual_flux[i, j, 1] =
+        column_surface_stefan_residual_flux(heat_boundary_conditions.top, external_heat_fluxes.top,
+                                            i, j, Nz, grid, auxiliary, fields, relation, clock, model_fields, Δt)
 end
 
 """
-    compute_column_surface_stefan_residual_flux!(residual_flux, thermodynamics, dt)
+    compute_column_surface_stefan_residual_flux!(residual_flux, thermodynamics, external_heat_fluxes, clock, model_fields, dt)
 
 Fill `residual_flux` with the top-surface Stefan residual implied by a
-melting-limited surface boundary. The residual is positive for growth and
-negative for melt, matching [`column_stefan_thickness_update!`](@ref).
+`MeltingConstrainedFluxBalance` surface boundary. The residual is positive for
+growth and negative for melt, matching [`column_stefan_thickness_update!`](@ref).
 """
 function compute_column_surface_stefan_residual_flux!(residual_flux,
                                                       thermodynamics::ColumnEnergyThermodynamics,
+                                                      external_heat_fluxes,
+                                                      clock,
+                                                      model_fields,
                                                       Δt)
     grid = thermodynamics.fields.internal_energy.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _compute_column_surface_stefan_residual_flux_cpu!(residual_flux,
-                                                          thermodynamics.fields,
-                                                          grid,
-                                                          thermodynamics.boundary_conditions,
-                                                          thermodynamics.relation,
-                                                          Δt)
-    else
-        launch!(arch, grid, :xy,
-                _compute_column_surface_stefan_residual_flux!,
-                residual_flux,
-                thermodynamics.fields,
-                grid,
-                thermodynamics.boundary_conditions,
-                thermodynamics.relation,
-                Δt)
-    end
+    launch!(arch, grid, :xy,
+            _compute_column_surface_stefan_residual_flux!,
+            residual_flux,
+            thermodynamics.auxiliary,
+            thermodynamics.fields,
+            grid,
+            thermodynamics.heat_boundary_conditions,
+            external_heat_fluxes,
+            thermodynamics.relation,
+            clock,
+            model_fields,
+            Δt)
 
     return nothing
 end
 
-"""
-    column_surface_stefan_residual_flux(thermodynamics, dt)
+@inline diffusion_factor(i, j, kᶜ, kᶠ, grid, K, Δt) =  Δt * @inbounds(K[i, j, kᶠ]) / (Δzᶜᶜᶜ(i, j, kᶜ, grid) * Δzᶜᶜᶠ(i, j, kᶠ, grid))
 
-Return the column-summed top-surface Stefan residual implied by the current
-state and top boundary condition.
-"""
-function column_surface_stefan_residual_flux(thermodynamics::ColumnEnergyThermodynamics, Δt)
-    fields = thermodynamics.fields
-    grid = fields.internal_energy.grid
-    top = thermodynamics.boundary_conditions.top
-    residual = zero(eltype(grid))
-    Nz = size(grid, 3)
+# Conservative metric Jacobian: the column-thickness ratio (σ ≡ column height / reference height).
+@inline previous_to_current_column_metric_ratio(i, j, k, grid::SeaIceColumnGrid) =
+    previous_column_height(grid, i, j) / column_height(grid, i, j)
 
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            E = fields.internal_energy[i, j, Nz]
-            S = fields.bulk_salinity[i, j, Nz]
-            Δz = current_column_cell_thickness(i, j, Nz, grid)
-
-            residual += column_surface_stefan_residual_flux(top,
-                                                            thermodynamics.relation,
-                                                            E,
-                                                            S,
-                                                            Δz,
-                                                            Δt)
-        end
-    end
-
-    return residual
-end
-
-@inline function diffusion_factor(i, j, kc, kf, grid, diffusivity, Δt)
-    return Δt * @inbounds(diffusivity[i, j, kf]) /
-           (current_column_cell_thickness(i, j, kc, grid) *
-            current_column_face_spacing(i, j, kf, grid))
-end
-
-@inline function previous_to_current_column_metric_ratio(i, j, k, grid)
-    σᶜᶜ⁻ = σ⁻(i, j, k, grid, Center(), Center(), Center())
-    σᶜᶜⁿ = σⁿ(i, j, k, grid, Center(), Center(), Center())
-    return σᶜᶜ⁻ / σᶜᶜⁿ
-end
-
-@inline function column_face_displacement(i, j, k, grid)
-    σᶜᶜ⁻ = σ⁻(i, j, k, grid, Center(), Center(), Face())
+# The two interfaces move independently, so the swept-face displacement is the base motion plus the standard
+# thickness-stretch term (σⁿ - σ⁻) r: basal growth/melt moves only the base, surface melt/snow-ice only the surface.
+@inline function column_face_displacement(i, j, k, grid::SeaIceColumnGrid)
+    z = sea_ice_discretization(grid)
+    δbase = @inbounds z.hbⁿ[i, j, 1] - z.hb⁻[i, j, 1]
     σᶜᶜⁿ = σⁿ(i, j, k, grid, Center(), Center(), Face())
+    σᶜᶜ⁻ = σ⁻(i, j, k, grid, Center(), Center(), Face())
     r = rnode(i, j, k, grid, Center(), Center(), Face())
-    return (σᶜᶜⁿ - σᶜᶜ⁻) * r
+    return δbase + (σᶜᶜⁿ - σᶜᶜ⁻) * r
 end
 
-@inline moving_boundary_value(value::Number, i, j) = value
-@inline moving_boundary_value(value, i, j) = @inbounds value[i, j]
+# The temperature of a Dirichlet boundary (ocean equilibrium or prescribed), shared with the slab vocabulary.
+@inline column_dirichlet_temperature(bc, i, j, grid, relation) =
+    bottom_temperature(i, j, grid, bc, relation.phase_transitions.liquidus)
 
-@inline function moving_bottom_boundary_value(boundary, i, j, default)
-    return default
+# Swept material on a moving interface takes the adjacent interior enthalpy by default. A Dirichlet basal interface
+# (congelation) instead lays down ice at the interface temperature — the CICE BL99 new-ice enthalpy.
+@inline moving_bottom_boundary_value(boundary, i, j, grid, fields, relation, default) = default
+@inline moving_top_boundary_value(boundary, i, j, grid, fields, relation, default) = default
+
+@inline function moving_bottom_boundary_value(boundary::Union{PrescribedTemperature, IceWaterThermalEquilibrium}, i, j, grid, fields, relation, default)
+    Tᵇ = column_dirichlet_temperature(boundary, i, j, grid, relation)
+    S = @inbounds fields.bulk_salinity[i, j, 1]
+    return internal_energy(relation, Tᵇ, S)
 end
 
-@inline function moving_top_boundary_value(boundary, i, j, default)
-    return default
-end
-
-@inline function moving_bottom_boundary_value(boundary::PrescribedEnergyFluxBoundaryEnergy,
-                                              i, j, default)
-    return moving_boundary_value(boundary.boundary_energy, i, j)
-end
-
-@inline function moving_top_boundary_value(boundary::PrescribedEnergyFluxBoundaryEnergy,
-                                           i, j, default)
-    return moving_boundary_value(boundary.boundary_energy, i, j)
-end
-
-@inline function moving_face_value(i, j, k, grid, field, face_displacement,
-                                   bottom_boundary_value,
-                                   top_boundary_value)
+@inline function moving_face_value(i, j, k, grid, field, face_displacement, bottom_boundary_value, top_boundary_value)
     Nz = size(grid, 3)
 
     if k == 1
@@ -1224,129 +902,125 @@ end
     return displacement * value
 end
 
-@inline function moving_face_displacement_flux(i, j, k, grid, field,
+@inline function moving_face_displacement_flux(i, j, k, grid, field, fields, relation,
                                                bottom_boundary,
                                                top_boundary)
     displacement = column_face_displacement(i, j, k, grid)
     Nz = size(grid, 3)
     bottom_default = @inbounds field[i, j, 1]
     top_default = @inbounds field[i, j, Nz]
-    bottom_boundary_value = moving_bottom_boundary_value(bottom_boundary, i, j, bottom_default)
-    top_boundary_value = moving_top_boundary_value(top_boundary, i, j, top_default)
-    value = moving_face_value(i, j, k, grid, field, displacement,
-                              bottom_boundary_value, top_boundary_value)
+    bottom_boundary_value = moving_bottom_boundary_value(bottom_boundary, i, j, grid, fields, relation, bottom_default)
+    top_boundary_value = moving_top_boundary_value(top_boundary, i, j, grid, fields, relation, top_default)
+    value = moving_face_value(i, j, k, grid, field, displacement, bottom_boundary_value, top_boundary_value)
     return displacement * value
 end
 
-@inline function salinity_coupling_flux(i, j, k, grid, C, S)
-    return @inbounds(C[i, j, k] * (S[i, j, k] - S[i, j, k-1]) /
-                     current_column_face_spacing(i, j, k, grid))
-end
+@inline salinity_coupling_flux(i, j, k, grid, C, S) = @inbounds(C[i, j, k] * (S[i, j, k] - S[i, j, k-1]) / Δzᶜᶜᶠ(i, j, k, grid))
 
-@inline column_boundary_energy_flux(::InsulatingBoundary) = 0
-@inline column_boundary_energy_flux(boundary::PrescribedEnergyFlux) = boundary.flux
-@inline column_boundary_energy_flux(boundary::PrescribedEnergyFluxBoundaryEnergy) = boundary.flux
-@inline column_boundary_energy_flux(boundary::MeltingLimitedSurfaceFlux) = boundary.flux
+@inline column_boundary_temperature_conductance(i, j, kf, kc, grid, auxiliary) = @inbounds 2 * auxiliary.thermal_conductivity[i, j, kf] / Δzᶜᶜᶜ(i, j, kc, grid)
 
-@inline column_requested_surface_energy_flux(boundary) = column_boundary_energy_flux(boundary)
-
-@inline function column_boundary_temperature_conductance(i, j, kf, kc, grid, auxiliary)
-    K = @inbounds auxiliary.thermal_conductivity[i, j, kf]
-    half_cell_thickness = current_column_cell_thickness(i, j, kc, grid) / 2
-    return K / half_cell_thickness
-end
-
-@inline column_bottom_boundary_energy_factor(boundary, i, j, k, grid, auxiliary, fields, Δt) = zero(Δt)
-@inline column_top_boundary_energy_factor(boundary, i, j, k, grid, auxiliary, fields, Δt) = zero(Δt)
-
-@inline function column_bottom_boundary_energy_factor(boundary::PrescribedTemperature,
-                                                      i, j, k, grid, auxiliary, fields, Δt)
-    conductance = column_boundary_temperature_conductance(i, j, 1, k, grid, auxiliary)
-    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
-    return Δt * conductance * TE / current_column_cell_thickness(i, j, k, grid)
-end
-
-@inline function column_top_boundary_energy_factor(boundary::PrescribedTemperature,
-                                                   i, j, k, grid, auxiliary, fields, Δt)
-    Nz = size(grid, 3)
-    conductance = column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary)
-    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
-    return Δt * conductance * TE / current_column_cell_thickness(i, j, k, grid)
-end
-
-@inline function column_bottom_boundary_energy_flux(boundary,
-                                                    i, j, k, grid, auxiliary, fields, relation, Δt)
-    return column_boundary_energy_flux(boundary, i, j, k, grid, fields, relation, Δt)
-end
-
-@inline function column_top_boundary_energy_flux(boundary,
-                                                 i, j, k, grid, auxiliary, fields, relation, Δt)
-    return column_boundary_energy_flux(boundary, i, j, k, grid, fields, relation, Δt)
-end
-
-@inline function column_bottom_boundary_energy_flux(boundary::PrescribedTemperature,
-                                                    i, j, k, grid, auxiliary, fields, relation, Δt)
-    conductance = column_boundary_temperature_conductance(i, j, 1, k, grid, auxiliary)
-    T = @inbounds fields.temperature[i, j, k]
-    E = @inbounds fields.internal_energy[i, j, k]
-    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
-    boundary_temperature = column_prescribed_temperature(boundary, i, j)
-    return conductance * (T - boundary_temperature - TE * E)
-end
-
-@inline function column_top_boundary_energy_flux(boundary::PrescribedTemperature,
-                                                 i, j, k, grid, auxiliary, fields, relation, Δt)
-    Nz = size(grid, 3)
-    conductance = column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary)
-    T = @inbounds fields.temperature[i, j, k]
-    E = @inbounds fields.internal_energy[i, j, k]
-    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
-    boundary_temperature = column_prescribed_temperature(boundary, i, j)
-    return conductance * (boundary_temperature - T + TE * E)
+@inline column_consolidated(consolidation_thickness::Nothing, grid, i, j) = true
+@inline function column_consolidated(consolidation_thickness, grid, i, j)
+    h = column_height(grid, i, j)
+    hᶜ = @inbounds consolidation_thickness[i, j, 1]
+    return h ≥ hᶜ
 end
 
 @inline function column_energy_to_complete_melt(relation, E, S, Δz)
     return (complete_melt_energy(relation, S) - E) * Δz
 end
 
-@inline function column_surface_energy_flux(boundary::MeltingLimitedSurfaceFlux,
-                                            relation,
-                                            E,
-                                            S,
-                                            Δz,
-                                            Δt)
-    requested_flux = column_requested_surface_energy_flux(boundary)
-    available_flux = column_energy_to_complete_melt(relation, E, S, Δz) / Δt
-    nonnegative_available_flux = max(available_flux, zero(available_flux))
-    return min(requested_flux, nonnegative_available_flux)
+#####
+##### Boundary contributions to the column energy solve, keyed on (heat_boundary_condition, external_flux).
+##### `external_heat_fluxes` use the same upward-positive convention as `SlabThermodynamics` (positive = heat
+##### leaving the ice, i.e. into the air at the top and from the ocean into the base at the bottom), so the same
+##### `model.external_heat_fluxes` drives a slab and a column identically. A direct flux therefore enters the top
+##### cell as `-Qᵘ` and the bottom cell as `+Qᵇ`. Dirichlet boundaries (`PrescribedTemperature`,
+##### `IceWaterThermalEquilibrium`) additionally add an implicit conductance factor (LHS) and a conductive flux.
+#####
+
+const ColumnDirichletBoundary = Union{PrescribedTemperature, IceWaterThermalEquilibrium}
+
+@inline column_bottom_boundary_energy_factor(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(Δt)
+@inline column_top_boundary_energy_factor(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(Δt)
+
+@inline function column_bottom_boundary_energy_factor(bc::ColumnDirichletBoundary, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    conductance = column_boundary_temperature_conductance(i, j, 1, k, grid, auxiliary)
+    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
+    return Δt * conductance * TE / Δzᶜᶜᶜ(i, j, k, grid)
 end
 
-@inline column_surface_energy_flux(boundary, relation, E, S, Δz, Δt) =
-    column_requested_surface_energy_flux(boundary)
-
-@inline function column_surface_stefan_residual_flux(boundary::MeltingLimitedSurfaceFlux,
-                                                     relation,
-                                                     E,
-                                                     S,
-                                                     Δz,
-                                                     Δt)
-    return column_surface_energy_flux(boundary, relation, E, S, Δz, Δt) -
-           column_requested_surface_energy_flux(boundary)
+@inline function column_top_boundary_energy_factor(bc::ColumnDirichletBoundary, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    Nz = size(grid, 3)
+    conductance = column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary)
+    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
+    return Δt * conductance * TE / Δzᶜᶜᶜ(i, j, k, grid)
 end
 
-@inline column_surface_stefan_residual_flux(boundary, relation, E, S, Δz, Δt) = zero(E)
-
-@inline function column_boundary_energy_flux(boundary, i, j, k, grid, fields, relation, Δt)
-    Δz = current_column_cell_thickness(i, j, k, grid)
-    E = @inbounds fields.internal_energy[i, j, k]
-    S = @inbounds fields.bulk_salinity[i, j, k]
-    return column_surface_energy_flux(boundary, relation, E, S, Δz, Δt)
+# A direct-flux boundary injects its paired upward-positive external flux: a `left_flux` of `-Qᵇ` adds ocean heat
+# to the base, a `right_flux` of `-Qᵘ` removes heat to the air at the top.
+@inline function column_bottom_boundary_energy_flux(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    T = @inbounds fields.temperature[i, j, k]
+    return - getflux(ext, i, j, grid, T, clock, model_fields)
 end
 
-@kernel function _assemble_column_energy_system!(auxiliary, fields, grid, boundary_conditions, relation, Δt)
+@inline function column_top_boundary_energy_flux(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    T = @inbounds fields.temperature[i, j, k]
+    return - getflux(ext, i, j, grid, T, clock, model_fields)
+end
+
+@inline function column_bottom_boundary_energy_flux(bc::ColumnDirichletBoundary,
+                                                    ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    conductance = column_boundary_temperature_conductance(i, j, 1, k, grid, auxiliary)
+    T  = @inbounds fields.temperature[i, j, k]
+    E  = @inbounds fields.internal_energy[i, j, k]
+    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
+    Tᵇ = column_dirichlet_temperature(bc, i, j, grid, relation)
+    return conductance * (T - Tᵇ - TE * E) - getflux(ext, i, j, grid, Tᵇ, clock, model_fields)
+end
+
+@inline function column_top_boundary_energy_flux(bc::ColumnDirichletBoundary, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    Nz = size(grid, 3)
+    conductance = column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary)
+    T  = @inbounds fields.temperature[i, j, k]
+    E  = @inbounds fields.internal_energy[i, j, k]
+    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
+    Tᵇ = column_dirichlet_temperature(bc, i, j, grid, relation)
+    return conductance * (Tᵇ - T + TE * E) - getflux(ext, i, j, grid, Tᵇ, clock, model_fields)
+end
+
+# A `MeltingConstrainedFluxBalance` surface injects the downward flux `-Qᵘ(Tₛ)` evaluated at the iteratively-solved
+# surface temperature `Tₛ`, capped at the top-cell complete-melt energy; the excess becomes the surface Stefan
+# residual that drives surface melt.
+@inline function column_top_boundary_energy_flux(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    Δz = Δzᶜᶜᶜ(i, j, k, grid)
+    E  = @inbounds fields.internal_energy[i, j, k]
+    S  = @inbounds fields.bulk_salinity[i, j, k]
+    Tₛ = @inbounds auxiliary.surface_temperature[i, j, 1]
+    requested = - getflux(ext, i, j, grid, Tₛ, clock, model_fields)
+    available = column_energy_to_complete_melt(relation, E, S, Δz) / Δt
+    return min(requested, max(available, zero(available)))
+end
+
+# The surface Stefan residual is the part of the requested top flux not absorbed by the capped cell warming.
+@inline column_surface_stefan_residual_flux(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(eltype(grid))
+
+@inline function column_surface_stefan_residual_flux(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    Δz = Δzᶜᶜᶜ(i, j, k, grid)
+    E  = @inbounds fields.internal_energy[i, j, k]
+    S  = @inbounds fields.bulk_salinity[i, j, k]
+    Tₛ = @inbounds auxiliary.surface_temperature[i, j, 1]
+    requested = - getflux(ext, i, j, grid, Tₛ, clock, model_fields)
+    available = column_energy_to_complete_melt(relation, E, S, Δz) / Δt
+    applied = min(requested, max(available, zero(available)))
+    return applied - requested
+end
+
+@kernel function _assemble_column_energy_system!(auxiliary, fields, grid, heat_boundary_conditions, external_heat_fluxes, relation, consolidation_thickness, clock, model_fields, Δt)
     i, j, k = @index(Global, NTuple)
     Nz = size(grid, 3)
 
+    if column_consolidated(consolidation_thickness, grid, i, j)
     @inbounds begin
         D = auxiliary.effective_energy_diffusivity
         C = auxiliary.salinity_coupling_diffusivity
@@ -1366,15 +1040,15 @@ end
         end
 
         bottom_factor = if k == 1
-            column_bottom_boundary_energy_factor(boundary_conditions.bottom,
-                                                 i, j, k, grid, auxiliary, fields, Δt)
+            column_bottom_boundary_energy_factor(heat_boundary_conditions.bottom, external_heat_fluxes.bottom,
+                                                 i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
         else
             zero(Δt)
         end
 
         top_factor = if k == Nz
-            column_top_boundary_energy_factor(boundary_conditions.top,
-                                              i, j, k, grid, auxiliary, fields, Δt)
+            column_top_boundary_energy_factor(heat_boundary_conditions.top, external_heat_fluxes.top,
+                                              i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
         else
             zero(Δt)
         end
@@ -1393,155 +1067,116 @@ end
         end
 
         left_flux = if k == 1
-            column_bottom_boundary_energy_flux(boundary_conditions.bottom,
-                                               i, j, k, grid, auxiliary, fields, relation, Δt)
+            column_bottom_boundary_energy_flux(heat_boundary_conditions.bottom, external_heat_fluxes.bottom,
+                                               i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
         else
             salinity_coupling_flux(i, j, k, grid, C, S)
         end
         left_flux += I[i, j, k]
 
         right_flux = if k == Nz
-            column_top_boundary_energy_flux(boundary_conditions.top,
-                                            i, j, k, grid, auxiliary, fields, relation, Δt)
+            column_top_boundary_energy_flux(heat_boundary_conditions.top, external_heat_fluxes.top,
+                                            i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
         else
             salinity_coupling_flux(i, j, k+1, grid, C, S)
         end
         right_flux += I[i, j, k+1]
 
-        flux_tendency = (right_flux - left_flux) / current_column_cell_thickness(i, j, k, grid)
+        flux_tendency = (right_flux - left_flux) / Δzᶜᶜᶜ(i, j, k, grid)
 
         # Conservative moving-grid balance divided by the current layer thickness:
         # Jⁿ⁺¹ Δr Eⁿ⁺¹ = Jⁿ Δr Eⁿ + δzᵤ Eᵘᵖᵤ - δzₗ Eᵘᵖₗ + Δt (Fᵤ - Fₗ).
         moving_flux_difference =
-            moving_face_displacement_flux(i, j, k+1, grid, fields.internal_energy,
-                                          boundary_conditions.bottom,
-                                          boundary_conditions.top) -
-            moving_face_displacement_flux(i, j, k, grid, fields.internal_energy,
-                                          boundary_conditions.bottom,
-                                          boundary_conditions.top)
-        moving_tendency = moving_flux_difference / current_column_cell_thickness(i, j, k, grid)
+            moving_face_displacement_flux(i, j, k+1, grid, fields.internal_energy, fields, relation,
+                                          heat_boundary_conditions.bottom,
+                                          heat_boundary_conditions.top) -
+            moving_face_displacement_flux(i, j, k, grid, fields.internal_energy, fields, relation,
+                                          heat_boundary_conditions.bottom,
+                                          heat_boundary_conditions.top)
+        moving_tendency = moving_flux_difference / Δzᶜᶜᶜ(i, j, k, grid)
         metric_ratio = previous_to_current_column_metric_ratio(i, j, k, grid)
         auxiliary.energy_rhs[i, j, k] =
             metric_ratio * fields.internal_energy[i, j, k] + moving_tendency + Δt * flux_tendency
     end
-end
-
-function _assemble_column_energy_system_cpu!(auxiliary, fields, grid, boundary_conditions, relation, Δt)
-    Nz = size(grid, 3)
-
-    for k in 1:Nz, j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            D = auxiliary.effective_energy_diffusivity
-            C = auxiliary.salinity_coupling_diffusivity
-            I = auxiliary.shortwave_flux
-            S = fields.bulk_salinity
-
-            left_factor = if k == 1
-                zero(Δt)
-            else
-                diffusion_factor(i, j, k, k, grid, D, Δt)
-            end
-
-            right_factor = if k == Nz
-                zero(Δt)
-            else
-                diffusion_factor(i, j, k, k+1, grid, D, Δt)
-            end
-
-            bottom_factor = if k == 1
-                column_bottom_boundary_energy_factor(boundary_conditions.bottom,
-                                                     i, j, k, grid, auxiliary, fields, Δt)
-            else
-                zero(Δt)
-            end
-
-            top_factor = if k == Nz
-                column_top_boundary_energy_factor(boundary_conditions.top,
-                                                  i, j, k, grid, auxiliary, fields, Δt)
-            else
-                zero(Δt)
-            end
-
-            auxiliary.diagonal[i, j, k] = 1 + left_factor + right_factor + bottom_factor + top_factor
-
-            if k > 1
-                auxiliary.lower_diagonal[i, j, k-1] = -left_factor
-            end
-
-            if k < Nz
-                auxiliary.upper_diagonal[i, j, k] = -right_factor
-            else
-                auxiliary.upper_diagonal[i, j, k] = zero(right_factor)
-                auxiliary.lower_diagonal[i, j, k] = zero(left_factor)
-            end
-
-            left_flux = if k == 1
-                column_bottom_boundary_energy_flux(boundary_conditions.bottom,
-                                                   i, j, k, grid, auxiliary, fields, relation, Δt)
-            else
-                salinity_coupling_flux(i, j, k, grid, C, S)
-            end
-            left_flux += I[i, j, k]
-
-            right_flux = if k == Nz
-                column_top_boundary_energy_flux(boundary_conditions.top,
-                                                i, j, k, grid, auxiliary, fields, relation, Δt)
-            else
-                salinity_coupling_flux(i, j, k+1, grid, C, S)
-            end
-            right_flux += I[i, j, k+1]
-
-            flux_tendency = (right_flux - left_flux) / current_column_cell_thickness(i, j, k, grid)
-
-            # Conservative moving-grid balance divided by the current layer thickness:
-            # Jⁿ⁺¹ Δr Eⁿ⁺¹ = Jⁿ Δr Eⁿ + δzᵤ Eᵘᵖᵤ - δzₗ Eᵘᵖₗ + Δt (Fᵤ - Fₗ).
-            moving_flux_difference =
-                moving_face_displacement_flux(i, j, k+1, grid, fields.internal_energy,
-                                              boundary_conditions.bottom,
-                                              boundary_conditions.top) -
-                moving_face_displacement_flux(i, j, k, grid, fields.internal_energy,
-                                              boundary_conditions.bottom,
-                                              boundary_conditions.top)
-            moving_tendency = moving_flux_difference / current_column_cell_thickness(i, j, k, grid)
-            metric_ratio = previous_to_current_column_metric_ratio(i, j, k, grid)
-            auxiliary.energy_rhs[i, j, k] =
-                metric_ratio * fields.internal_energy[i, j, k] + moving_tendency + Δt * flux_tendency
+    else
+    @inbounds begin
+        # Unconsolidated column: no resolved interior profile. Hold the internal energy with an identity row;
+        # the thickness change is taken up by the slab flux balance in the volume update.
+        auxiliary.diagonal[i, j, k] = one(Δt)
+        if k > 1
+            auxiliary.lower_diagonal[i, j, k-1] = zero(Δt)
         end
+        if k < Nz
+            auxiliary.upper_diagonal[i, j, k] = zero(Δt)
+        else
+            auxiliary.lower_diagonal[i, j, k] = zero(Δt)
+        end
+        auxiliary.energy_rhs[i, j, k] = fields.internal_energy[i, j, k]
     end
-
-    return nothing
+    end
 end
 
 """
-    assemble_column_energy_system!(thermodynamics, dt)
+    assemble_column_energy_system!(thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, dt)
 
 Assemble the tridiagonal backward-Euler system for one internal-energy step.
+`external_heat_fluxes` is the model's `(top, bottom)` flux set, evaluated through
+`getflux` with `clock` and `model_fields`. A `consolidation_thickness` of `nothing`
+treats every column as consolidated (the standalone path); otherwise columns thinner
+than it get an identity row (no resolved profile).
 """
-function assemble_column_energy_system!(thermodynamics::ColumnEnergyThermodynamics, Δt)
+function assemble_column_energy_system!(thermodynamics::ColumnEnergyThermodynamics,
+                                        external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
     grid = thermodynamics.fields.internal_energy.grid
     arch = architecture(grid)
 
     compute_column_shortwave_flux!(thermodynamics)
 
-    if on_cpu(grid)
-        _assemble_column_energy_system_cpu!(thermodynamics.auxiliary,
-                                            thermodynamics.fields,
-                                            grid,
-                                            thermodynamics.boundary_conditions,
-                                            thermodynamics.relation,
-                                            Δt)
-    else
-        launch!(arch, grid, :xyz,
-                _assemble_column_energy_system!,
-                thermodynamics.auxiliary,
-                thermodynamics.fields,
-                grid,
-                thermodynamics.boundary_conditions,
-                thermodynamics.relation,
-                Δt)
-    end
+    launch!(arch, grid, :xyz,
+            _assemble_column_energy_system!,
+            thermodynamics.auxiliary,
+            thermodynamics.fields,
+            grid,
+            thermodynamics.heat_boundary_conditions,
+            external_heat_fluxes,
+            thermodynamics.relation,
+            consolidation_thickness,
+            clock,
+            model_fields,
+            Δt)
 
     return nothing
+end
+
+#####
+##### Implicit surface-temperature solve for a `MeltingConstrainedFluxBalance` top, Icepack `temperature_changes`
+##### style: an outer iteration around the tridiagonal solve makes the lagged top flux self-consistent with the
+##### surface temperature `Tₛ`, found from the massless-surface balance `Q_atm(Tₛ) + conductance·(T_top − Tₛ) = 0`
+##### and capped at melting. Negligible conduction decouples the surface, so `Tₛ` is left unchanged there.
+#####
+
+@inline function column_surface_temperature_balance(i, j, grid, Tₛ⁻, conductance, T_top, external_flux, clock, model_fields)
+    FT = eltype(grid)
+    conductance > eps(FT) || return Tₛ⁻
+    # Massless-surface balance in the upward-positive convention: Qᵘ(Tₛ) = conductance·(T_top − Tₛ).
+    balance(T) = getflux(external_flux, i, j, grid, T, clock, model_fields) - conductance * (T_top - T)
+    solution = find_zero(balance, SecantMethod{FT}(Tₛ⁻ + one(FT), Tₛ⁻), CompactSolution())
+    return solution.root
+end
+
+@kernel function _update_column_surface_temperature!(auxiliary, fields, grid, external_flux, relation, clock, model_fields)
+    i, j = @index(Global, NTuple)
+    Nz = size(grid, 3)
+
+    @inbounds begin
+        Tₛ⁻ = auxiliary.surface_temperature[i, j, 1]
+        T_top = fields.temperature[i, j, Nz]
+        S_top = fields.bulk_salinity[i, j, Nz]
+        conductance = column_boundary_temperature_conductance(i, j, Nz+1, Nz, grid, auxiliary)
+        Tₘ = melting_temperature(relation.phase_transitions.liquidus, S_top)
+        Tₛ = column_surface_temperature_balance(i, j, grid, Tₛ⁻, conductance, T_top, external_flux, clock, model_fields)
+        auxiliary.surface_temperature[i, j, 1] = min(Tₛ, Tₘ)
+    end
 end
 
 """
@@ -1549,253 +1184,10 @@ end
 
 Solve the assembled column energy system into the internal-energy field.
 """
-function solve_column_tridiagonal_system_cpu!(solution, solver, rhs)
-    grid = solver.grid
-    a = solver.a
-    b = solver.b
-    c = solver.c
-    scratch = solver.t
-    Nz = size(grid, 3)
-    FT = eltype(grid)
-
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            β = b[i, j, 1]
-            solution[i, j, 1] = rhs[i, j, 1] / β
-
-            for k in 2:Nz
-                cᵏ⁻¹ = c[i, j, k-1]
-                bᵏ = b[i, j, k]
-                aᵏ⁻¹ = a[i, j, k-1]
-
-                scratch[i, j, k] = cᵏ⁻¹ / β
-                β = bᵏ - aᵏ⁻¹ * scratch[i, j, k]
-
-                ϕ★ = (rhs[i, j, k] - aᵏ⁻¹ * solution[i, j, k-1]) / β
-                definitely_diagonally_dominant = abs(β) > 10 * eps(FT)
-                solution[i, j, k] = ifelse(definitely_diagonally_dominant,
-                                           ϕ★,
-                                           solution[i, j, k])
-            end
-
-            for k in Nz-1:-1:1
-                solution[i, j, k] -= scratch[i, j, k+1] * solution[i, j, k+1]
-            end
-        end
-    end
-
-    return nothing
-end
-
 function solve_column_energy_system!(thermodynamics::ColumnEnergyThermodynamics)
-    grid = thermodynamics.fields.internal_energy.grid
-
-    if on_cpu(grid)
-        solve_column_tridiagonal_system_cpu!(thermodynamics.fields.internal_energy,
-                                             thermodynamics.solvers.energy_solver,
-                                             thermodynamics.auxiliary.energy_rhs)
-    else
-        solve!(thermodynamics.fields.internal_energy,
-               thermodynamics.solvers.energy_solver,
-               thermodynamics.auxiliary.energy_rhs)
-    end
-
-    return nothing
-end
-
-column_prescribed_temperature(boundary::PrescribedTemperature{<:Number}, i, j) =
-    boundary.temperature
-
-column_prescribed_temperature(boundary::PrescribedTemperature, i, j) =
-    @inbounds boundary.temperature[i, j]
-
-function solve_column_tridiagonal_vector(lower_diagonal,
-                                         diagonal,
-                                         upper_diagonal,
-                                         rhs)
-    n = length(rhs)
-    solution = similar(rhs)
-    scratch = zeros(eltype(rhs), max(n - 1, 0))
-    β = first(diagonal)
-
-    solution[1] = rhs[1] / β
-
-    for k in 2:n
-        scratch[k-1] = upper_diagonal[k-1] / β
-        β = diagonal[k] - lower_diagonal[k-1] * scratch[k-1]
-        solution[k] = (rhs[k] - lower_diagonal[k-1] * solution[k-1]) / β
-    end
-
-    for k in n-1:-1:1
-        solution[k] -= scratch[k] * solution[k+1]
-    end
-
-    return solution
-end
-
-function icepack_temperature_matrix_column_step(initial_temperature,
-                                                salinity,
-                                                absorbed_shortwave,
-                                                relation,
-                                                conductivity,
-                                                top_flux,
-                                                bottom_temperature,
-                                                Δz,
-                                                Δt;
-                                                max_iterations,
-                                                tolerance)
-    n = length(initial_temperature)
-    FT = promote_type(eltype(initial_temperature), eltype(salinity), typeof(Δz), typeof(Δt))
-    predicted_temperature = copy(initial_temperature)
-    midpoint_conductivity =
-        [ice_thermal_conductivity(conductivity, initial_temperature[k], salinity[k])
-         for k in 1:n]
-    interface_conductance =
-        [2 * midpoint_conductivity[k-1] * midpoint_conductivity[k] /
-         ((midpoint_conductivity[k-1] + midpoint_conductivity[k]) * Δz)
-         for k in 2:n]
-    bottom_conductance = 2 * first(midpoint_conductivity) / Δz
-
-    phase_transitions = relation.phase_transitions
-    ρᵢ = phase_transitions.density
-    cᵢ = phase_transitions.heat_capacity
-    L₀ = phase_transitions.reference_latent_heat
-    liquidus = phase_transitions.liquidus
-    top_index = n
-    puny = convert(FT, 1e-11)
-    previous_top_temperature_change = zero(FT)
-
-    for iteration in 1:max_iterations
-        lower_diagonal = zeros(FT, max(n - 1, 0))
-        diagonal = ones(FT, n)
-        upper_diagonal = zeros(FT, max(n - 1, 0))
-        rhs = copy(initial_temperature)
-
-        for k in 1:n
-            Tm = melting_temperature(liquidus, salinity[k])
-            heat_capacity = cᵢ - L₀ * Tm / (predicted_temperature[k] * initial_temperature[k])
-            η = Δt / (ρᵢ * Δz * heat_capacity)
-            rhs[k] += η * absorbed_shortwave[k]
-
-            if n == 1
-                diagonal[k] += η * bottom_conductance
-                rhs[k] += η * (top_flux + bottom_conductance * bottom_temperature)
-            elseif k == 1
-                diagonal[k] += η * (bottom_conductance + interface_conductance[k])
-                upper_diagonal[k] = -η * interface_conductance[k]
-                rhs[k] += η * bottom_conductance * bottom_temperature
-            elseif k == n
-                lower_diagonal[k-1] = -η * interface_conductance[k-1]
-                diagonal[k] += η * interface_conductance[k-1]
-                rhs[k] += η * top_flux
-            else
-                lower_diagonal[k-1] = -η * interface_conductance[k-1]
-                upper_diagonal[k] = -η * interface_conductance[k]
-                diagonal[k] += η * (interface_conductance[k-1] + interface_conductance[k])
-            end
-        end
-
-        next_temperature =
-            solve_column_tridiagonal_vector(lower_diagonal, diagonal, upper_diagonal, rhs)
-
-        for k in 1:n
-            Tm = melting_temperature(liquidus, salinity[k])
-
-            if Tm < 0 && next_temperature[k] > Tm - oftype(Tm, 1e-11)
-                next_temperature[k] = Tm
-            end
-        end
-
-        top_temperature_change = next_temperature[top_index] - predicted_temperature[top_index]
-        oscillating_top_temperature =
-            iteration > 1 &&
-            abs(top_temperature_change) > puny &&
-            abs(previous_top_temperature_change) > puny &&
-            -top_temperature_change / (previous_top_temperature_change + puny^2) > 0.5
-
-        if oscillating_top_temperature
-            top_temperature_change *= 0.5
-
-            for k in 1:n
-                next_temperature[k] += 0.5 * (predicted_temperature[k] - next_temperature[k])
-            end
-        elseif maximum(abs.(next_temperature .- predicted_temperature)) <= tolerance
-            return next_temperature
-        end
-
-        previous_top_temperature_change = top_temperature_change
-        predicted_temperature = next_temperature
-    end
-
-    return predicted_temperature
-end
-
-"""
-    icepack_temperature_matrix_step!(thermodynamics, dt; max_iterations=100, tolerance=sqrt(eps(eltype(grid))))
-
-Advance a fixed-salinity column with the Icepack BL99 temperature-matrix
-linearization. This validation utility is source-traceable to Icepack
-`temperature_changes`: conductance is held at the start-of-step temperature,
-and the brine-pocket heat capacity uses the secant form between the initial and
-latest predicted temperatures. The supported boundary configuration is a
-prescribed top energy flux and prescribed bottom temperature.
-"""
-function icepack_temperature_matrix_step!(thermodynamics::ColumnEnergyThermodynamics,
-                                          Δt;
-                                          max_iterations = 100,
-                                          tolerance = sqrt(eps(eltype(thermodynamics.fields.internal_energy.grid))))
-    grid = thermodynamics.fields.internal_energy.grid
-    on_cpu(grid) || error("icepack_temperature_matrix_step! currently supports CPU grids only.")
-    thermodynamics.relation isa FixedSalinityBrinePocketEnergyRelation ||
-        error("icepack_temperature_matrix_step! requires FixedSalinityBrinePocketEnergyRelation.")
-    thermodynamics.boundary_conditions.top isa PrescribedEnergyFlux ||
-        error("icepack_temperature_matrix_step! requires PrescribedEnergyFlux at the top boundary.")
-    thermodynamics.boundary_conditions.bottom isa PrescribedTemperature ||
-        error("icepack_temperature_matrix_step! requires PrescribedTemperature at the bottom boundary.")
-
-    fields = thermodynamics.fields
-    auxiliary = thermodynamics.auxiliary
-    relation = thermodynamics.relation
-    conductivity = thermal_conductivity(thermodynamics.energy_transport)
-    top_flux = column_boundary_energy_flux(thermodynamics.boundary_conditions.top)
-    Nz = size(grid, 3)
-
-    compute_column_thermodynamic_diagnostics!(thermodynamics)
-    compute_column_shortwave_flux!(thermodynamics)
-
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            initial_temperature = [fields.temperature[i, j, k] for k in 1:Nz]
-            salinity = [fields.bulk_salinity[i, j, k] for k in 1:Nz]
-            absorbed_shortwave =
-                [auxiliary.shortwave_flux[i, j, k+1] - auxiliary.shortwave_flux[i, j, k]
-                 for k in 1:Nz]
-            Δz = current_column_cell_thickness(i, j, 1, grid)
-            Tbot = column_prescribed_temperature(thermodynamics.boundary_conditions.bottom, i, j)
-
-            next_temperature =
-                icepack_temperature_matrix_column_step(initial_temperature,
-                                                       salinity,
-                                                       absorbed_shortwave,
-                                                       relation,
-                                                       conductivity,
-                                                       top_flux,
-                                                       Tbot,
-                                                       Δz,
-                                                       Δt;
-                                                       max_iterations,
-                                                       tolerance)
-
-            for k in 1:Nz
-                fields.temperature[i, j, k] = next_temperature[k]
-                fields.internal_energy[i, j, k] =
-                    internal_energy(relation, next_temperature[k], salinity[k])
-            end
-        end
-    end
-
-    compute_column_thermodynamic_diagnostics!(thermodynamics)
-    column_salinity_time_step!(thermodynamics, Δt)
+    solve!(thermodynamics.fields.internal_energy,
+           thermodynamics.solvers.energy_solver,
+           thermodynamics.auxiliary.energy_rhs)
 
     return nothing
 end
@@ -1839,56 +1231,9 @@ end
         moving_flux_difference =
             moving_face_displacement_flux(i, j, k+1, grid, fields.bulk_salinity) -
             moving_face_displacement_flux(i, j, k, grid, fields.bulk_salinity)
-        moving_tendency = moving_flux_difference / current_column_cell_thickness(i, j, k, grid)
+        moving_tendency = moving_flux_difference / Δzᶜᶜᶜ(i, j, k, grid)
         auxiliary.energy_rhs[i, j, k] = metric_ratio * fields.bulk_salinity[i, j, k] + moving_tendency
     end
-end
-
-function _assemble_column_salinity_system_cpu!(auxiliary, fields, grid, Δt)
-    Nz = size(grid, 3)
-
-    for k in 1:Nz, j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            K = auxiliary.salinity_diffusivity
-
-            left_factor = if k == 1
-                zero(Δt)
-            else
-                diffusion_factor(i, j, k, k, grid, K, Δt)
-            end
-
-            right_factor = if k == Nz
-                zero(Δt)
-            else
-                diffusion_factor(i, j, k, k+1, grid, K, Δt)
-            end
-
-            auxiliary.diagonal[i, j, k] = 1 + left_factor + right_factor
-
-            if k > 1
-                auxiliary.lower_diagonal[i, j, k-1] = -left_factor
-            end
-
-            if k < Nz
-                auxiliary.upper_diagonal[i, j, k] = -right_factor
-            else
-                auxiliary.upper_diagonal[i, j, k] = zero(right_factor)
-                auxiliary.lower_diagonal[i, j, k] = zero(left_factor)
-            end
-
-            metric_ratio = previous_to_current_column_metric_ratio(i, j, k, grid)
-
-            # Same conservative moving-grid update as energy, without boundary heat
-            # fluxes: Jⁿ⁺¹ Δr Sⁿ⁺¹ = Jⁿ Δr Sⁿ + δzᵤ Sᵘᵖᵤ - δzₗ Sᵘᵖₗ.
-            moving_flux_difference =
-                moving_face_displacement_flux(i, j, k+1, grid, fields.bulk_salinity) -
-                moving_face_displacement_flux(i, j, k, grid, fields.bulk_salinity)
-            moving_tendency = moving_flux_difference / current_column_cell_thickness(i, j, k, grid)
-            auxiliary.energy_rhs[i, j, k] = metric_ratio * fields.bulk_salinity[i, j, k] + moving_tendency
-        end
-    end
-
-    return nothing
 end
 
 """
@@ -1901,19 +1246,12 @@ function assemble_column_salinity_system!(thermodynamics::ColumnEnergyThermodyna
     grid = thermodynamics.fields.bulk_salinity.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _assemble_column_salinity_system_cpu!(thermodynamics.auxiliary,
-                                              thermodynamics.fields,
-                                              grid,
-                                              Δt)
-    else
-        launch!(arch, grid, :xyz,
-                _assemble_column_salinity_system!,
-                thermodynamics.auxiliary,
-                thermodynamics.fields,
-                grid,
-                Δt)
-    end
+    launch!(arch, grid, :xyz,
+            _assemble_column_salinity_system!,
+            thermodynamics.auxiliary,
+            thermodynamics.fields,
+            grid,
+            Δt)
 
     return nothing
 end
@@ -1924,17 +1262,9 @@ end
 Solve the assembled scalar salinity system into the bulk-salinity field.
 """
 function solve_column_salinity_system!(thermodynamics::ColumnEnergyThermodynamics)
-    grid = thermodynamics.fields.bulk_salinity.grid
-
-    if on_cpu(grid)
-        solve_column_tridiagonal_system_cpu!(thermodynamics.fields.bulk_salinity,
-                                             thermodynamics.solvers.salinity_solver,
-                                             thermodynamics.auxiliary.energy_rhs)
-    else
-        solve!(thermodynamics.fields.bulk_salinity,
-               thermodynamics.solvers.salinity_solver,
-               thermodynamics.auxiliary.energy_rhs)
-    end
+    solve!(thermodynamics.fields.bulk_salinity,
+           thermodynamics.solvers.salinity_solver,
+           thermodynamics.auxiliary.energy_rhs)
 
     return nothing
 end
@@ -1945,7 +1275,7 @@ end
     moving_flux_difference =
         moving_face_displacement_flux(i, j, k+1, grid, field) -
         moving_face_displacement_flux(i, j, k, grid, field)
-    moving_tendency = moving_flux_difference / current_column_cell_thickness(i, j, k, grid)
+    moving_tendency = moving_flux_difference / Δzᶜᶜᶜ(i, j, k, grid)
     @inbounds scratch[i, j, k] = metric_ratio * field[i, j, k] + moving_tendency
 end
 
@@ -1954,37 +1284,12 @@ end
     @inbounds field[i, j, k] = scratch[i, j, k]
 end
 
-function _apply_column_metric_change_cpu!(field, scratch)
-    grid = field.grid
-
-    for k in 1:size(grid, 3), j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            metric_ratio = previous_to_current_column_metric_ratio(i, j, k, grid)
-            moving_flux_difference =
-                moving_face_displacement_flux(i, j, k+1, grid, field) -
-                moving_face_displacement_flux(i, j, k, grid, field)
-            moving_tendency = moving_flux_difference / current_column_cell_thickness(i, j, k, grid)
-            scratch[i, j, k] = metric_ratio * field[i, j, k] + moving_tendency
-        end
-    end
-
-    for k in 1:size(grid, 3), j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds field[i, j, k] = scratch[i, j, k]
-    end
-
-    return nothing
-end
-
 function apply_column_metric_change!(field, scratch)
     grid = field.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _apply_column_metric_change_cpu!(field, scratch)
-    else
-        launch!(arch, grid, :xyz, _compute_column_metric_change!, scratch, field, grid)
-        launch!(arch, grid, :xyz, _copy_column_metric_change!, field, scratch)
-    end
+    launch!(arch, grid, :xyz, _compute_column_metric_change!, scratch, field, grid)
+    launch!(arch, grid, :xyz, _copy_column_metric_change!, field, scratch)
 
     return nothing
 end
@@ -2065,32 +1370,8 @@ end
     @inbounds begin
         ρi = column_stefan_parameter(sea_ice_density, i, j, 1)
         δQ = column_stefan_parameter(residual_energy_flux, i, j, 1)
-        ice_thickness[i, j, 1] += column_stefan_thickness_change(phase_transitions,
-                                                                 ρi,
-                                                                 δQ,
-                                                                 Δt)
+        ice_thickness[i, j, 1] += column_stefan_thickness_change(phase_transitions, ρi, δQ, Δt)
     end
-end
-
-function _column_stefan_thickness_update_cpu!(ice_thickness,
-                                              phase_transitions,
-                                              sea_ice_density,
-                                              residual_energy_flux,
-                                              Δt)
-    grid = ice_thickness.grid
-
-    for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        @inbounds begin
-            ρi = column_stefan_parameter(sea_ice_density, i, j, 1)
-            δQ = column_stefan_parameter(residual_energy_flux, i, j, 1)
-            ice_thickness[i, j, 1] += column_stefan_thickness_change(phase_transitions,
-                                                                     ρi,
-                                                                     δQ,
-                                                                     Δt)
-        end
-    end
-
-    return nothing
 end
 
 """
@@ -2107,21 +1388,13 @@ function column_stefan_thickness_update!(ice_thickness,
     grid = ice_thickness.grid
     arch = architecture(grid)
 
-    if on_cpu(grid)
-        _column_stefan_thickness_update_cpu!(ice_thickness,
-                                             phase_transitions,
-                                             sea_ice_density,
-                                             residual_energy_flux,
-                                             Δt)
-    else
-        launch!(arch, grid, :xy,
-                _column_stefan_thickness_update!,
-                ice_thickness,
-                phase_transitions,
-                sea_ice_density,
-                residual_energy_flux,
-                Δt)
-    end
+    launch!(arch, grid, :xy,
+            _column_stefan_thickness_update!,
+            ice_thickness,
+            phase_transitions,
+            sea_ice_density,
+            residual_energy_flux,
+            Δt)
 
     return nothing
 end
@@ -2313,19 +1586,155 @@ function column_layer_integral(values, faces)
     return integral
 end
 
-"""
-    column_energy_time_step!(thermodynamics, dt)
+@inline column_basal_stefan_flux(boundary, fields, auxiliary, grid, relation, i, j) = zero(eltype(grid))
 
-Advance the column thermodynamics by one semi-implicit energy step,
-followed by the scalar salinity step when salinity is prognostic. On a
-`MutableVerticalDiscretization`, the energy and salinity updates include the
-previous-to-current metric ratio and explicit swept-face tracer fluxes.
-"""
-function column_energy_time_step!(thermodynamics::ColumnEnergyThermodynamics, Δt)
+@inline function column_basal_stefan_flux(boundary::ColumnDirichletBoundary, fields, auxiliary, grid, relation, i, j)
+    conductance = column_boundary_temperature_conductance(i, j, 1, 1, grid, auxiliary)
+    T₁ = @inbounds fields.temperature[i, j, 1]
+    Tᵇ = column_dirichlet_temperature(boundary, i, j, grid, relation)
+    return conductance * (Tᵇ - T₁)
+end
+
+# Unconsolidated top heat loss (upward-positive), mirroring SlabThermodynamics so a thin column behaves like a
+# slab. A direct-flux/melting top exchanges its external flux; a Dirichlet (prescribed-temperature or ocean) top
+# additionally loses heat by single-layer conduction k/h (Tᵇ − Tᵗ) — the same conduction the slab wraps into its
+# top flux — so a thin conduction-driven column still grows instead of stalling.
+@inline column_unconsolidated_top_flux(bc, ext, conductivity, Tᵇ, h, i, j, grid, fields, relation, clock, model_fields) =
+    getflux(ext, i, j, grid, Tᵇ, clock, model_fields)
+
+@inline function column_unconsolidated_top_flux(bc::ColumnDirichletBoundary, ext, conductivity, Tᵇ, h, i, j, grid, fields, relation, clock, model_fields)
+    Tᵗ = column_dirichlet_temperature(bc, i, j, grid, relation)
+    S = @inbounds fields.bulk_salinity[i, j, 1]
+    k = ice_thermal_conductivity(conductivity, Tᵗ, S)
+    return k / h * (Tᵇ - Tᵗ) + getflux(ext, i, j, grid, Tᵗ, clock, model_fields)
+end
+
+@kernel function _column_stefan_volume_update!(ice_thickness, ice_concentration, consolidation_thickness,
+                                               sea_ice_density, phase_transitions, z, fields, auxiliary, grid,
+                                               heat_boundary_conditions, external_heat_fluxes, relation, conductivity,
+                                               clock, model_fields, Δt)
+    i, j = @index(Global, NTuple)
+    Nz = size(grid, 3)
+
+    @inbounds begin
+        hⁿ = ice_thickness[i, j, 1]
+        ℵⁿ = ice_concentration[i, j, 1]
+        hᶜ = consolidation_thickness[i, j, 1]
+        ρᵢ = column_stefan_parameter(sea_ice_density, i, j, 1)
+
+        # Roll the interface heights into the previous slot for the next moving-grid solve.
+        z.hs⁻[i, j, 1] = z.hsⁿ[i, j, 1]
+        z.hb⁻[i, j, 1] = z.hbⁿ[i, j, 1]
+
+        if hⁿ ≥ hᶜ
+            # Consolidated: resolved conduction drives basal congelation and the surface melt residual.
+            basal_flux = column_basal_stefan_flux(heat_boundary_conditions.bottom, fields, auxiliary, grid, relation, i, j)
+            surface_flux = column_surface_stefan_residual_flux(heat_boundary_conditions.top, external_heat_fluxes.top,
+                                                               i, j, Nz, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+
+            δhᵇ = column_stefan_thickness_change(phase_transitions, ρᵢ, basal_flux, Δt)
+            δhˢ = column_stefan_thickness_change(phase_transitions, ρᵢ, surface_flux, Δt)
+
+            # Per-ice thickness velocity (no ℵ premultiplication), matching SlabThermodynamics — `ice_volume_update`
+            # and the concentration step grow ℵ from open water, so a column nucleates ice from ℵ = 0 like the slab.
+            ∂t_V = (δhᵇ + δhˢ) / Δt
+            surface_shift = δhˢ
+        else
+            # Unconsolidated: no resolved interior profile, so the column behaves as a single-layer slab. Net growth
+            # is ℰ⁻¹ (Qᵘ − Qᵇ) with the shared upward-positive fluxes, where a Dirichlet top contributes its
+            # single-layer conduction k/h just as SlabThermodynamics does.
+            Tᵇ = column_dirichlet_temperature(heat_boundary_conditions.bottom, i, j, grid, relation)
+            ℰ = ρᵢ * latent_heat(phase_transitions, Tᵇ)
+            Qᵘ = column_unconsolidated_top_flux(heat_boundary_conditions.top, external_heat_fluxes.top,
+                                                conductivity, Tᵇ, hⁿ, i, j, grid, fields, relation, clock, model_fields)
+            Qᵇ = getflux(external_heat_fluxes.bottom, i, j, grid, Tᵇ, clock, model_fields)
+
+            ∂t_V = (Qᵘ - Qᵇ) / ℰ
+            surface_shift = zero(eltype(grid))
+        end
+
+        h⁺, ℵ⁺ = ice_volume_update(ProportionalEvolution(), ∂t_V, hⁿ, ℵⁿ, hᶜ, Δt)
+
+        # Keep the grid metric consistent with the (area-averaged) ice thickness: surface melt moves the surface,
+        # and the base is placed so the column height equals the updated thickness. For ℵ = 1 this is exactly the
+        # basal Stefan move (z.hbⁿ -= δhᵇ); for evolving ℵ it follows the redistributed thickness from ice_volume_update.
+        z.hsⁿ[i, j, 1] = z.hs⁻[i, j, 1] + surface_shift
+        z.hbⁿ[i, j, 1] = z.hsⁿ[i, j, 1] - h⁺
+
+        ice_thickness[i, j, 1] = h⁺
+        ice_concentration[i, j, 1] = ℵ⁺
+    end
+end
+
+function column_stefan_volume_update!(thermodynamics::ColumnEnergyThermodynamics, model, Δt)
+    grid = thermodynamics.fields.internal_energy.grid
+    launch!(architecture(grid), grid, :xy, _column_stefan_volume_update!,
+            model.ice_thickness, model.ice_concentration, model.ice_consolidation_thickness,
+            model.sea_ice_density, model.phase_transitions, sea_ice_discretization(grid),
+            thermodynamics.fields, thermodynamics.auxiliary, grid,
+            thermodynamics.heat_boundary_conditions, model.external_heat_fluxes, thermodynamics.relation,
+            thermal_conductivity(thermodynamics.energy_transport),
+            model.clock, fields(model), Δt)
+    return nothing
+end
+
+# The surface energy solve is a single tridiagonal pass for direct-flux and Dirichlet tops; a
+# `MeltingConstrainedFluxBalance` top adds the outer surface-temperature iteration around it.
+function column_surface_energy_solve!(thermodynamics::ColumnEnergyThermodynamics,
+                                      external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
+    column_surface_energy_solve!(thermodynamics.heat_boundary_conditions.top,
+                                 thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
+    return nothing
+end
+
+function column_surface_energy_solve!(top_boundary, thermodynamics::ColumnEnergyThermodynamics,
+                                      external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
+    assemble_column_energy_system!(thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
+    solve_column_energy_system!(thermodynamics)
+    return nothing
+end
+
+function column_surface_energy_solve!(top_boundary::MeltingConstrainedFluxBalance,
+                                      thermodynamics::ColumnEnergyThermodynamics,
+                                      external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt;
+                                      max_iterations = 20)
+    grid = thermodynamics.fields.internal_energy.grid
+    arch = architecture(grid)
+    tolerance = sqrt(eps(eltype(grid)))
+    surface_temperature = thermodynamics.auxiliary.surface_temperature
+    internal_energy = thermodynamics.fields.internal_energy
+
+    # Each outer pass re-solves from the same start-of-step enthalpy with the latest surface coupling, exactly as
+    # Icepack `temperature_changes` rebuilds the system from the initial temperature every iteration. Restoring it
+    # (rather than accumulating onto the previous solve) is what keeps the lagged top flux applied once per step.
+    start_of_step_energy = copy(interior(internal_energy))
+
+    for iteration in 1:max_iterations
+        previous = Array(interior(surface_temperature))
+        interior(internal_energy) .= start_of_step_energy
+        compute_column_thermodynamic_diagnostics!(thermodynamics)
+        assemble_column_energy_system!(thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
+        solve_column_energy_system!(thermodynamics)
+        compute_column_thermodynamic_diagnostics!(thermodynamics)
+        launch!(arch, grid, :xy, _update_column_surface_temperature!,
+                thermodynamics.auxiliary, thermodynamics.fields, grid,
+                external_heat_fluxes.top, thermodynamics.relation, clock, model_fields)
+        maximum(abs.(Array(interior(surface_temperature)) .- previous)) <= tolerance && break
+    end
+
+    return nothing
+end
+
+# Standalone solves treat every column as consolidated (`nothing`); the coupled step passes the model's
+# consolidation thickness so thin columns take the slab-balance regime.
+column_energy_time_step!(thermodynamics::ColumnEnergyThermodynamics, external_heat_fluxes, clock, model_fields, Δt) =
+    column_energy_time_step!(thermodynamics, external_heat_fluxes, clock, model_fields, nothing, Δt)
+
+function column_energy_time_step!(thermodynamics::ColumnEnergyThermodynamics,
+                                  external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
     compute_column_thermodynamic_diagnostics!(thermodynamics)
     compute_column_transport_coefficients!(thermodynamics)
-    assemble_column_energy_system!(thermodynamics, Δt)
-    solve_column_energy_system!(thermodynamics)
+    column_surface_energy_solve!(thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
     compute_column_thermodynamic_diagnostics!(thermodynamics)
     column_salinity_time_step!(thermodynamics, Δt)
 
@@ -2336,7 +1745,9 @@ function thermodynamic_time_step!(model,
                                   thermodynamics::ColumnEnergyThermodynamics,
                                   ::Nothing,
                                   Δt)
-    column_energy_time_step!(thermodynamics, Δt)
+    column_energy_time_step!(thermodynamics, model.external_heat_fluxes, model.clock, fields(model),
+                             model.ice_consolidation_thickness, Δt)
+    column_stefan_volume_update!(thermodynamics, model, Δt)
     return nothing
 end
 
@@ -2352,7 +1763,7 @@ function column_integrated_energy(thermodynamics::ColumnEnergyThermodynamics)
     total_energy = zero(eltype(grid))
 
     for k in 1:size(grid, 3), j in 1:size(grid, 2), i in 1:size(grid, 1)
-        total_energy += @inbounds E[i, j, k] * current_column_cell_thickness(i, j, k, grid)
+        total_energy += @inbounds E[i, j, k] * Δzᶜᶜᶜ(i, j, k, grid)
     end
 
     return total_energy
@@ -2370,21 +1781,26 @@ function column_integrated_salinity(thermodynamics::ColumnEnergyThermodynamics)
     total_salinity = zero(eltype(grid))
 
     for k in 1:size(grid, 3), j in 1:size(grid, 2), i in 1:size(grid, 1)
-        total_salinity += @inbounds S[i, j, k] * current_column_cell_thickness(i, j, k, grid)
+        total_salinity += @inbounds S[i, j, k] * Δzᶜᶜᶜ(i, j, k, grid)
     end
 
     return total_salinity
 end
 
-function column_boundary_energy_flux_difference(thermodynamics::ColumnEnergyThermodynamics)
+function column_boundary_energy_flux_difference(thermodynamics::ColumnEnergyThermodynamics,
+                                                external_heat_fluxes, clock, model_fields)
     grid = thermodynamics.fields.internal_energy.grid
-    boundary_conditions = thermodynamics.boundary_conditions
+    temperature = thermodynamics.fields.temperature
+    Nz = size(grid, 3)
     difference = zero(eltype(grid))
-    boundary_difference = (column_boundary_energy_flux(boundary_conditions.top) -
-                           column_boundary_energy_flux(boundary_conditions.bottom))
 
+    # Upward-positive fluxes: net energy gained by the column is (ocean-in) − (top-out) = Qᵇ − Qᵘ.
     for j in 1:size(grid, 2), i in 1:size(grid, 1)
-        difference += boundary_difference
+        T_top = @inbounds temperature[i, j, Nz]
+        T_bottom = @inbounds temperature[i, j, 1]
+        top = getflux(external_heat_fluxes.top, i, j, grid, T_top, clock, model_fields)
+        bottom = getflux(external_heat_fluxes.bottom, i, j, grid, T_bottom, clock, model_fields)
+        difference += bottom - top
     end
 
     return difference
@@ -2411,18 +1827,22 @@ end
 end
 
 """
-    column_energy_budget(thermodynamics, initial_energy, dt; final_energy = column_integrated_energy(thermodynamics),
+    column_energy_budget(thermodynamics, external_heat_fluxes, clock, model_fields, initial_energy, dt;
+                         final_energy = column_integrated_energy(thermodynamics),
                          surface_stefan_residual_flux = 0)
 
 Return a named tuple summarizing the column-integrated energy budget over one
-step with duration `dt`.
+step with duration `dt`. The boundary flux change is the requested (uncapped)
+`external_heat_fluxes` difference; surface melt at a `MeltingConstrainedFluxBalance`
+boundary is accounted separately through `surface_stefan_residual_flux`.
 """
 function column_energy_budget(thermodynamics::ColumnEnergyThermodynamics,
+                              external_heat_fluxes, clock, model_fields,
                               initial_energy,
                               Δt;
                               final_energy = column_integrated_energy(thermodynamics),
                               surface_stefan_residual_flux = 0)
-    boundary_flux_change = Δt * column_boundary_energy_flux_difference(thermodynamics)
+    boundary_flux_change = Δt * column_boundary_energy_flux_difference(thermodynamics, external_heat_fluxes, clock, model_fields)
     shortwave_flux_change = Δt * column_shortwave_flux_difference(thermodynamics)
     surface_stefan_residual_change = Δt * surface_stefan_residual_flux
     expected_change = boundary_flux_change + shortwave_flux_change + surface_stefan_residual_change
