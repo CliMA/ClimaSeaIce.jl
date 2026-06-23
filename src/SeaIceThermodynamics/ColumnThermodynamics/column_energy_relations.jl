@@ -1,51 +1,29 @@
 """
-    QuadraticLiquidusEnergyRelation([FT=Oceananigans.defaults.FloatType; phase_transitions])
+    AbstractColumnEnergyRelation
 
-Thermodynamic relation for a zero-solid-salinity sea-ice mixture with a linear liquidus. 
-The relation maps between temperature, bulk salinity, and volumetric internal energy and
-provides derivatives for semi-implicit column solves.
+Supertype for the column enthalpy ↔ temperature ↔ bulk-salinity relations. Every thermodynamic map
+(`internal_energy`, `temperature`, the derivatives, `liquid_fraction`, `brine_salinity`, `complete_melt_energy`)
+is written once against the volumetric-coefficient accessors. A concrete relation only needs `phase_transitions`
+plus its own `liquid_volumetric_heat_capacity` and `reference_volumetric_latent_heat` (which differ only in the
+density that scales the liquid properties).
 """
-struct QuadraticLiquidusEnergyRelation{PT}
-    phase_transitions :: PT
-end
+abstract type AbstractColumnEnergyRelation end
 
-function QuadraticLiquidusEnergyRelation(FT::DataType=Oceananigans.defaults.FloatType;
-                                         phase_transitions = PhaseTransitions(FT))
-    return QuadraticLiquidusEnergyRelation(phase_transitions)
-end
+@inline liquidus_slope(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.liquidus.slope
+@inline reference_temperature(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.reference_temperature
 
-Base.summary(::QuadraticLiquidusEnergyRelation) = "QuadraticLiquidusEnergyRelation"
-
-function Base.show(io::IO, relation::QuadraticLiquidusEnergyRelation)
-    print(io, "QuadraticLiquidusEnergyRelation", '\n')
-    print(io, "`-- phase_transitions: ", summary(relation.phase_transitions))
-end
-
-@inline liquidus_slope(relation::QuadraticLiquidusEnergyRelation) = relation.phase_transitions.liquidus.slope
-@inline reference_temperature(relation::QuadraticLiquidusEnergyRelation) = relation.phase_transitions.reference_temperature
-
-@inline function solid_volumetric_heat_capacity(relation::QuadraticLiquidusEnergyRelation)
+@inline function solid_volumetric_heat_capacity(relation::AbstractColumnEnergyRelation)
     phase_transitions = relation.phase_transitions
     return phase_transitions.density * phase_transitions.heat_capacity
 end
 
-@inline function liquid_volumetric_heat_capacity(relation::QuadraticLiquidusEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.liquid_density * phase_transitions.liquid_heat_capacity
-end
-
-@inline function reference_volumetric_latent_heat(relation::QuadraticLiquidusEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.liquid_density * phase_transitions.reference_latent_heat
-end
-
 """
-    internal_energy(relation::QuadraticLiquidusEnergyRelation, temperature, bulk_salinity)
+    internal_energy(relation::AbstractColumnEnergyRelation, temperature, bulk_salinity)
 
 Return the volumetric internal energy of a mushy sea-ice mixture with temperature `temperature`
 and bulk salinity `bulk_salinity`, assuming a linear liquidus and vanishing solid-ice salinity.
 """
-@inline function internal_energy(relation::QuadraticLiquidusEnergyRelation, temperature, bulk_salinity)
+@inline function internal_energy(relation::AbstractColumnEnergyRelation, temperature, bulk_salinity)
     T₀ = reference_temperature(relation)
     m  = liquidus_slope(relation)
     a  = solid_volumetric_heat_capacity(relation)
@@ -57,12 +35,12 @@ and bulk salinity `bulk_salinity`, assuming a linear liquidus and vanishing soli
 end
 
 """
-    temperature(relation::QuadraticLiquidusEnergyRelation, internal_energy, bulk_salinity)
+    temperature(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity)
 
 Recover temperature from volumetric `internal_energy` and bulk salinity by taking the cold/mushy
 root of the quadratic liquidus-energy relation.
 """
-@inline function temperature(relation::QuadraticLiquidusEnergyRelation, internal_energy, bulk_salinity)
+@inline function temperature(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity)
     T₀ = reference_temperature(relation)
     m  = liquidus_slope(relation)
     a  = solid_volumetric_heat_capacity(relation)
@@ -82,7 +60,7 @@ root of the quadratic liquidus-energy relation.
     return ifelse(mS == 0, T₀ + internal_energy / a, T₀ + ΔT)
 end
 
-@inline function temperature_denominator(relation::QuadraticLiquidusEnergyRelation, internal_energy, bulk_salinity)
+@inline function temperature_denominator(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity)
     T₀ = reference_temperature(relation)
     m  = liquidus_slope(relation)
     a  = solid_volumetric_heat_capacity(relation)
@@ -97,7 +75,7 @@ end
 
 Return `dT / dE` at fixed bulk salinity.
 """
-@inline temperature_energy_derivative(relation::QuadraticLiquidusEnergyRelation, internal_energy, bulk_salinity) =
+@inline temperature_energy_derivative(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity) =
     inv(temperature_denominator(relation, internal_energy, bulk_salinity))
 
 """
@@ -105,7 +83,7 @@ Return `dT / dE` at fixed bulk salinity.
 
 Return `dT / dS` at fixed internal energy.
 """
-@inline function temperature_salinity_derivative(relation::QuadraticLiquidusEnergyRelation, internal_energy, bulk_salinity)
+@inline function temperature_salinity_derivative(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity)
     T₀ = reference_temperature(relation)
     m  = liquidus_slope(relation)
     a  = solid_volumetric_heat_capacity(relation)
@@ -121,7 +99,7 @@ end
 
 Return the liquid fraction implied by the zero-solid-salinity closure.
 """
-@inline function liquid_fraction(relation::QuadraticLiquidusEnergyRelation, internal_energy, bulk_salinity)
+@inline function liquid_fraction(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity)
     T₀ = reference_temperature(relation)
     m  = liquidus_slope(relation)
     T  = temperature(relation, internal_energy, bulk_salinity)
@@ -133,7 +111,7 @@ end
 
 Return the brine salinity implied by the linear liquidus.
 """
-@inline function brine_salinity(relation::QuadraticLiquidusEnergyRelation, internal_energy, bulk_salinity)
+@inline function brine_salinity(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity)
     T₀ = reference_temperature(relation)
     m  = liquidus_slope(relation)
     T  = temperature(relation, internal_energy, bulk_salinity)
@@ -145,16 +123,43 @@ end
 
 Return the volumetric energy threshold above which sea ice with bulk salinity `bulk_salinity` is completely liquid.
 """
-@inline function complete_melt_energy(relation::QuadraticLiquidusEnergyRelation,
-                                      bulk_salinity)
-    phase_transitions = relation.phase_transitions
+@inline function complete_melt_energy(relation::AbstractColumnEnergyRelation, bulk_salinity)
     m = liquidus_slope(relation)
-    liquid_density = phase_transitions.liquid_density
-    liquid_heat_capacity = phase_transitions.liquid_heat_capacity
-    reference_latent_heat = phase_transitions.reference_latent_heat
+    return reference_volumetric_latent_heat(relation) - liquid_volumetric_heat_capacity(relation) * m * bulk_salinity
+end
 
-    return liquid_density * reference_latent_heat -
-           liquid_density * liquid_heat_capacity * m * bulk_salinity
+"""
+    QuadraticLiquidusEnergyRelation([FT=Oceananigans.defaults.FloatType; phase_transitions])
+
+Thermodynamic relation for a zero-solid-salinity sea-ice mixture with a linear liquidus.
+The relation maps between temperature, bulk salinity, and volumetric internal energy and
+provides derivatives for semi-implicit column solves. Uses the liquid density for the liquid
+volumetric properties.
+"""
+struct QuadraticLiquidusEnergyRelation{PT} <: AbstractColumnEnergyRelation
+    phase_transitions :: PT
+end
+
+function QuadraticLiquidusEnergyRelation(FT::DataType=Oceananigans.defaults.FloatType;
+                                         phase_transitions = PhaseTransitions(FT))
+    return QuadraticLiquidusEnergyRelation(phase_transitions)
+end
+
+Base.summary(::QuadraticLiquidusEnergyRelation) = "QuadraticLiquidusEnergyRelation"
+
+function Base.show(io::IO, relation::QuadraticLiquidusEnergyRelation)
+    print(io, "QuadraticLiquidusEnergyRelation", '\n')
+    print(io, "`-- phase_transitions: ", summary(relation.phase_transitions))
+end
+
+@inline function liquid_volumetric_heat_capacity(relation::QuadraticLiquidusEnergyRelation)
+    phase_transitions = relation.phase_transitions
+    return phase_transitions.liquid_density * phase_transitions.liquid_heat_capacity
+end
+
+@inline function reference_volumetric_latent_heat(relation::QuadraticLiquidusEnergyRelation)
+    phase_transitions = relation.phase_transitions
+    return phase_transitions.liquid_density * phase_transitions.reference_latent_heat
 end
 
 """
@@ -214,7 +219,7 @@ end
 Fixed-salinity drained-ice thermodynamic relation for reproducing CICE/Icepack BL99 column physics. 
 The shifted internal energy is `E = rho_i c_i T - rho_i (c_w - c_i) mu S - rho_i L_0 mu S / T`.
 """
-struct FixedSalinityBrinePocketEnergyRelation{PT}
+struct FixedSalinityBrinePocketEnergyRelation{PT} <: AbstractColumnEnergyRelation
     phase_transitions :: PT
 end
 
@@ -232,14 +237,7 @@ function Base.show(io::IO, relation::FixedSalinityBrinePocketEnergyRelation)
     print(io, "`-- phase_transitions: ", summary(relation.phase_transitions))
 end
 
-@inline liquidus_slope(relation::FixedSalinityBrinePocketEnergyRelation) = relation.phase_transitions.liquidus.slope
-@inline reference_temperature(relation::FixedSalinityBrinePocketEnergyRelation) = relation.phase_transitions.reference_temperature
-
-@inline function solid_volumetric_heat_capacity(relation::FixedSalinityBrinePocketEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.density * phase_transitions.heat_capacity
-end
-
+# BL99 scales the liquid volumetric properties by the ice density rather than the liquid density.
 @inline function liquid_volumetric_heat_capacity(relation::FixedSalinityBrinePocketEnergyRelation)
     phase_transitions = relation.phase_transitions
     return phase_transitions.density * phase_transitions.liquid_heat_capacity
@@ -248,84 +246,4 @@ end
 @inline function reference_volumetric_latent_heat(relation::FixedSalinityBrinePocketEnergyRelation)
     phase_transitions = relation.phase_transitions
     return phase_transitions.density * phase_transitions.reference_latent_heat
-end
-
-@inline function internal_energy(relation::FixedSalinityBrinePocketEnergyRelation, temperature, bulk_salinity)
-    T₀ = reference_temperature(relation)
-    m  = liquidus_slope(relation)
-    a  = solid_volumetric_heat_capacity(relation)
-    b  = liquid_volumetric_heat_capacity(relation) - a
-    c  = reference_volumetric_latent_heat(relation)
-    ΔT = temperature - T₀
-    mS = m * bulk_salinity
-    return ifelse(mS == 0, a * ΔT, a * ΔT - b * mS - c * mS / ΔT)
-end
-
-@inline function temperature(relation::FixedSalinityBrinePocketEnergyRelation, internal_energy, bulk_salinity)
-    T₀ = reference_temperature(relation)
-    m  = liquidus_slope(relation)
-    a  = solid_volumetric_heat_capacity(relation)
-    b  = liquid_volumetric_heat_capacity(relation) - a
-    c  = reference_volumetric_latent_heat(relation)
-
-    mS = m * bulk_salinity
-
-    E_plus_bmS = internal_energy + b * mS
-    discriminant = E_plus_bmS^2 + 4 * a * c * mS
-    sqrt_discriminant = sqrt(discriminant)
-
-    ΔT₁ = -2 * c * mS / (sqrt_discriminant + E_plus_bmS)
-    ΔT₂ = (E_plus_bmS - sqrt_discriminant) / (2 * a)
-    ΔT  = ifelse(E_plus_bmS > 0, ΔT₁, ΔT₂)
-
-    return ifelse(mS == 0, T₀ + internal_energy / a, T₀ + ΔT)
-end
-
-@inline function temperature_denominator(relation::FixedSalinityBrinePocketEnergyRelation, internal_energy, bulk_salinity)
-    T₀ = reference_temperature(relation)
-    m  = liquidus_slope(relation)
-    a  = solid_volumetric_heat_capacity(relation)
-    c  = reference_volumetric_latent_heat(relation)
-    mS = m * bulk_salinity
-    ΔT = temperature(relation, internal_energy, bulk_salinity) - T₀
-    return ifelse(mS == 0, a, a + c * mS / ΔT^2)
-end
-
-@inline temperature_energy_derivative(relation::FixedSalinityBrinePocketEnergyRelation, internal_energy, bulk_salinity) =
-    inv(temperature_denominator(relation, internal_energy, bulk_salinity))
-
-@inline function temperature_salinity_derivative(relation::FixedSalinityBrinePocketEnergyRelation, internal_energy, bulk_salinity)
-    T₀ = reference_temperature(relation)
-    m  = liquidus_slope(relation)
-    a  = solid_volumetric_heat_capacity(relation)
-    b  = liquid_volumetric_heat_capacity(relation) - a
-    c  = reference_volumetric_latent_heat(relation)
-    ΔT = temperature(relation, internal_energy, bulk_salinity) - T₀
-    denominator = a + c * m * bulk_salinity / ΔT^2
-    return m * (b + c / ΔT) / denominator
-end
-
-@inline function liquid_fraction(relation::FixedSalinityBrinePocketEnergyRelation, internal_energy, bulk_salinity)
-    T₀ = reference_temperature(relation)
-    m  = liquidus_slope(relation)
-    T  = temperature(relation, internal_energy, bulk_salinity)
-    return ifelse(bulk_salinity == 0, zero(T), m * bulk_salinity / (T₀ - T))
-end
-
-@inline function brine_salinity(relation::FixedSalinityBrinePocketEnergyRelation, internal_energy, bulk_salinity)
-    T₀ = reference_temperature(relation)
-    m  = liquidus_slope(relation)
-    T  = temperature(relation, internal_energy, bulk_salinity)
-    return (T₀ - T) / m
-end
-
-@inline function complete_melt_energy(relation::FixedSalinityBrinePocketEnergyRelation,
-                                      bulk_salinity)
-    phase_transitions = relation.phase_transitions
-    m = liquidus_slope(relation)
-    density = phase_transitions.density
-    liquid_heat_capacity = phase_transitions.liquid_heat_capacity
-    reference_latent_heat = phase_transitions.reference_latent_heat
-
-    return density * (reference_latent_heat - liquid_heat_capacity * m * bulk_salinity)
 end

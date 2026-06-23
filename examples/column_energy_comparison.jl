@@ -240,7 +240,7 @@ melt_grid = RectilinearGrid(size = 1,
 melt_salinity = 3.0
 melt_initial_temperature = -0.2
 requested_melt_flux = 1000.0 # W m^-2 into the surface
-melt_dt = 1hour
+melt_time_step = 1hour
 melt_stop_time = 2days
 ρi = 900.0
 
@@ -278,24 +278,24 @@ end
 
 save_melt_state!(0, 0.0, 0.0)
 
-for n in 1:round(Int, melt_stop_time / melt_dt)
+for n in 1:round(Int, melt_stop_time / melt_time_step)
     initial_energy = column_integrated_energy(melt_column)
     compute_column_surface_stefan_residual_flux!(surface_residual_flux, melt_column,
-                                                 melt_external_heat_fluxes, clock, model_fields, melt_dt)
+                                                 melt_external_heat_fluxes, clock, model_fields, melt_time_step)
     residual_flux = first(interior(surface_residual_flux))
 
-    column_energy_time_step!(melt_column, melt_external_heat_fluxes, clock, model_fields, melt_dt)
+    column_energy_time_step!(melt_column, melt_external_heat_fluxes, clock, model_fields, melt_time_step)
     column_stefan_thickness_update!(ice_thickness,
                                     relation.phase_transitions,
                                     ρi,
                                     surface_residual_flux,
-                                    melt_dt)
+                                    melt_time_step)
 
     budget = column_energy_budget(melt_column, melt_external_heat_fluxes, clock, model_fields,
-                                  initial_energy, melt_dt;
+                                  initial_energy, melt_time_step;
                                   surface_stefan_residual_flux = residual_flux)
 
-    save_melt_state!(n * melt_dt, residual_flux, budget.relative_residual)
+    save_melt_state!(n * melt_time_step, residual_flux, budget.relative_residual)
 end
 
 melt_result = (
@@ -349,10 +349,10 @@ nothing # hide
 # the quasi-steady slab does not.
 
 comparison_top_flux = 30.0 # W m^-2, surface cooling
-comparison_dt = 1hour
+comparison_time_step = 1hour
 comparison_stop_time = 60days
-comparison_steps = round(Int, comparison_stop_time / comparison_dt)
-comparison_save_stride = round(Int, 1day / comparison_dt)
+comparison_steps = round(Int, comparison_stop_time / comparison_time_step)
+comparison_save_stride = round(Int, 1day / comparison_time_step)
 initial_comparison_thickness = 0.5
 
 column_grid = RectilinearGrid(size = (1, 1, 16),
@@ -393,11 +393,11 @@ column_thickness = Float64[initial_comparison_thickness]
 slab_thickness = Float64[initial_comparison_thickness]
 
 for n in 1:comparison_steps
-    time_step!(column_model, comparison_dt)
-    time_step!(slab_model, comparison_dt)
+    time_step!(column_model, comparison_time_step)
+    time_step!(slab_model, comparison_time_step)
 
     if n % comparison_save_stride == 0
-        push!(comparison_times, n * comparison_dt)
+        push!(comparison_times, n * comparison_time_step)
         push!(column_thickness, first(interior(column_model.ice_thickness)))
         push!(slab_thickness, first(interior(slab_model.ice_thickness)))
     end

@@ -149,8 +149,8 @@ T_b = T_m(S)
 ```
 
 This is appropriate when the ocean mixed layer is well-mixed and maintains thermal
-equilibrium with the ice bottom. [`OceanFreezingTemperatureBoundary`](@ref) is
-a descriptive alias for this same boundary condition.
+equilibrium with the ice bottom, and is expressed with the
+[`IceWaterThermalEquilibrium`](@ref) boundary condition.
 
 ## External heat fluxes
 

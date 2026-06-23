@@ -26,6 +26,7 @@ using ClimaSeaIce.SeaIceThermodynamics:
     column_energy_budget,
     column_energy_time_step!,
     column_energy_thickness_remap!,
+    column_height,
     column_integrated_energy,
     column_integrated_salinity,
     column_layer_integral,
@@ -58,7 +59,7 @@ using ClimaSeaIce.SeaIceThermodynamics:
 using ClimaSeaIce: SeaIceModel
 using Adapt
 using Oceananigans
-using Oceananigans.TimeSteppers: Clock
+using Oceananigans.TimeSteppers: Clock, time_step!
 using Oceananigans.Fields: interior, set!
 using Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
 using Statistics: median
@@ -1282,6 +1283,70 @@ end
                                     dt)
 
     @test abs(first(interior(h)) - expected_thickness) < 1e-12
+end
+
+# Regression over a full `time_step!` for two coupled surface-melt bugs: (1) the volume-update surface Stefan
+# residual must use the start-of-step enthalpy the cap used (not the post-solve enthalpy the cap drove to complete
+# melt), and (2) the column physics must be applied once per full step, not re-melted on each RK substep from the
+# previous substep's already-melted state. Either bug ablates the surface against ~the full requested flux.
+@testset "Coupled surface melt uses start-of-step enthalpy" begin
+    Nz = 4
+    h₀ = 0.1
+    grid = RectilinearGrid(size = Nz, z = SeaIceColumnDiscretization((0, 1)), topology = (Flat, Flat, Bounded))
+
+    relation = QuadraticLiquidusEnergyRelation(Float64)
+    phase_transitions = relation.phase_transitions
+    sea_ice_density = 900.0
+    S  = 0.0
+    T₀ = -1.0
+    Δt = 1000.0
+    excess = 500.0
+
+    Δz = h₀ / Nz                                      # uniform metric once the grid is synced to h₀ (Lz = 1)
+    E₀ = internal_energy(relation, T₀, S)
+    flux_to_melt = (complete_melt_energy(relation, S) - E₀) * Δz / Δt
+    requested = flux_to_melt + excess                  # caps with a known `excess`
+    expected_ΔV = column_stefan_thickness_change(phase_transitions, sea_ice_density, -excess, Δt)
+    buggy_ΔV    = column_stefan_thickness_change(phase_transitions, sea_ice_density, -requested, Δt)
+
+    thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
+        relation,
+        salinity_profile = S,
+        energy_transport = ConductiveTemperatureTransport(conductivity = 0.0),
+        heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = FluxBoundary()))
+
+    model = SeaIceModel(grid;
+        ice_thermodynamics = thermodynamics,
+        ice_consolidation_thickness = 0.05,
+        sea_ice_density,
+        top_heat_flux = -requested,
+        bottom_heat_flux = 0)
+
+    set!(model, h = h₀, ℵ = 1)
+    set!(thermodynamics; bulk_salinity = S, temperature = T₀)
+
+    V_before = first(interior(model.ice_thickness)) * first(interior(model.ice_concentration))
+    time_step!(model, Δt)
+    V_after = first(interior(model.ice_thickness)) * first(interior(model.ice_concentration))
+    ΔV = V_after - V_before
+
+    @test isapprox(ΔV, expected_ΔV; rtol = 1e-2)       # only the excess melts, sized against start-of-step E
+    @test abs(ΔV) < abs(buggy_ΔV) / 2                  # not the post-solve double-count (≈ full requested flux)
+end
+
+# `set!(model; h)` must sync a resolved column's moving vertical metric to the ice thickness, so a model built
+# through the public API (without the explicit `initialize_column_interfaces!` boilerplate) is not run on the
+# default reference height.
+@testset "set! syncs the column grid metric" begin
+    grid = RectilinearGrid(size = 8, z = SeaIceColumnDiscretization((0, 2)), topology = (Flat, Flat, Bounded))
+    thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
+        salinity_profile = 0.0,
+        energy_transport = ConductiveTemperatureTransport(conductivity = 2.0),
+        heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = IceWaterThermalEquilibrium(salinity = 0)))
+    model = SeaIceModel(grid; ice_thermodynamics = thermodynamics)
+
+    set!(model, h = 0.3, ℵ = 1)
+    @test isapprox(column_height(grid, 1, 1), 0.3; rtol = 1e-12)
 end
 
 @testset "Column implicit surface temperature solve" begin

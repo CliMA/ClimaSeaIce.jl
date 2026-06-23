@@ -221,8 +221,6 @@ density of that medium.
     return ℒ₀ + (ρℓ * cℓ / ρ - c) * (T - T₀)
 end
 
-include("column_energy_relations.jl")
-
 # Fallback for no ice_thermodynamics
 @inline thermodynamic_tendency(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
@@ -258,8 +256,7 @@ import Oceananigans.Utils: prettytime
 # include("EnthalpyMethodThermodynamics.jl")
 
 include("slab_heat_and_tracer_fluxes.jl")
-include("sea_ice_column_discretization.jl")
-include("column_energy_thermodynamics.jl")
+include("ColumnThermodynamics/ColumnThermodynamics.jl")
 include("slab_sea_ice_thermodynamics.jl")
 include("slab_thermodynamics_tendencies.jl")
 include("thermodynamic_time_step.jl")
