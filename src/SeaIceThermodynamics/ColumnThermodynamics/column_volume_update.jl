@@ -7,12 +7,9 @@
 Return the conservative Stefan thickness change implied by a residual interface
 energy flux. `residual_energy_flux` is positive for ice growth.
 """
-@inline function column_stefan_thickness_change(phase_transitions,
-                                                sea_ice_density,
-                                                residual_energy_flux,
-                                                Δt)
-    volumetric_latent_heat = sea_ice_density * phase_transitions.reference_latent_heat
-    return Δt * residual_energy_flux / volumetric_latent_heat
+@inline function column_stefan_thickness_change(𝒫, ρᵢ, Qe, Δt)
+    ℒ = ρᵢ * 𝒫.reference_latent_heat
+    return Δt * Qe / ℒ
 end
 
 @kernel function _column_stefan_thickness_update!(ice_thickness,

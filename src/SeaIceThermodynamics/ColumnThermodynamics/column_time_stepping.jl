@@ -2,33 +2,29 @@
 # lake/ocean) fires its side effect only once even though the energy solve and the volume update both read it.
 # `getflux` of the resulting 2D field is a plain array read. The top flux stays live because a melting surface
 # solve must evaluate it at trial temperatures, exactly as SlabThermodynamics's root-finder does.
-@kernel function _cache_column_bottom_external_flux!(cache, fields, grid, external_bottom_flux, clock, model_fields)
+@kernel function _cache_column_bottom_external_flux!(Qb, fields, grid, Qe, clock, fields)
     i, j = @index(Global, NTuple)
     T = @inbounds fields.temperature[i, j, 1]
-    @inbounds cache[i, j, 1] = getflux(external_bottom_flux, i, j, grid, T, clock, model_fields)
+    @inbounds Qb[i, j, 1] = getflux(Qe, i, j, grid, T, clock, fields)
 end
 
-function cached_external_heat_fluxes(thermodynamics::ColumnEnergyThermodynamics, external_heat_fluxes, clock, model_fields)
-    grid = thermodynamics.fields.internal_energy.grid
-    cache = thermodynamics.auxiliary.bottom_external_flux
-    launch!(architecture(grid), grid, :xy, _cache_column_bottom_external_flux!,
-            cache, thermodynamics.fields, grid, external_heat_fluxes.bottom, clock, model_fields)
-    return (top = external_heat_fluxes.top, bottom = cache)
+function cached_external_heat_fluxes(th::ColumnEnergyThermodynamics, Qe, clock, fields)
+    grid = th.fields.internal_energy.grid
+    cache = th.auxiliary.bottom_external_flux
+    launch!(architecture(grid), grid, :xy, _cache_column_bottom_external_flux!, cache, th.fields, grid, Qe.bottom, clock, model_fields)
+    return (top = Qe.top, bottom = cache)
 end
 
 # The surface energy solve is a single tridiagonal pass for direct-flux and Dirichlet tops; a
 # `MeltingConstrainedFluxBalance` top adds the outer surface-temperature iteration around it.
-function column_surface_energy_solve!(thermodynamics::ColumnEnergyThermodynamics,
-                                      external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
-    column_surface_energy_solve!(thermodynamics.heat_boundary_conditions.top,
-                                 thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
+function column_surface_energy_solve!(th::ColumnEnergyThermodynamics, Qe, clock, fields, hc, Δt)
+    column_surface_energy_solve!(th.heat_boundary_conditions.top, th, Qe, clock, fields, hc, Δt)
     return nothing
 end
 
-function column_surface_energy_solve!(top_boundary, thermodynamics::ColumnEnergyThermodynamics,
-                                      external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
-    assemble_column_energy_system!(thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
-    solve_column_energy_system!(thermodynamics)
+function column_surface_energy_solve!(top_boundary, th::ColumnEnergyThermodynamics, Qe, clock, fields, hc, Δt)
+    assemble_column_energy_system!(th, Qe, clock, fields, hc, Δt)
+    solve_column_energy_system!(th)
     return nothing
 end
 
@@ -96,18 +92,15 @@ end
 @inline apply_column_thermodynamics_this_stage(timestepper::SplitRungeKuttaTimeStepper, clock) =
     clock.stage == timestepper.Nstages
 
-function thermodynamic_time_step!(model,
-                                  thermodynamics::ColumnEnergyThermodynamics,
-                                  ::Nothing,
-                                  Δt)
+function thermodynamic_time_step!(model, th::ColumnEnergyThermodynamics, ::Nothing, Δt)
+
     apply_column_thermodynamics_this_stage(model.timestepper, model.clock) || return nothing
 
     # Evaluate stateful external fluxes once per step, then drive both the energy solve and the volume update from
     # the cached values so their side effects (e.g. an evolving lake) fire exactly once — as in SlabThermodynamics.
-    external_heat_fluxes = cached_external_heat_fluxes(thermodynamics, model.external_heat_fluxes, model.clock, fields(model))
-    column_energy_time_step!(thermodynamics, external_heat_fluxes, model.clock, fields(model),
-                             model.ice_consolidation_thickness, Δt)
-    column_stefan_volume_update!(thermodynamics, model, external_heat_fluxes, Δt)
+    Qe = cached_external_heat_fluxes(th, model.external_heat_fluxes, model.clock, fields(model))
+    column_energy_time_step!(th, Qe, model.clock, fields(model), model.ice_consolidation_thickness, Δt)
+    column_stefan_volume_update!(th, model, Qe, Δt)
     return nothing
 end
 
