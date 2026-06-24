@@ -2,10 +2,10 @@
 # lake/ocean) fires its side effect only once even though the energy solve and the volume update both read it.
 # `getflux` of the resulting 2D field is a plain array read. The top flux stays live because a melting surface
 # solve must evaluate it at trial temperatures, exactly as SlabThermodynamics's root-finder does.
-@kernel function _cache_column_bottom_external_flux!(Qb, fields, grid, Qe, clock, fields)
+@kernel function _cache_column_bottom_external_flux!(Qb, fields, grid, Qe, clock, model_fields)
     i, j = @index(Global, NTuple)
     T = @inbounds fields.temperature[i, j, 1]
-    @inbounds Qb[i, j, 1] = getflux(Qe, i, j, grid, T, clock, fields)
+    @inbounds Qb[i, j, 1] = getflux(Qe, i, j, grid, T, clock, model_fields)
 end
 
 function cached_external_heat_fluxes(th::ColumnEnergyThermodynamics, Qe, clock, fields)
