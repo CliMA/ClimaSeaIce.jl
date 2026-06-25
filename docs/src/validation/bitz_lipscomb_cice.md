@@ -111,10 +111,8 @@ onto equal layers with the same `adjust_enthalpy` overlap remap.
 The public ClimaSeaIce names used for this BL99 validation are
 `FixedDrainedIceSalinityProfile`, `FixedSalinityBrinePocketEnergyRelation`,
 `MaykutUntersteinerConductivity`, `BubblyBrineConductivity`,
-`MeltingConstrainedSurfaceFluxBalance`, and
-`OceanFreezingTemperatureBoundary`. The last two are descriptive aliases for
-the existing `MeltingConstrainedFluxBalance` and `IceWaterThermalEquilibrium`
-boundary conditions.
+`MeltingConstrainedSurfaceFluxBalance` (a descriptive alias for
+`MeltingConstrainedFluxBalance`), and `IceWaterThermalEquilibrium`.
 
 ## Current Dashboard
 

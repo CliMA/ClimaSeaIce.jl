@@ -29,7 +29,13 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceThermodynamics: latent_heat
+using ClimaSeaIce.SeaIceThermodynamics: latent_heat,
+                                        prescribed_salinity_enthalpy_thermodynamics,
+                                        SeaIceColumnDiscretization,
+                                        ConductiveTemperatureTransport,
+                                        IceWaterThermalEquilibrium
+                                        
+import ClimaSeaIce.SeaIceThermodynamics: initialize_column_interfaces!
 using CairoMakie
 
 grid = RectilinearGrid(size=4, x=(0, 1), topology=(Periodic, Flat, Flat))
@@ -264,6 +270,56 @@ simulation_snow.callbacks[:save]   = Callback(accumulate_snow_ts)
 simulation_snow.callbacks[:energy] = Callback(accumulate_energy_snow)
 run!(simulation_snow)
 
+# ## Resolved-column bare-ice simulation
+#
+# `ColumnEnergyThermodynamics` reads the same `external_heat_fluxes` as the slab, so we freeze the same four lakes
+# with a vertically-resolved bare-ice column for comparison. The ocean/lake boundary is the existing
+# `IceWaterThermalEquilibrium` (ice-water equilibrium) and the lake heat flux is its paired `bottom_heat_flux`
+# — the column grows ice at the base from that flux, exactly as the slab does. The lake coupler mutates its own
+# state, so as with the snow run we give the column independent atmosphere and lake copies; the model evaluates each
+# external flux once per step, so the lakes advance correctly.
+
+atmosphere_column = (transfer_coefficient=1e-3, atmosphere_density=1.225, atmosphere_heat_capacity=1004,
+                     atmosphere_temperature=[-20, -10, -5, 0], atmosphere_wind_speed=5,
+                     atmosphere_ice_flux=[0.0, 0.0, 0.0, 0.0])
+
+lake_column = (lake_density=1000, lake_heat_capacity=4000, lake_temperature=[1.0, 1.0, 1.0, 1.0], lake_depth=10,
+               lake_ice_flux=[0.0, 0.0, 0.0, 0.0], atmosphere_lake_flux=[0.0, 0.0, 0.0, 0.0], Δt=10minutes)
+
+column_grid = RectilinearGrid(size=(4, 16), x=(0, 1),
+                              z=SeaIceColumnDiscretization((0, 1)),
+                              topology=(Periodic, Flat, Bounded))
+
+column_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(column_grid;
+    salinity_profile = 0,
+    energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+    heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
+
+column_model = SeaIceModel(column_grid;
+    ice_consolidation_thickness = 0.05,
+    ice_thermodynamics = column_thermodynamics,
+    top_heat_flux = FluxFunction(sensible_heat_flux; parameters=atmosphere_column),
+    bottom_heat_flux = FluxFunction(advance_lake_and_frazil_flux;
+                                    parameters=(; lake=lake_column, atmosphere=atmosphere_column)))
+
+set!(column_model, h=0.01, ℵ=0)
+initialize_column_interfaces!(column_grid, column_model.ice_thickness)
+set!(column_thermodynamics; bulk_salinity = 0, temperature = -1)
+
+column_simulation = Simulation(column_model, Δt=Δt, stop_time=stop_time)
+
+timeseries_column = []
+function accumulate_column(sim)
+    h = sim.model.ice_thickness
+    push!(timeseries_column, (time(sim), h[1, 1, 1], h[2, 1, 1], h[3, 1, 1], h[4, 1, 1]))
+end
+column_simulation.callbacks[:save] = Callback(accumulate_column)
+run!(column_simulation)
+
+t_c = [d[1]  for d in timeseries_column]
+h_c = [[d[c+1] for d in timeseries_column] for c in 1:4]
+
 # ## Extracting the time series
 
 t_b = [d[1]  for d in timeseries_bare]
@@ -289,7 +345,7 @@ atm_labels = ["-20°C", "-10°C", "-5°C", "0°C"]
 fig = Figure(size=(1200, 1000))
 
 axh = Axis(fig[1, 1], ylabel="Ice thickness (m)",
-           title="Ice thickness: bare (solid) vs snow (dashed)")
+           title="Ice thickness: bare slab (solid), snow (dashed), resolved column (dotted)")
 axs = Axis(fig[2, 1], ylabel="Snow thickness (m)",
            title="Snow thickness")
 axT = Axis(fig[3, 1], ylabel="Surface temperature (°C)",
@@ -300,6 +356,7 @@ axL = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Lake temperature (°C)",
 for c in 1:4
     lines!(axh, t_b ./ day, h_b[c], color=colors[c], label=atm_labels[c])
     lines!(axh, t_s ./ day, h_s[c], color=colors[c], linestyle=:dash)
+    lines!(axh, t_c ./ day, h_c[c], color=colors[c], linestyle=:dot)
 
     lines!(axs, t_s ./ day, hs_s[c], color=colors[c], label=atm_labels[c])
 

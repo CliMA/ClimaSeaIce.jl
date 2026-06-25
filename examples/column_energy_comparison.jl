@@ -23,27 +23,37 @@ using Printf
 using Oceananigans
 using Oceananigans.Fields: Field, interior, set!
 using Oceananigans.Units
+using Oceananigans.TimeSteppers: Clock
+using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics
+import ClimaSeaIce.SeaIceThermodynamics: initialize_column_interfaces!
 using CairoMakie
+
+# Forcing now lives in a model-style `external_heat_fluxes = (top, bottom)` set evaluated through `getflux`,
+# decoupled from the `heat_boundary_conditions` behavior. These columns use scalar fluxes, so the clock and the
+# (empty) model fields are inert placeholders that `getflux` ignores.
+clock = Clock(time = 0.0)
+model_fields = NamedTuple()
 
 # ## Model configuration
 #
 # The vertical coordinate runs from the ice base, ``z = 0``, to the ice surface,
-# ``z = 1`` meter. A negative top flux cools the column, while a positive bottom
-# flux supplies a small ocean heat input.
+# ``z = 1`` meter. Fluxes follow the model convention shared with the slab: positive means heat leaving the ice,
+# so a positive top flux cools the column (heat into the air) and a positive bottom flux warms it (ocean heat into
+# the base).
 
 Nz = 32
 grid = RectilinearGrid(size = Nz,
-                       z = (0, 1),
+                       z = SeaIceColumnDiscretization((0, 1)),
                        topology = (Flat, Flat, Bounded))
 
 relation = QuadraticLiquidusEnergyRelation(Float64)
 
-top_surface_flux = -15.0 # W m^-2, cooling at the top face
-bottom_ocean_flux = 2.0  # W m^-2, warming at the bottom face
+top_surface_flux = 15.0  # W m^-2, cooling at the top face (heat into the air)
+bottom_ocean_flux = 2.0  # W m^-2, ocean heat input at the bottom face
 
-boundary_conditions = ColumnBoundaryConditions(top = PrescribedEnergyFlux(top_surface_flux),
-                                               bottom = PrescribedEnergyFlux(bottom_ocean_flux))
+heat_boundary_conditions = (top = FluxBoundary(), bottom = FluxBoundary())
+external_heat_fluxes = (top = top_surface_flux, bottom = bottom_ocean_flux)
 
 energy_transport = ConductiveTemperatureTransport(conductivity = 2.0)
 
@@ -57,13 +67,13 @@ bl = prescribed_salinity_enthalpy_thermodynamics(grid;
     relation,
     salinity_profile = initial_salinity,
     energy_transport,
-    boundary_conditions)
+    heat_boundary_conditions)
 
 mushy = evolving_salinity_mushy_thermodynamics(grid;
     relation,
     energy_transport,
     salinity_transport = BulkSalinityDiffusion(diffusivity = 2e-7),
-    boundary_conditions)
+    heat_boundary_conditions)
 
 set!(bl; temperature = initial_temperature,
          bulk_salinity = initial_salinity)
@@ -106,8 +116,8 @@ initial_mushy_salt = column_integrated_salinity(mushy)
 save_state!(0)
 
 for n in 1:Nt
-    column_energy_time_step!(bl, Δt)
-    column_energy_time_step!(mushy, Δt)
+    column_energy_time_step!(bl, external_heat_fluxes, clock, model_fields, Δt)
+    column_energy_time_step!(mushy, external_heat_fluxes, clock, model_fields, Δt)
 
     if n % save_stride == 0
         save_state!(n * Δt)
@@ -116,8 +126,8 @@ end
 
 # ## Quantitative comparison
 
-bl_energy_budget = column_energy_budget(bl, initial_bl_energy, stop_time)
-mushy_energy_budget = column_energy_budget(mushy, initial_mushy_energy, stop_time)
+bl_energy_budget = column_energy_budget(bl, external_heat_fluxes, clock, model_fields, initial_bl_energy, stop_time)
+mushy_energy_budget = column_energy_budget(mushy, external_heat_fluxes, clock, model_fields, initial_mushy_energy, stop_time)
 mushy_salt_budget = column_salt_budget(mushy, initial_mushy_salt, stop_time)
 
 final_bl_temperature = last(bl_temperatures)
@@ -218,30 +228,31 @@ nothing # hide
 # ## Surface melting
 #
 # The fixed-grid column solve does not move grid faces. To demonstrate melting,
-# we use `MeltingLimitedSurfaceFlux`: the requested surface flux warms the top
-# cell until it reaches complete melt, and any remaining flux is returned as a
-# Stefan residual. That residual then updates a separate ice-thickness field.
+# we pair a `MeltingConstrainedFluxBalance` top with a requested surface flux in
+# `external_heat_fluxes`: the flux warms the top cell until it reaches complete
+# melt, and any remaining flux is returned as a Stefan residual. That residual
+# then updates a separate ice-thickness field.
 
 melt_grid = RectilinearGrid(size = 1,
-                            z = (0, 1),
+                            z = SeaIceColumnDiscretization((0, 1)),
                             topology = (Flat, Flat, Bounded))
 
 melt_salinity = 3.0
 melt_initial_temperature = -0.2
 requested_melt_flux = 1000.0 # W m^-2 into the surface
-melt_dt = 1hour
+melt_time_step = 1hour
 melt_stop_time = 2days
 ρi = 900.0
 
-melt_boundary_conditions =
-    ColumnBoundaryConditions(top = MeltingLimitedSurfaceFlux(flux = requested_melt_flux),
-                             bottom = InsulatingBoundary())
+melt_heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = FluxBoundary())
+# A warming surface flux (heat into the ice) is negative in the upward-positive convention.
+melt_external_heat_fluxes = (top = -requested_melt_flux, bottom = 0.0)
 
 melt_column = prescribed_salinity_enthalpy_thermodynamics(melt_grid;
     relation,
     salinity_profile = melt_salinity,
     energy_transport = ConductiveTemperatureTransport(conductivity = 0.0),
-    boundary_conditions = melt_boundary_conditions)
+    heat_boundary_conditions = melt_heat_boundary_conditions)
 
 set!(melt_column; bulk_salinity = melt_salinity,
                   temperature = melt_initial_temperature)
@@ -267,22 +278,24 @@ end
 
 save_melt_state!(0, 0.0, 0.0)
 
-for n in 1:round(Int, melt_stop_time / melt_dt)
+for n in 1:round(Int, melt_stop_time / melt_time_step)
     initial_energy = column_integrated_energy(melt_column)
-    residual_flux = column_surface_stefan_residual_flux(melt_column, melt_dt)
-    compute_column_surface_stefan_residual_flux!(surface_residual_flux, melt_column, melt_dt)
+    compute_column_surface_stefan_residual_flux!(surface_residual_flux, melt_column,
+                                                 melt_external_heat_fluxes, clock, model_fields, melt_time_step)
+    residual_flux = first(interior(surface_residual_flux))
 
-    column_energy_time_step!(melt_column, melt_dt)
+    column_energy_time_step!(melt_column, melt_external_heat_fluxes, clock, model_fields, melt_time_step)
     column_stefan_thickness_update!(ice_thickness,
                                     relation.phase_transitions,
                                     ρi,
                                     surface_residual_flux,
-                                    melt_dt)
+                                    melt_time_step)
 
-    budget = column_energy_budget(melt_column, initial_energy, melt_dt;
+    budget = column_energy_budget(melt_column, melt_external_heat_fluxes, clock, model_fields,
+                                  initial_energy, melt_time_step;
                                   surface_stefan_residual_flux = residual_flux)
 
-    save_melt_state!(n * melt_dt, residual_flux, budget.relative_residual)
+    save_melt_state!(n * melt_time_step, residual_flux, budget.relative_residual)
 end
 
 melt_result = (
@@ -325,3 +338,94 @@ save("column_energy_surface_melt.png", melt_fig)
 nothing # hide
 
 # ![](column_energy_surface_melt.png)
+
+# ## Resolved column versus slab under identical forcing
+#
+# The column thermodynamics reads its forcing from `model.external_heat_fluxes`, exactly like
+# `SlabThermodynamics`, so the *same* flux set drives both. Here we place a resolved column and a
+# zero-dimensional slab under an identical cooling surface flux and an ice–ocean equilibrium base, then compare
+# how the ice thickness grows. Fluxes are upward-positive (shared with the slab), so the cooling surface flux is
+# positive. The two stay close, with the resolved column lagging slightly because it stores internal energy that
+# the quasi-steady slab does not.
+
+comparison_top_flux = 30.0 # W m^-2, surface cooling
+comparison_time_step = 1hour
+comparison_stop_time = 60days
+comparison_steps = round(Int, comparison_stop_time / comparison_time_step)
+comparison_save_stride = round(Int, 1day / comparison_time_step)
+initial_comparison_thickness = 0.5
+
+column_grid = RectilinearGrid(size = (1, 1, 16),
+                              x = (0, 1), y = (0, 1),
+                              z = SeaIceColumnDiscretization((0, 3)),
+                              topology = (Periodic, Periodic, Bounded))
+
+column_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(column_grid;
+    relation,
+    salinity_profile = 0.0,
+    energy_transport = ConductiveTemperatureTransport(conductivity = 2.0),
+    heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
+
+column_model = SeaIceModel(column_grid;
+    ice_thermodynamics = column_thermodynamics,
+    top_heat_flux = comparison_top_flux,
+    bottom_heat_flux = 0)
+
+set!(column_model, h = initial_comparison_thickness, ℵ = 1)
+initialize_column_interfaces!(column_grid, column_model.ice_thickness)
+set!(column_thermodynamics; bulk_salinity = 0.0, temperature = -5.0)
+
+slab_grid = RectilinearGrid(size = (1, 1, 1),
+                            x = (0, 1), y = (0, 1),
+                            z = (-3, 0),
+                            topology = (Periodic, Periodic, Bounded))
+
+slab_model = SeaIceModel(slab_grid;
+    ice_thermodynamics = sea_ice_slab_thermodynamics(slab_grid),
+    top_heat_flux = comparison_top_flux,
+    bottom_heat_flux = 0)
+
+set!(slab_model, h = initial_comparison_thickness, ℵ = 1)
+
+comparison_times = Float64[0]
+column_thickness = Float64[initial_comparison_thickness]
+slab_thickness = Float64[initial_comparison_thickness]
+
+for n in 1:comparison_steps
+    time_step!(column_model, comparison_time_step)
+    time_step!(slab_model, comparison_time_step)
+
+    if n % comparison_save_stride == 0
+        push!(comparison_times, n * comparison_time_step)
+        push!(column_thickness, first(interior(column_model.ice_thickness)))
+        push!(slab_thickness, first(interior(slab_model.ice_thickness)))
+    end
+end
+
+thickness_comparison = (
+    elapsed_days = comparison_stop_time / day,
+    final_column_thickness = last(column_thickness),
+    final_slab_thickness = last(slab_thickness),
+    max_thickness_difference = maximum(abs.(column_thickness .- slab_thickness)),
+)
+
+println("Resolved column vs slab after ", thickness_comparison.elapsed_days, " days of identical surface cooling")
+@printf("  Column ice thickness:    %.3f m\n", thickness_comparison.final_column_thickness)
+@printf("  Slab ice thickness:      %.3f m\n", thickness_comparison.final_slab_thickness)
+@printf("  Max |h_column - h_slab|: %.3e m\n", thickness_comparison.max_thickness_difference)
+
+slab_fig = Figure(size = (820, 520))
+axc = Axis(slab_fig[1, 1],
+           xlabel = "Time (days)",
+           ylabel = "Ice thickness (m)",
+           title = "Resolved column vs slab under identical surface cooling")
+
+lines!(axc, comparison_times ./ day, column_thickness, color = colors[1], label = "resolved column")
+lines!(axc, comparison_times ./ day, slab_thickness, color = colors[2], linestyle = :dash, label = "slab")
+axislegend(axc, position = :rb)
+
+save("column_vs_slab_thickness.png", slab_fig)
+nothing # hide
+
+# ![](column_vs_slab_thickness.png)

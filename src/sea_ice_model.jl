@@ -9,7 +9,8 @@ using Oceananigans.TimeSteppers: TimeStepper
 
 using ClimaSeaIce.SeaIceDynamics: materialize_solver, maybe_extended_grid
 using ClimaSeaIce.SeaIceThermodynamics: PrescribedTemperature, FluxFunction, IceSnowConductiveFlux,
-                                        PhaseTransitions, internal_flux_function
+                                        PhaseTransitions, internal_flux_function,
+                                        ColumnEnergyThermodynamics, initialize_column_interfaces!
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
 import Oceananigans.Architectures: architecture
@@ -229,8 +230,15 @@ function set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing, u=nothing, v=nothi
         set!(model.snow_thickness, hs)
     end
 
+    # Keep a resolved column's moving vertical metric consistent with the ice thickness that was just set.
+    !isnothing(h) && sync_column_grid_interfaces!(model.ice_thermodynamics, model.grid, model.ice_thickness)
+
     return nothing
 end
+
+sync_column_grid_interfaces!(ice_thermodynamics, grid, ice_thickness) = nothing
+sync_column_grid_interfaces!(::ColumnEnergyThermodynamics, grid, ice_thickness) =
+    initialize_column_interfaces!(grid, ice_thickness)
 
 set!(model::SIM, new_clock::Clock) = set!(model.clock, new_clock)
 
