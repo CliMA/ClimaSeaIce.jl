@@ -8,7 +8,7 @@
     @inbounds Qb[i, j, 1] = getflux(Qe, i, j, grid, T, clock, model_fields)
 end
 
-function cached_external_heat_fluxes(th::ColumnEnergyThermodynamics, Qe, clock, fields)
+function cached_external_heat_fluxes(th::ColumnEnergyThermodynamics, Qe, clock, model_fields)
     grid = th.fields.internal_energy.grid
     cache = th.auxiliary.bottom_external_flux
     launch!(architecture(grid), grid, :xy, _cache_column_bottom_external_flux!, cache, th.fields, grid, Qe.bottom, clock, model_fields)

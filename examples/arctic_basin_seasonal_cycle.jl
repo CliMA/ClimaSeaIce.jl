@@ -185,7 +185,6 @@ Q = [datum[5] for datum in series]
 column_grid = RectilinearGrid(size=16, z=SeaIceColumnDiscretization((0, 4)), topology=(Flat, Flat, Bounded))
 
 column_thermodynamics = evolving_salinity_mushy_thermodynamics(column_grid;
-    salinity_profile = 0,
     energy_transport = ConductiveTemperatureTransport(conductivity = 2),
     heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
                                 bottom = IceWaterThermalEquilibrium(salinity = 0)))
