@@ -23,6 +23,7 @@ function thermodynamic_time_step!(model, ice_thermodynamics::SlabThermodynamics,
             model.sea_ice_density,
             model.external_heat_fluxes.top,
             model.external_heat_fluxes.bottom,
+            model.thermodynamic_mass_fluxes,
             fields(model))
 
     return nothing
@@ -52,6 +53,7 @@ function thermodynamic_time_step!(model,
             model.external_heat_fluxes.bottom,
             model.snow_thickness,
             model.snowfall,
+            model.thermodynamic_mass_fluxes,
             fields(model))
 
     return nothing
@@ -81,6 +83,7 @@ end
                                                sea_ice_density,
                                                top_external_heat_flux,
                                                bottom_external_heat_flux,
+                                               thermodynamic_mass_fluxes,
                                                model_fields)
 
     i, j = @index(Global, NTuple)
@@ -102,8 +105,16 @@ end
 
     hⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_V, hⁿ, ℵⁿ, hᶜ, Δt)
 
-    @inbounds ice_concentration[i, j, 1] = ℵⁿ⁺¹
-    @inbounds ice_thickness[i, j, 1]     = hⁿ⁺¹
+    @inbounds begin
+        ρi = sea_ice_density[i, j, 1]
+        
+        ice_concentration[i, j, 1] = ℵⁿ⁺¹
+        ice_thickness[i, j, 1]     = hⁿ⁺¹
+
+        thermodynamic_mass_fluxes.ice[i, j, 1]  = ρi * (hⁿ⁺¹ * ℵⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
+        thermodynamic_mass_fluxes.snow[i, j, 1] = 0
+        thermodynamic_mass_fluxes.intercepted_snowfall[i, j, 1] = 0
+    end
 end
 
 #####
@@ -132,6 +143,7 @@ end
                                                    bottom_external_heat_flux,
                                                    snow_thickness,
                                                    snowfall,
+                                                   thermodynamic_mass_fluxes,
                                                    model_fields)
 
     i, j = @index(Global, NTuple)
@@ -140,6 +152,10 @@ end
     @inbounds ℵⁿ  = ice_concentration[i, j, 1]
     @inbounds hᶜ  = ice_consolidation_thickness[i, j, 1]
     @inbounds hsⁿ = snow_thickness[i, j, 1]
+
+    # Per-cell volumes before the step, captured before `hsⁿ` is rebased below
+    Vᵢⁿ = hiⁿ * ℵⁿ
+    Vₛⁿ = hsⁿ * ℵⁿ
 
     consolidated_ice = hiⁿ ≥ hᶜ
 
@@ -270,6 +286,15 @@ end
     @inbounds ice_concentration[i, j, 1] = ℵⁿ⁺¹
     @inbounds ice_thickness[i, j, 1]     = hiⁿ⁺¹
     @inbounds snow_thickness[i, j, 1]    = hs⁺
+
+    # Snowfall mass deposited on top of the ice 
+    Pₛᵃᵇˢ = ρs * Gs⁺ * ℵⁿ⁺¹
+
+    @inbounds begin
+        thermodynamic_mass_fluxes.ice[i, j, 1]  = ρi * (hiⁿ⁺¹ * ℵⁿ⁺¹ - Vᵢⁿ) / Δt
+        thermodynamic_mass_fluxes.snow[i, j, 1] = ρs * (hs⁺ * ℵⁿ⁺¹ - Vₛⁿ) / Δt - Pₛᵃᵇˢ
+        thermodynamic_mass_fluxes.intercepted_snowfall[i, j, 1] = Pₛᵃᵇˢ
+    end
 end
 
 #####

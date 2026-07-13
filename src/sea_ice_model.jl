@@ -19,7 +19,7 @@ using .SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
 
-struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, MFX, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
@@ -43,6 +43,9 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, S
     # External boundary conditions
     external_heat_fluxes :: STF
     snowfall :: SP
+    # Diagnostics (kg m⁻² s⁻¹): `ice`/`snow` are per-step mass rates exchanged with the ocean
+    # (positive = gained from the ocean); `intercepted_snowfall` is the snowfall absorbed by the ice.
+    thermodynamic_mass_fluxes :: MFX
     # Numerics
     timestepper :: TS
     advection :: A
@@ -259,6 +262,10 @@ function SeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,
                             bottom = bottom_heat_flux)
 
+    thermodynamic_mass_fluxes = (ice  = Field{Center, Center, Nothing}(grid),
+                                 snow = Field{Center, Center, Nothing}(grid),
+                                 intercepted_snowfall = Field{Center, Center, Nothing}(grid))
+
     arch = architecture(grid)
 
     return SeaIceModel(arch,
@@ -279,6 +286,7 @@ function SeaIceModel(grid;
                        dynamics,
                        external_heat_fluxes,
                        snowfall,
+                       thermodynamic_mass_fluxes,
                        timestepper,
                        advection)
 end
