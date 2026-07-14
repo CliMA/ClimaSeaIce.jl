@@ -43,9 +43,8 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, S
     # External boundary conditions
     external_heat_fluxes :: STF
     snowfall :: SP
-    # Diagnostics (kg m⁻² s⁻¹): `ice`/`snow` are per-step mass rates exchanged with the ocean
-    # (positive = gained from the ocean); `intercepted_snowfall` is the snowfall absorbed by the ice.
-    thermodynamic_mass_fluxes :: MFX
+    # Diagnostics (kg m⁻² s⁻¹)
+    mass_fluxes :: MFX
     # Numerics
     timestepper :: TS
     advection :: A
@@ -91,6 +90,12 @@ equations, and optional snow thermodynamics.
 The model evolves sea-ice thickness `h`, concentration `ℵ`, optional salinity
 `S`, optional snow thickness `hs`, and, when `dynamics` is provided, the
 horizontal ice velocity components `u` and `v`.
+
+The field `mass_fluxes` holds three diagnostics (kg m⁻² s⁻¹) written by the thermodynamic step:
+`mass_fluxes.thermodynamics.ice` and `mass_fluxes.thermodynamics.snow`, the per-step mass tendencies
+of the ice and snow slabs (their sum is the mass exchanged with the ocean), and
+`mass_fluxes.intercepted_snowfall`, the snowfall absorbed by the ice. These are excluded from
+`fields(model)` and the prognostic state.
 
 Arguments
 =========
@@ -262,9 +267,9 @@ function SeaIceModel(grid;
     external_heat_fluxes = (top = top_heat_flux,
                             bottom = bottom_heat_flux)
 
-    thermodynamic_mass_fluxes = (ice  = Field{Center, Center, Nothing}(grid),
-                                 snow = Field{Center, Center, Nothing}(grid),
-                                 intercepted_snowfall = Field{Center, Center, Nothing}(grid))
+    mass_fluxes = (thermodynamics = (ice  = Field{Center, Center, Nothing}(grid),
+                                     snow = Field{Center, Center, Nothing}(grid)),
+                   intercepted_snowfall = Field{Center, Center, Nothing}(grid))
 
     arch = architecture(grid)
 
@@ -286,7 +291,7 @@ function SeaIceModel(grid;
                        dynamics,
                        external_heat_fluxes,
                        snowfall,
-                       thermodynamic_mass_fluxes,
+                       mass_fluxes,
                        timestepper,
                        advection)
 end
@@ -377,6 +382,11 @@ function Oceananigans.TimeSteppers.update_state!(model::SIM, callbacks=[])
         mask_immersed_field_xy!(field, k=size(model.grid, 3))
         fill_halo_regions!(field, model.clock, fields(model))
     end
+
+    Nz = size(model.grid, 3)
+    mask_immersed_field_xy!(model.mass_fluxes.thermodynamics.ice,   k=Nz)
+    mask_immersed_field_xy!(model.mass_fluxes.thermodynamics.snow,  k=Nz)
+    mask_immersed_field_xy!(model.mass_fluxes.intercepted_snowfall, k=Nz)
 
     update_model_field_time_series!(model, model.clock)
 
