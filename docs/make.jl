@@ -1,5 +1,6 @@
 using
   Documenter,
+  DocumenterCitations,
   Literate,
   ClimaSeaIce
 
@@ -17,7 +18,7 @@ example_scripts = [
     "melting_in_spring.jl",
     "freezing_of_a_lake.jl",
     "ice_advected_by_anticyclone.jl",
-    # "ice_advected_on_coastline.jl",
+    "ice_advected_on_coastline.jl",
     "arctic_basin_seasonal_cycle.jl"
 ]
 
@@ -31,7 +32,7 @@ example_pages = [
     "Melting in Spring" => "literated/melting_in_spring.md",
     "Freezing of a Lake" => "literated/freezing_of_a_lake.md",
     "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
-    # "Ice advected on coastline" => "literated/ice_advected_on_coastline.md",
+    "Ice advected on coastline" => "literated/ice_advected_on_coastline.md",
     "Arctic basin seasonal cycle" => "literated/arctic_basin_seasonal_cycle.md"
 ]
 
@@ -43,18 +44,23 @@ format = Documenter.HTML(
   collapselevel = 2,
      prettyurls = get(ENV, "CI", nothing) == "true",
       canonical = "https://clima.github.io/ClimaSeaIceDocumentation/dev/",
+         assets = ["assets/citations.css"],
 )
+
+bibliography = CitationBibliography(joinpath(@__DIR__, "climaseaice.bib"), style = :authoryear)
 
 pages = [
     "Home" => "index.md",
 
     "Physics" => [
         "Thermodynamics" => "physics/thermodynamics.md",
+        "Layered snow + ice implementation" => "physics/layered_snow_ice_implementation.md",
         "Dynamics and Rheology" => "physics/dynamics_and_rheology.md",
     ],
 
     "Examples" => example_pages,
     "Timestepping" => "timestepping.md",
+    "References" => "references.md",
 
     "Library" => [
         "Contents"       => "library/outline.md",
@@ -70,9 +76,11 @@ makedocs(
       format = format,
        pages = pages,
      doctest = true,
+       draft = false,
     warnonly = [:cross_references],
        clean = true,
-   checkdocs = :exports
+   checkdocs = :exports,
+     plugins = [bibliography]
 )
 
 @info "Clean up temporary .jld2/.nc files created by doctests..."
@@ -96,24 +104,7 @@ for file in files
     rm(file)
 end
 
-# Replace with below once https://github.com/JuliaDocs/Documenter.jl/pull/2692 is merged and available.
-#  deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
-#    deploy_repo = "github.com/CliMA/ClimaSeaIceDocumentation",
-#    devbranch = "main",
-#    push_preview = true)
-if get(ENV, "GITHUB_EVENT_NAME", "") == "pull_request"
-    deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
-               repo_previews = "github.com/CliMA/ClimaSeaIceDocumentation",
-               devbranch = "main",
-               forcepush = true,
-               push_preview = true,
-               versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"])
-else
-    repo = "github.com/CliMA/ClimaSeaIceDocumentation"
-    withenv("GITHUB_REPOSITORY" => repo) do
-        deploydocs(repo = repo,
-                   devbranch = "main",
-                   forcepush = true,
-                   versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"])
-    end
-end
+deploydocs(repo = "github.com/CliMA/ClimaSeaIce.jl",
+           deploy_repo = "github.com/CliMA/ClimaSeaIceDocumentation",
+           devbranch = "main",
+           push_preview = true)

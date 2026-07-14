@@ -4,35 +4,29 @@ module SeaIceDynamics
 export compute_momentum_tendencies!, time_step_momentum!
 export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
 
-using Oceananigans
-using Oceananigans.Grids
-using Oceananigans.Grids: architecture
-using Oceananigans.Operators
-using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
-using Oceananigans.Utils: launch!
+using Adapt: Adapt
 using KernelAbstractions: @kernel, @index
+using Oceananigans: Oceananigans, prognostic_state, prognostic_fields,
+                    restore_prognostic_state!, fields
+using Oceananigans.Architectures: architecture
+using Oceananigans.DistributedComputations: Distributed
+using Oceananigans.Fields: Field
+using Oceananigans.Grids: Center, Face
+using Oceananigans.Operators: ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
+using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
+using Oceananigans.Utils: KernelParameters, launch!
 
-using ClimaSeaIce
-using ClimaSeaIce: ice_mass
-using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ,
-                              ∂ⱼ_σ₂ⱼ,
-                              immersed_∂ⱼ_σ₁ⱼ,
-                              immersed_∂ⱼ_σ₂ⱼ,
-                              Auxiliaries,
-                              compute_stresses!,
-                              initialize_rheology!,
-                              compute_substep_Δtᶠᶜᶜ,
-                              compute_substep_Δtᶜᶠᶜ,
-                              sum_of_forcing_u,
-                              sum_of_forcing_v
-
-import Oceananigans: fields, prognostic_fields
+using ..ClimaSeaIce: ice_mass
+using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
+                    immersed_∂ⱼ_σ₁ⱼ, immersed_∂ⱼ_σ₂ⱼ,
+                    Auxiliaries,compute_stresses!,
+                    initialize_rheology!, finalize_rheology!,
+                    compute_substep_Δtᶠᶜᶜ, compute_substep_Δtᶜᶠᶜ,
+                    sum_of_forcing_u, sum_of_forcing_v
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ##
-##     ∂u           ∇ ⋅ σ   τₒ    τₐ
-##     -- + f x u = ----- + --  + -- + g ∇η
-##     ∂t            mᵢ     mᵢ    mᵢ
+##     ∂u/∂t + f x u = ∇ ⋅ σ / mᵢ  + τₒ / mᵢ + τₐ / mᵢ + g ∇η
 ##
 ## where the terms (left to right) represent the
 ## - time derivative of the ice velocity

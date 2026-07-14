@@ -9,7 +9,7 @@
 # temperature, in equilibrium with the ice-water interface (and therefore fixed at
 # the melting temperature). This example demonstrates how to:
 #
-#   * use `SlabSeaIceThermodynamics` with prescribed boundary conditions,
+#   * use `SlabThermodynamics` with prescribed boundary conditions,
 #   * configure internal heat conduction,
 #   * use `FluxFunction` for frazil ice formation,
 #   * collect and visualize time series data.
@@ -51,12 +51,11 @@ conductivity = 2 # W m⁻¹ K⁻¹
 internal_heat_flux = ConductiveFlux(; conductivity)
 
 # Note that other units besides Celsius _can_ be used, but that requires setting
-# `model.phase_transitions` with appropriate parameters. We set the ice heat capacity
-# and density as well:
+# `model.phase_transitions` with appropriate parameters. The microscopic
+# pure-ice heat capacity enters the Stefan correction to the latent heat:
 
-ice_heat_capacity = 2100 # J kg⁻¹ K⁻¹
-ice_density = 900 # kg m⁻³
-phase_transitions = PhaseTransitions(; ice_heat_capacity, ice_density)
+heat_capacity = 2100 # J kg⁻¹ K⁻¹
+phase_transitions = PhaseTransitions(; heat_capacity)
 
 # We set the top ice temperature:
 
@@ -67,10 +66,9 @@ top_heat_boundary_condition = PrescribedTemperature(top_temperature)
 #
 # We construct the ice thermodynamics using a simple slab sea ice representation:
 
-ice_thermodynamics = SlabSeaIceThermodynamics(grid;
-                                              internal_heat_flux,
-                                              phase_transitions,
-                                              top_heat_boundary_condition)
+ice_thermodynamics = SlabThermodynamics(grid;
+                                        internal_heat_flux,
+                                        top_heat_boundary_condition)
 
 # ## Frazil ice formation
 #
@@ -86,9 +84,9 @@ bottom_heat_flux = FluxFunction(frazil_ice_formation)
 #
 # Then we assemble it all into a model:
 
-model = SeaIceModel(grid; ice_thermodynamics, bottom_heat_flux)
+model = SeaIceModel(grid; ice_thermodynamics, phase_transitions, sea_ice_density=900, bottom_heat_flux)
 
-# Note that the default bottom heat boundary condition for `SlabSeaIceThermodynamics`
+# Note that the default bottom heat boundary condition for `SlabThermodynamics`
 # is `IceWaterThermalEquilibrium` with freshwater. That's what we want!
 
 model.ice_thermodynamics.heat_boundary_conditions.bottom

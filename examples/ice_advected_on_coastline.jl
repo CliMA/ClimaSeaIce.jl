@@ -32,7 +32,7 @@ using CairoMakie
 Lx = 512kilometers
 Ly = 256kilometers
 Nx = 256
-Ny = 256
+Ny = 128
 
 y_max = Ly / 2
 
@@ -40,7 +40,8 @@ arch = CPU()
 
 # ## Grid configuration
 #
-# We create a rectilinear grid with periodic boundaries in x and bounded boundaries in y:
+# We create a rectilinear grid with periodic boundaries in ``x`` and bounded
+# boundaries in ``y``:
 
 grid = RectilinearGrid(arch; size = (Nx, Ny),
                                 x = (-Lx/2, Lx/2),
@@ -87,18 +88,29 @@ dynamics = SeaIceMomentumEquation(grid;
                                   rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 
-# We set boundary conditions for the velocity field:
+@inline immersed_u_drag(i, j, k, grid, clock, fields, Cᴰ) = @inbounds - Cᴰ * fields.u[i, j, k]
+@inline immersed_v_drag(i, j, k, grid, clock, fields, Cᴰ) = @inbounds - Cᴰ * fields.v[i, j, k]
 
-u_bcs = FieldBoundaryConditions(top = nothing, bottom = nothing,
+immersed_u_bc = FluxBoundaryCondition(immersed_u_drag, discrete_form=true, parameters=3e-3)
+immersed_v_bc = FluxBoundaryCondition(immersed_v_drag, discrete_form=true, parameters=3e-3)
+
+immersed_u_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, west=nothing,  east=nothing,  south=immersed_u_bc, north=immersed_u_bc)
+immersed_v_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, south=nothing, north=nothing, west=immersed_v_bc,  east=immersed_v_bc)
+
+u_bcs = FieldBoundaryConditions(grid, (Face(), Center(), nothing);
                                 north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0))
+                                south = ValueBoundaryCondition(0),
+                                immersed = immersed_u_bc)
+
+v_bcs = FieldBoundaryConditions(grid, (Center(), Face(), nothing);
+                                immersed = immersed_v_bc)
 
 # We define the model with WENO advection and no thermodynamics:
 
 model = SeaIceModel(grid;
                     advection = WENO(order=7),
-                    dynamics = dynamics,
-                    boundary_conditions = (; u=u_bcs),
+                    dynamics,
+                    boundary_conditions = (; u=u_bcs, v=v_bcs),
                     ice_thermodynamics = nothing)
 
 # We initialize the model with uniform ice thickness and concentration:
@@ -108,9 +120,9 @@ set!(model, ℵ = 1)
 
 # ## Running the simulation
 #
-# We run the model for 2 days with a 2-minute time step:
+# We run the model for 3 days with a 5-minute time step:
 
-simulation = Simulation(model, Δt = 2minutes, stop_time=2days)
+simulation = Simulation(model, Δt=5minutes, stop_time=3days)
 
 # ## Collecting data
 #
@@ -132,7 +144,7 @@ function accumulate_timeseries(sim)
     push!(vtimeseries, deepcopy(Array(interior(v))))
 end
 
-simulation.callbacks[:save]     = Callback(accumulate_timeseries, IterationInterval(10))
+simulation.callbacks[:save] = Callback(accumulate_timeseries, IterationInterval(10))
 
 run!(simulation)
 

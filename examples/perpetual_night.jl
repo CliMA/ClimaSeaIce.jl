@@ -35,7 +35,7 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 # and emits longwave radiation from its top surface. The `RadiativeEmission`
 # boundary condition implements the Stefan-Boltzmann law for blackbody radiation:
 
-ice_thermodynamics = SlabSeaIceThermodynamics(grid; top_heat_boundary_condition=MeltingConstrainedFluxBalance())
+ice_thermodynamics = SlabThermodynamics(grid; top_heat_boundary_condition=MeltingConstrainedFluxBalance())
 
 top_flux = Field{Nothing, Nothing, Nothing}(grid)
 interior(top_flux) .= - 200.0

@@ -3,7 +3,8 @@ using ClimaSeaIce.SeaIceDynamics
 using ClimaSeaIce.SeaIceThermodynamics
 using Test
 
-using Oceananigans.Fields: @allowscalar
+using Oceananigans
+using Oceananigans.Fields: @allowscalar, ConstantField
 using Oceananigans: prognostic_fields
 
 # Same test as in Oceananigans
@@ -138,7 +139,7 @@ function test_sea_ice_checkpointer_output(arch)
     Δt = 1
 
     grid = RectilinearGrid(arch, size=(Nx, Ny), x=(0, Lx), y=(0, Ly), topology=(Bounded, Bounded, Flat))
-    for ice_thermodynamics in (nothing, SlabSeaIceThermodynamics(grid))
+    for ice_thermodynamics in (nothing, SlabThermodynamics(grid))
         for dynamics in (nothing, SeaIceMomentumEquation(grid))
 
             true_model = SeaIceModel(grid; dynamics, ice_thermodynamics)
@@ -158,4 +159,46 @@ end
 
 @testset "Checkpointing Tests" begin
     test_sea_ice_checkpointer_output(CPU())
+end
+
+@testset "Checkpointing with SemiImplicitStress dynamics" begin
+    Δt = 1
+    grid = RectilinearGrid(CPU(), size=(16, 16), x=(0, 100), y=(0, 100),
+                           topology=(Bounded, Bounded, Flat))
+
+    top    = SemiImplicitStress(uₑ=ConstantField(10), vₑ=ConstantField(5), ρₑ=1.225,  Cᴰ=1.5e-3)
+    bottom = SemiImplicitStress(uₑ=ConstantField(0),  vₑ=ConstantField(0), ρₑ=1026.0, Cᴰ=5.5e-3)
+    dynamics = SeaIceMomentumEquation(grid; top_momentum_stress=top, bottom_momentum_stress=bottom)
+
+    true_model = SeaIceModel(grid; dynamics, ice_thermodynamics=SlabThermodynamics(grid))
+    test_model = deepcopy(true_model)
+
+    for field in merge(true_model.velocities,
+                       (; h = true_model.ice_thickness,
+                          ℵ = true_model.ice_concentration))
+        set!(field, (x, y) -> rand() * 1e-5)
+    end
+
+    run_checkpointer_tests(true_model, test_model, Δt)
+end
+
+@testset "Checkpointing with snow" begin
+    Nx, Ny = 16, 16
+    Lx, Ly = 100, 100
+    Δt = 1
+
+    grid = RectilinearGrid(CPU(), size=(Nx, Ny), x=(0, Lx), y=(0, Ly), topology=(Bounded, Bounded, Flat))
+    snow_thermo = snow_slab_thermodynamics(grid)
+
+    true_model = SeaIceModel(grid; ice_thermodynamics=SlabThermodynamics(grid), snow_thermodynamics=snow_thermo)
+    test_model = deepcopy(true_model)
+
+    for field in merge(true_model.velocities,
+                       (; h  = true_model.ice_thickness,
+                          ℵ  = true_model.ice_concentration,
+                          hs = true_model.snow_thickness))
+        set!(field, (x, y) -> rand() * 1e-5)
+    end
+
+    run_checkpointer_tests(true_model, test_model, Δt)
 end

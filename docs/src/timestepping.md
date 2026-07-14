@@ -39,6 +39,7 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 ├── grid: 16×16×1 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×1 halo
 ├── timestepper: ForwardEulerTimeStepper
 ├── ice_thermodynamics: SlabThermodynamics
+├── snow_thermodynamics: Nothing
 ├── advection: Nothing
 └── external_heat_fluxes:
     ├── top: Int64
@@ -49,8 +50,9 @@ Forward Euler is first-order accurate and may require smaller time steps for sta
 
 ## Split Runge-Kutta Timestepper (Default)
 
-The Split Runge-Kutta 3rd order (`SplitRungeKutta3`) scheme is a 3rd-order accurate method that
-performs three substeps per full time step. This is the default timestepper and
+The Split Runge-Kutta 3rd order (`SplitRungeKutta3`) scheme is a 3rd-order accurate
+low-storage method following the framework described by [Silvestri et al. 2026](@cite SilvestriEtAl2026).
+It performs three substeps per full time step. This is the default timestepper and
 is recommended for most applications.
 
 ```jldoctest timesteppers
@@ -61,6 +63,7 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 ├── grid: 16×16×1 RectilinearGrid{Float64, Periodic, Periodic, Bounded} on CPU with 3×3×1 halo
 ├── timestepper: SplitRungeKuttaTimeStepper(3)
 ├── ice_thermodynamics: SlabThermodynamics
+├── snow_thermodynamics: Nothing
 ├── advection: Nothing
 └── external_heat_fluxes:
     ├── top: Int64
@@ -69,9 +72,10 @@ SeaIceModel{CPU, RectilinearGrid}(time = 0 seconds, iteration = 0)
 
 ### Algorithm
 
-The SplitRungeKutta3 scheme follows Oceananigans' implementation. At the beginning of each
-full time step, the current state is cached via [`cache_current_fields!`](@ref ClimaSeaIce.cache_current_fields!).
-Then, three substeps are performed via [`rk_substep!`](@ref ClimaSeaIce.rk_substep!), each with a different
+The SplitRungeKutta3 scheme follows Oceananigans' implementation of the low-storage
+framework described by [Silvestri et al. 2026](@cite SilvestriEtAl2026). At the beginning of each
+full time step, the current state is cached via `cache_current_fields!`.
+Then, three substeps are performed via `rk_substep!`, each with a different
 time increment and weighting.
 
 Each substep performs the following operations in sequence:
