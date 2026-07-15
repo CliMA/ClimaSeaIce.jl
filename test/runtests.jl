@@ -49,6 +49,7 @@ end
 
 if TEST_GROUP == "all" || TEST_GROUP == "energy_conservation"
     include("test_energy_conservation.jl")
+    include("test_rheology_energy_budget.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "netcdf"

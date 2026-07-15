@@ -59,10 +59,9 @@ run_distributed_tripolar = """
     run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_jld2writer_tests.jl`)
     rm("distributed_jld2writer_tests.jl")
 
-    @test isfile("distributed_jld2_writer_rank0.jld2")
-    @test isfile("distributed_jld2_writer_rank1.jld2")
-    @test isfile("distributed_jld2_writer_rank2.jld2")
-    @test isfile("distributed_jld2_writer_rank3.jld2")
+    write("distributed_jld2writer_tests.jl", run_distributed_jld2writer)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_jld2writer_tests.jl`)
+    rm("distributed_jld2writer_tests.jl")
 
     # This does not work, see https://github.com/CliMA/Oceananigans.jl/pull/5188
     h = FieldTimeSeries("distributed_jld2_writer_rank0.jld2", "h")
