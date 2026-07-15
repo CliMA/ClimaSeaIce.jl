@@ -421,7 +421,8 @@ function Oceananigans.prognostic_state(model::SIM)
             timestepper = prognostic_state(model.timestepper),
             ice_thermodynamics = prognostic_state(model.ice_thermodynamics),
             snow_thermodynamics = prognostic_state(model.snow_thermodynamics),
-            dynamics = prognostic_state(model.dynamics))
+            dynamics = prognostic_state(model.dynamics),
+            mass_fluxes = prognostic_state(model.mass_fluxes))
 end
 
 function Oceananigans.restore_prognostic_state!(model::SIM, state)
@@ -435,6 +436,7 @@ function Oceananigans.restore_prognostic_state!(model::SIM, state)
     restore_prognostic_state!(model.ice_thermodynamics, state.ice_thermodynamics)
     restore_prognostic_state!(model.snow_thermodynamics, state.snow_thermodynamics)
     restore_prognostic_state!(model.dynamics, state.dynamics)
+    restore_prognostic_state!(model.mass_fluxes, state.mass_fluxes)
     return model
 end
 
