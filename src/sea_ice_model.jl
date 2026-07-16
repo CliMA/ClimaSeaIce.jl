@@ -436,7 +436,9 @@ function Oceananigans.restore_prognostic_state!(model::SIM, state)
     restore_prognostic_state!(model.ice_thermodynamics, state.ice_thermodynamics)
     restore_prognostic_state!(model.snow_thermodynamics, state.snow_thermodynamics)
     restore_prognostic_state!(model.dynamics, state.dynamics)
-    restore_prognostic_state!(model.mass_fluxes, state.mass_fluxes)
+    if haskey(state, :mass_fluxes) # Backwards compatible (TODO: remove)
+        restore_prognostic_state!(model.mass_fluxes, state.mass_fluxes)
+    end
     return model
 end
 
