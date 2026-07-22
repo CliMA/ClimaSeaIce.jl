@@ -145,9 +145,9 @@ function dynamic_time_step!(model::RKSeaIceModel, Δt)
 
     tracers = model.tracers
     Gⁿ   = model.timestepper.Gⁿ
-    ℵmin = model.concentration_floor
+    hc   = model.ice_consolidation_thickness
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, ℵmin, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, hc, tracers, Gⁿ, Δt)
 
     return nothing
 end

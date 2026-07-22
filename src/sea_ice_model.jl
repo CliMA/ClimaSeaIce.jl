@@ -235,7 +235,7 @@ function SeaIceModel(grid;
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
 
-    Gⁿ = merge(map(similar, prognostic_fields), 𝓋 = Field{Center, Center, Nothing}(velocity_grid))
+    Gⁿ = merge(map(similar, prognostic_fields), (; 𝓋 = Field{Center, Center, Nothing}(velocity_grid)))
     timestepper = TimeStepper(timestepper, grid, prognostic_fields; Gⁿ)
 
     # The layered (snow + ice) step writes the ice top surface temperature, so it
