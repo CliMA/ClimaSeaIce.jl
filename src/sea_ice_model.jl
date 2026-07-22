@@ -143,7 +143,6 @@ function SeaIceModel(grid;
                      ice_salinity                = 0, # psu
                      sea_ice_density             = 900, # kg m⁻³, bulk sea-ice
                      snow_density                = 330, # kg m⁻³, bulk snow
-                     concentration_floor         = 1e-10,
                      phase_transitions           = PhaseTransitions(eltype(grid)),
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,    # W m⁻²
@@ -161,7 +160,6 @@ function SeaIceModel(grid;
     # TODO: pass `clock` into `field`, so functions can be time-dependent?
     # Wrap ice_consolidation_thickness in a field
     ice_consolidation_thickness = field((Center, Center, Nothing), ice_consolidation_thickness, grid)
-    concentration_floor = convert(eltype(grid), concentration_floor)
 
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
 
