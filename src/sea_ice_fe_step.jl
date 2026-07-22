@@ -57,12 +57,6 @@ end
 #     Gⁿ.ℵ  ≡ ∂ℵ/∂t = -∇·(U·ℵ)
 #     Gⁿ.h  ≡ ∂h/∂t = -∇·(U·h)      (advected thickness, used only as a recovery bound)
 #
-# The thickness is recovered from the conserved content as `h = max(min(𝓋⁺/ℵ⁺, hᵗ), hc)` and the
-# concentration as `ℵ = 𝓋⁺/h`. Capping at the advected thickness `hᵗ` bounds the `𝓋/ℵ` recovery as
-# `ℵ → 0` (no blow-up); flooring at the consolidation thickness `hc > 0` consolidates thin ice and
-# keeps `h > 0`, so `ℵ = 𝓋⁺/h` stays finite. `h·ℵ = 𝓋⁺` holds identically, so content is conserved.
-# A recovered `ℵ > 1` (convergent ridging) is folded back into thickness (`h ← h·ℵ`, `ℵ ← 1`), again
-# conserving `𝓋⁺`.
 @kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, hc, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
