@@ -19,7 +19,7 @@ using .SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
 
-struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, MFX, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, CF, SP, MFX, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
