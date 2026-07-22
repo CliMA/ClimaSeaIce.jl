@@ -19,7 +19,7 @@ using .SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 @inline instantiate(T::DataType) = T()
 @inline instantiate(T) = T
 
-struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, CF, SP, MFX, STF, A, F, Arch} <: AbstractModel{TS, Arch}
+struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, SP, MFX, STF, A, F, Arch} <: AbstractModel{TS, Arch}
     architecture :: Arch
     grid :: GR
     clock :: CL
@@ -33,8 +33,6 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, C
     sea_ice_density :: ID
     snow_density :: SND
     ice_consolidation_thickness :: CT
-    # Numerical floor on the ice concentration
-    concentration_floor :: CF
     # Shared thermodynamic parameters
     phase_transitions :: PT
     # Thermodynamics
@@ -236,7 +234,9 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
-    timestepper = TimeStepper(timestepper, grid, prognostic_fields)
+
+    Gⁿ = merge(map(similar, prognostic_fields), 𝓋 = Field{Center, Center, Nothing}(velocity_grid))
+    timestepper = TimeStepper(timestepper, grid, prognostic_fields; Gⁿ)
 
     # The layered (snow + ice) step writes the ice top surface temperature, so it
     # must be writable when snow is present; bare-ice models keep their field as-is.
@@ -289,7 +289,6 @@ function SeaIceModel(grid;
                        sea_ice_density,
                        snow_density,
                        ice_consolidation_thickness,
-                       concentration_floor,
                        phase_transitions,
                        ice_thermodynamics,
                        snow_thermodynamics,

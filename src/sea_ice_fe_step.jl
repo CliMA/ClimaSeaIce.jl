@@ -42,52 +42,55 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     hs = model.snow_thickness
     tracers = model.tracers
 
-    Gⁿ   = model.timestepper.Gⁿ
-    ℵmin = model.concentration_floor
+    Gⁿ = model.timestepper.Gⁿ
+    hc = model.ice_consolidation_thickness
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, ℵmin, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, hc, tracers, Gⁿ, Δt)
 
     return nothing
 end
 
-# Thickness and concentration are updated using a flux-form advection of the
-# intensive ice content per area `𝓋 = ℵ·h`
+# Thickness and concentration are advanced by flux-form advection of three conserved integrals — the
+# intensive content `𝓋 = ℵ·h`, the concentration `ℵ`, and the thickness `h`:
 #
-#     Gⁿ.h  ≡ ∂𝓋/∂t = -∇·(U·𝓋)    with 𝓋 = ℵ·h
+#     Gⁿ.𝓋  ≡ ∂𝓋/∂t = -∇·(U·𝓋)     with `𝓋 = ℵ·h`   (the conserved ice content)
 #     Gⁿ.ℵ  ≡ ∂ℵ/∂t = -∇·(U·ℵ)
+#     Gⁿ.h  ≡ ∂h/∂t = -∇·(U·h)      (advected thickness, used only as a recovery bound)
 #
-# `𝓋⁺ = 𝓋ⁿ + Δt · Gⁿ.h` is updated directly, then `h = 𝓋/ℵ` is recovered with
-# a small-ℵ guard (`concentration_floor ≈ 1e-10`). Ridging is automatic: if
-# `ℵ⁺ > 1` we cap `ℵ = 1` and `h = 𝓋/1 = 𝓋`, conserving the content the
-# advection step produced.
-@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, ℵmin, tracers, Gⁿ, Δt)
+# The thickness is recovered from the conserved content as `h = max(min(𝓋⁺/ℵ⁺, hᵗ), hc)` and the
+# concentration as `ℵ = 𝓋⁺/h`. Capping at the advected thickness `hᵗ` bounds the `𝓋/ℵ` recovery as
+# `ℵ → 0` (no blow-up); flooring at the consolidation thickness `hc > 0` consolidates thin ice and
+# keeps `h > 0`, so `ℵ = 𝓋⁺/h` stays finite. `h·ℵ = 𝓋⁺` holds identically, so content is conserved.
+# A recovered `ℵ > 1` (convergent ridging) is folded back into thickness (`h ← h·ℵ`, `ℵ ← 1`), again
+# conserving `𝓋⁺`.
+@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, hc, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
 
+    G𝓋ⁿ = Gⁿ.𝓋
     Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
 
     @inbounds begin
-        # Advect ice content per area `𝓋 = ℵ·h` (units m) and concentration ℵ. 
+        # Advect content `𝓋 = ℵ·h` and concentration ℵ; clip content undershoot and ℵ into [0, 1].
         𝓋ⁿ = hⁿ[i, j, k] * ℵⁿ[i, j, k]
-        𝓋⁺ = 𝓋ⁿ + Δt * Ghⁿ[i, j, k]
-        ℵ⁺ = ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k]
+        𝓋⁺ = max(zero(𝓋ⁿ), 𝓋ⁿ + Δt * G𝓋ⁿ[i, j, k])
+        ℵ⁺ = min(max(ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k], zero(𝓋ⁿ)), one(𝓋ⁿ))
+        hᵗ = hⁿ[i, j, k] + Δt * Ghⁿ[i, j, k]
+        
+        empty = 𝓋⁺ ≤ zero(𝓋ⁿ)
 
-        # Clip undershoots.
-        𝓋⁺ = max(zero(𝓋⁺), 𝓋⁺)
-        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺)
+        # Cap at the advected thickness `hᵗ` (bounds `𝓋/ℵ` as ℵ→0) and floor at the consolidation
+        # thickness `hc` (consolidates thin ice, keeps `h > 0`).
+        h⁺ = ifelse(empty, zero(𝓋⁺), max(min(𝓋⁺ / ℵ⁺, hᵗ), hc[i, j, k]))
+        ℵ⁺ = ifelse(empty, zero(𝓋⁺), 𝓋⁺ / h⁺)
 
-        # Ridging: cap concentration at 1
+        # Ridging: fold excess concentration (ℵ⁺ > 1 under convergence) into thickness, conserving 𝓋⁺.
+        h⁺ = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
         ℵ⁺ = min(ℵ⁺, one(ℵ⁺))
 
-        # h recovery `h = 𝓋 / ℵ`, guarded by `model.concentration_floor`.
-        # Below the floor both 𝓋 and ℵ are zapped to zero (mass loss limited to O(ℵmin · h)).
-        active = ℵ⁺ > ℵmin
-        h⁺     = ifelse(active, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
-        ℵ⁺     = ifelse(active, ℵ⁺,      zero(ℵ⁺))
-
-        ℵ[i, j, k] = ℵ⁺
-        h[i, j, k] = h⁺
+        h[i, j, k] = ifelse(empty, zero(h⁺), h⁺)
+        ℵ[i, j, k] = ifelse(empty, zero(ℵ⁺), ℵ⁺)
     end
 
     dynamic_step_snow!(i, j, k, hs, hsⁿ, ℵ, Gⁿ, Δt)

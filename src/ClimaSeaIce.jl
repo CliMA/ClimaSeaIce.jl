@@ -35,8 +35,8 @@ using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditio
 using Oceananigans.Fields: field, set!, Center, Field, ZeroField, ConstantField
 using Oceananigans.Grids: Face, RectilinearGrid, LatitudeLongitudeGrid, OrthogonalSphericalShellGrid
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaries, ImmersedBoundaryGrid
-using Oceananigans.Operators: Axᶠᶜᶜ, Ayᶜᶠᶜ, Vᶜᶜᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
-using Oceananigans.TimeSteppers: tick!, Clock, update_state!
+using Oceananigans.Operators: Axᶠᶜᶜ, Ayᶜᶠᶜ, Azᶜᶜᶜ, Δzᶠᶜᶜ, Δzᶜᶠᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
+using Oceananigans.TimeSteppers: tick!, Clock, update_state!, ExplicitTimeDiscretization
 using Oceananigans.Utils: launch!, prettytime
 
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
