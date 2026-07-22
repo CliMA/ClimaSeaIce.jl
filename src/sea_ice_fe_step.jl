@@ -82,6 +82,7 @@ end
         # Ridging: fold excess concentration (ℵ⁺ > 1 under convergence) into thickness, conserving 𝓋⁺.
         h⁺ = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
         ℵ⁺ = min(ℵ⁺, one(ℵ⁺))
+        h⁺ = ifelse(iszero(ℵ⁺), zero(h⁺), h⁺)
 
         h[i, j, k] = ifelse(empty, zero(h⁺), h⁺)
         ℵ[i, j, k] = ifelse(empty, zero(ℵ⁺), ℵ⁺)
