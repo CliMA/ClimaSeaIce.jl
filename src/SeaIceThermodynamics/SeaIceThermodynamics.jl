@@ -11,8 +11,9 @@ export SlabThermodynamics,
        IceSnowConductiveFlux,
        FluxFunction
 
-using Adapt
-using Oceananigans
+using Adapt: Adapt
+using Oceananigans: Oceananigans, fields
+using Oceananigans.Utils: launch!
 
 #####
 ##### A bit of ice_thermodynamics to start the day
@@ -37,9 +38,9 @@ Tₘ(S) = T₀ - m S ,
 
 where ``Tₘ(S)`` is the melting temperature as a function of salinity ``S``,
 ``T₀`` is the melting temperature of freshwater, and ``m`` is the ratio
-between the melting temperature and salinity (in other words the linear model
-should be thought of as defining ``m`` and could be written ``m ≡ (T₀ - Tₘ) / S``.
-The signs are arranged so that ``m > 0`` for saltwater).
+between the melting temperature and salinity (equivalently,
+``m ≡ (T₀ - Tₘ) / S``). The sign convention is chosen so that ``m > 0`` for
+saltwater, meaning the melting temperature decreases as salinity increases.
 
 The defaults assume that salinity is given in practical salinity units `psu` and
 temperature is in degrees Celsius.
@@ -79,16 +80,20 @@ end
 
 """
     PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                     density               = 917,   # kg m⁻³
-                     heat_capacity          = 2000,  # J / (kg ᵒC)
-                     liquid_density         = 999.8, # kg m⁻³
-                     liquid_heat_capacity   = 4186,  # J / (kg ᵒC)
-                     reference_latent_heat  = 334e3, # J kg⁻³
-                     reference_temperature  = 0,     # ᵒC
+                     density               = 917,    # kg m⁻³
+                     heat_capacity         = 2000,   # J / (kg ᵒC)
+                     liquid_density        = 999.8,  # kg m⁻³
+                     liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
+                     reference_latent_heat = 334e3,  # J kg⁻³
+                     reference_temperature = 0,      # ᵒC
                      liquidus = LinearLiquidus(FT))  # default assumes psu, ᵒC
 
 Return a representation of transitions between the solid and liquid phases
 of salty water: in other words, the freezing and melting of sea ice.
+
+`PhaseTransitions` stores the thermodynamic parameters shared by the slab sea-ice
+and snow parameterizations in `SeaIceModel`, including densities, heat
+capacities, a reference latent heat, and the liquidus relation.
 
 The latent heat of fusion ``ℒ(T)`` (more simply just "latent heat") is
 a function of temperature ``T`` via
@@ -105,12 +110,12 @@ The default `liquidus` assumes that salinity has practical salinity units (psu)
 and that temperature is degrees Celsius.
 """
 @inline function PhaseTransitions(FT=Oceananigans.defaults.FloatType;
-                                  density                = 917,    # kg m⁻³
-                                  heat_capacity          = 2000,   # J / (kg ᵒC)
-                                  liquid_density         = 999.8,  # kg m⁻³
-                                  liquid_heat_capacity   = 4186,   # J / (kg ᵒC)
-                                  reference_latent_heat  = 334e3,  # J kg⁻³
-                                  reference_temperature  = 0,      # ᵒC
+                                  density               = 917,    # kg m⁻³
+                                  heat_capacity         = 2000,   # J / (kg ᵒC)
+                                  liquid_density        = 999.8,  # kg m⁻³
+                                  liquid_heat_capacity  = 4186,   # J / (kg ᵒC)
+                                  reference_latent_heat = 334e3,  # J kg⁻³
+                                  reference_temperature = 0,      # ᵒC
                                   liquidus = LinearLiquidus(FT))
 
     return PhaseTransitions(convert(FT, density),
@@ -142,12 +147,12 @@ Return the per-mass latent heat of fusion of pure ice at temperature `T`,
 ℒ(T) = ℒ₀ + \\left(\\frac{ρ_ℓ c_ℓ}{ρ} - c\\right)(T - T₀) ,
 ```
 
-where `ρ`, `c` are the microscopic pure-ice density and heat capacity,
-`ρ_ℓ`, `c_ℓ` are the liquid density and heat capacity, and `T₀` is the
-reference temperature at which the reference latent heat `ℒ₀` is defined.
+where ``ρ``, ``c`` are the microscopic pure-ice density and heat capacity,
+``ρ_ℓ``, ``c_ℓ`` are the liquid density and heat capacity, and ``T₀`` is the
+reference temperature at which the reference latent heat ``ℒ₀`` is defined.
 
 This is the per-mass form of the volumetric expression
-`ρ ℒ(T) = ρ ℒ₀ + (ρ_ℓ c_ℓ - ρ c)(T - T₀)` (divided through by `ρ`).
+``ρ ℒ(T) = ρ ℒ₀ + (ρ_ℓ c_ℓ - ρ c)(T - T₀)`` (divided through by ``ρ``).
 
 The returned quantity is per unit mass of pure ice. To obtain energy per
 unit volume of a porous medium (snow or sea ice), multiply by the bulk
@@ -169,27 +174,13 @@ end
 
 include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 
-using .HeatBoundaryConditions:
-    IceWaterThermalEquilibrium,
-    MeltingConstrainedFluxBalance,
-    RadiativeEmission,
-    FluxFunction,
-    PrescribedTemperature,
-    getflux
+using Oceananigans.Fields: field, Field, Center, ConstantField
 
-using Oceananigans.TimeSteppers: Clock
-using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
+using .HeatBoundaryConditions: IceWaterThermalEquilibrium, MeltingConstrainedFluxBalance,
+                               RadiativeEmission, FluxFunction, PrescribedTemperature,
+                               getflux
 
-# Simulations interface
-import Oceananigans: fields, prognostic_fields
-import Oceananigans.Fields: set!
-import Oceananigans.Models: AbstractModel
-import Oceananigans.Simulations: reset!, initialize!, iteration
-import Oceananigans.TimeSteppers: time_step!, update_state!
-
-import Oceananigans.Utils: prettytime
-
-# TODO: Fix this after this PR
+# Enthalpy thermodynamics is not included in this module yet.
 # include("EnthalpyMethodThermodynamics.jl")
 
 include("slab_heat_and_tracer_fluxes.jl")

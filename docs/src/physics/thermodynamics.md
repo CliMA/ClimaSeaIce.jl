@@ -260,7 +260,7 @@ user_flux = FluxFunction(radiative_internal_flux;
                          top_temperature_dependent = true)
 
 ice_thermodynamics_fn = SlabThermodynamics(grid;
-    internal_heat_flux = user_flux)
+                                           internal_heat_flux = user_flux)
 ```
 
 This is the right choice when your flux needs parameters that the default
@@ -288,10 +288,11 @@ end
 end
 
 # Extend the dispatch so the slab knows how to wrap NonLinearConductiveFlux
-ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::NonLinearConductiveFlux) = nonlinear_conductive_flux
+ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::NonLinearConductiveFlux) =
+    nonlinear_conductive_flux
 
 SlabThermodynamics(grid;
-    internal_heat_flux = NonLinearConductiveFlux(2.0, 0.01))
+                   internal_heat_flux = NonLinearConductiveFlux(2.0, 0.01))
 ```
 
 The benefit over the bare-function approach is that the flux coefficient is
@@ -384,9 +385,9 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 model = SeaIceModel(grid;
-    snow_thermodynamics,
-    snow_density = 330,
-    snowfall = 3e-6) # kg/m²/s
+                    snow_thermodynamics,
+                    snow_density = 330,
+                    snowfall = 3e-6) # kg/m²/s
 
 set!(model, h=1, ℵ=1, hs=0.1) # 10 cm snow on 1 m ice
 ```
@@ -404,7 +405,7 @@ When running a pure-dynamics simulation (no phase physics), pass
 path works without a thermodynamic step:
 
 ```@example thermodynamics
-model_dyn = SeaIceModel(grid;
-    ice_thermodynamics = nothing,
-    sea_ice_density = 900)
+model = SeaIceModel(grid;
+                    ice_thermodynamics = nothing,
+                    sea_ice_density = 900)
 ```

@@ -1,9 +1,7 @@
-using Oceananigans.Operators
-using Oceananigans.ImmersedBoundaries
-using Oceananigans.Advection: FluxFormAdvection, 
-                              _advective_tracer_flux_x, 
+using Oceananigans.Advection: FluxFormAdvection,
+                              _advective_tracer_flux_x,
                               _advective_tracer_flux_y,
-                              conditional_flux_fcc, 
+                              conditional_flux_fcc,
                               conditional_flux_cfc
 
 # To obtain better numerical properties (conservation of `ℵ·h` in convergent flow
@@ -19,10 +17,10 @@ using Oceananigans.Advection: FluxFormAdvection,
 _advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h)
 _advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h) = advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h)
 
-_advective_thickness_flux_x(i, j, k, ibg::ImmersedBoundaryGrid, scheme, U, ℵ, h) = 
+_advective_thickness_flux_x(i, j, k, ibg::ImmersedBoundaryGrid, scheme, U, ℵ, h) =
     conditional_flux_fcc(i, j, k, ibg, zero(ibg), advective_thickness_flux_x(i, j, k, ibg, scheme, U, ℵ, h))
 
-_advective_thickness_flux_y(i, j, k, ibg::ImmersedBoundaryGrid, scheme, U, ℵ, h) = 
+_advective_thickness_flux_y(i, j, k, ibg::ImmersedBoundaryGrid, scheme, U, ℵ, h) =
     conditional_flux_cfc(i, j, k, ibg, zero(ibg), advective_thickness_flux_y(i, j, k, ibg, scheme, U, ℵ, h))
 
 @inline function advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h)
@@ -34,7 +32,7 @@ end
 
 @inline function advective_thickness_flux_y(i, j, k, grid, advection, V, ℵ, h)
     ϕℵ = advective_tracer_flux_y(i, j, k, grid, advection, V, ℵ) / Ayᶜᶠᶜ(i, j, k, grid)
-    Vϕℵh = ϕℵ * advective_tracer_flux_y(i, j, k, grid, advection, V, h) 
+    Vϕℵh = ϕℵ * advective_tracer_flux_y(i, j, k, grid, advection, V, h)
     @inbounds ϕℵh = ifelse(V[i, j, k] == 0, zero(grid), Vϕℵh / V[i, j, k])
     return ϕℵh
 end
@@ -54,11 +52,10 @@ end
 end
 
 @inline horizontal_div_Uc(i, j, k, grid, ::Nothing, U, c) = zero(grid)
-@inline horizontal_div_Uc(i, j, k, grid, advection, U, c) = 
+@inline horizontal_div_Uc(i, j, k, grid, advection, U, c) =
     1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_x, advection, U.u, c) +
                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_y, advection, U.v, c))
-                               
-@inline horizontal_div_Uc(i, j, k, grid, advection::FluxFormAdvection, U, c) = 
+
+@inline horizontal_div_Uc(i, j, k, grid, advection::FluxFormAdvection, U, c) =
     1 / Vᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_x, advection.x, U.u, c) +
                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_y, advection.y, U.v, c))
-                               

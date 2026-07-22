@@ -1,7 +1,4 @@
-using ClimaSeaIce.Rheologies
-using Adapt
-
-import Oceananigans: prognostic_state, restore_prognostic_state!
+using ..Rheologies
 
 struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
     coriolis :: C
@@ -48,12 +45,24 @@ Keyword Arguments
 =================
 
 - `coriolis`: Parameters for the background rotation rate of the model.
-- `rheology`: The sea ice rheology model, default is `ElastoViscoPlasticRheology(eltype(grid))`.
-- `free_drift`: The free drift velocities used to limit sea ice momentum when the mass or the concentration are
-                below a certain threshold. Default is `nothing` (indicating that the free drift velocities are zero).
-- `solver`: The momentum solver to be used.
-- `minimum_concentration`: The minimum sea ice concentration above which the sea ice velocity is dynamically calculated, default is `1e-3`.
-- `minimum_mass`: The minimum sea ice mass per area above which the sea ice velocity is dynamically calculated, default is `1.0 kg/m²`.
+- `rheology`: The sea-ice rheology model. Default:
+              `ElastoViscoPlasticRheology(eltype(grid))`.
+- `top_momentum_stress`: Atmosphere-to-ice momentum stress, or an object that can
+                         be materialized into one. Default: `nothing`.
+- `bottom_momentum_stress`: Ocean-to-ice momentum stress, or an object that can
+                            be materialized into one. Default: `nothing`.
+- `free_drift`: The free drift velocities used when nonzero sea ice mass or concentration are below
+                the dynamical momentum thresholds. Default is `nothing`.
+- `solver`: Momentum solver used to advance the velocity field. Default:
+            `SplitExplicitSolver(grid; substeps = 150)`.
+- `minimum_concentration`: Minimum sea-ice concentration above which the velocity
+                           is evolved dynamically. Below this threshold, nonzero
+                           ice moves with free drift and roundoff-level
+                           concentration cells are set to zero. Default: `1e-3`.
+- `minimum_mass`: Minimum sea-ice mass per area above which the velocity is
+                  evolved dynamically. Below this threshold, nonzero ice moves
+                  with free drift and roundoff-level mass cells are set to zero.
+                  Default: `1.0 kg/m²`.
 """
 function SeaIceMomentumEquation(grid;
                                 coriolis = nothing,
@@ -66,8 +75,11 @@ function SeaIceMomentumEquation(grid;
                                 minimum_mass = 1.0)
 
     auxiliaries = Auxiliaries(rheology, grid)
-    external_momentum_stresses = (top = top_momentum_stress,
-                                  bottom = bottom_momentum_stress)
+    external_momentum_stresses = (top = materialize_stress(top_momentum_stress, grid),
+                                  bottom = materialize_stress(bottom_momentum_stress, grid))
+
+    # Keep the free drift pointing at the same (materialized) stress fields as the external stresses.
+    free_drift = materialize_free_drift(free_drift, external_momentum_stresses.top, external_momentum_stresses.bottom)
 
     FT = eltype(grid)
 
@@ -81,8 +93,12 @@ function SeaIceMomentumEquation(grid;
                                   convert(FT, minimum_mass))
 end
 
-fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
-prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+Oceananigans.fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
+Oceananigans.prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+
+# Fallback: keep the same grid and dynamics
+maybe_extended_grid(mom, grid) = grid
+materialize_solver(mom, velocity_grid) = mom
 
 # Fallback: keep the same grid and dynamics
 maybe_extended_grid(mom, grid) = grid
@@ -107,11 +123,12 @@ end
 ##### Checkpointing
 #####
 
-function prognostic_state(mom::SeaIceMomentumEquation)
-    return (; fields = prognostic_state(fields(mom)))
-end
+Oceananigans.prognostic_state(mom::SeaIceMomentumEquation) =
+    (; fields = prognostic_state(fields(mom)))
 
-function restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
+function Oceananigans.restore_prognostic_state!(mom::SeaIceMomentumEquation, state)
     restore_prognostic_state!(fields(mom), state.fields)
     return mom
 end
+
+Oceananigans.restore_prognostic_state!(mom::SeaIceMomentumEquation, ::Nothing) = nothing

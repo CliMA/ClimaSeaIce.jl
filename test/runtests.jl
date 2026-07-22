@@ -43,8 +43,13 @@ if TEST_GROUP == "all" || TEST_GROUP == "snow"
     include("test_snow_thermodynamics.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "mass_fluxes"
+    include("test_thermodynamic_mass_fluxes.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "energy_conservation"
     include("test_energy_conservation.jl")
+    include("test_rheology_energy_budget.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "netcdf"
@@ -54,4 +59,8 @@ end
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"
     include("test_distributed_sea_ice.jl")
     include("test_distributed_halo_extension.jl")
+end
+
+if TEST_GROUP == "all" || TEST_GROUP == "quality_assurance"
+    include("test_quality_assurance.jl")
 end

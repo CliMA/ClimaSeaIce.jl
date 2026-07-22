@@ -1,30 +1,31 @@
-using Oceananigans.Units: Time
 using Oceananigans.Fields: flattened_unique_values, ZeroField
-using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
+using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
+using Oceananigans.Units: Time
 
-using ClimaSeaIce.SeaIceDynamics: time_step_momentum!
-using ClimaSeaIce.SeaIceThermodynamics: thermodynamic_time_step!
+using .SeaIceDynamics: time_step_momentum!
+using .SeaIceThermodynamics: thermodynamic_time_step!
 
 const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:Any, <:ForwardEulerTimeStepper}
 
 # We separate the thermodynamic step from the advection (dynamic) step.
 # The thermodynamic step is column physics and is performed all at once.
-function time_step!(model::FESeaIceModel, Δt; kwargs...)
-    
+function Oceananigans.TimeSteppers.time_step!(model::FESeaIceModel, Δt; kwargs...)
+
     # Be paranoid and update state at iteration 0
     model.clock.iteration == 0 && update_state!(model)
 
-    # Compute advective tendencies and update 
-    # advected tracers
+    # Compute advective tendencies and update advected tracers
     compute_tendencies!(model, Δt)
+
+    # This is an implicit (or split-explicit) step to advance momentum.
+    time_step_momentum!(model, model.dynamics, Δt)
+
+    # Dynamic step for tracers
     dynamic_time_step!(model, Δt)
 
     # Perform the thermodynamic step
     thermodynamic_time_step!(model, model.ice_thermodynamics, model.snow_thermodynamics, Δt)
-
-    # This is an implicit (or split-explicit) step to advance momentum.
-    time_step_momentum!(model, model.dynamics, Δt)
 
     tick!(model.clock, Δt)
     update_state!(model)

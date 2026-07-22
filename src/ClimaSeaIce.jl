@@ -1,25 +1,11 @@
-""" Ocean 🌊 Sea ice component of CliMa's Earth system model. """
 module ClimaSeaIce
 
-using Oceananigans
-using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.Fields: field, Field, Center, ZeroField, ConstantField
-using Oceananigans.Grids: architecture
-using Oceananigans.TimeSteppers: tick!, Clock, QuasiAdamsBashforth2TimeStepper, RungeKutta3TimeStepper
-using Oceananigans.Utils
-
-using KernelAbstractions: @kernel, @index
-
-# Simulations interface
-import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
-import Oceananigans.Advection: cell_advection_timescale
-import Oceananigans.Fields: set!
-import Oceananigans.ImmersedBoundaries: mask_immersed_field!
-import Oceananigans.Models: AbstractModel
-import Oceananigans.Simulations: reset!, initialize!, iteration
-import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.TurbulenceClosures: cell_diffusion_timescale
-import Oceananigans.Utils: prettytime
+# Use the README as the module docs.
+@doc let
+    path = joinpath(dirname(@__DIR__), "README.md")
+    include_dependency(path)
+    read(path, String)
+end ClimaSeaIce
 
 export SeaIceModel,
        MeltingConstrainedFluxBalance,
@@ -31,17 +17,31 @@ export SeaIceModel,
        SlabThermodynamics,
        snow_slab_thermodynamics,
        sea_ice_slab_thermodynamics,
-       SeaIceMomentumEquation, 
-       ExplicitSolver, 
-       SplitExplicitSolver, 
-       SemiImplicitStress, 
+       SeaIceMomentumEquation,
+       ExplicitSolver,
+       SplitExplicitSolver,
+       SemiImplicitStress,
        StressBalanceFreeDrift,
-       ViscousRheology, 
+       ViscousRheology,
        ElastoViscoPlasticRheology
-   
+
+
+using KernelAbstractions: @kernel, @index
+using Oceananigans: Oceananigans, AbstractModel, fields, prognostic_fields,
+                    prognostic_state, restore_prognostic_state!
+using Oceananigans.Advection: cell_advection_timescale, advective_tracer_flux_x, advective_tracer_flux_y
+using Oceananigans.Architectures: architecture
+using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions
+using Oceananigans.Fields: field, set!, Center, Field, ZeroField, ConstantField
+using Oceananigans.Grids: Face, RectilinearGrid, LatitudeLongitudeGrid, OrthogonalSphericalShellGrid
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaries, ImmersedBoundaryGrid
+using Oceananigans.Operators: Axᶠᶜᶜ, Ayᶜᶠᶜ, Vᶜᶜᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
+using Oceananigans.TimeSteppers: tick!, Clock, update_state!
+using Oceananigans.Utils: launch!, prettytime
+
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
 
-# TODO: move this to Oceananigans
+# Candidate for upstreaming to Oceananigans.
 include("forward_euler_timestepper.jl")
 
 include("SeaIceThermodynamics/SeaIceThermodynamics.jl")
@@ -60,16 +60,16 @@ using .Rheologies
 include("sea_ice_fe_step.jl")
 include("sea_ice_rk_substep.jl")
 
-# Advection timescale for a `SeaIceModel`. Sea ice dynamics are two-dimensional so 
-# we reuse the `cell_advection_timescale` function defined in Oceananigans by passing 
+# Advection timescale for a `SeaIceModel`. Sea ice dynamics are two-dimensional so
+# we reuse the `cell_advection_timescale` function defined in Oceananigans by passing
 # `w = ZeroField()`.
-function cell_advection_timescale(model::SeaIceModel)
+function Oceananigans.Advection.cell_advection_timescale(model::SeaIceModel)
     velocities = merge(model.velocities, (; w = ZeroField()))
     return cell_advection_timescale(model.grid, velocities)
 end
 
 # No diffusion timescale for sea ice for now
-cell_diffusion_timescale(model::SeaIceModel) = Inf
+Oceananigans.TurbulenceClosures.cell_diffusion_timescale(::SeaIceModel) = Inf
 
 #####
 ##### Default output attributes for NetCDF output
