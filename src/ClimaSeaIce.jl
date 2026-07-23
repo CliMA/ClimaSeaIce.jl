@@ -29,14 +29,14 @@ export SeaIceModel,
 using KernelAbstractions: @kernel, @index
 using Oceananigans: Oceananigans, AbstractModel, fields, prognostic_fields,
                     prognostic_state, restore_prognostic_state!
-using Oceananigans.Advection: cell_advection_timescale, advective_tracer_flux_x, advective_tracer_flux_y
+using Oceananigans.Advection: cell_advection_timescale
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions
 using Oceananigans.Fields: field, set!, Center, Field, ZeroField, ConstantField
 using Oceananigans.Grids: Face, RectilinearGrid, LatitudeLongitudeGrid, OrthogonalSphericalShellGrid
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaries, ImmersedBoundaryGrid
 using Oceananigans.Operators: Axᶠᶜᶜ, Ayᶜᶠᶜ, Azᶜᶜᶜ, Δzᶠᶜᶜ, Δzᶜᶠᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
-using Oceananigans.TimeSteppers: tick!, Clock, update_state!, ExplicitTimeDiscretization
+using Oceananigans.TimeSteppers: tick!, Clock, update_state!
 using Oceananigans.Utils: launch!, prettytime
 
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
