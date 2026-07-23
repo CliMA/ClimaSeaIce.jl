@@ -216,7 +216,7 @@ end
 end
 
 # The parameterization for an `ElastoViscoPlasticRheology`
-@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * exp(- C * (1 - ℵ[i, j, k]))
+@inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * ℵ[i, j, k] * exp(- C * (1 - ℵ[i, j, k]))
 
 # Specific compute stresses for the EVP rheology
 function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
