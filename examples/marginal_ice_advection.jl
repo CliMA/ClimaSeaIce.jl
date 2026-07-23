@@ -187,25 +187,24 @@ vtimeseries = FieldTimeSeries("marginal_ice_advection.jld2", "v")
 Nt = length(htimeseries)
 iter = Observable(1)
 
-hi = @lift(interior(htimeseries[$iter], :, :, 1))
+𝒱i = @lift(interior(ℵtimeseries[$iter], :, :, 1) .* interior(htimeseries[$iter], :, :, 1))
 ℵi = @lift(interior(ℵtimeseries[$iter], :, :, 1))
 ui = @lift(interior(utimeseries[$iter], :, :, 1))
 vi = @lift(interior(vtimeseries[$iter], :, :, 1))
 
 fig = Figure(size = (1200, 800))
-ax1 = Axis(fig[1, 1], title = "Sea ice thickness (m)")
+ax1 = Axis(fig[1, 1], title = "Sea ice volume per area, ℵh (m)")
 ax2 = Axis(fig[1, 2], title = "Sea ice concentration")
 ax3 = Axis(fig[2, 1], title = "Zonal velocity (m s⁻¹)")
 ax4 = Axis(fig[2, 2], title = "Meridional velocity (m s⁻¹)")
 
-heatmap!(ax1, hi, colormap = :magma,          colorrange = (0.0, 1.5))
+heatmap!(ax1, 𝒱i, colormap = :magma,          colorrange = (0.0, 1.0))
 heatmap!(ax2, ℵi, colormap = Reverse(:deep),  colorrange = (0.0, 1.0))
 heatmap!(ax3, ui, colormap = :balance,        colorrange = (-0.2, 0.2))
 heatmap!(ax4, vi, colormap = :balance,        colorrange = (-0.2, 0.2))
 
 CairoMakie.record(fig, "marginal_ice_advection.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
-    @info "Rendering frame $i"
 end
 nothing #hide
 
