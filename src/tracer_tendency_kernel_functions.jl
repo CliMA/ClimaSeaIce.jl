@@ -38,8 +38,7 @@ end
 
     @inbounds begin
         Gⁿ.𝓋[i, j, 1] = - div_Uℵh(i, j, kᴺ, grid, advection, velocities, ice_concentration, ice_thickness)
-        Gⁿ.h[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_thickness)
-        Gⁿ.ℵ[i, j, 1] = - horizontal_div_Uc(i, j, kᴺ, grid, advection, velocities, ice_concentration)
+        Gⁿ.ℵ[i, j, 1] = - div_Uℵ(i, j, kᴺ, grid, advection, velocities, ice_concentration)
     end
 
     compute_snow_advection_tendency!(i, j, kᴺ, Gⁿ, grid, advection, velocities, snow_thickness)

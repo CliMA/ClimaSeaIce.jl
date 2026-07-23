@@ -96,8 +96,9 @@ end
 """
     dynamic_time_step!(model::RKSeaIceModel, Δt)
 
-Update ice thickness `h` and concentration `ℵ` using the advective tendencies
-stored in `model.timestepper.Gⁿ` for a Runge--Kutta substep.
+Update ice concentration `ℵ` and content `𝓋 = ℵ·h` using the advective tendencies
+stored in `model.timestepper.Gⁿ` for a Runge--Kutta substep, then recover the
+thickness `h = 𝓋/ℵ`.
 
 Unlike the Forward Euler version, this method updates the state from the cached
 previous state `Ψ⁻` (stored by `cache_current_fields!`) rather than from the
@@ -105,7 +106,7 @@ already-updated fields:
 
 ```math
 \\begin{align*}
-hⁿ⁺¹ = hⁿ + Δt \\, Gⁿ_h \\\\
+𝓋ⁿ⁺¹ = ℵⁿ hⁿ + Δt \\, Gⁿ_𝓋 \\\\
 ℵⁿ⁺¹ = ℵⁿ + Δt \\, Gⁿ_ℵ
 \\end{align*}
 ```
@@ -113,10 +114,10 @@ hⁿ⁺¹ = hⁿ + Δt \\, Gⁿ_h \\\\
 where ``hⁿ`` and ``ℵⁿ`` are retrieved from `model.timestepper.Ψ⁻`.
 
 The kernel `_dynamic_step_tracers!` also handles:
-- Clipping negative thickness and concentration values
-- Resetting concentration when thickness is zero (and vice versa)
+- Clipping negative content and concentration values
+- Recovering the thickness `h = 𝓋/ℵ`
 - Ridging: when `ℵ > 1`, concentration is capped at 1 and thickness is adjusted to
-  conserve ice volume
+  conserve ice content
 
 Arguments
 =========
@@ -145,9 +146,8 @@ function dynamic_time_step!(model::RKSeaIceModel, Δt)
 
     tracers = model.tracers
     Gⁿ   = model.timestepper.Gⁿ
-    hc   = model.ice_consolidation_thickness
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, hc, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
 
     return nothing
 end

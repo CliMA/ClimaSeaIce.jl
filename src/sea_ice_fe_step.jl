@@ -43,46 +43,37 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     tracers = model.tracers
 
     Gⁿ = model.timestepper.Gⁿ
-    hc = model.ice_consolidation_thickness
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, hc, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, tracers, Gⁿ, Δt)
 
     return nothing
 end
 
-# Thickness and concentration are advanced by flux-form advection of three conserved integrals — the
-# intensive content `𝓋 = ℵ·h`, the concentration `ℵ`, and the thickness `h`:
+# Concentration `ℵ` and content `𝓋 = ℵ·h` are advanced by flux-form advection; the thickness is then
+# recovered as `h = 𝓋/ℵ`. The content flux is thickness-weighted (see `advective_thickness_flux_x`) so
+# `𝓋 → 0` together with `ℵ`, keeping the recovered thickness bounded.
 #
-#     Gⁿ.𝓋  ≡ ∂𝓋/∂t = -∇·(U·𝓋)     with `𝓋 = ℵ·h`   (the conserved ice content)
+#     Gⁿ.𝓋  ≡ ∂𝓋/∂t = -∇·(U·ℵ·h)   (the conserved ice content)
 #     Gⁿ.ℵ  ≡ ∂ℵ/∂t = -∇·(U·ℵ)
-#     Gⁿ.h  ≡ ∂h/∂t = -∇·(U·h)      (advected thickness, used only as a recovery bound)
 #
-@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, hc, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
 
     G𝓋ⁿ = Gⁿ.𝓋
-    Ghⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
 
     @inbounds begin
-        # Advect content `𝓋 = ℵ·h` and concentration ℵ; clip content undershoot and ℵ into [0, 1].
         𝓋ⁿ = hⁿ[i, j, k] * ℵⁿ[i, j, k]
         𝓋⁺ = max(zero(𝓋ⁿ), 𝓋ⁿ + Δt * G𝓋ⁿ[i, j, k])
-        ℵ⁺ = min(max(ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k], zero(𝓋ⁿ)), one(𝓋ⁿ))
-        hᵗ = hⁿ[i, j, k] + Δt * Ghⁿ[i, j, k]
-        
+        ℵ⁺ = max(zero(𝓋ⁿ), ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k])
+
         empty = 𝓋⁺ ≤ zero(𝓋ⁿ)
+        h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
 
-        # Cap at the advected thickness `hᵗ` (bounds `𝓋/ℵ` as ℵ→0) and floor at the consolidation
-        # thickness `hc` (consolidates thin ice, keeps `h > 0`).
-        h⁺ = ifelse(empty, zero(𝓋⁺), max(min(𝓋⁺ / ℵ⁺, hᵗ), hc[i, j, k]))
-        ℵ⁺ = ifelse(empty, zero(𝓋⁺), 𝓋⁺ / h⁺)
-
-        # Ridging: fold excess concentration (ℵ⁺ > 1 under convergence) into thickness, conserving 𝓋⁺.
-        h⁺ = ifelse(ℵ⁺ > 1, h⁺ * ℵ⁺, h⁺)
+        # Ridging: cap concentration at 1 and fold the excess into thickness, conserving 𝓋⁺.
+        h⁺ = ifelse(ℵ⁺ > 1, 𝓋⁺, h⁺)
         ℵ⁺ = min(ℵ⁺, one(ℵ⁺))
-        h⁺ = ifelse(iszero(ℵ⁺), zero(h⁺), h⁺)
 
         h[i, j, k] = ifelse(empty, zero(h⁺), h⁺)
         ℵ[i, j, k] = ifelse(empty, zero(ℵ⁺), ℵ⁺)
