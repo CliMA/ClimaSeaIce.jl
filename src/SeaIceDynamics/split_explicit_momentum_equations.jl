@@ -9,6 +9,16 @@ using Oceananigans.Grids: AbstractGrid, halo_size, halo_size, topology, with_hal
                           LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
 using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
 using Oceananigans.Utils: configure_kernel
+using Oceananigans.Grids: halo_size, topology, with_halo,
+                          LeftConnected, RightConnected, FullyConnected,
+                          RightCenterFolded, RightFaceFolded,
+                          LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
+                          LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
+
+const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
+                                RightCenterFolded, RightFaceFolded,
+                                LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
+                                LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
 const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 RightCenterFolded, RightFaceFolded,

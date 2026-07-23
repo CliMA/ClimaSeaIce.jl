@@ -49,33 +49,34 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     return nothing
 end
 
-# Thickness and concentration are updated
-# We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging:
-# if ℵ > 1, we reset the concentration to 1 and adjust the thickness
-# to conserve the total ice volume in the cell.
+# Concentration `ℵ` and content `𝓋 = ℵ·h` are advanced by flux-form advection; the thickness is then
+# recovered as `h = 𝓋/ℵ`. The content flux is thickness-weighted (see `advective_thickness_flux_x`) so
+# `𝓋 → 0` together with `ℵ`, keeping the recovered thickness bounded.
+#
+#     Gⁿ.𝓋  ≡ ∂𝓋/∂t = -∇·(U·ℵ·h)   (the conserved ice content)
+#     Gⁿ.ℵ  ≡ ∂ℵ/∂t = -∇·(U·ℵ)
+#
 @kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
 
-    Ghⁿ = Gⁿ.h
+    G𝓋ⁿ = Gⁿ.𝓋
     Gℵⁿ = Gⁿ.ℵ
 
-    # Update ice thickness, clipping negative values
     @inbounds begin
-        h⁺ = hⁿ[i, j, k] + Δt * Ghⁿ[i, j, k]
-        ℵ⁺ = ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k]
+        𝓋ⁿ = hⁿ[i, j, k] * ℵⁿ[i, j, k]
+        𝓋⁺ = max(zero(𝓋ⁿ), 𝓋ⁿ + Δt * G𝓋ⁿ[i, j, k])
+        ℵ⁺ = max(zero(𝓋ⁿ), ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k])
 
-        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
-        h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
+        empty = 𝓋⁺ ≤ zero(𝓋ⁿ)
+        h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
 
-        ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺) # reset the concentration if there is no sea-ice
-        h⁺ = ifelse(ℵ⁺ == 0, zero(h⁺), h⁺) # reset the thickness if there is no sea-ice
+        # Ridging: cap concentration at 1 and fold the excess into thickness, conserving 𝓋⁺.
+        h⁺ = ifelse(ℵ⁺ > 1, 𝓋⁺, h⁺)
+        ℵ⁺ = min(ℵ⁺, one(ℵ⁺))
 
-        # Ridging and rafting caused by the advection step
-        V⁺ = h⁺ * ℵ⁺
-
-        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
-        h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
+        h[i, j, k] = ifelse(empty, zero(h⁺), h⁺)
+        ℵ[i, j, k] = ifelse(empty, zero(ℵ⁺), ℵ⁺)
     end
 
     dynamic_step_snow!(i, j, k, hs, hsⁿ, ℵ, Gⁿ, Δt)

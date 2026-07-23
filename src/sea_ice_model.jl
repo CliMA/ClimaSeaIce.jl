@@ -140,9 +140,9 @@ Keyword Arguments
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
                      ice_consolidation_thickness = 0.05, # m
-                     ice_salinity                = 0,    # psu
-                     sea_ice_density             = 900,  # kg m⁻³, bulk sea-ice
-                     snow_density                = 330,  # kg m⁻³, bulk snow
+                     ice_salinity                = 0, # psu
+                     sea_ice_density             = 900, # kg m⁻³, bulk sea-ice
+                     snow_density                = 330, # kg m⁻³, bulk snow
                      phase_transitions           = PhaseTransitions(eltype(grid)),
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,    # W m⁻²
@@ -232,7 +232,9 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
-    timestepper = TimeStepper(timestepper, grid, prognostic_fields)
+
+    Gⁿ = merge(map(similar, prognostic_fields), (; 𝓋 = Field{Center, Center, Nothing}(velocity_grid)))
+    timestepper = TimeStepper(timestepper, grid, prognostic_fields; Gⁿ)
 
     # The layered (snow + ice) step writes the ice top surface temperature, so it
     # must be writable when snow is present; bare-ice models keep their field as-is.

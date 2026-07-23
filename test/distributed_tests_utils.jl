@@ -121,6 +121,12 @@ function run_distributed_simulation(grid)
                                       solver = SplitExplicitSolver(grid, substeps=10))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
+    
+    # Initialize with non-trivial values
+    h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 20kilometers) + sin(30 * y / 20kilometers))
+
+    set!(model, h = h₀)
+    set!(model, ℵ = 1)
 
     # Initialize with non-trivial values
     h₀(x, y) = 0.3 + 0.005 * (sin(60 * x / 20kilometers) + sin(30 * y / 20kilometers))
