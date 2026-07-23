@@ -169,3 +169,13 @@ end
     return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _area_flux_2D_x, advection.x, U.u, ℵ) +
                                        δyᵃᶜᵃ(i, j, k, grid, _area_flux_2D_y, advection.y, U.v, ℵ))
 end
+
+@inline horizontal_div_Uc(i, j, k, grid, ::Nothing, U, c) = zero(grid)
+
+@inline horizontal_div_Uc(i, j, k, grid, advection, U, c) =
+    1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_2D_x, advection, U.u, c) +
+                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_2D_y, advection, U.v, c))
+
+@inline horizontal_div_Uc(i, j, k, grid, advection::FluxFormAdvection, U, c) =
+    1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_2D_x, advection.x, U.u, c) +
+                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_2D_y, advection.y, U.v, c))
