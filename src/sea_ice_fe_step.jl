@@ -77,10 +77,9 @@ end
         𝓋⁺ = max(zero(𝓋ⁿ), 𝓋ⁿ + Δt * G𝓋ⁿ[i, j, k])
         ℵ⁺ = max(zero(𝓋ⁿ), ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k])
 
-        empty = 𝓋⁺ ≤ zero(𝓋ⁿ)
-
         ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ⁺))
-        h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / max(ℵ⁺, ℵᵐⁱⁿ), zero(𝓋⁺))
+        empty = (𝓋⁺ ≤ zero(𝓋ⁿ)) | (ℵ⁺ < ℵᵐⁱⁿ)
+        h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
 
         # Ridging: cap concentration at 1 and fold the excess into thickness, conserving 𝓋⁺.
         h⁺ = ifelse(ℵ⁺ > 1, 𝓋⁺, h⁺)
@@ -96,8 +95,8 @@ end
     dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
 end
 
-@inline minimum_ice_concentration(::Type{Float64}) = 1e-6
-@inline minimum_ice_concentration(::Type{Float32}) = 1f-6
+@inline minimum_ice_concentration(::Type{Float64}) = 1e-11
+@inline minimum_ice_concentration(::Type{Float32}) = 1f-11
 
 @inline snow_content(i, j, k, ::Nothing, ℵⁿ) = nothing
 @inline snow_content(i, j, k, hsⁿ, ℵⁿ) = @inbounds hsⁿ[i, j, k] * ℵⁿ[i, j, k]
@@ -108,9 +107,8 @@ end
 # `hs = 𝓋s/ℵ` against the post-ridging `ℵ` conserves snow mass through both convergence and ridging.
 @inline function dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
     @inbounds begin
-        𝓋s⁺  = max(zero(𝓋sⁿ), 𝓋sⁿ + Δt * Gⁿ.hs[i, j, k])
-        ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ⁺))
-        hs[i, j, k] = ifelse(ℵ⁺ > 0, 𝓋s⁺ / max(ℵ⁺, ℵᵐⁱⁿ), zero(𝓋s⁺))
+        𝓋s⁺ = max(zero(𝓋sⁿ), 𝓋sⁿ + Δt * Gⁿ.hs[i, j, k])
+        hs[i, j, k] = ifelse(ℵ⁺ > 0, 𝓋s⁺ / ℵ⁺, zero(𝓋s⁺))
     end
     return nothing
 end
