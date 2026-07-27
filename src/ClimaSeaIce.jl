@@ -23,7 +23,8 @@ export SeaIceModel,
        SemiImplicitStress,
        StressBalanceFreeDrift,
        ViscousRheology,
-       ElastoViscoPlasticRheology
+       ElastoViscoPlasticRheology,
+       IncrementalRemapping
 
 
 using KernelAbstractions: @kernel, @index
@@ -49,6 +50,7 @@ include("Rheologies/Rheologies.jl")
 include("SeaIceDynamics/SeaIceDynamics.jl")
 include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
+include("incremental_remapping.jl")
 include("tracer_tendency_kernel_functions.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 

@@ -267,6 +267,8 @@ function SeaIceModel(grid;
     # the grid and backend is known
     advection = materialize_advection(advection, grid)
 
+    validate_advection_timestepper(advection, timestepper)
+
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,
                             bottom = bottom_heat_flux)
@@ -301,6 +303,11 @@ function SeaIceModel(grid;
 end
 
 const SIM = SeaIceModel
+
+# Most advection schemes discretize a spatial operator and leave time integration to the timestepper.
+# A scheme that integrates over the step itself — see `IncrementalRemapping` — restricts which
+# timesteppers it may be combined with, and says so here.
+validate_advection_timestepper(advection, timestepper) = nothing
 
 function Oceananigans.Fields.set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing, u=nothing, v=nothing)
     !isnothing(h)  && set!(model.ice_thickness, h)

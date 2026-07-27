@@ -1,12 +1,12 @@
 using .SeaIceDynamics: compute_momentum_tendencies!
 
 function compute_tendencies!(model::SIM, Δt)
-    compute_tracer_tendencies!(model)
+    compute_tracer_tendencies!(model, model.advection, Δt)
     compute_momentum_tendencies!(model, model.dynamics, Δt)
     return nothing
 end
 
-function compute_tracer_tendencies!(model::SIM)
+function compute_tracer_tendencies!(model::SIM, advection, Δt)
     grid = model.grid
     arch = architecture(grid)
 
@@ -15,7 +15,7 @@ function compute_tracer_tendencies!(model::SIM)
             model.timestepper.Gⁿ,
             grid,
             model.velocities,
-            model.advection,
+            advection,
             model.ice_thickness,
             model.ice_concentration,
             model.snow_thickness,

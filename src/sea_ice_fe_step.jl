@@ -43,8 +43,9 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     tracers = model.tracers
 
     Gⁿ = model.timestepper.Gⁿ
+    ℵᵐⁱⁿ = minimum_ice_concentration(eltype(grid), model.advection)
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, tracers, Gⁿ, Δt, ℵᵐⁱⁿ)
 
     return nothing
 end
@@ -62,7 +63,7 @@ end
 #     Gⁿ.ℵ  ≡ ∂ℵ/∂t  = -∇·(U·ℵ)
 #     Gⁿ.hs ≡ ∂𝓋s/∂t = -∇·(U·ℵ·hs)   (the conserved snow content)
 #
-@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
+@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt, ℵᵐⁱⁿ)
     i, j = @index(Global, NTuple)
     k = 1
 
@@ -77,7 +78,6 @@ end
         𝓋⁺ = max(zero(𝓋ⁿ), 𝓋ⁿ + Δt * G𝓋ⁿ[i, j, k])
         ℵ⁺ = max(zero(𝓋ⁿ), ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k])
 
-        ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ⁺))
         empty = (𝓋⁺ ≤ zero(𝓋ⁿ)) | (ℵ⁺ < ℵᵐⁱⁿ)
         h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
 
@@ -97,6 +97,8 @@ end
 
 @inline minimum_ice_concentration(::Type{Float64}) = 1e-11
 @inline minimum_ice_concentration(::Type{Float32}) = 1f-11
+
+@inline minimum_ice_concentration(FT, advection) = minimum_ice_concentration(FT)
 
 @inline snow_content(i, j, k, ::Nothing, ℵⁿ) = nothing
 @inline snow_content(i, j, k, hsⁿ, ℵⁿ) = @inbounds hsⁿ[i, j, k] * ℵⁿ[i, j, k]

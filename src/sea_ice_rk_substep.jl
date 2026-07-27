@@ -146,8 +146,9 @@ function dynamic_time_step!(model::RKSeaIceModel, Δt)
 
     tracers = model.tracers
     Gⁿ   = model.timestepper.Gⁿ
+    ℵᵐⁱⁿ = minimum_ice_concentration(eltype(grid), model.advection)
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt, ℵᵐⁱⁿ)
 
     return nothing
 end
