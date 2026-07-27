@@ -86,14 +86,18 @@ end
         h⁺ = ifelse(ℵ⁺ > 1, 𝓋⁺, h⁺)
         ℵ⁺ = min(ℵ⁺, one(ℵ⁺))
 
-        h[i, j, k] = ifelse(empty, zero(h⁺), h⁺)
-        ℵ[i, j, k] = ifelse(empty, zero(ℵ⁺), ℵ⁺)
+        h⁺ = ifelse(empty, zero(h⁺), h⁺)
+        ℵ⁺ = ifelse(empty, zero(ℵ⁺), ℵ⁺)
+
+        h[i, j, k] = h⁺
+        ℵ[i, j, k] = ℵ⁺
     end
 
     dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
 end
 
-@inline minimum_ice_concentration(FT) = convert(FT, 1e-6)
+@inline minimum_ice_concentration(::Type{Float64}) = 1e-6
+@inline minimum_ice_concentration(::Type{Float32}) = 1f-6
 
 @inline snow_content(i, j, k, ::Nothing, ℵⁿ) = nothing
 @inline snow_content(i, j, k, hsⁿ, ℵⁿ) = @inbounds hsⁿ[i, j, k] * ℵⁿ[i, j, k]
