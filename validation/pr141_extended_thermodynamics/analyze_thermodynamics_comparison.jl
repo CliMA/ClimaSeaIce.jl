@@ -1,5 +1,11 @@
 #!/usr/bin/env julia
 
+# This validation aims to show that the original example cases `melting_in_spring`
+# and `arctic_basin_seasonal_cycle.jl` work well with modest parameter tuning,
+# including relative to the existing CICE/BL99 thermodynamic behavior.
+# It also writes summary tables and plot-ready timeseries for the standard
+# plotting step in this validation workflow.
+
 using Printf
 using Statistics
 using TOML
