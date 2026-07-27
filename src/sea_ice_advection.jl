@@ -107,11 +107,8 @@ end
 @inline _area_flux_y(i, j, k, ibg::ImmersedBoundaryGrid, scheme, V, ℵ) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), area_flux_y(i, j, k, ibg, scheme, V, ℵ))
 
 # Content flux `Ax·u·ℵ_face · h_face`: the monotone area flux times the limited thickness reconstruction.
-@inline advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h) =
-    area_flux_x(i, j, k, grid, advection, U, ℵ) * reconstruct_thickness_x(i, j, k, grid, advection, U, ℵ, h)
-
-@inline advective_thickness_flux_y(i, j, k, grid, advection, V, ℵ, h) =
-    area_flux_y(i, j, k, grid, advection, V, ℵ) * reconstruct_thickness_y(i, j, k, grid, advection, V, ℵ, h)
+@inline advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h) = area_flux_x(i, j, k, grid, advection, U, ℵ) * reconstruct_thickness_x(i, j, k, grid, advection, U, ℵ, h)
+@inline advective_thickness_flux_y(i, j, k, grid, advection, V, ℵ, h) = area_flux_y(i, j, k, grid, advection, V, ℵ) * reconstruct_thickness_y(i, j, k, grid, advection, V, ℵ, h)
 
 # Divide by Δzᶠᶜᶜ in case of a moving grid (zstar for example)
 @inline function _advective_thickness_flux_2D_x(i, j, k, grid, scheme, U, ℵ, h)

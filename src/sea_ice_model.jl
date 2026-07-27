@@ -233,7 +233,9 @@ function SeaIceModel(grid;
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
 
-    Gⁿ = merge(map(similar, prognostic_fields), (; 𝓋 = Field{Center, Center, Nothing}(velocity_grid)))
+    # `Gⁿ.h` and `Gⁿ.hs` carry the tendencies of the advected contents `𝓋 = ℵ·h` and `𝓋s = ℵ·hs`, from
+    # which the thicknesses are recovered (see `_dynamic_step_tracers!`).
+    Gⁿ = map(similar, prognostic_fields)
     timestepper = TimeStepper(timestepper, grid, prognostic_fields; Gⁿ)
 
     # The layered (snow + ice) step writes the ice top surface temperature, so it

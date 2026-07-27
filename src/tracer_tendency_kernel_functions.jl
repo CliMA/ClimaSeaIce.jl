@@ -37,16 +37,18 @@ end
     kᴺ   = size(grid, 3) # Assumption! The sea ice is located at the _top_ of the grid
 
     @inbounds begin
-        Gⁿ.𝓋[i, j, 1] = - div_Uℵh(i, j, kᴺ, grid, advection, velocities, ice_concentration, ice_thickness)
+        Gⁿ.h[i, j, 1] = - div_Uℵh(i, j, kᴺ, grid, advection, velocities, ice_concentration, ice_thickness)
         Gⁿ.ℵ[i, j, 1] = - div_Uℵ(i, j, kᴺ, grid, advection, velocities, ice_concentration)
     end
 
-    compute_snow_advection_tendency!(i, j, kᴺ, Gⁿ, grid, advection, velocities, snow_thickness)
+    compute_snow_advection_tendency!(i, j, kᴺ, Gⁿ, grid, advection, velocities, ice_concentration, snow_thickness)
 end
 
-@inline compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ::Nothing) = nothing
+@inline compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, ::Nothing) = nothing
 
-@inline function compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, hs)
-    @inbounds Gⁿ.hs[i, j, 1] = - horizontal_div_Uc(i, j, k, grid, advection, velocities, hs)
+# Snow rides on the ice fraction, so the conserved quantity is the content `𝓋s = ℵ·hs` and it is carried by
+# the same monotone area flux as the ice content `𝓋 = ℵ·h`.
+@inline function compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, hs)
+    @inbounds Gⁿ.hs[i, j, 1] = - div_Uℵh(i, j, k, grid, advection, velocities, ℵ, hs)
     return nothing
 end

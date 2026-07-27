@@ -50,18 +50,27 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
 end
 
 # Concentration `ℵ` and content `𝓋 = ℵ·h` are advanced by flux-form advection; the thickness is then
-# recovered as `h = 𝓋/ℵ`. The content flux is thickness-weighted (see `advective_thickness_flux_x`) so
-# `𝓋 → 0` together with `ℵ`, keeping the recovered thickness bounded.
+# recovered as `h = 𝓋/ℵ`. Snow follows the same path through its own content `𝓋s = ℵ·hs`.
 #
-#     Gⁿ.𝓋  ≡ ∂𝓋/∂t = -∇·(U·ℵ·h)   (the conserved ice content)
-#     Gⁿ.ℵ  ≡ ∂ℵ/∂t = -∇·(U·ℵ)
+# The face reconstructions are limited against neighbouring cell values (see `reconstruct_thickness_x`),
+# which bounds the recovered thickness wherever `ℵ⁺` stays away from zero. It vanishes at a concentration
+# discontinuity, though, so the recovery also floors the denominator at `ℵᵐⁱⁿ`.
+#
+# The tendency fields named for the thicknesses carry the tendencies of the corresponding contents:
+#
+#     Gⁿ.h  ≡ ∂𝓋/∂t  = -∇·(U·ℵ·h)    (the conserved ice content)
+#     Gⁿ.ℵ  ≡ ∂ℵ/∂t  = -∇·(U·ℵ)
+#     Gⁿ.hs ≡ ∂𝓋s/∂t = -∇·(U·ℵ·hs)   (the conserved snow content)
 #
 @kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
     i, j = @index(Global, NTuple)
     k = 1
 
-    G𝓋ⁿ = Gⁿ.𝓋
+    G𝓋ⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
+
+    # Read before the ice update below: under Forward Euler the `ⁿ` arguments alias the output fields.
+    𝓋sⁿ = snow_content(i, j, k, hsⁿ, ℵⁿ)
 
     @inbounds begin
         𝓋ⁿ = hⁿ[i, j, k] * ℵⁿ[i, j, k]
@@ -69,7 +78,9 @@ end
         ℵ⁺ = max(zero(𝓋ⁿ), ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k])
 
         empty = 𝓋⁺ ≤ zero(𝓋ⁿ)
-        h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
+
+        ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ⁺))
+        h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / max(ℵ⁺, ℵᵐⁱⁿ), zero(𝓋⁺))
 
         # Ridging: cap concentration at 1 and fold the excess into thickness, conserving 𝓋⁺.
         h⁺ = ifelse(ℵ⁺ > 1, 𝓋⁺, h⁺)
@@ -79,17 +90,23 @@ end
         ℵ[i, j, k] = ifelse(empty, zero(ℵ⁺), ℵ⁺)
     end
 
-    dynamic_step_snow!(i, j, k, hs, hsⁿ, ℵ, Gⁿ, Δt)
+    dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
 end
+
+@inline minimum_ice_concentration(FT) = convert(FT, 1e-6)
+
+@inline snow_content(i, j, k, ::Nothing, ℵⁿ) = nothing
+@inline snow_content(i, j, k, hsⁿ, ℵⁿ) = @inbounds hsⁿ[i, j, k] * ℵⁿ[i, j, k]
 
 @inline dynamic_step_snow!(i, j, k, ::Nothing, args...) = nothing
 
-@inline function dynamic_step_snow!(i, j, k, hs, hsⁿ, ℵ, Gⁿ, Δt)
+# `hs` is a thickness per unit ice area, so the advected quantity is the content `𝓋s = ℵ·hs`. Recovering
+# `hs = 𝓋s/ℵ` against the post-ridging `ℵ` conserves snow mass through both convergence and ridging.
+@inline function dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
     @inbounds begin
-        hs⁺ = hsⁿ[i, j, k] + Δt * Gⁿ.hs[i, j, k]
-        hs⁺ = max(zero(hs⁺), hs⁺)
-        hs⁺ = ifelse(ℵ[i, j, k] ≤ 0, zero(hs⁺), hs⁺)
-        hs[i, j, k] = hs⁺
+        𝓋s⁺  = max(zero(𝓋sⁿ), 𝓋sⁿ + Δt * Gⁿ.hs[i, j, k])
+        ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ⁺))
+        hs[i, j, k] = ifelse(ℵ⁺ > 0, 𝓋s⁺ / max(ℵ⁺, ℵᵐⁱⁿ), zero(𝓋s⁺))
     end
     return nothing
 end
