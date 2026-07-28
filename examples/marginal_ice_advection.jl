@@ -109,7 +109,7 @@ dynamics = SeaIceMomentumEquation(grid;
 
 model = SeaIceModel(grid;
                     dynamics,
-                    advection = WENO(order=7),
+                    advection = IncrementalRemapping(),
                     timestepper = :ForwardEuler,
                     boundary_conditions = (; u=u_bcs),
                     ice_thermodynamics = nothing)

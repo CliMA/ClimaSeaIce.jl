@@ -108,7 +108,7 @@ v_bcs = FieldBoundaryConditions(grid, (Center(), Face(), nothing);
 # We define the model with WENO advection and no thermodynamics:
 
 model = SeaIceModel(grid;
-                    advection = WENO(order=7),
+                    advection = IncrementalRemapping(),
                     dynamics,
                     boundary_conditions = (; u=u_bcs, v=v_bcs),
                     ice_thermodynamics = nothing)
