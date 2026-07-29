@@ -309,6 +309,16 @@ for case_id in "${cases[@]}"; do
   done
 done
 
+echo
+echo "==> extended_pr141_thermodynamics"
+
+if [[ "${RUN_PR141_EXTENDED_VALIDATION:-0}" == "1" ]]; then
+  "${REPO_ROOT}/validation/pr141_extended_thermodynamics/run_validation.sh"
+else
+  echo "Skipping extended PR141 thermodynamics validation."
+  echo "Set RUN_PR141_EXTENDED_VALIDATION=1 to execute it."
+fi
+
 if [[ "${EXECUTE}" == "1" && "${BALANCE_COLD_BOTTOM_FLUX}" == "1" ]]; then
   patch_balanced_bottom_flux_hook 0
 fi
