@@ -3,7 +3,7 @@ using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, static_column_depth
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 
 """
-    LandfastBasalStress{FT, W}
+    LandfastBasalStress{FT}
 
 Stress exerted by the sea floor on grounded sea-ice keels, following
 [Lemieux et al. (2015)](@cite Lemieux2015).
@@ -26,13 +26,12 @@ separately from `external_momentum_stresses` and never appears in the stress pas
 
 Pass it to [`SeaIceMomentumEquation`](@ref) as `basal_stress`.
 """
-struct LandfastBasalStress{FT, W}
+struct LandfastBasalStress{FT}
     critical_thickness_parameter :: FT
     stress_parameter :: FT
     concentration_hardening :: FT
     minimum_speed :: FT
     maximum_water_depth :: FT
-    water_depth :: W
 end
 
 """
@@ -67,8 +66,7 @@ function LandfastBasalStress(FT::DataType = Oceananigans.defaults.FloatType;
                                convert(FT, stress_parameter),
                                convert(FT, concentration_hardening),
                                convert(FT, minimum_speed),
-                               convert(FT, maximum_water_depth),
-                               nothing)
+                               convert(FT, maximum_water_depth))
 end
 
 Base.summary(::LandfastBasalStress{FT}) where FT = "LandfastBasalStress{$FT}"
@@ -87,41 +85,15 @@ Adapt.adapt_structure(to, b::LandfastBasalStress) =
                         b.stress_parameter,
                         b.concentration_hardening,
                         b.minimum_speed,
-                        b.maximum_water_depth,
-                        Adapt.adapt(to, b.water_depth))
+                        b.maximum_water_depth)
 
-# Without bathymetry every column is as deep as the domain, and nothing grounds.
-@inline column_depth(i, j, grid) = @inbounds - znode(i, j, 1, grid, Center(), Center(), Face())
-@inline column_depth(i, j, ibg::ImmersedBoundaryGrid) = static_column_depthᶜᶜᵃ(i, j, ibg)
-
-@kernel function _compute_water_depth!(H, grid)
-    i, j = @index(Global, NTuple)
-    @inbounds H[i, j, 1] = column_depth(i, j, grid)
-end
-
-materialize_basal_stress(::Nothing, grid) = nothing
-
-function materialize_basal_stress(b::LandfastBasalStress, grid::AbstractGrid)
-    H = Field{Center, Center, Nothing}(grid)
-    launch!(architecture(grid), grid, :xy, _compute_water_depth!, H, grid)
-    fill_halo_regions!(H)
-
-    return LandfastBasalStress(b.critical_thickness_parameter,
-                               b.stress_parameter,
-                               b.concentration_hardening,
-                               b.minimum_speed,
-                               b.maximum_water_depth,
-                               H)
-end
+materialize_basal_stress(stress, grid) = stress
 
 # Grounded keel thickness in excess of what the column can accommodate, hardened by concentration.
-# The magnitude is a cell-centred property, so it is formed at centres and only then interpolated:
-# averaging h, ℵ and H to a velocity point first halves both the keel and the critical thickness
-# against a dry neighbour, and the criterion silently cancels itself along a coastline.
 @inline function basal_stress_magnitude(i, j, k, grid, b, fields)
     h = @inbounds fields.h[i, j, 1]
     ℵ = @inbounds fields.ℵ[i, j, 1]
-    H = @inbounds b.water_depth[i, j, 1]
+    H = static_column_depthᶜᶜᵃ(i, j, grid)
     δh = max(0, h - H * ℵ / b.critical_thickness_parameter)
     kᵇ = b.stress_parameter * δh * exp(- b.concentration_hardening * (1 - ℵ))
     return ifelse(H < b.maximum_water_depth, kᵇ, zero(grid))
@@ -135,15 +107,15 @@ Return the coefficient ``τᵇ / u`` of the basal stress, for implicit treatment
 """
 @inline function basal_τx_coefficient(i, j, k, grid, b::LandfastBasalStress, fields)
     kᵇ = ℑxᶠᵃᵃ(i, j, 1, grid, basal_stress_magnitude, b, fields)
-    u = @inbounds fields.u[i, j, k]
-    v = ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
+    u  = @inbounds fields.u[i, j, k]
+    v  = ℑxyᶠᶜᵃ(i, j, k, grid, fields.v)
     return kᵇ / (sqrt(u^2 + v^2) + b.minimum_speed)
 end
 
 @inline function basal_τy_coefficient(i, j, k, grid, b::LandfastBasalStress, fields)
     kᵇ = ℑyᵃᶠᵃ(i, j, 1, grid, basal_stress_magnitude, b, fields)
-    u = ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
-    v = @inbounds fields.v[i, j, k]
+    u  = ℑxyᶜᶠᵃ(i, j, k, grid, fields.u)
+    v  = @inbounds fields.v[i, j, k]
     return kᵇ / (sqrt(u^2 + v^2) + b.minimum_speed)
 end
 

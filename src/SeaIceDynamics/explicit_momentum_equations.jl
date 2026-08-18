@@ -48,8 +48,8 @@ end
     mᶠᶜ  = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
     τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields)
-          - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ +
-          basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᶠᶜ
+          - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ
+          + basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᶠᶜ
 
     @inbounds begin
         uᴰ = (u⁻[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
@@ -71,8 +71,8 @@ end
     mᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
     τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields)
-          - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ +
-          basal_τy_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᶜᶠ
+          - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ
+          + basal_τy_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᶜᶠ
 
     @inbounds begin
         vᴰ = (v⁻[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)
