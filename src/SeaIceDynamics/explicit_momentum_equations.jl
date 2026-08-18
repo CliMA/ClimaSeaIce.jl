@@ -27,18 +27,19 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
 
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
+    basal_stress = dynamics.basal_stress
 
-    launch!(arch, grid, :xy, _step_u_velocity!, u, u⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
+    launch!(arch, grid, :xy, _step_u_velocity!, u, u⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, basal_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
     fill_halo_regions!(u)
 
-    launch!(arch, grid, :xy, _step_v_velocity!, v, v⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
+    launch!(arch, grid, :xy, _step_v_velocity!, v, v⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, basal_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
     fill_halo_regions!(v)
 
     return nothing
 end
 
 @kernel function _step_u_velocity!(u, u⁻, grid, Gⁿ, Δt,
-                                   top_stress, bottom_stress,
+                                   top_stress, bottom_stress, basal_stress,
                                    free_drift, minimum_mass, minimum_concentration, clock, fields)
 
     i, j = @index(Global, NTuple)
@@ -47,7 +48,8 @@ end
     mᶠᶜ  = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
     τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields)
-          - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ
+          - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶠᶜ * ℵᶠᶜ +
+          basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᶠᶜ
 
     @inbounds begin
         uᴰ = (u⁻[i, j, 1] + Δt * Gⁿ.u[i, j, 1]) / (1 + Δt * τuᵢ)
@@ -60,7 +62,7 @@ end
 end
 
 @kernel function _step_v_velocity!(v, v⁻, grid, Gⁿ, Δt,
-                                   top_stress, bottom_stress,
+                                   top_stress, bottom_stress, basal_stress,
                                    free_drift, minimum_mass, minimum_concentration, clock, fields)
 
     i, j = @index(Global, NTuple)
@@ -69,7 +71,8 @@ end
     mᶜᶠ  = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
     τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields)
-          - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ
+          - implicit_τy_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields)) / mᶜᶠ * ℵᶜᶠ +
+          basal_τy_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᶜᶠ
 
     @inbounds begin
         vᴰ = (v⁻[i, j, 1] + Δt * Gⁿ.v[i, j, 1]) / (1 + Δt * τvᵢ)

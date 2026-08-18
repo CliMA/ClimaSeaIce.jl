@@ -1,12 +1,13 @@
 using ..Rheologies
 
-struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
+struct SeaIceMomentumEquation{S, C, R, F, A, ES, B, FT}
     coriolis :: C
     rheology :: R
     auxiliaries :: A
     solver :: S
     free_drift :: F
     external_momentum_stresses :: ES
+    basal_stress :: B
     minimum_concentration :: FT
     minimum_mass :: FT
 end
@@ -21,6 +22,7 @@ struct ExplicitSolver end
                            top_momentum_stress    = nothing,
                            bottom_momentum_stress = nothing,
                            free_drift = nothing,
+                           basal_stress = nothing,
                            solver = SplitExplicitSolver(grid; substeps=150),
                            minimum_concentration = 1e-3,
                            minimum_mass = 1.0)
@@ -53,6 +55,10 @@ Keyword Arguments
                             be materialized into one. Default: `nothing`.
 - `free_drift`: The free drift velocities used when nonzero sea ice mass or concentration are below
                 the dynamical momentum thresholds. Default is `nothing`.
+- `basal_stress`: Stress exerted by the sea floor on grounded keels, arresting landfast ice over
+                  shallow bathymetry. Default: `nothing`. See [`LandfastBasalStress`](@ref). It is
+                  held apart from the external stresses because the sea floor, not the water column,
+                  carries it, so it never enters the stress handed back to an ocean model.
 - `solver`: Momentum solver used to advance the velocity field. Default:
             `SplitExplicitSolver(grid; substeps = 150)`.
 - `minimum_concentration`: Minimum sea-ice concentration above which the velocity
@@ -70,6 +76,7 @@ function SeaIceMomentumEquation(grid;
                                 top_momentum_stress    = nothing,
                                 bottom_momentum_stress = nothing,
                                 free_drift = nothing,
+                                basal_stress = nothing,
                                 solver = SplitExplicitSolver(grid; substeps=150),
                                 minimum_concentration = 1e-3,
                                 minimum_mass = 1.0)
@@ -80,6 +87,7 @@ function SeaIceMomentumEquation(grid;
 
     # Keep the free drift pointing at the same (materialized) stress fields as the external stresses.
     free_drift = materialize_free_drift(free_drift, external_momentum_stresses.top, external_momentum_stresses.bottom)
+    basal_stress = materialize_basal_stress(basal_stress, grid)
 
     FT = eltype(grid)
 
@@ -89,6 +97,7 @@ function SeaIceMomentumEquation(grid;
                                   solver,
                                   free_drift,
                                   external_momentum_stresses,
+                                  basal_stress,
                                   convert(FT, minimum_concentration),
                                   convert(FT, minimum_mass))
 end
@@ -108,6 +117,7 @@ function Base.show(io::IO, sime::SeaIceMomentumEquation)
     print(io, "├── coriolis: ", summary(sime.coriolis), '\n')
     print(io, "├── rheology: ", summary(sime.rheology), '\n')
     print(io, "├── auxiliaries: ", join(aux_fields, ", "), '\n')
+    print(io, "├── basal_stress: ", summary(sime.basal_stress), '\n')
     print(io, "├── solver: ", summary(sime.solver), '\n')
     print(io, "├── free_drift: ", sime.free_drift, '\n')
     print(io, "├── external_momentum_stresses: ", keys(sime.external_momentum_stresses), '\n')
