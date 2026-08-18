@@ -1,6 +1,7 @@
 module Rheologies
 
 export ViscousRheology, ElastoViscoPlasticRheology
+export FreeSlip, NoSlip
 export ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ, Auxiliaries
 
 using Adapt: Adapt
@@ -59,6 +60,7 @@ Oceananigans.prognostic_fields(mom, ::AbstractRheology) = NamedTuple()
 @inline ice_stress_vx(i, j, k, grid, ::Nothing, args...) = zero(grid)
 @inline ice_stress_vy(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
+include("lateral_boundary_conditions.jl")
 include("ice_stress_divergence.jl")
 include("viscous_rheology.jl")
 include("elasto_visco_plastic_rheology.jl")
