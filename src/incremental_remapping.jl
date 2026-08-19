@@ -316,8 +316,7 @@ end
 end
 
 @inline reconstruct_tracer(I, J, k, ::Nothing, hx, hy, δx, δy) = zero(δx)
-@inline reconstruct_tracer(I, J, k, h, hx, hy, δx, δy) =
-    @inbounds h[I, J, k] + hx[I, J, 1] * δx + hy[I, J, 1] * δy
+@inline reconstruct_tracer(I, J, k, h, hx, hy, δx, δy) = @inbounds h[I, J, k] + hx[I, J, 1] * δx + hy[I, J, 1] * δy
 
 #####
 ##### Transport through the swept region of a face
@@ -504,19 +503,13 @@ function compute_tracer_tendencies!(model::SIM, advection::IncrementalRemapping{
     # reconstruction of the cell outside it. Computing gradients in the halo from halo-filled means
     # gives the sign the tripolar fold requires without a separate signed halo exchange.
     reconstruction_parameters = KernelParameters(0:Nx+1, 0:Ny+1)
-    launch!(arch, grid, reconstruction_parameters,
-            _compute_remapping_reconstruction!, reconstruction, grid, ℵ, h, hs)
+    launch!(arch, grid, reconstruction_parameters, _compute_remapping_reconstruction!, reconstruction, grid, ℵ, h, hs)
 
     nodes = Val(N)
 
-    launch!(arch, grid, KernelParameters(1:Nx+1, 1:Ny),
-            _compute_x_transports!, transports.x, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
-
-    launch!(arch, grid, KernelParameters(1:Nx, 1:Ny+1),
-            _compute_y_transports!, transports.y, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
-
-    launch!(arch, grid, :xy,
-            _compute_remapping_tendencies!, model.timestepper.Gⁿ, grid, transports, Δt, hs)
+    launch!(arch, grid, KernelParameters(1:Nx+1, 1:Ny), _compute_x_transports!, transports.x, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
+    launch!(arch, grid, KernelParameters(1:Nx, 1:Ny+1), _compute_y_transports!, transports.y, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
+    launch!(arch, grid, :xy, _compute_remapping_tendencies!, model.timestepper.Gⁿ, grid, transports, Δt, hs)
 
     return nothing
 end

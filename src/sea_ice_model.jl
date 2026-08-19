@@ -147,9 +147,9 @@ function SeaIceModel(grid;
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,    # W m⁻²
                      velocities                  = nothing,
-                     advection                   = IncrementalRemapping(),
+                     advection                   = nothing,
                      tracers                     = (),
-                     timestepper                 = :ForwardEuler,
+                     timestepper                 = :SplitRungeKutta3,
                      boundary_conditions         = NamedTuple(),
                      ice_thermodynamics          = sea_ice_slab_thermodynamics(grid),
                      snow_thermodynamics         = nothing,
