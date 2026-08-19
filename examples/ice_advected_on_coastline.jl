@@ -79,7 +79,7 @@ Oceananigans.BoundaryConditions.fill_halo_regions!(τᵤ)
 
 # ## Model configuration
 #
-# We use an elasto-visco-plastic rheology and WENO seventh order for advection
+# We use an elasto-visco-plastic rheology and incremental remapping for advection
 # of ice thickness and concentration:
 
 dynamics = SeaIceMomentumEquation(grid;
@@ -105,10 +105,12 @@ u_bcs = FieldBoundaryConditions(grid, (Face(), Center(), nothing);
 v_bcs = FieldBoundaryConditions(grid, (Center(), Face(), nothing);
                                 immersed = immersed_v_bc)
 
-# We define the model with WENO advection and no thermodynamics:
+# We define the model with incremental remapping and no thermodynamics. Remapping carries the time
+# integration inside its own transport, so it goes with `timestepper = :ForwardEuler`:
 
 model = SeaIceModel(grid;
                     advection = IncrementalRemapping(),
+                    timestepper = :ForwardEuler,
                     dynamics,
                     boundary_conditions = (; u=u_bcs, v=v_bcs),
                     ice_thermodynamics = nothing)

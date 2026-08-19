@@ -95,7 +95,7 @@ fill_halo_regions!((Uₐ, Vₐ))
 
 # ## Model configuration
 #
-# We use an elasto-visco-plastic rheology and WENO seventh order for advection
+# We use an elasto-visco-plastic rheology and incremental remapping for advection
 # of ice thickness and concentration. We include Coriolis effects:
 
 dynamics = SeaIceMomentumEquation(grid;
@@ -107,6 +107,7 @@ model = SeaIceModel(grid;
                     dynamics,
                     ice_thermodynamics = nothing, # No thermodynamics here
                     advection = IncrementalRemapping(),
+                    timestepper = :ForwardEuler,
                     boundary_conditions = (u=u_bcs, v=v_bcs))
 
 # ## Initial conditions
