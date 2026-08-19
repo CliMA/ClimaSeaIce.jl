@@ -1,7 +1,6 @@
 using Oceananigans.BoundaryConditions: BoundaryCondition, Value
-using Oceananigans.Grids: Center, Face
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, ImmersedBoundaryCondition,
-                                       immersed_inactive_node, immersed_peripheral_node
+using Oceananigans.Grids: Center, Face, immersed_inactive_node
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, ImmersedBoundaryCondition
 
 struct FreeSlip end
 struct NoSlip end
