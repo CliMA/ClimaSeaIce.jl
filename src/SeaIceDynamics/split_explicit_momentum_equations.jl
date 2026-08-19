@@ -64,12 +64,12 @@ function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
 end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
-    new_auxiliarie s = Auxiliaries(mom.rheology, grid)
+    new_auxiliaries  = Auxiliaries(mom.rheology, grid)
     new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
     new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
-                       top    = materialize_stress(mom.external_momentum_stresses.top, grid))
-    
+                        top    = materialize_stress(mom.external_momentum_stresses.top, grid))
+
     # Repoint the free drift at the re-gridded stresses so it shares the same (extended) fields
     new_free_drift  = materialize_free_drift(mom.free_drift, new_stress.top, new_stress.bottom)
 
@@ -216,9 +216,9 @@ end
     # Implicit part of the stress that depends linearly on the velocity
     # The external stresses act over the ice-covered fraction; the basal stress already carries its
     # own concentration dependence
-    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, fields)
-          - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, fields)) / mᵢ * ℵᵢ
-          + basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᵢ
+    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+          - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
+          + basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᵢ)
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
     uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity
@@ -251,9 +251,9 @@ end
                              v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity
-    τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, v_bottom_stress, clock, fields)
-          - implicit_τy_coefficient(i, j, kᴺ, grid, v_top_stress, clock, fields)) / mᵢ * ℵᵢ
-          + basal_τy_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᵢ
+    τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+          - implicit_τy_coefficient(i, j, kᴺ, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ
+          + basal_τy_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᵢ)
 
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 

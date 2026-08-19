@@ -1,6 +1,4 @@
-using Oceananigans.Grids: AbstractGrid, znode
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, static_column_depthᶜᶜᵃ
-using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.Grids: static_column_depthᶜᶜᵃ
 
 """
     LandfastBasalStress{FT}
@@ -42,8 +40,8 @@ end
                         minimum_speed = 5e-5,
                         maximum_water_depth = 30)
 
-Construct a `LandfastBasalStress`. The returned object is a skeleton whose `water_depth` is `nothing`;
-the depth field is built by `SeaIceMomentumEquation` once the grid is known.
+Construct a `LandfastBasalStress`. The still-water column depth ``H`` is read from the grid, so the
+same object may be passed to any grid.
 
 Keyword Arguments
 =================
