@@ -25,7 +25,7 @@ export SeaIceModel,
        LandfastBasalStress,
        ViscousRheology,
        ElastoViscoPlasticRheology,
-       IncrementalRemapping
+       IncrementalRemapping,
        FreeSlip,
        NoSlip
 
