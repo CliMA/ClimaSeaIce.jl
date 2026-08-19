@@ -5,7 +5,7 @@ using ClimaSeaIce
 using ClimaSeaIce.SeaIceDynamics: basal_τx_coefficient, basal_τy_coefficient,
                                   materialize_basal_stress, basal_stress_magnitude
 using Oceananigans.Fields: interior
-using Oceananigans.Grids: Face, Center
+using Oceananigans.Grids: Face, Center, static_column_depthᶜᶜᵃ
 
 # A shelf shallow enough to ground keels next to water too deep to ground anything. The vertical grid
 # must resolve the shelf: with cells thicker than the shelf depth the whole top cell is immersed and
@@ -28,19 +28,19 @@ end
 
 @testset "LandfastBasalStress construction" begin
     b = LandfastBasalStress()
-    @test b.water_depth isa Nothing
     @test b.critical_thickness_parameter == 8
     @test b.stress_parameter == 15
     @test b.concentration_hardening == 20
     @test b.minimum_speed == 5e-5
     @test b.maximum_water_depth == 30
 
+    # The depth is read off the grid, so the shelf has to survive the immersed-boundary discretization.
     grid = shelf_grid()
-    bm = materialize_basal_stress(b, grid)
-    H = interior(bm.water_depth)[:, :, 1]
+    H = [static_column_depthᶜᶜᵃ(i, j, grid) for i in 1:8, j in 1:8]
     @test all(H[1:4, :] .≈ 20)
     @test all(H[5:8, :] .≈ 40)
 
+    @test materialize_basal_stress(b, grid) === b
     @test materialize_basal_stress(nothing, grid) isa Nothing
 end
 
@@ -98,7 +98,6 @@ end
 
     dyn = SeaIceMomentumEquation(grid; basal_stress = LandfastBasalStress())
     @test dyn.basal_stress isa LandfastBasalStress
-    @test dyn.basal_stress.water_depth isa Field       # materialized on the grid
 
     # It is held apart from the stresses the water column exerts, so a coupler reading those never
     # sees the part of the drag that the sea floor carries.
