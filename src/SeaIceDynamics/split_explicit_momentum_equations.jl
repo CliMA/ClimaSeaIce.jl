@@ -158,7 +158,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
     v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
-    stresses_args    = (model_fields, grid, rheology, Δt)
+    stresses_args    = (model_fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
         # We need to timestep ~150 substeps, which means

@@ -1,10 +1,12 @@
-# # Ice advected on coastline example
+# # Ice advected past an obstacle
 #
-# This example simulates a solid block of ice moving against a triangular coastline
-# in a periodic channel. The ice is driven by atmospheric winds and interacts with
-# the coastline through immersed boundaries. This example demonstrates how to:
+# This example simulates a solid sheet of ice driven by wind past a rhomboidal island in a doubly
+# periodic domain. The island is represented by an immersed boundary, and the ice sticks to it: the
+# island's faces impose no slip, so the ice piles up on the upwind side and forms a wake downwind.
+# This example demonstrates how to:
 #
 #   * set up a two-dimensional sea ice model with immersed boundaries,
+#   * impose no slip on an immersed boundary with a zero-valued boundary condition,
 #   * prescribe atmospheric and oceanic stresses,
 #   * use elasto-visco-plastic rheology with split-explicit time stepping,
 #   * visualize the evolution of ice thickness, concentration, and velocity.
@@ -20,7 +22,7 @@
 #
 # ## The physical domain
 #
-# We set up a two-dimensional periodic channel with a triangular coastline:
+# We set up a doubly periodic two-dimensional domain holding a single island:
 
 using ClimaSeaIce
 using Oceananigans
@@ -34,27 +36,30 @@ Ly = 256kilometers
 Nx = 256
 Ny = 128
 
-y_max = Ly / 2
-
 arch = CPU()
 
 # ## Grid configuration
 #
-# We create a rectilinear grid with periodic boundaries in ``x`` and bounded
-# boundaries in ``y``:
+# We create a rectilinear grid that is periodic in both ``x`` and ``y``, so the only boundary the
+# ice can feel is the island itself:
 
 grid = RectilinearGrid(arch; size = (Nx, Ny),
                                 x = (-Lx/2, Lx/2),
                                 y = (0, Ly),
                              halo = (4, 4),
-                         topology = (Periodic, Bounded, Flat))
+                         topology = (Periodic, Periodic, Flat))
 
-# We define a triangular coastline using an immersed boundary:
+# The island is a rhomboid centred in the domain, described by the set of points whose distance from
+# the centre, measured in the ``L¹`` norm, is less than one:
 
-bottom(x, y) = ifelse(y > y_max, 0,
-               ifelse(abs(x / Lx) * Nx + y / Ly * Ny > 24, 0, 1))
+island_half_width = 48kilometers
+island_half_height = 32kilometers
+island_centre = (0, Ly/2)
 
-grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(bottom))
+@inline island(x, y) = abs(x - island_centre[1]) / island_half_width +
+                       abs(y - island_centre[2]) / island_half_height < 1
+
+grid = ImmersedBoundaryGrid(grid, GridFittedBoundary(island))
 
 # ## Atmospheric and oceanic forcing
 #
@@ -88,22 +93,17 @@ dynamics = SeaIceMomentumEquation(grid;
                                   rheology = ElastoViscoPlasticRheology(),
                                   solver = SplitExplicitSolver(substeps=150))
 
-@inline immersed_u_drag(i, j, k, grid, clock, fields, Cᴰ) = @inbounds - Cᴰ * fields.u[i, j, k]
-@inline immersed_v_drag(i, j, k, grid, clock, fields, Cᴰ) = @inbounds - Cᴰ * fields.v[i, j, k]
-
-immersed_u_bc = FluxBoundaryCondition(immersed_u_drag, discrete_form=true, parameters=3e-3)
-immersed_v_bc = FluxBoundaryCondition(immersed_v_drag, discrete_form=true, parameters=3e-3)
-
-immersed_u_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, west=nothing,  east=nothing,  south=immersed_u_bc, north=immersed_u_bc)
-immersed_v_bc = ImmersedBoundaryCondition(top=nothing, bottom=nothing, south=nothing, north=nothing, west=immersed_v_bc,  east=immersed_v_bc)
+# The island holds the ice at rest along its faces. As on a domain boundary, no slip is requested
+# with a zero-valued boundary condition — here in the `immersed` slot. The rheology reads it and
+# doubles the wall contribution to the shear strain rate, which is the gradient the reflected
+# velocity inside the island would produce. Leaving `immersed` unset would instead let the ice slide
+# freely along the island.
 
 u_bcs = FieldBoundaryConditions(grid, (Face(), Center(), nothing);
-                                north = ValueBoundaryCondition(0),
-                                south = ValueBoundaryCondition(0),
-                                immersed = immersed_u_bc)
+                                immersed = ValueBoundaryCondition(0))
 
 v_bcs = FieldBoundaryConditions(grid, (Center(), Face(), nothing);
-                                immersed = immersed_v_bc)
+                                immersed = ValueBoundaryCondition(0))
 
 # We define the model with WENO advection and no thermodynamics:
 
@@ -173,14 +173,14 @@ heatmap!(ax, ui, colorrange = (0, 0.12), colormap = :balance)
 ax = Axis(fig[2, 2], title = "Meridional velocity (m s⁻¹)")
 heatmap!(ax, vi, colorrange = (-0.025, 0.025), colormap = :bwr)
 
-CairoMakie.record(fig, "sea_ice_advected_on_coastline.mp4", 1:Nt, framerate = 8) do i
+CairoMakie.record(fig, "sea_ice_advected_past_an_obstacle.mp4", 1:Nt, framerate = 8) do i
     iter[] = i
     @info "Rendering frame $i"
 end
 nothing #hide
 
-# ![](sea_ice_advected_on_coastline.mp4)
+# ![](sea_ice_advected_past_an_obstacle.mp4)
 #
-# The animation shows how the ice block moves and deforms as it interacts with
-# the triangular coastline. The ice accumulates and thickens near the coast due
-# to the no-slip boundary conditions.
+# The animation shows the ice sheet deforming as it is driven past the island. Ice converges and
+# thickens on the upwind face, and the no-slip condition drags it to a halt along the island's flanks,
+# leaving a slow wake that persists downwind.

@@ -219,21 +219,22 @@ end
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * ℵ[i, j, k] * exp(- C * (1 - ℵ[i, j, k]))
 
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt)
+function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt, u_immersed_bc, v_immersed_bc)
 
-    h  = fields.h
-    ρᵢ = fields.ρ
-    ℵ  = fields.ℵ
-    u  = fields.u
-    v  = fields.v
+    h   = fields.h
+    ρᵢ  = fields.ρ
+    ℵ   = fields.ℵ
+    u   = fields.u
+    v   = fields.v
+    lbc = lateral_boundary_condition(u_immersed_bc, v_immersed_bc)
 
-    dynamics.auxiliaries.kernels._viscosity_kernel!(fields, grid, rheology, u, v)
-    dynamics.auxiliaries.kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+    dynamics.auxiliaries.kernels._viscosity_kernel!(fields, grid, rheology, u, v, lbc)
+    dynamics.auxiliaries.kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt, lbc)
 
     return nothing
 end
 
-@kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v)
+@kernel function _compute_evp_viscosities!(fields, grid, rheology, u, v, lbc)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
 
@@ -246,10 +247,10 @@ end
     # Strain rates
     ϵ̇₁₁ᶜᶜᶜ = strain_rate_xx(i, j, kᴺ, grid, u, v)
     ϵ̇₂₂ᶜᶜᶜ = strain_rate_yy(i, j, kᴺ, grid, u, v)
-    ϵ̇₁₂ᶠᶠᶜ = strain_rate_xy(i, j, kᴺ, grid, u, v)
+    ϵ̇₁₂ᶠᶠᶜ = strain_rate_xy(i, j, kᴺ, grid, u, v, lbc)
     ϵ̇₁₁ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, strain_rate_xx, u, v)
     ϵ̇₂₂ᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, kᴺ, grid, strain_rate_yy, u, v)
-    ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, kᴺ, grid, strain_rate_xy, u, v)
+    ϵ̇₁₂ᶜᶜᶜ = ℑxyᶜᶜᵃ(i, j, kᴺ, grid, strain_rate_xy, u, v, lbc)
 
     # Ice divergence
     δᶜᶜᶜ = ϵ̇₁₁ᶜᶜᶜ + ϵ̇₂₂ᶜᶜᶜ
@@ -291,7 +292,7 @@ end
 # Compute the visco-plastic stresses for a slab sea ice model.
 # The function updates the internal stress variables `σ₁₁`, `σ₂₂`, and `σ₁₂` in the `rheology` object
 # following the αEVP formulation of Kimmritz et al. (2017).
-@kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt)
+@kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt, lbc)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
 
@@ -309,7 +310,7 @@ end
     # Strain rates
     ϵ̇₁₁ = strain_rate_xx(i, j, kᴺ, grid, u, v)
     ϵ̇₂₂ = strain_rate_yy(i, j, kᴺ, grid, u, v)
-    ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v)
+    ϵ̇₁₂ = strain_rate_xy(i, j, kᴺ, grid, u, v, lbc)
 
     ζᶜᶜᶜ = @inbounds fields.ζᶜᶜᶜ[i, j, 1]
     ζᶠᶠᶜ = @inbounds fields.ζᶠᶠᶜ[i, j, 1]
@@ -365,14 +366,32 @@ end
 @inline ϵ̇D(i, j, k, grid, u, v) = (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶜᶜ, u) + δyᵃᶜᵃ(i, j, k, grid, Δx_qᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
 
 @inline ϵ̇T(i, j, k, grid, u, v) = (Δyᶜᶜᶜ(i, j, k, grid)^2 * δxᶜᵃᵃ(i, j, k, grid, q_over_Δyᶠᶜᶜ, u) -
-                                            Δxᶜᶜᶜ(i, j, k, grid)^2 * δyᵃᶜᵃ(i, j, k, grid, q_over_Δxᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
+                                   Δxᶜᶜᶜ(i, j, k, grid)^2 * δyᵃᶜᵃ(i, j, k, grid, q_over_Δxᶜᶠᶜ, v)) / Azᶜᶜᶜ(i, j, k, grid)
 
-@inline ϵ̇S(i, j, k, grid, u, v) = (Δxᶠᶠᶜ(i, j, k, grid)^2 * δyᵃᶠᵃ(i, j, k, grid, q_over_Δxᶠᶜᶜ, u) +
-                                          Δyᶠᶠᶜ(i, j, k, grid)^2 * δxᶠᵃᵃ(i, j, k, grid, q_over_Δyᶜᶠᶜ, v)) / Azᶠᶠᶜ(i, j, k, grid)
+@inline wall_scaled_δyu(lbc, i, j, k, grid, u) = δyᵃᶠᵃ(i, j, k, grid, q_over_Δxᶠᶜᶜ, u)
+@inline wall_scaled_δxv(lbc, i, j, k, grid, v) = δxᶠᵃᵃ(i, j, k, grid, q_over_Δyᶜᶠᶜ, v)
+
+@inline function wall_scaled_δyu(lbc, i, j, k, ibg::ImmersedBoundaryGrid, u)
+    δ = δyᵃᶠᵃ(i, j, k, ibg, q_over_Δxᶠᶜᶜ, u)
+    south = immersed_inactive_node(i, j-1, k, ibg, Face(), Center(), Center())
+    north = immersed_inactive_node(i, j,   k, ibg, Face(), Center(), Center())
+    return ifelse(south | north, strain_rate_slip_factor(lbc) * δ, δ)
+end
+
+@inline function wall_scaled_δxv(lbc, i, j, k, ibg::ImmersedBoundaryGrid, v)
+    δ = δxᶠᵃᵃ(i, j, k, ibg, q_over_Δyᶜᶠᶜ, v)
+    west = immersed_inactive_node(i-1, j, k, ibg, Center(), Face(), Center())
+    east = immersed_inactive_node(i,   j, k, ibg, Center(), Face(), Center())
+    return ifelse(west | east, strain_rate_slip_factor(lbc) * δ, δ)
+end
+
+@inline ϵ̇S(i, j, k, grid, u, v, lbc) =
+    (Δxᶠᶠᶜ(i, j, k, grid)^2 * wall_scaled_δyu(lbc, i, j, k, grid, u) +
+     Δyᶠᶠᶜ(i, j, k, grid)^2 * wall_scaled_δxv(lbc, i, j, k, grid, v)) / Azᶠᶠᶜ(i, j, k, grid)
 
 @inline strain_rate_xx(i, j, k, grid, u, v) = (ϵ̇D(i, j, k, grid, u, v) + ϵ̇T(i, j, k, grid, u, v)) / 2
 @inline strain_rate_yy(i, j, k, grid, u, v) = (ϵ̇D(i, j, k, grid, u, v) - ϵ̇T(i, j, k, grid, u, v)) / 2
-@inline strain_rate_xy(i, j, k, grid, u, v) = ϵ̇S(i, j, k, grid, u, v) / 2
+@inline strain_rate_xy(i, j, k, grid, u, v, lbc) = ϵ̇S(i, j, k, grid, u, v, lbc) / 2
 
 # Here we extend all the functions that a rheology model needs to support:
 @inline ice_stress_ux(i, j, k, grid, ::ElastoViscoPlasticRheology, clock, fields) = @inbounds fields.σ₁₁[i, j, k]

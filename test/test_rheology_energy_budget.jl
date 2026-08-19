@@ -1,7 +1,7 @@
 using ClimaSeaIce
 using ClimaSeaIce.Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
                               strain_rate_xx, strain_rate_yy, strain_rate_xy,
-                              ElastoViscoPlasticRheology
+                              ElastoViscoPlasticRheology, FreeSlip
 using Oceananigans
 using Oceananigans.Operators
 using Oceananigans.Grids: Center, Face, λnodes, φnodes
@@ -76,15 +76,15 @@ function stress_power_budget(grid)
 
     for i in 1:Nx, j in 1:Ny
         k = 1
-        W_new += u[i, j, k] * ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields) * Azᶠᶜᶜ(i, j, k, grid)
-        W_new += v[i, j, k] * ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields) * Azᶜᶠᶜ(i, j, k, grid)
+        W_new += u[i, j, k] * ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields, nothing) * Azᶠᶜᶜ(i, j, k, grid)
+        W_new += v[i, j, k] * ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields, nothing) * Azᶜᶠᶜ(i, j, k, grid)
 
         W_old += u[i, j, k] * old_∂ⱼ_σ₁ⱼ(i, j, k, grid, σ₁₁, σ₁₂) * Azᶠᶜᶜ(i, j, k, grid)
         W_old += v[i, j, k] * old_∂ⱼ_σ₂ⱼ(i, j, k, grid, σ₂₂, σ₁₂) * Azᶜᶠᶜ(i, j, k, grid)
 
         D += σ₁₁[i, j, k]     * strain_rate_xx(i, j, k, grid, u, v) * Azᶜᶜᶜ(i, j, k, grid)
         D += σ₂₂[i, j, k]     * strain_rate_yy(i, j, k, grid, u, v) * Azᶜᶜᶜ(i, j, k, grid)
-        D += 2 * σ₁₂[i, j, k] * strain_rate_xy(i, j, k, grid, u, v) * Azᶠᶠᶜ(i, j, k, grid)
+        D += 2 * σ₁₂[i, j, k] * strain_rate_xy(i, j, k, grid, u, v, FreeSlip()) * Azᶠᶠᶜ(i, j, k, grid)
     end
 
     return W_new, W_old, D
