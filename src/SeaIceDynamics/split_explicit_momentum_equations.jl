@@ -74,12 +74,12 @@ function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
 end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
-    new_auxiliarie s = Auxiliaries(mom.rheology, grid)
+    new_auxiliaries  = Auxiliaries(mom.rheology, grid)
     new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
     new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
                        top    = materialize_stress(mom.external_momentum_stresses.top, grid))
-    
+
     # Repoint the free drift at the re-gridded stresses so it shares the same (extended) fields
     new_free_drift  = materialize_free_drift(mom.free_drift, new_stress.top, new_stress.bottom)
 
