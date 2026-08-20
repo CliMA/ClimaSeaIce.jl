@@ -50,19 +50,6 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, S
     advection :: A
 end
 
-assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Center, Nothing) :
-                                       name === :v  ? (Center, Face,   Nothing) :
-                                                      (Center, Center, Nothing)
-
-function default_sea_ice_boundary_conditions(grid, name)
-    bcs = FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
-    if (name === :u || name === :v) && bcs.north isa BoundaryCondition && bcs.north.classification isa Zipper
-        north = BoundaryCondition(bcs.north.classification, - bcs.north.condition)
-        bcs = FieldBoundaryConditions(bcs.west, bcs.east, bcs.south, north, bcs.bottom, bcs.top, bcs.immersed)
-    end
-    return bcs
-end
-
 """
     SeaIceModel(grid;
                 clock                       = Clock{eltype(grid)}(time = 0),
