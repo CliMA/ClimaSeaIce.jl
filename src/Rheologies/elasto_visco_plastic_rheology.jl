@@ -5,6 +5,8 @@ using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: synchronize_communication!
 using Oceananigans.Grids: AbstractGrid, halo_size
 
+using ClimaSeaIce: default_sea_ice_boundary_conditions
+
 ## The equations are solved in an iterative form following the EVP rheology of
 ## Kimmritz et al. (2017); doi: 10.1016/j.ocemod.2017.05.006
 #
@@ -147,8 +149,8 @@ function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
     σ₁₂ = Field{Face,   Face,   Nothing}(grid)
-    uⁿ  = Field{Face,   Center, Nothing}(grid)
-    vⁿ  = Field{Center, Face,   Nothing}(grid)
+    uⁿ  = Field{Face,   Center, Nothing}(grid, boundary_conditions = default_sea_ice_boundary_conditions(grid, :u))
+    vⁿ  = Field{Center, Face,   Nothing}(grid, boundary_conditions = default_sea_ice_boundary_conditions(grid, :v))
     P   = Field{Center, Center, Nothing}(grid)
     α   = Field{Center, Center, Nothing}(grid) # Dynamic substeps a la Kimmritz et al. (2017)
     Δ   = Field{Center, Center, Nothing}(grid)
