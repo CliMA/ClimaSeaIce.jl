@@ -2,7 +2,7 @@ module SeaIceDynamics
 
 # The only functions provided by the module
 export compute_momentum_tendencies!, time_step_momentum!
-export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift
+export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicitStress, StressBalanceFreeDrift, OceanSurfaceTilt
 
 using Adapt: Adapt
 using KernelAbstractions: @kernel, @index
@@ -12,7 +12,7 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.DistributedComputations: Distributed
 using Oceananigans.Fields: Field
 using Oceananigans.Grids: Center, Face
-using Oceananigans.Operators: ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
+using Oceananigans.Operators: ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ, ∂xᶠᶜᶜ, ∂yᶜᶠᶜ
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 using Oceananigans.Utils: KernelParameters, launch!
 
@@ -26,7 +26,7 @@ using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ##
-##     ∂u/∂t + f x u = ∇ ⋅ σ / mᵢ  + τₒ / mᵢ + τₐ / mᵢ + g ∇η
+##     ∂u/∂t + f x u = ∇ ⋅ σ / mᵢ  + τₒ / mᵢ + τₐ / mᵢ - g ∇η
 ##
 ## where the terms (left to right) represent the
 ## - time derivative of the ice velocity
@@ -34,13 +34,14 @@ using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
 ## - divergence of internal stresses
 ## - ice-ocean boundary stress
 ## - ice-atmosphere boundary stress
-## - ocean dynamic surface
+## - tilt of the ocean surface
 
 # Fallbacks for `nothing` ice dynamics
 time_step_momentum!(model, dynamics, Δt) = nothing
 compute_momentum_tendencies!(model, dynamics, Δt) = nothing
 
 include("sea_ice_external_stress.jl")
+include("ocean_surface_tilt.jl")
 include("stress_balance_free_drift.jl")
 include("sea_ice_momentum_equations.jl")
 include("momentum_tendencies_kernel_functions.jl")

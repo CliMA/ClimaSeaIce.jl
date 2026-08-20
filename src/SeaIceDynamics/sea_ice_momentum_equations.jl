@@ -1,12 +1,13 @@
 using ..Rheologies
 
-struct SeaIceMomentumEquation{S, C, R, F, A, ES, FT}
+struct SeaIceMomentumEquation{S, C, R, F, A, ES, ST, FT}
     coriolis :: C
     rheology :: R
     auxiliaries :: A
     solver :: S
     free_drift :: F
     external_momentum_stresses :: ES
+    ocean_surface_tilt :: ST
     minimum_concentration :: FT
     minimum_mass :: FT
 end
@@ -20,6 +21,7 @@ struct ExplicitSolver end
                            rheology = ElastoViscoPlasticRheology(eltype(grid)),
                            top_momentum_stress    = nothing,
                            bottom_momentum_stress = nothing,
+                           ocean_surface_tilt = nothing,
                            free_drift = nothing,
                            solver = SplitExplicitSolver(grid; substeps=150),
                            minimum_concentration = 1e-3,
@@ -29,12 +31,13 @@ Constructs a `SeaIceMomentumEquation` object that controls the dynamical evoluti
 The sea-ice momentum obey the following evolution equation:
 
 ```math
-\\frac{∂\\boldsymbol{u}}{∂t} + \\boldsymbol{f} × \\boldsymbol{u} = \\frac{\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma}}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₒ}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₐ}{mᵢ}
+\\frac{∂\\boldsymbol{u}}{∂t} + \\boldsymbol{f} × \\boldsymbol{u} = \\frac{\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma}}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₒ}{mᵢ} + \\frac{\\boldsymbol{\\tau}ₐ}{mᵢ} - g \\boldsymbol{\\nabla} η
 ```
 where ``∂\\boldsymbol{u}/∂t`` is the time derivative of the ice velocity, ``\\boldsymbol{f}`` is the
 Coriolis parameter, ``\\boldsymbol{\\nabla} \\cdot \\boldsymbol{\\sigma} / mᵢ`` is the divergence of internal
 stresses, ``\\boldsymbol{\\tau}ₒ/mᵢ`` is the ice-ocean boundary stress, ``\\boldsymbol{\\tau}ₐ/mᵢ`` is the
-ice-atmosphere boundary stress, and ``mᵢ = ρᵢ h ℵ`` is the ice mass per unit area.
+ice-atmosphere boundary stress, ``g \\boldsymbol{\\nabla} η`` is the acceleration associated with the tilt
+of the ocean surface, and ``mᵢ = ρᵢ h ℵ`` is the ice mass per unit area.
 
 Arguments
 =========
@@ -51,6 +54,8 @@ Keyword Arguments
                          be materialized into one. Default: `nothing`.
 - `bottom_momentum_stress`: Ocean-to-ice momentum stress, or an object that can
                             be materialized into one. Default: `nothing`.
+- `ocean_surface_tilt`: An `OceanSurfaceTilt` holding the ocean surface height that tilts the sea ice.
+                        Default: `nothing`.
 - `free_drift`: The free drift velocities used when nonzero sea ice mass or concentration are below
                 the dynamical momentum thresholds. Default is `nothing`.
 - `solver`: Momentum solver used to advance the velocity field. Default:
@@ -69,6 +74,7 @@ function SeaIceMomentumEquation(grid;
                                 rheology = ElastoViscoPlasticRheology(eltype(grid)),
                                 top_momentum_stress    = nothing,
                                 bottom_momentum_stress = nothing,
+                                ocean_surface_tilt = nothing,
                                 free_drift = nothing,
                                 solver = SplitExplicitSolver(grid; substeps=150),
                                 minimum_concentration = 1e-3,
@@ -77,6 +83,8 @@ function SeaIceMomentumEquation(grid;
     auxiliaries = Auxiliaries(rheology, grid)
     external_momentum_stresses = (top = materialize_stress(top_momentum_stress, grid),
                                   bottom = materialize_stress(bottom_momentum_stress, grid))
+
+    ocean_surface_tilt = materialize_surface_tilt(ocean_surface_tilt, grid)
 
     # Keep the free drift pointing at the same (materialized) stress fields as the external stresses.
     free_drift = materialize_free_drift(free_drift, external_momentum_stresses.top, external_momentum_stresses.bottom)
@@ -89,6 +97,7 @@ function SeaIceMomentumEquation(grid;
                                   solver,
                                   free_drift,
                                   external_momentum_stresses,
+                                  ocean_surface_tilt,
                                   convert(FT, minimum_concentration),
                                   convert(FT, minimum_mass))
 end
@@ -111,6 +120,7 @@ function Base.show(io::IO, sime::SeaIceMomentumEquation)
     print(io, "├── solver: ", summary(sime.solver), '\n')
     print(io, "├── free_drift: ", sime.free_drift, '\n')
     print(io, "├── external_momentum_stresses: ", keys(sime.external_momentum_stresses), '\n')
+    print(io, "├── ocean_surface_tilt: ", summary(sime.ocean_surface_tilt), '\n')
     print(io, "├── minimum_concentration: ", sime.minimum_concentration, '\n')
     print(io, "└── minimum_mass: ", sime.minimum_mass)
 end

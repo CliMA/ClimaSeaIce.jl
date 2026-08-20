@@ -97,6 +97,7 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
 
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
+    surface_tilt = dynamics.ocean_surface_tilt
 
     u_immersed_bc = model_fields.u.boundary_conditions.immersed
     v_immersed_bc = model_fields.v.boundary_conditions.immersed
@@ -107,7 +108,7 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     launch!(architecture(grid), grid, :xy, _compute_velocity_tendencies!, Gu, Gv, grid, Δt,
             rheology, model_fields, clock, coriolis,
             u_immersed_bc, v_immersed_bc,
-            top_stress, bottom_stress, model.forcing)
+            top_stress, bottom_stress, surface_tilt, model.forcing)
 
     return nothing
 end

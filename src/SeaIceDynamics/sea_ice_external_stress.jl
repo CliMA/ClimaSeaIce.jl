@@ -53,8 +53,8 @@ function extended_external_variable(src::Field, grid)
     return field
 end
 
-# Refresh an extended external velocity from its source, then fill its halo.
-function refresh_and_fill_external_velocity!(dst::Field, src)
+# Refresh an extended external field from its source, then fill its halo.
+function refresh_and_fill_external_field!(dst::Field, src)
     interior(dst) .= interior(src)
     fill_halo_regions!(dst)
     return nothing
@@ -146,8 +146,8 @@ Adapt.adapt_structure(to, τ::SemiImplicitStress) =
                        τ.Cᴰ)
 
 function update_external_stress!(τ::SemiImplicitStress, grid)
-    τ.uₑ === τ.uₑ₀ || refresh_and_fill_external_velocity!(τ.uₑ, τ.uₑ₀)
-    τ.vₑ === τ.vₑ₀ || refresh_and_fill_external_velocity!(τ.vₑ, τ.vₑ₀)
+    τ.uₑ === τ.uₑ₀ || refresh_and_fill_external_field!(τ.uₑ, τ.uₑ₀)
+    τ.vₑ === τ.vₑ₀ || refresh_and_fill_external_field!(τ.vₑ, τ.vₑ₀)
     return nothing
 end
 

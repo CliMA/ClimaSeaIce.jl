@@ -78,3 +78,38 @@ end
         @test maximum(u) ≤ uₒ  # but never overshoots the ocean velocity
     end
 end
+
+@testset "Ocean surface tilt" begin
+    @info "Testing the ocean surface tilt for explicit and split-explicit solvers..."
+
+    L = 10_000
+    grid = RectilinearGrid(size = (8, 8, 1), x = (0, L), y = (0, L),
+                           z = (-1, 0), halo = (4, 4, 4), topology = (Periodic, Periodic, Bounded))
+
+    g = Oceananigans.defaults.gravitational_acceleration
+    Δt = 60
+
+    η = Field{Center, Center, Nothing}(grid)
+    set!(η, (x, y) -> 0.1 * sin(2π * x / L) * sin(2π * y / L))
+
+    ∂xη = Field(∂x(η))
+    ∂yη = Field(∂y(η))
+    compute!(∂xη)
+    compute!(∂yη)
+
+    for solver in (ExplicitSolver(), SplitExplicitSolver(grid; substeps=10))
+        ocean_surface_tilt = OceanSurfaceTilt(; η, gravitational_acceleration = g)
+        dynamics = SeaIceMomentumEquation(grid; ocean_surface_tilt, rheology = ViscousRheology(ν=0), solver)
+        model = SeaIceModel(grid; dynamics)
+        set!(model, h = 1, ℵ = 1, u = 0, v = 0)
+
+        time_step!(model, Δt)
+
+        u = interior(model.velocities.u, :, :, 1)
+        v = interior(model.velocities.v, :, :, 1)
+
+        # Starting from rest, the ice accelerates down the ocean surface slope
+        @test u ≈ - g * Δt * interior(∂xη, :, :, 1)
+        @test v ≈ - g * Δt * interior(∂yη, :, :, 1)
+    end
+end

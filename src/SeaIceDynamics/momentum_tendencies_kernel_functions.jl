@@ -1,10 +1,11 @@
 using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
 
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt, rheology, fields, clock, coriolis,
-                                               u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, forcing)
+                                               u_immersed_bc, v_immersed_bc, top_stress, bottom_stress,
+                                               surface_tilt, forcing)
     i, j = @index(Global, NTuple)
-    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis, u_immersed_bc, top_stress, bottom_stress, forcing.u)
-    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis, v_immersed_bc, top_stress, bottom_stress, forcing.v)
+    @inbounds Gu[i, j, 1] = u_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis, u_immersed_bc, top_stress, bottom_stress, surface_tilt, forcing.u)
+    @inbounds Gv[i, j, 1] = v_velocity_tendency(i, j, grid, Δt, rheology, fields, clock, coriolis, v_immersed_bc, top_stress, bottom_stress, surface_tilt, forcing.v)
 end
 
 """Compute the sea ice ``u``-velocity tendencies."""
@@ -16,6 +17,7 @@ end
                                      u_immersed_bc,
                                      u_top_stress,
                                      u_bottom_stress,
+                                     surface_tilt,
                                      u_forcing)
 
     kᴺ = size(grid, 3)
@@ -29,6 +31,7 @@ end
     mᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
 
     Gᵁ = ( - x_f_cross_U(i, j, kᴺ, grid, coriolis, U)
+           - x_surface_tilt(i, j, kᴺ, grid, surface_tilt)
            - explicit_τx(i, j, kᴺ, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
            + explicit_τx(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
            + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
@@ -49,6 +52,7 @@ end
                                      v_immersed_bc,
                                      v_top_stress,
                                      v_bottom_stress,
+                                     surface_tilt,
                                      v_forcing)
 
     kᴺ = size(grid, 3)
@@ -62,6 +66,7 @@ end
     mᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
 
     Gⱽ = ( - y_f_cross_U(i, j, kᴺ, grid, coriolis, U)
+           - y_surface_tilt(i, j, kᴺ, grid, surface_tilt)
            - explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
            + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
            + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ

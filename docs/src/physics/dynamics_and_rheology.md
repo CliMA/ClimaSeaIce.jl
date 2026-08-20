@@ -11,7 +11,7 @@ The sea ice momentum equation describes the balance of forces acting on an ice e
 ```math
 \frac{\partial \boldsymbol{u}}{\partial t} + \boldsymbol{f} \times \boldsymbol{u} =
     \frac{1}{m_i} \boldsymbol{\nabla} \cdot \boldsymbol{\sigma} +
-    \frac{\boldsymbol{\tau}_a}{m_i} + \frac{\boldsymbol{\tau}_o}{m_i}
+    \frac{\boldsymbol{\tau}_a}{m_i} + \frac{\boldsymbol{\tau}_o}{m_i} - g \boldsymbol{\nabla} \eta
 ```
 where:
 - ``\boldsymbol{u} = (u, v)`` is the ice velocity
@@ -20,6 +20,7 @@ where:
 - ``\boldsymbol{\sigma}`` is the internal stress tensor
 - ``\boldsymbol{\tau}_a`` is the atmospheric stress (wind drag)
 - ``\boldsymbol{\tau}_o`` is the oceanic stress (water drag)
+- ``g \boldsymbol{\nabla} \eta`` is the acceleration associated with the tilt of the ocean surface ``\eta``
 
 The divergence of the stress tensor, ``\boldsymbol{\nabla} \cdot \boldsymbol{\sigma}``, represents
 internal forces arising from ice deformation.
@@ -100,6 +101,28 @@ atm_stress = SemiImplicitStress(
     Cᴰ = 1.2e-3   # air-ice drag coefficient
 )
 ```
+
+## Ocean surface tilt
+
+Ice floating on a tilted ocean surface is accelerated down the slope of the surface height ``\eta``. The
+[`OceanSurfaceTilt`](@ref) holds the ocean surface height, typically the free surface of an ocean model,
+together with the gravitational acceleration that turns its gradient into the acceleration
+``- g \boldsymbol{\nabla} \eta``:
+
+```@example dynamics
+using ClimaSeaIce.SeaIceDynamics: OceanSurfaceTilt
+
+η = Field{Center, Center, Nothing}(grid)
+set!(η, (x, y) -> 0.2 * (2x - L) / L)
+
+dynamics = SeaIceMomentumEquation(grid;
+    coriolis = FPlane(f = 1e-4),
+    bottom_momentum_stress = SemiImplicitStress(uₑ = Uₒ, vₑ = Vₒ),
+    ocean_surface_tilt = OceanSurfaceTilt(η = η))
+```
+
+In the presence of rotation, the balance between this acceleration and the Coriolis force is the geostrophic
+drift of the ice.
 
 ## Rheology: how ice deforms
 

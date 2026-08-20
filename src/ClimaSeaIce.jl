@@ -22,6 +22,7 @@ export SeaIceModel,
        SplitExplicitSolver,
        SemiImplicitStress,
        StressBalanceFreeDrift,
+       OceanSurfaceTilt,
        ViscousRheology,
        ElastoViscoPlasticRheology
 
