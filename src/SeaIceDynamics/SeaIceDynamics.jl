@@ -41,6 +41,7 @@ using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
 time_step_momentum!(model, dynamics, Δt) = nothing
 compute_momentum_tendencies!(model, dynamics, Δt) = nothing
 
+include("sea_ice_coriolis.jl")
 include("sea_ice_external_stress.jl")
 include("landfast_basal_stress.jl")
 include("stress_balance_free_drift.jl")

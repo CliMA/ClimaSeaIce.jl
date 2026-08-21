@@ -8,11 +8,10 @@ using Adapt: Adapt
 using Oceananigans: Oceananigans
 using Oceananigans.Fields: Field
 using Oceananigans.Grids: AbstractGrid, Center, Face
-using Oceananigans.Operators: Axᶜᶜᶜ, Axᶠᶠᶜ, Ayᶜᶜᶜ, Ayᶠᶠᶜ, Azᶜᶜᶜ, Azᶜᶠᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
+using Oceananigans.Operators: Azᶜᶜᶜ, Azᶜᶠᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ,
                               Δx_qᶜᶠᶜ, Δy_qᶠᶜᶜ,
                               Δxᶜᶜᶜ, Δxᶜᶠᶜ, Δxᶠᶜᶜ, Δxᶠᶠᶜ,
                               Δyᶜᶜᶜ, Δyᶜᶠᶜ, Δyᶠᶜᶜ, Δyᶠᶠᶜ,
-                              Vᶜᶠᶜ, Vᶠᶜᶜ,
                               δxᶜᵃᵃ, δxᶜᶜᶜ, δxᶠᵃᵃ, δxᶠᶠᶜ,
                               δyᵃᶜᵃ, δyᵃᶠᵃ, δyᶜᶜᶜ, δyᶠᶠᶜ,
                               ℑxyᶜᶜᵃ, ℑxyᶠᶠᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ

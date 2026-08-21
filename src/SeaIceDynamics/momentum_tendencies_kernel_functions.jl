@@ -1,5 +1,3 @@
-using Oceananigans.Coriolis: y_f_cross_U, x_f_cross_U
-
 @kernel function _compute_velocity_tendencies!(Gu, Gv, grid, Δt, rheology, fields, clock, coriolis,
                                                u_immersed_bc, v_immersed_bc, top_stress, bottom_stress, forcing)
     i, j = @index(Global, NTuple)
@@ -28,7 +26,7 @@ end
     ℵᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ℵ)
     mᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
 
-    Gᵁ = ( - x_f_cross_U(i, j, kᴺ, grid, coriolis, U)
+    Gᵁ = ( - x_f_cross_U_2D(i, j, kᴺ, grid, coriolis, U)
            - explicit_τx(i, j, kᴺ, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
            + explicit_τx(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
            + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields, u_immersed_bc) / mᵢ
@@ -61,7 +59,7 @@ end
     ℵᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ℵ)
     mᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, h, ℵ, ρ)
 
-    Gⱽ = ( - y_f_cross_U(i, j, kᴺ, grid, coriolis, U)
+    Gⱽ = ( - y_f_cross_U_2D(i, j, kᴺ, grid, coriolis, U)
            - explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
            + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
            + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields, v_immersed_bc) / mᵢ
