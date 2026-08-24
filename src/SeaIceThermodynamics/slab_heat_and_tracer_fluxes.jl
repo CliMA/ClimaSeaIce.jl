@@ -9,16 +9,13 @@ distributed between zero and twice their mean, represented by `N = thickness_cat
 sub-categories of thickness ``(2i-1) h / N``. Those preserve the mean thickness, and because conduction
 goes as ``1/h`` their mean flux exceeds the flux at the mean thickness by
 
-```math
-\sum_{i=1}^{N} \frac{1}{2i-1}
-```
+∑ᴺᵢ₌₁ 1/(2i-1)
 
 `N = 1` is conduction through the mean thickness. `N = 5`, the value used by LIM and SI3, gives 1.79.
 Snow and ice are scaled by the same factor within a sub-category, so their series resistance scales
 with it too and the correction is a single multiplicative constant on the conductivity.
 """
-@inline effective_conductivity_factor(thickness_categories) =
-    sum(1 / (2i - 1) for i in 1:thickness_categories)
+@inline effective_conductivity_factor(thickness_categories) = sum(1 / (2i - 1) for i in 1:thickness_categories)
 
 struct ConductiveFlux{K}
     conductivity :: K
