@@ -1,9 +1,39 @@
+"""
+    effective_conductivity_factor(thickness_categories)
+
+Return the factor by which conduction through a slab of *mean* thickness underestimates conduction
+through a sub-grid distribution of thicknesses.
+
+Following Fichefet and Morales Maqueda (1997), the ice and snow within a cell are taken to be uniformly
+distributed between zero and twice their mean, represented by `N = thickness_categories` equal-area
+sub-categories of thickness ``(2i-1) h / N``. Those preserve the mean thickness, and because conduction
+goes as ``1/h`` their mean flux exceeds the flux at the mean thickness by
+
+```math
+\sum_{i=1}^{N} \frac{1}{2i-1}
+```
+
+`N = 1` is conduction through the mean thickness. `N = 5`, the value used by LIM and SI3, gives 1.79.
+Snow and ice are scaled by the same factor within a sub-category, so their series resistance scales
+with it too and the correction is a single multiplicative constant on the conductivity.
+"""
+@inline effective_conductivity_factor(thickness_categories) =
+    sum(1 / (2i - 1) for i in 1:thickness_categories)
+
 struct ConductiveFlux{K}
     conductivity :: K
 end
 
-ConductiveFlux(FT::DataType=Oceananigans.defaults.FloatType; conductivity) =
-    ConductiveFlux(convert(FT, conductivity))
+"""
+    ConductiveFlux(FT = Oceananigans.defaults.FloatType; conductivity, thickness_categories = 1)
+
+Fourier conduction through the slab. `conductivity` is the material conductivity of the medium;
+`thickness_categories` applies the sub-grid correction of [`effective_conductivity_factor`](@ref) to it,
+so the stored `conductivity` is the *effective* one and every consumer of this struct inherits the
+correction without further plumbing.
+"""
+ConductiveFlux(FT::DataType=Oceananigans.defaults.FloatType; conductivity, thickness_categories=1) =
+    ConductiveFlux(convert(FT, conductivity * effective_conductivity_factor(thickness_categories)))
 
 @inline function slab_internal_heat_flux(conductive_flux::ConductiveFlux,
                                          top_surface_temperature,

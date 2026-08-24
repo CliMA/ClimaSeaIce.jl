@@ -1,6 +1,7 @@
 module SeaIceThermodynamics
 
-export SlabThermodynamics,
+export effective_conductivity_factor,
+       SlabThermodynamics,
        snow_slab_thermodynamics,
        sea_ice_slab_thermodynamics,
        PhaseTransitions,
