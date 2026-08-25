@@ -64,10 +64,11 @@ function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
 end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
-    new_auxiliaries = Auxiliaries(mom.rheology, grid)
-    new_solver      = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
-    new_stress      = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
-                       top    = materialize_stress(mom.external_momentum_stresses.top, grid))
+    new_auxiliaries  = Auxiliaries(mom.rheology, grid)
+    new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
+    new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
+    new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
+                        top    = materialize_stress(mom.external_momentum_stresses.top, grid))
 
     # Repoint the free drift at the re-gridded stresses so it shares the same (extended) fields
     new_free_drift  = materialize_free_drift(mom.free_drift, new_stress.top, new_stress.bottom)
@@ -78,6 +79,7 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
                                   new_solver,
                                   new_free_drift,
                                   new_stress,
+                                  new_basal_stress,
                                   mom.minimum_concentration,
                                   mom.minimum_mass)
 end
@@ -120,6 +122,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     u_immersed_bc = u.boundary_conditions.immersed
     v_immersed_bc = v.boundary_conditions.immersed
     top_stress    = dynamics.external_momentum_stresses.top
+    basal_stress  = dynamics.basal_stress
     bottom_stress = dynamics.external_momentum_stresses.bottom
     model_fields  = merge(dynamics.auxiliaries.fields, model.velocities,
                        (; h = model.ice_thickness,
@@ -140,8 +143,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     substeps = dynamics.solver.substeps
 
-    u_args = (u, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, u_immersed_bc, top_stress, bottom_stress, u_forcing)
-    v_args = (v, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, v_immersed_bc, top_stress, bottom_stress, v_forcing)
+    u_args = (u, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, u_immersed_bc, top_stress, bottom_stress, basal_stress, u_forcing)
+    v_args = (v, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, v_immersed_bc, top_stress, bottom_stress, basal_stress, v_forcing)
 
     u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
     v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
@@ -197,7 +200,7 @@ end
 @kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology,
                                    fields, free_drift, clock, coriolis,
                                    minimum_mass, minimum_concentration,
-                                   u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
+                                   u_immersed_bc, u_top_stress, u_bottom_stress, basal_stress, u_forcing)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
@@ -210,9 +213,10 @@ end
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, fields, clock, coriolis,
                              u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
 
-    # Implicit part of the stress that depends linearly on the velocity
-    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, fields)
-          - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, fields)) / mᵢ * ℵᵢ
+    # The external stresses act over the ice-covered fraction; the basal stress carries its own
+    τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+          - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
+          + basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᵢ)
 
     τuᵢ = ifelse(mᵢ ≤ 0, zero(grid), τuᵢ)
     uᴰ  = @inbounds (u[i, j, 1] + Δτ * Gu) / (1 + Δτ * τuᵢ) # dynamical velocity
@@ -231,7 +235,7 @@ end
 @kernel function _v_velocity_step!(v, grid, Δt, substeps, rheology,
                                    fields, free_drift, clock, coriolis,
                                    minimum_mass, minimum_concentration,
-                                   v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
+                                   v_immersed_bc, v_top_stress, v_bottom_stress, basal_stress, v_forcing)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
@@ -245,8 +249,9 @@ end
                              v_immersed_bc, v_top_stress, v_bottom_stress, v_forcing)
 
     # Implicit part of the stress that depends linearly on the velocity
-    τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, v_bottom_stress, clock, fields)
-          - implicit_τy_coefficient(i, j, kᴺ, grid, v_top_stress, clock, fields)) / mᵢ * ℵᵢ
+    τvᵢ = ( implicit_τy_coefficient(i, j, kᴺ, grid, v_bottom_stress, clock, fields) / mᵢ * ℵᵢ
+          - implicit_τy_coefficient(i, j, kᴺ, grid, v_top_stress, clock, fields) / mᵢ * ℵᵢ
+          + basal_τy_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᵢ)
 
     τvᵢ = ifelse(mᵢ ≤ 0, zero(grid), τvᵢ)
 

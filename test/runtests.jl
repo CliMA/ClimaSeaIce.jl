@@ -31,6 +31,10 @@ if TEST_GROUP == "all" || TEST_GROUP == "advection"
     include("test_sea_ice_advection.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "basal_stress"
+    include("test_landfast_basal_stress.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "lateral_boundary_conditions"
     include("test_lateral_boundary_conditions.jl")
 end
