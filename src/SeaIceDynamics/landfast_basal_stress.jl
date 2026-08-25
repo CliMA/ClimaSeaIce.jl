@@ -6,23 +6,16 @@ using Oceananigans.Grids: static_column_depthᶜᶜᵃ
 Stress exerted by the sea floor on grounded sea-ice keels, following
 [Lemieux et al. (2015)](@cite Lemieux2015).
 
-Where the ice is thick enough that its keels reach the sea floor, the bed arrests the ice, producing
-the landfast belt observed along shallow shelves and through narrow channels. The stress is
+Where the ice keels reach the sea floor the bed arrests the ice, producing the landfast belt observed
+along shallow shelves and through narrow channels. The stress is
 
 ```math
 τᵇ = k₂ \\max(0, h - hᶜ) \\exp[-C (1 - ℵ)] \\frac{𝐮}{|𝐮| + u₀}, \\qquad hᶜ = \\frac{H ℵ}{k₁}
 ```
 
 where ``H`` is the still-water column depth, ``h`` the ice thickness, ``ℵ`` the ice concentration, and
-``u₀`` a small velocity that keeps the stress finite as ``𝐮 → 0``. Note that ``τᵇ`` saturates at
-``k₂ (h - hᶜ)`` and vanishes with ``𝐮``: the bed can arrest ice, never accelerate it. The stress acts
-only where ``H`` is smaller than `maximum_water_depth`.
-
-Because ``τᵇ`` is stiff at small velocity it is treated implicitly by the momentum solver, alongside
-the ice-ocean drag. It is carried by the sea floor rather than by the water column, so it is held
-separately from `external_momentum_stresses` and never appears in the stress passed to an ocean.
-
-Pass it to [`SeaIceMomentumEquation`](@ref) as `basal_stress`.
+``u₀`` a small velocity that keeps the stress finite as ``𝐮 → 0``. It acts only where ``H`` is smaller
+than `maximum_water_depth`, and is treated implicitly by the momentum solver.
 """
 struct LandfastBasalStress{FT}
     critical_thickness_parameter :: FT
@@ -40,8 +33,7 @@ end
                         minimum_speed = 5e-5,
                         maximum_water_depth = 30)
 
-Construct a `LandfastBasalStress`. The still-water column depth ``H`` is read from the grid, so the
-same object may be passed to any grid.
+Construct a `LandfastBasalStress`. The still-water column depth ``H`` is read from the grid.
 
 Keyword Arguments
 =================
@@ -97,12 +89,7 @@ materialize_basal_stress(stress, grid) = stress
     return ifelse(H < b.maximum_water_depth, kᵇ, zero(grid))
 end
 
-"""
-    basal_τx_coefficient(i, j, k, grid, basal_stress, fields)
-    basal_τy_coefficient(i, j, k, grid, basal_stress, fields)
-
-Return the coefficient ``τᵇ / u`` of the basal stress, for implicit treatment by the momentum solver.
-"""
+# Coefficient ``τᵇ / u``, for implicit treatment by the momentum solver.
 @inline function basal_τx_coefficient(i, j, k, grid, b::LandfastBasalStress, fields)
     kᵇ = ℑxᶠᵃᵃ(i, j, 1, grid, basal_stress_magnitude, b, fields)
     u  = @inbounds fields.u[i, j, k]

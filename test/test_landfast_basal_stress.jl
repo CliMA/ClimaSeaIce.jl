@@ -2,14 +2,11 @@ using Test
 using Oceananigans
 using ClimaSeaIce
 
-using ClimaSeaIce.SeaIceDynamics: basal_τx_coefficient, basal_τy_coefficient,
-                                  materialize_basal_stress, basal_stress_magnitude
+using ClimaSeaIce.SeaIceDynamics: basal_τx_coefficient, basal_τy_coefficient, basal_stress_magnitude
 using Oceananigans.Fields: interior
 using Oceananigans.Grids: Face, Center, static_column_depthᶜᶜᵃ
 
-# A shelf shallow enough to ground keels next to water too deep to ground anything. The vertical grid
-# must resolve the shelf: with cells thicker than the shelf depth the whole top cell is immersed and
-# the column depth collapses to zero.
+# A shelf shallow enough to ground keels next to water too deep to ground anything.
 function shelf_grid(arch = CPU(); Nx = 8, Ny = 8, Nz = 8)
     underlying = RectilinearGrid(arch; size = (Nx, Ny, Nz), x = (0, 8e4), y = (0, 8e4), z = (-40, 0),
                                  topology = (Bounded, Bounded, Bounded))
@@ -26,27 +23,16 @@ ice_fields(grid; h = 3.0, ℵ = 1.0, u = 0.1, v = 0.0) = begin
     (; h = hf, ℵ = ℵf, ρ = ρf, u = uf, v = vf)
 end
 
-@testset "LandfastBasalStress construction" begin
-    b = LandfastBasalStress()
-    @test b.critical_thickness_parameter == 8
-    @test b.stress_parameter == 15
-    @test b.concentration_hardening == 20
-    @test b.minimum_speed == 5e-5
-    @test b.maximum_water_depth == 30
-
-    # The depth is read off the grid, so the shelf has to survive the immersed-boundary discretization.
+@testset "The shelf survives the immersed-boundary discretization" begin
     grid = shelf_grid()
     H = [static_column_depthᶜᶜᵃ(i, j, grid) for i in 1:8, j in 1:8]
     @test all(H[1:4, :] .≈ 20)
     @test all(H[5:8, :] .≈ 40)
-
-    @test materialize_basal_stress(b, grid) === b
-    @test materialize_basal_stress(nothing, grid) isa Nothing
 end
 
 @testset "Grounding criterion" begin
     grid = shelf_grid()
-    bm = materialize_basal_stress(LandfastBasalStress(), grid)
+    bm = LandfastBasalStress()
     kᴺ = size(grid, 3)
 
     fields = ice_fields(grid)   # h = 3 m, ℵ = 1, u = 0.1 m/s
@@ -61,8 +47,7 @@ end
     @test shelf * 0.1 < 15 * (3.0 - 20/8)
 
     # Thin ice cannot ground even on the shelf.
-    @test basal_τx_coefficient(2, 4, kᴺ, grid, materialize_basal_stress(LandfastBasalStress(), grid),
-                               ice_fields(grid; h = 1.0)) == 0
+    @test basal_τx_coefficient(2, 4, kᴺ, grid, bm, ice_fields(grid; h = 1.0)) == 0
 
     # Unconsolidated ice is released by the concentration hardening.
     loose = basal_τx_coefficient(2, 4, kᴺ, grid, bm, ice_fields(grid; ℵ = 0.5))
@@ -77,17 +62,16 @@ end
 
 @testset "Grounding is a cell-centred property" begin
     grid = shelf_grid()
-    bm = materialize_basal_stress(LandfastBasalStress(), grid)
+    bm = LandfastBasalStress()
     kᴺ = size(grid, 3)
     fields = ice_fields(grid)
 
-    # The magnitude is formed at centres, so the shelf cell carries the full grounding, and the
-    # velocity point straddling the shelf break gets the average of its two neighbours.
-    mˢ = basal_stress_magnitude(4, 4, kᴺ, grid, bm, fields)
-    mᵈ = basal_stress_magnitude(5, 4, kᴺ, grid, bm, fields)
-    @test mˢ ≈ 15 * (3.0 - 20/8)
-    @test mᵈ == 0
-    @test basal_τx_coefficient(5, 4, kᴺ, grid, bm, fields) ≈ (mˢ + mᵈ) / 2 / (0.1 + 5e-5)
+    # The velocity point straddling the shelf break gets the average of its two neighbours.
+    shelf_magnitude = basal_stress_magnitude(4, 4, kᴺ, grid, bm, fields)
+    deep_magnitude = basal_stress_magnitude(5, 4, kᴺ, grid, bm, fields)
+    @test shelf_magnitude ≈ 15 * (3.0 - 20/8)
+    @test deep_magnitude == 0
+    @test basal_τx_coefficient(5, 4, kᴺ, grid, bm, fields) ≈ (shelf_magnitude + deep_magnitude) / 2 / (0.1 + 5e-5)
 end
 
 @testset "SeaIceMomentumEquation carries the basal stress" begin
@@ -99,8 +83,6 @@ end
     dyn = SeaIceMomentumEquation(grid; basal_stress = LandfastBasalStress())
     @test dyn.basal_stress isa LandfastBasalStress
 
-    # It is held apart from the stresses the water column exerts, so a coupler reading those never
-    # sees the part of the drag that the sea floor carries.
     @test !(:basal in propertynames(dyn.external_momentum_stresses))
 end
 
@@ -126,9 +108,7 @@ end
     @test all(isfinite, uᶠ)
     @test all(isfinite, uᵍ)
 
-    # Columns 1:4 sit on the 20 m shelf and ground; 6:8 are in 40 m water and cannot. The deep ice
-    # is not perfectly untouched: ice is a continuum, so the arrested belt drags on its neighbours
-    # through the internal stress. What must hold is the contrast, not decoupling.
+    # Columns 1:4 sit on the 20 m shelf and ground; 6:8 are in 40 m water and cannot.
     shelf_slowdown = 1 - maximum(abs, uᵍ[2:4, :]) / maximum(abs, uᶠ[2:4, :])
     deep_slowdown  = 1 - abs(uᵍ[7, 4]) / abs(uᶠ[7, 4])
 

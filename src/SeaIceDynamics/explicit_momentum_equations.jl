@@ -48,7 +48,7 @@ end
     mᶠᶜ  = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
 
     τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, bottom_stress, clock, fields) / mᶠᶜ * ℵᶠᶜ
-          - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields) / mᶠᶜ * ℵᶠᶜ 
+          - implicit_τx_coefficient(i, j, kᴺ, grid, top_stress,    clock, fields) / mᶠᶜ * ℵᶠᶜ
           + basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᶠᶜ)
 
     @inbounds begin

@@ -213,9 +213,7 @@ end
     Gu = u_velocity_tendency(i, j, grid, Δτ, rheology, fields, clock, coriolis,
                              u_immersed_bc, u_top_stress, u_bottom_stress, u_forcing)
 
-    # Implicit part of the stress that depends linearly on the velocity
-    # The external stresses act over the ice-covered fraction; the basal stress already carries its
-    # own concentration dependence
+    # The external stresses act over the ice-covered fraction; the basal stress carries its own
     τuᵢ = ( implicit_τx_coefficient(i, j, kᴺ, grid, u_bottom_stress, clock, fields) / mᵢ * ℵᵢ
           - implicit_τx_coefficient(i, j, kᴺ, grid, u_top_stress, clock, fields) / mᵢ * ℵᵢ
           + basal_τx_coefficient(i, j, kᴺ, grid, basal_stress, fields) / mᵢ)
