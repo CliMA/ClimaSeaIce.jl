@@ -31,7 +31,7 @@ end
     Gᵁ = ( - x_f_cross_U(i, j, kᴺ, grid, coriolis, U)
            - explicit_τx(i, j, kᴺ, grid, u_top_stress, clock, model_fields) / mᵢ * ℵᵢ
            + explicit_τx(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-           + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
+           + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields, u_immersed_bc) / mᵢ
            + immersed_∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
            + sum_of_forcing_u(i, j, kᴺ, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
 
@@ -64,7 +64,7 @@ end
     Gⱽ = ( - y_f_cross_U(i, j, kᴺ, grid, coriolis, U)
            - explicit_τy(i, j, kᴺ, grid, v_top_stress, clock, model_fields) / mᵢ * ℵᵢ
            + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
-           + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields) / mᵢ
+           + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields, v_immersed_bc) / mᵢ
            + immersed_∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, v_immersed_bc, rheology, clock, model_fields) / mᵢ
            + sum_of_forcing_v(i, j, kᴺ, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
 
