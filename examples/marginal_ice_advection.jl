@@ -57,10 +57,10 @@ u_bcs = FieldBoundaryConditions(north = ValueBoundaryCondition(0),
 # A uniform eastward ocean current provides the background advection that
 # carries the marginal ice block across the channel:
 
-𝓋ₒ = 0.2 # m s⁻¹ uniform ocean speed
+uₒ = 0.2 # m s⁻¹ uniform ocean speed
 
 Uₒ = XFaceField(grid)
-set!(Uₒ, 𝓋ₒ)
+set!(Uₒ, uₒ)
 fill_halo_regions!(Uₒ)
 
 τₒ = SemiImplicitStress(uₑ=Uₒ)
@@ -71,15 +71,15 @@ fill_halo_regions!(Uₒ)
 # domain. The translation speed is chosen larger than the ocean current so
 # that the cyclone overtakes the ice block during the simulation:
 
-𝓋ₐ = 25.0 # m s⁻¹ maximum atmospheric speed modifier
+uₐ = 25.0 # m s⁻¹ maximum atmospheric speed modifier
 y_cyclone = Ly / 2
 
 @inline x_cyclone(t) = -Lx/2 + 40kilometers + 128kilometers * t / day
 @inline cyclone_radius(x, y, t) = sqrt((x - x_cyclone(t))^2 + (y - y_cyclone)^2)
 @inline speed(x, y, t) = 1 / 100 * exp(- cyclone_radius(x, y, t) / 80kilometers)
 
-@inline ua_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (  cosd(72) * (x - x_cyclone(t)) + sind(72) * (y - y_cyclone)) / 1000
-@inline va_time(x, y, t) = - 𝓋ₐ * speed(x, y, t) * (- sind(72) * (x - x_cyclone(t)) + cosd(72) * (y - y_cyclone)) / 1000
+@inline ua_time(x, y, t) = - uₐ * speed(x, y, t) * (  cosd(72) * (x - x_cyclone(t)) + sind(72) * (y - y_cyclone)) / 1000
+@inline va_time(x, y, t) = - uₐ * speed(x, y, t) * (- sind(72) * (x - x_cyclone(t)) + cosd(72) * (y - y_cyclone)) / 1000
 
 # Initialize the stress at time t = 0:
 

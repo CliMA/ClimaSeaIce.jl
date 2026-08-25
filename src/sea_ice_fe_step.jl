@@ -50,19 +50,8 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     return nothing
 end
 
-# Concentration `ℵ` and content `𝓋 = ℵ·h` are advanced by flux-form advection; the thickness is then
-# recovered as `h = 𝓋/ℵ`. Snow follows the same path through its own content `𝓋s = ℵ·hs`.
-#
-# The face reconstructions are limited against neighbouring cell values (see `reconstruct_thickness_x`),
-# which bounds the recovered thickness wherever `ℵ⁺` stays away from zero. It vanishes at a concentration
-# discontinuity, though, so the recovery also floors the denominator at `ℵᵐⁱⁿ`.
-#
-# The tendency fields named for the thicknesses carry the tendencies of the corresponding contents:
-#
-#     Gⁿ.h  ≡ ∂𝓋/∂t  = -∇·(U·ℵ·h)    (the conserved ice content)
-#     Gⁿ.ℵ  ≡ ∂ℵ/∂t  = -∇·(U·ℵ)
-#     Gⁿ.hs ≡ ∂𝓋s/∂t = -∇·(U·ℵ·hs)   (the conserved snow content)
-#
+# `Gⁿ.h` and `Gⁿ.hs` carry the tendencies of the contents `𝓋 = ℵ·h` and `𝓋s = ℵ·hs`, from which the
+# thicknesses are recovered as `h = 𝓋/ℵ`.
 @kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt, ℵᵐⁱⁿ)
     i, j = @index(Global, NTuple)
     k = 1
@@ -70,7 +59,7 @@ end
     G𝓋ⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
 
-    # Read before the ice update below: under Forward Euler the `ⁿ` arguments alias the output fields.
+    # Under Forward Euler the `ⁿ` arguments alias the output fields, so read before writing.
     𝓋sⁿ = snow_content(i, j, k, hsⁿ, ℵⁿ)
 
     @inbounds begin
@@ -95,9 +84,7 @@ end
     dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
 end
 
-@inline minimum_ice_concentration(::Type{Float64}) = 1e-11
-@inline minimum_ice_concentration(::Type{Float32}) = 1f-11
-
+@inline minimum_ice_concentration(FT) = convert(FT, 1e-11)
 @inline minimum_ice_concentration(FT, advection) = minimum_ice_concentration(FT)
 
 @inline snow_content(i, j, k, ::Nothing, ℵⁿ) = nothing
@@ -105,8 +92,6 @@ end
 
 @inline dynamic_step_snow!(i, j, k, ::Nothing, args...) = nothing
 
-# `hs` is a thickness per unit ice area, so the advected quantity is the content `𝓋s = ℵ·hs`. Recovering
-# `hs = 𝓋s/ℵ` against the post-ridging `ℵ` conserves snow mass through both convergence and ridging.
 @inline function dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
     @inbounds begin
         𝓋s⁺ = max(zero(𝓋sⁿ), 𝓋sⁿ + Δt * Gⁿ.hs[i, j, k])

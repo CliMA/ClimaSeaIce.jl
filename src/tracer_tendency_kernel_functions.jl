@@ -46,8 +46,6 @@ end
 
 @inline compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, ::Nothing) = nothing
 
-# Snow rides on the ice fraction, so the conserved quantity is the content `𝓋s = ℵ·hs` and it is carried by
-# the same monotone area flux as the ice content `𝓋 = ℵ·h`.
 @inline function compute_snow_advection_tendency!(i, j, k, Gⁿ, grid, advection, velocities, ℵ, hs)
     @inbounds Gⁿ.hs[i, j, 1] = - div_Uℵh(i, j, k, grid, advection, velocities, ℵ, hs)
     return nothing
