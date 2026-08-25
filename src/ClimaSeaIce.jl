@@ -24,7 +24,9 @@ export SeaIceModel,
        StressBalanceFreeDrift,
        LandfastBasalStress,
        ViscousRheology,
-       ElastoViscoPlasticRheology
+       ElastoViscoPlasticRheology,
+       FreeSlip,
+       NoSlip
 
 
 using KernelAbstractions: @kernel, @index

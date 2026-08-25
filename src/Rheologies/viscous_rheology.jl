@@ -9,6 +9,8 @@ end
 ViscousRheology(FT::DataType=Oceananigans.defaults.FloatType; ν = 1000.0) =
     ViscousRheology(convert_diffusivity(FT, ν))
 
+Adapt.adapt_structure(to, r::ViscousRheology) = ViscousRheology(Adapt.adapt(to, r.ν))
+
 @inline viscosity_location(ν) = (Center(), Center(), Center())
 @inline viscosity_location(ν::AbstractField) = location(ν)
 
