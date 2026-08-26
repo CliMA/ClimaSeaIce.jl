@@ -56,9 +56,7 @@ Keyword Arguments
 - `free_drift`: The free drift velocities used when nonzero sea ice mass or concentration are below
                 the dynamical momentum thresholds. Default is `nothing`.
 - `basal_stress`: Stress exerted by the sea floor on grounded keels, arresting landfast ice over
-                  shallow bathymetry. Default: `nothing`. See [`LandfastBasalStress`](@ref). It is
-                  held apart from the external stresses because the sea floor, not the water column,
-                  carries it, so it never enters the stress handed back to an ocean model.
+                  shallow bathymetry. Default: `nothing`. See [`LandfastBasalStress`](@ref).
 - `solver`: Momentum solver used to advance the velocity field. Default:
             `SplitExplicitSolver(grid; substeps = 150)`.
 - `minimum_concentration`: Minimum sea-ice concentration above which the velocity

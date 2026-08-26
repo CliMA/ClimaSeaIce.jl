@@ -27,5 +27,7 @@ const NoSlipV = ImmersedBoundaryCondition{<:VBC, <:VBC}
     combine_slip(u_lateral_boundary_condition(u_immersed_bc),
                  v_lateral_boundary_condition(v_immersed_bc))
 
+# The immersed velocity is zero after masking, so, in case of a NoSlip boundary condition (where immersed velocity should equal -u) 
+# we multiply the computed strain by 2.
 @inline strain_rate_slip_factor(::FreeSlip) = 1
 @inline strain_rate_slip_factor(::NoSlip) = 2

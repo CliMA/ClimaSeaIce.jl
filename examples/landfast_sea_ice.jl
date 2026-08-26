@@ -67,11 +67,11 @@ grounding_line = Ly * (grounding_depth - coastal_depth) / (offshore_depth - coas
 # The wind blows along the coast with a component pushing the ice onshore, so the pack is driven
 # against the shelf:
 
-𝓋ₐ = 15.0    # m s⁻¹
+uₐ = 15.0    # m s⁻¹
 Cᴰ = 1.2e-3  # atmosphere-sea ice drag coefficient
 ρₐ = 1.3     # kg m⁻³
 
-τₐ = ρₐ * Cᴰ * 𝓋ₐ^2
+τₐ = ρₐ * Cᴰ * uₐ^2
 
 τᵤ = XFaceField(grid)
 τᵥ = YFaceField(grid)
@@ -108,8 +108,6 @@ function run_landfast_simulation(basal_stress; stop_time = 2days, Δt = 10minute
     speed = []
     thickness = []
 
-    # `u` and `v` live on different faces, so let Oceananigans interpolate the speed to cell centres
-    # rather than broadcasting arrays of different sizes together.
     s = Field(sqrt(model.velocities.u^2 + model.velocities.v^2))
 
     function accumulate!(sim)
