@@ -20,6 +20,7 @@ example_scripts = [
     "ice_advected_by_anticyclone.jl",
     "one_dimensional_ice_advection.jl",
     "marginal_ice_advection.jl",
+    "landfast_sea_ice.jl",
     "ice_advected_past_an_obstacle.jl",
     "arctic_basin_seasonal_cycle.jl"
 ]
@@ -36,6 +37,7 @@ example_pages = [
     "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
     "One-dimensional ice advection" => "literated/one_dimensional_ice_advection.md",
     "Marginal sea ice advection" => "literated/marginal_ice_advection.md",
+    "Landfast sea ice" => "literated/landfast_sea_ice.md",
     "Ice advected past an obstacle" => "literated/ice_advected_past_an_obstacle.md",
     "Arctic basin seasonal cycle" => "literated/arctic_basin_seasonal_cycle.md"
 ]
