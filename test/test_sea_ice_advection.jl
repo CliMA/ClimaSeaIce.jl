@@ -123,7 +123,6 @@ end
 
     grid = remapping_grid(8)
 
-    # The transport integrates over the step, so it is a Forward-Euler scheme by construction.
     @test_throws ArgumentError SeaIceModel(grid; advection = IncrementalRemapping())
     @test SeaIceModel(grid; advection = IncrementalRemapping(),
                       timestepper = :ForwardEuler) isa SeaIceModel
@@ -140,9 +139,7 @@ end
     u, v = swirling_velocities(grid)
     model = remapping_model(grid, u, v; snow = true)
 
-    # Discontinuous concentration carried by a sheared flow, with uniform thickness: the exact answer
-    # keeps h ≡ 1.5 and hs ≡ 0.3 wherever ice is present. Independently advecting ℵ and 𝓋 = ℵh cannot
-    # do this — the ratio is unbounded as ℵ → 0.
+    # The exact answer keeps h ≡ 1.5 and hs ≡ 0.3 wherever ice is present.
     iced(x, y) = ((x - 1/2)^2 + (y - 1/2)^2) < 0.2^2
     set!(model, ℵ = (x, y) -> iced(x, y) ? 1.0 : 0.0,
                 h = (x, y) -> iced(x, y) ? 1.5 : 0.0,
@@ -180,8 +177,7 @@ end
         time_step!(model, 0.05)
     end
 
-    # Without shear the swept region never straddles a cell boundary and the transport is exact, so
-    # the thickness is bounded to round-off.
+    # Without shear the swept region never straddles a cell boundary, so the transport is exact.
     @test maximum(interior(model.ice_thickness)) ≤ 1.5 * (1 + 1e-12)
 end
 
@@ -206,20 +202,13 @@ end
     @test isapprox(content(model), 𝓋₀; rtol = 1e-12)
     @test isapprox(snow(model), 𝓋s₀; rtol = 1e-12)
 
-    # A uniform thickness stays uniform: the transported content and area come from the same region.
+    # A uniform thickness stays uniform.
     @test maximum(interior(model.ice_thickness)) ≈ 1.5
     @test minimum(interior(model.ice_thickness)) ≈ 1.5
 end
 
 @testset "Incremental remapping needs no minimum concentration" begin
     @info "Testing that incremental remapping conserves content without emptying cells"
-
-    # Flux-form advection empties any cell whose concentration collapses, because the thickness it
-    # recovers there is meaningless. That discards content. Incremental remapping bounds the ratio at
-    # any concentration, so it keeps the floor at zero and conserves to round-off even when the
-    # concentration is discontinuous.
-    @test ClimaSeaIce.minimum_ice_concentration(Float64, IncrementalRemapping()) == 0
-    @test ClimaSeaIce.minimum_ice_concentration(Float64, WENO(order=5)) > 0
 
     grid = remapping_grid(48)
     u, v = swirling_velocities(grid)
@@ -293,8 +282,7 @@ end
     ℵ = Array(interior(model.ice_concentration, :, :, 1))
     solid = [ClimaSeaIce.submerged(i, j, 1, grid) for i in 1:size(grid, 1), j in 1:size(grid, 2)]
 
-    # Nothing crosses an immersed face and no reconstruction reaches into land, so ice driven onto a
-    # coast is conserved rather than deposited on it.
+    # Ice driven onto a coast is conserved rather than deposited on it.
     @test maximum(ℵ[solid]; init = 0.0) == 0
     @test isapprox(content(model), 𝓋₀; rtol = 1e-10)
     @test minimum(ℵ) ≥ 0
@@ -330,8 +318,6 @@ end
     h = Array(interior(model.ice_thickness))
     ℵ = Array(interior(model.ice_concentration))
 
-    # The reconstruction gradients are computed directly in the halo, which gives them the sign the
-    # fold requires without a separate signed halo exchange.
     @test maximum(h) ≤ 1.5 * (1 + 1e-8)
     @test maximum(ℵ) ≤ 1
     @test minimum(ℵ) ≥ 0

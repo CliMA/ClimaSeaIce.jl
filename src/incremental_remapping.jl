@@ -7,46 +7,23 @@ using Oceananigans.Utils: KernelParameters
 """
     struct IncrementalRemapping
 
-Two-dimensional conservative transport of ice concentration `ℵ` and of the thickness-like tracers
-`h` and `hs` that ride on it, following the incremental remapping of
-[Lipscomb and Hunke (2004)](@cite LipscombHunke2004).
+Two-dimensional conservative transport of the ice concentration `ℵ` and of the thickness-like tracers
+`h` and `hs`, following [Lipscomb and Hunke (2004)](@cite LipscombHunke2004).
 
-Concentration and tracers are reconstructed as limited linear functions inside each cell. The material
-crossing a cell face during a step occupies the region swept by the backward trajectories of the face,
-and *both* the transported ice area and the transported content are integrals of the same
-reconstruction over that same region. Writing the transported quantities as
+`ℵ`, `h` and `hs` are reconstructed as limited linear functions inside each cell. The material crossing
+a face during a step occupies the region swept by the backward trajectories of the face, and both the
+transported area `𝔉_ℵ = ∫_R ℵ̃ dA` and the transported content `𝔉_𝓋 = ∫_R ℵ̃ h̃ dA` are integrals of the
+same reconstruction over that same region, which keeps `h = 𝓋/ℵ` inside the range of `h̃` at any `ℵ`.
+The integrals are evaluated by tensor Gauss--Legendre quadrature over the bilinear parametrization of
+the swept region.
 
-```math
-𝔉_ℵ = ∫_R ℵ̃ \\, \\mathrm{d}A, \\qquad 𝔉_𝓋 = ∫_R ℵ̃ \\, h̃ \\, \\mathrm{d}A
-```
-
-makes the recovered thickness `h = 𝓋/ℵ` a weighted average of `h̃` with non-negative weights `ℵ̃ dA`,
-so it stays inside the range of the reconstructed thickness however small `ℵ` becomes. This is the
-property that flux-form advection of `ℵ` and `𝓋 = ℵh` as independent quantities cannot provide: there
-the numerator and denominator come from different reconstructions and their ratio is unbounded as
-`ℵ → 0`.
-
-The swept region is the quadrilateral spanned by the face and by the departure points of its two
-endpoints, exactly as in Lipscomb and Hunke. It is integrated by tensor Gauss--Legendre quadrature over
-its bilinear parametrization rather than by exact decomposition into triangles. The quadrature is exact
-for the swept area and reproduces conservation, positivity and the bounded thickness ratio to
-round-off; it is inexact only where the region straddles a cell boundary, where the piecewise-linear
-integrand is discontinuous.
-
-The transport integrates over the whole step, so the scheme carries its own time integration and must be
-used with `timestepper = :ForwardEuler`. It also requires a Courant number below one in each direction,
-and a halo of at least two.
+The transport integrates over the whole step, so the scheme requires `timestepper = :ForwardEuler`, a
+Courant number below one in each direction, and a halo of at least two.
 
 Keyword arguments
 =================
 
 - `quadrature_nodes`: number of Gauss--Legendre nodes per parametric direction. Default: `3`.
-
-References
-==========
-
-- Lipscomb, W. H., and Hunke, E. C. (2004). Modeling sea ice transport using incremental remapping.
-    Mon. Weather Rev. 132, 1341--1354.
 """
 struct IncrementalRemapping{N, R, T}
     reconstruction :: R
@@ -71,14 +48,12 @@ function Oceananigans.Advection.materialize_advection(scheme::IncrementalRemappi
     Hx, Hy, _ = halo_size(grid)
 
     if Hx < 2 || Hy < 2
-        throw(ArgumentError("IncrementalRemapping requires a horizontal halo of at least 2, " *
-                            "but the grid has halo (Hx, Hy) = ($Hx, $Hy)."))
+        throw(ArgumentError("IncrementalRemapping requires a horizontal halo of at least 2, got ($Hx, $Hy)"))
     end
 
     center_field() = Field{Center, Center, Nothing}(grid)
 
-    # Gradients of the concentration and of the two thickness-like tracers, plus the centroid of the
-    # reconstructed ice area within the cell, which anchors the tracer reconstructions.
+    # `(xa, ya)` is the centroid of the reconstructed ice area, which anchors the tracer reconstructions.
     reconstruction = (ℵx = center_field(), ℵy = center_field(),
                       hx = center_field(), hy = center_field(),
                       hsx = center_field(), hsy = center_field(),
@@ -97,20 +72,11 @@ function Oceananigans.Advection.materialize_advection(scheme::IncrementalRemappi
     return IncrementalRemapping{N, R, T}(reconstruction, transports)
 end
 
-# Incremental remapping transports the material swept through a face over the whole step, so its
-# transport already carries the time integration: the departure region depends on `Δt`, and the flux
-# contains the corresponding first-order-in-`Δt` correction. A multi-stage timestepper supplies that
-# correction a second time, which destroys second-order accuracy. The scheme is therefore a
-# Forward-Euler scheme by construction.
 validate_advection_timestepper(::IncrementalRemapping, timestepper) =
-    throw(ArgumentError("IncrementalRemapping integrates the transport over the time step itself and " *
-                        "must be combined with `timestepper = :ForwardEuler`, but got " *
-                        "$(summary(timestepper))."))
+    throw(ArgumentError("IncrementalRemapping requires timestepper = :ForwardEuler, got $(summary(timestepper))"))
 
 validate_advection_timestepper(::IncrementalRemapping, ::ForwardEulerTimeStepper) = nothing
 
-# The transported area and content come from the same region, so `h = 𝓋/ℵ` stays inside the range of the
-# reconstructed thickness at any concentration and no cell has to be emptied to keep it finite.
 @inline minimum_ice_concentration(FT, ::IncrementalRemapping) = zero(FT)
 
 #####
@@ -135,9 +101,6 @@ validate_advection_timestepper(::IncrementalRemapping, ::ForwardEulerTimeStepper
 ##### Limited linear reconstruction
 #####
 
-# A solid cell is not open water. Substituting the local value for a submerged neighbour makes the
-# reconstruction one-sided at a coast, instead of reading the zero that masking leaves behind there and
-# inventing a gradient that points into land.
 @inline submerged(i, j, k, grid) = false
 @inline submerged(i, j, k, ibg::ImmersedBoundaryGrid) = immersed_cell(i, j, k, ibg)
 
@@ -160,10 +123,8 @@ validate_advection_timestepper(::IncrementalRemapping, ::ForwardEulerTimeStepper
     return cmin, cmax
 end
 
-# Thickness in a neighbouring cell, replaced by the local value wherever that cell carries no ice, so
-# that open water does not drag the thickness reconstruction of an ice-covered cell toward zero. Land
-# counts as carrying no ice. The floor here asks whether a neighbour holds a meaningful thickness, which
-# is a separate question from whether the recovered thickness needs a floor to stay finite.
+# Thickness of a neighbour, replaced by the local value where that neighbour carries no ice, so open
+# water does not drag the thickness reconstruction of an ice-covered cell toward zero.
 @inline function iced_thickness(i, j, k, grid, h, ℵ, h₀)
     @inbounds ℵᵢ = ℵ[i, j, k]
     @inbounds hᵢ = h[i, j, k]
@@ -187,8 +148,8 @@ end
     return hmin, hmax
 end
 
-# Barth--Jespersen scaling: the largest α ≤ 1 for which the linear reconstruction stays within the
-# neighbourhood bounds over a cell whose extreme corner sits `δ` away from the reconstruction anchor.
+# Barth--Jespersen scaling: the largest α ≤ 1 keeping the reconstruction within the neighbourhood
+# bounds over a cell whose extreme corner sits `δ` away from the anchor.
 @inline function limiting_factor(δ, c₀, cmin, cmax)
     α = min(one(δ), (cmax - c₀) / δ, (c₀ - cmin) / δ)
     return ifelse(δ > 0, α, one(δ))
@@ -216,8 +177,8 @@ end
     return δh / (Δyᶜᶠᶜ(i, j, k, grid) + Δyᶜᶠᶜ(i, j+1, k, grid))
 end
 
-# Limited gradients of a thickness-like tracer, anchored at the centroid `(xa, ya)` of the reconstructed
-# ice area so that the area-weighted mean of the reconstruction returns the cell mean exactly.
+# Anchoring at the area centroid `(xa, ya)` makes the area-weighted mean of the reconstruction return
+# the cell mean exactly.
 @inline function limited_tracer_gradients(i, j, k, grid, h, ℵ, xa, ya, Δx, Δy)
     @inbounds h₀ = h[i, j, k]
 
@@ -251,14 +212,12 @@ end
     δℵ = abs(ℵx) * Δx / 2 + abs(ℵy) * Δy / 2
     α = limiting_factor(δℵ, ℵ₀, ℵmin, ℵmax)
 
-    # A solid cell reconstructs to nothing, so a swept region reaching into land draws no ice from it.
     α = ifelse(submerged(i, j, k, grid), zero(α), α)
 
     ℵx = α * ℵx
     ℵy = α * ℵy
 
-    # Centroid of the reconstructed ice area, measured from the cell centre:
-    # xa = ∫ℵ̃ x dA / ∫ℵ̃ dA = ℵx Δx² / (12 ℵ₀), and likewise in y.
+    # xa = ∫ℵ̃ x dA / ∫ℵ̃ dA = ℵx Δx² / (12 ℵ₀), measured from the cell centre, and likewise in y
     ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ₀))
     iced = ℵ₀ > ℵᵐⁱⁿ
     xa = ifelse(iced, ℵx * Δx^2 / (12 * ℵ₀), zero(ℵ₀))
@@ -283,9 +242,8 @@ end
 ##### Point evaluation of the reconstruction
 #####
 
-# Evaluate the reconstructions of `ℵ`, `h` and `hs` at a point `(x, y)` measured from the centre of cell
-# `(i, j)`. The point may lie in a neighbouring cell — the swept region straddles cell boundaries — so
-# the containing cell is located first and its own reconstruction is used.
+# Evaluate the reconstructions at `(x, y)`, measured from the centre of cell `(i, j)`. The point may lie
+# in a neighbouring cell, so the containing cell is located first and its own reconstruction is used.
 @inline function reconstruct(i, j, k, grid, x, y, ℵ, h, hs, r)
     Δx = Δxᶜᶜᶜ(i, j, k, grid)
     Δy = Δyᶜᶜᶜ(i, j, k, grid)
@@ -311,7 +269,6 @@ end
     h̃ = reconstruct_tracer(I, J, k, h, r.hx, r.hy, δxa, δya)
     h̃s = reconstruct_tracer(I, J, k, hs, r.hsx, r.hsy, δxa, δya)
 
-    # A guard, not a mechanism: the limiter keeps ℵ̃ ≥ 0 inside every cell.
     return max(ℵ̃, zero(ℵ̃)), h̃, h̃s
 end
 
@@ -322,13 +279,10 @@ end
 ##### Transport through the swept region of a face
 #####
 
-# The region swept through the face between cells `(i-1, j)` and `(i, j)` is spanned by
-#
-#     (x, y)(η, s) = p(η) - s Δt 𝐮(η),    (η, s) ∈ [0, 1]²
-#
-# where `p(η)` runs along the face and `𝐮(η)` is the corner velocity interpolated along it. Coordinates
-# are local to the face midpoint. The Jacobian is signed, so a face whose normal velocity changes sign
-# along its length contributes the difference of the two lobes, as it should.
+# The region swept through the face is spanned by (x, y)(η, s) = p(η) - s Δt 𝐮(η) on (η, s) ∈ [0, 1]²,
+# where `p(η)` runs along the face and `𝐮(η)` is the corner velocity interpolated along it, in
+# coordinates local to the face midpoint. The Jacobian is signed, so a face whose normal velocity
+# changes sign along its length contributes the difference of the two lobes.
 @inline function x_face_transport(i, j, k, grid, ::Val{N}, Δt, u, v, ℵ, h, hs, r) where N
     FT = eltype(grid)
 
@@ -409,8 +363,7 @@ end
     return 𝔉ℵ, 𝔉𝓋, 𝔉𝓈
 end
 
-# Nothing crosses an immersed face, matching the flux-form path. Without this the transport would carry
-# ice into a solid cell for `update_state!` to mask away, which loses content instead of conserving it.
+# Nothing crosses an immersed face.
 @inline mask_immersed_transport_x(i, j, k, grid, 𝔉) = 𝔉
 @inline mask_immersed_transport_y(i, j, k, grid, 𝔉) = 𝔉
 
@@ -499,9 +452,8 @@ function compute_tracer_tendencies!(model::SIM, advection::IncrementalRemapping{
     reconstruction = advection.reconstruction
     transports = advection.transports
 
-    # Reconstruct into the first halo cell as well: the transport through a boundary face reads the
-    # reconstruction of the cell outside it. Computing gradients in the halo from halo-filled means
-    # gives the sign the tripolar fold requires without a separate signed halo exchange.
+    # The transport through a boundary face reads the reconstruction of the cell outside it, so the
+    # first halo cell is reconstructed too.
     reconstruction_parameters = KernelParameters(0:Nx+1, 0:Ny+1)
     launch!(arch, grid, reconstruction_parameters, _compute_remapping_reconstruction!, reconstruction, grid, ℵ, h, hs)
 

@@ -127,9 +127,9 @@ Keyword Arguments
 function SeaIceModel(grid;
                      clock                       = Clock{eltype(grid)}(time = 0),
                      ice_consolidation_thickness = 0.05, # m
-                     ice_salinity                = 0, # psu
-                     sea_ice_density             = 900, # kg m⁻³, bulk sea-ice
-                     snow_density                = 330, # kg m⁻³, bulk snow
+                     ice_salinity                = 0,    # psu
+                     sea_ice_density             = 900,  # kg m⁻³, bulk sea-ice
+                     snow_density                = 330,  # kg m⁻³, bulk snow
                      phase_transitions           = PhaseTransitions(eltype(grid)),
                      top_heat_flux               = nothing,
                      bottom_heat_flux            = 0,    # W m⁻²
@@ -220,10 +220,7 @@ function SeaIceModel(grid;
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
 
-    # `Gⁿ.h` and `Gⁿ.hs` carry the tendencies of the advected contents `𝓋 = ℵ·h` and `𝓋s = ℵ·hs`, from
-    # which the thicknesses are recovered (see `_dynamic_step_tracers!`).
-    Gⁿ = map(similar, prognostic_fields)
-    timestepper = TimeStepper(timestepper, grid, prognostic_fields; Gⁿ)
+    timestepper = TimeStepper(timestepper, grid, prognostic_fields)
 
     # The layered (snow + ice) step writes the ice top surface temperature, so it
     # must be writable when snow is present; bare-ice models keep their field as-is.
@@ -291,9 +288,6 @@ end
 
 const SIM = SeaIceModel
 
-# Most advection schemes discretize a spatial operator and leave time integration to the timestepper.
-# A scheme that integrates over the step itself — see `IncrementalRemapping` — restricts which
-# timesteppers it may be combined with, and says so here.
 validate_advection_timestepper(advection, timestepper) = nothing
 
 function Oceananigans.Fields.set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing, u=nothing, v=nothing)

@@ -18,9 +18,10 @@ example_scripts = [
     "melting_in_spring.jl",
     "freezing_of_a_lake.jl",
     "ice_advected_by_anticyclone.jl",
+    "one_dimensional_ice_advection.jl",
     "marginal_ice_advection.jl",
-    "ice_advected_past_an_obstacle.jl",
     "landfast_sea_ice.jl",
+    "ice_advected_past_an_obstacle.jl",
     "arctic_basin_seasonal_cycle.jl"
 ]
 
@@ -34,9 +35,10 @@ example_pages = [
     "Melting in Spring" => "literated/melting_in_spring.md",
     "Freezing of a Lake" => "literated/freezing_of_a_lake.md",
     "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
+    "One-dimensional ice advection" => "literated/one_dimensional_ice_advection.md",
     "Marginal sea ice advection" => "literated/marginal_ice_advection.md",
-    "Ice advected past an obstacle" => "literated/ice_advected_past_an_obstacle.md",
     "Landfast sea ice" => "literated/landfast_sea_ice.md",
+    "Ice advected past an obstacle" => "literated/ice_advected_past_an_obstacle.md",
     "Arctic basin seasonal cycle" => "literated/arctic_basin_seasonal_cycle.md"
 ]
 

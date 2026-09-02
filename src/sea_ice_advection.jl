@@ -17,16 +17,16 @@ using Oceananigans.Advection: FluxFormAdvection,
 @inline limiter(ϕ, a, b) = clamp(ϕ, min(a, b), max(a, b))
 
 @inline function content_and_area_x(i, j, k, grid, scheme::WENO, b, ℵ, h)
-    ss = FunctionStencil(ice_content)
-    𝓋ᶠ = _biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, b, ice_content, ss, ℵ, h)
-    ℵᶠ = _biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, b, ℵ, ss, ℵ, h)
+    stencil = FunctionStencil(ice_content)
+    𝓋ᶠ = _biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, b, ice_content, stencil, ℵ, h)
+    ℵᶠ = _biased_interpolate_xᶠᵃᵃ(i, j, k, grid, scheme, b, ℵ, stencil, ℵ, h)
     return 𝓋ᶠ, ℵᶠ
 end
 
 @inline function content_and_area_y(i, j, k, grid, scheme::WENO, b, ℵ, h)
-    ss = FunctionStencil(ice_content)
-    𝓋ᶠ = _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, b, ice_content, ss, ℵ, h)
-    ℵᶠ = _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, b, ℵ, ss, ℵ, h)
+    stencil = FunctionStencil(ice_content)
+    𝓋ᶠ = _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, b, ice_content, stencil, ℵ, h)
+    ℵᶠ = _biased_interpolate_yᵃᶠᵃ(i, j, k, grid, scheme, b, ℵ, stencil, ℵ, h)
     return 𝓋ᶠ, ℵᶠ
 end
 
@@ -106,73 +106,50 @@ end
 @inline _area_flux_x(i, j, k, ibg::ImmersedBoundaryGrid, scheme, U, ℵ) = conditional_flux_fcc(i, j, k, ibg, zero(ibg), area_flux_x(i, j, k, ibg, scheme, U, ℵ))
 @inline _area_flux_y(i, j, k, ibg::ImmersedBoundaryGrid, scheme, V, ℵ) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), area_flux_y(i, j, k, ibg, scheme, V, ℵ))
 
-# Content flux `Ax·u·ℵ_face · h_face`: the monotone area flux times the limited thickness reconstruction.
 @inline advective_thickness_flux_x(i, j, k, grid, advection, U, ℵ, h) = area_flux_x(i, j, k, grid, advection, U, ℵ) * reconstruct_thickness_x(i, j, k, grid, advection, U, ℵ, h)
 @inline advective_thickness_flux_y(i, j, k, grid, advection, V, ℵ, h) = area_flux_y(i, j, k, grid, advection, V, ℵ) * reconstruct_thickness_y(i, j, k, grid, advection, V, ℵ, h)
 
-# Divide by Δzᶠᶜᶜ in case of a moving grid (zstar for example)
-@inline function _advective_thickness_flux_2D_x(i, j, k, grid, scheme, U, ℵ, h)
+# Divide by Δz in case of a moving grid (zstar for example)
+@inline function flux_2D_x(i, j, k, grid, flux, args...)
     Δz = Δzᶠᶜᶜ(i, j, k, grid)
-    return ifelse(Δz > 0, _advective_thickness_flux_x(i, j, k, grid, scheme, U, ℵ, h) / Δz, zero(grid))
+    return ifelse(Δz > 0, flux(i, j, k, grid, args...) / Δz, zero(grid))
 end
 
-@inline function _advective_thickness_flux_2D_y(i, j, k, grid, scheme, U, ℵ, h)
+@inline function flux_2D_y(i, j, k, grid, flux, args...)
     Δz = Δzᶜᶠᶜ(i, j, k, grid)
-    return ifelse(Δz > 0, _advective_thickness_flux_y(i, j, k, grid, scheme, U, ℵ, h) / Δz, zero(grid))
-end
-
-@inline function _area_flux_2D_x(i, j, k, grid, scheme, U, ℵ)
-    Δz = Δzᶠᶜᶜ(i, j, k, grid)
-    return ifelse(Δz > 0, _area_flux_x(i, j, k, grid, scheme, U, ℵ) / Δz, zero(grid))
-end
-
-@inline function _area_flux_2D_y(i, j, k, grid, scheme, V, ℵ)
-    Δz = Δzᶜᶠᶜ(i, j, k, grid)
-    return ifelse(Δz > 0, _area_flux_y(i, j, k, grid, scheme, V, ℵ) / Δz, zero(grid))
-end
-
-@inline function _advective_tracer_flux_2D_x(i, j, k, grid, scheme, U, c)
-    Δz = Δzᶠᶜᶜ(i, j, k, grid)
-    return ifelse(Δz > 0, _advective_tracer_flux_x(i, j, k, grid, scheme, U, c) / Δz, zero(grid))
-end
-
-@inline function _advective_tracer_flux_2D_y(i, j, k, grid, scheme, U, c)
-    Δz = Δzᶜᶠᶜ(i, j, k, grid)
-    return ifelse(Δz > 0, _advective_tracer_flux_y(i, j, k, grid, scheme, U, c) / Δz, zero(grid))
+    return ifelse(Δz > 0, flux(i, j, k, grid, args...) / Δz, zero(grid))
 end
 
 @inline div_Uℵh(i, j, k, grid, ::Nothing, U, ℵ, h) = zero(grid)
 
-# Volume-per-area tendency: returns ∇·(U·ℵ·h) with a 2D (area-based) metric.
 @inline function div_Uℵh(i, j, k, grid, advection, U, ℵ, h)
-    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_2D_x, advection, U.u, ℵ, h) +
-                                       δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_2D_y, advection, U.v, ℵ, h))
+    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, flux_2D_x, _advective_thickness_flux_x, advection, U.u, ℵ, h) +
+                                       δyᵃᶜᵃ(i, j, k, grid, flux_2D_y, _advective_thickness_flux_y, advection, U.v, ℵ, h))
 end
 
 @inline function div_Uℵh(i, j, k, grid, advection::FluxFormAdvection, U, ℵ, h)
-    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_thickness_flux_2D_x, advection.x, U.u, ℵ, h) +
-                                       δyᵃᶜᵃ(i, j, k, grid, _advective_thickness_flux_2D_y, advection.y, U.v, ℵ, h))
+    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, flux_2D_x, _advective_thickness_flux_x, advection.x, U.u, ℵ, h) +
+                                       δyᵃᶜᵃ(i, j, k, grid, flux_2D_y, _advective_thickness_flux_y, advection.y, U.v, ℵ, h))
 end
 
-# Concentration tendency: ∇·(U·ℵ) with the monotone area flux and a 2D (area-based) metric.
 @inline div_Uℵ(i, j, k, grid, ::Nothing, U, ℵ) = zero(grid)
 
 @inline function div_Uℵ(i, j, k, grid, advection, U, ℵ)
-    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _area_flux_2D_x, advection, U.u, ℵ) +
-                                       δyᵃᶜᵃ(i, j, k, grid, _area_flux_2D_y, advection, U.v, ℵ))
+    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, flux_2D_x, _area_flux_x, advection, U.u, ℵ) +
+                                       δyᵃᶜᵃ(i, j, k, grid, flux_2D_y, _area_flux_y, advection, U.v, ℵ))
 end
 
 @inline function div_Uℵ(i, j, k, grid, advection::FluxFormAdvection, U, ℵ)
-    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _area_flux_2D_x, advection.x, U.u, ℵ) +
-                                       δyᵃᶜᵃ(i, j, k, grid, _area_flux_2D_y, advection.y, U.v, ℵ))
+    return 1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, flux_2D_x, _area_flux_x, advection.x, U.u, ℵ) +
+                                       δyᵃᶜᵃ(i, j, k, grid, flux_2D_y, _area_flux_y, advection.y, U.v, ℵ))
 end
 
 @inline horizontal_div_Uc(i, j, k, grid, ::Nothing, U, c) = zero(grid)
 
 @inline horizontal_div_Uc(i, j, k, grid, advection, U, c) =
-    1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_2D_x, advection, U.u, c) +
-                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_2D_y, advection, U.v, c))
+    1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, flux_2D_x, _advective_tracer_flux_x, advection, U.u, c) +
+                                δyᵃᶜᵃ(i, j, k, grid, flux_2D_y, _advective_tracer_flux_y, advection, U.v, c))
 
 @inline horizontal_div_Uc(i, j, k, grid, advection::FluxFormAdvection, U, c) =
-    1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, _advective_tracer_flux_2D_x, advection.x, U.u, c) +
-                                δyᵃᶜᵃ(i, j, k, grid, _advective_tracer_flux_2D_y, advection.y, U.v, c))
+    1 / Azᶜᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, flux_2D_x, _advective_tracer_flux_x, advection.x, U.u, c) +
+                                δyᵃᶜᵃ(i, j, k, grid, flux_2D_y, _advective_tracer_flux_y, advection.y, U.v, c))
