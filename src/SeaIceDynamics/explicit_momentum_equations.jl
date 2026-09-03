@@ -102,6 +102,8 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
 
+    update_free_surface!(dynamics.free_surface)
+
     u_immersed_bc = model_fields.u.boundary_conditions.immersed
     v_immersed_bc = model_fields.v.boundary_conditions.immersed
 

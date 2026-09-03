@@ -84,7 +84,17 @@ end
 # `η` is the ocean surface height extended onto `grid`; `η₀` is the source it is refreshed from.
 function materialize_free_surface(η₀, gravitational_acceleration, grid)
     g = convert(eltype(grid), gravitational_acceleration)
-    return (; η = extended_external_variable(η₀, grid), η₀, g)
+    return (; η = extended_surface_height(η₀, grid), η₀, g)
+end
+
+extended_surface_height(η₀, grid) = η₀
+
+function extended_surface_height(η₀::Field, grid)
+    Oceananigans.location(η₀) === (Center, Center, Nothing) && grids_match(η₀, grid) && return η₀
+    η = Field{Center, Center, Nothing}(grid)
+    interior(η) .= interior(η₀)
+    fill_halo_regions!(η)
+    return η
 end
 
 function update_free_surface!(free_surface)
