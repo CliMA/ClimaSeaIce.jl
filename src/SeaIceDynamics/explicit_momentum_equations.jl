@@ -96,10 +96,13 @@ function compute_momentum_tendencies!(model, ::ExplicitMomentumEquation, Δt)
     model_fields = merge(dynamics.auxiliaries.fields, model.velocities,
                          (; h = model.ice_thickness,
                             ℵ = model.ice_concentration,
-                            ρ = model.sea_ice_density))
+                            ρ = model.sea_ice_density,
+                            free_surface = dynamics.free_surface))
 
     top_stress = dynamics.external_momentum_stresses.top
     bottom_stress = dynamics.external_momentum_stresses.bottom
+
+    update_free_surface!(dynamics.free_surface)
 
     u_immersed_bc = model_fields.u.boundary_conditions.immersed
     v_immersed_bc = model_fields.v.boundary_conditions.immersed
