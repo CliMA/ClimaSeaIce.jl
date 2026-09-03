@@ -21,6 +21,7 @@ end
     ℵ  = model_fields.ℵ
     ρ  = model_fields.ρ
     U  = (u = model_fields.u, v = model_fields.v)
+    free_surface = model_fields.free_surface
 
     # Ice mass (per unit area) interpolated on u points
     ℵᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ℵ)
@@ -31,6 +32,7 @@ end
            + explicit_τx(i, j, kᴺ, grid, u_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
            + ∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields, u_immersed_bc) / mᵢ
            + immersed_∂ⱼ_σ₁ⱼ(i, j, kᴺ, grid, u_immersed_bc, rheology, clock, model_fields) / mᵢ
+           - free_surface.g * ∂xᶠᶜᶜ(i, j, kᴺ, grid, free_surface.η)
            + sum_of_forcing_u(i, j, kᴺ, grid, rheology, u_forcing, model_fields, Δt))  # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
 
     Gᵁ = ifelse(mᵢ ≤ 0, zero(grid), Gᵁ)
@@ -54,6 +56,7 @@ end
     ℵ = model_fields.ℵ
     ρ = model_fields.ρ
     U = (u = model_fields.u, v = model_fields.v)
+    free_surface = model_fields.free_surface
 
     # Ice mass (per unit area) interpolated on v points
     ℵᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ℵ)
@@ -64,6 +67,7 @@ end
            + explicit_τy(i, j, kᴺ, grid, v_bottom_stress, clock, model_fields) / mᵢ * ℵᵢ
            + ∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, rheology, clock, model_fields, v_immersed_bc) / mᵢ
            + immersed_∂ⱼ_σ₂ⱼ(i, j, kᴺ, grid, v_immersed_bc, rheology, clock, model_fields) / mᵢ
+           - free_surface.g * ∂yᶜᶠᶜ(i, j, kᴺ, grid, free_surface.η)
            + sum_of_forcing_v(i, j, kᴺ, grid, rheology, v_forcing, model_fields, Δt)) # sum of user defined forcing and possibly other forcing terms that are rheology-dependent
 
     Gⱽ = ifelse(mᵢ ≤ 0, zero(grid), Gⱽ)
