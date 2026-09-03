@@ -53,8 +53,8 @@ function extended_external_variable(src::Field, grid)
     return field
 end
 
-# Refresh an extended external velocity from its source, then fill its halo.
-function refresh_and_fill_external_velocity!(dst::Field, src)
+# Refresh an extended external field from its source, then fill its halo.
+function refresh_and_fill_external_field!(dst::Field, src)
     interior(dst) .= interior(src)
     fill_halo_regions!(dst)
     return nothing
@@ -74,6 +74,22 @@ update_external_stress!(stress, grid) = nothing
 function update_external_stress!(stress::NamedTuple, grid)
     stress.u isa Field && fill_halo_regions!(stress.u)
     stress.v isa Field && fill_halo_regions!(stress.v)
+    return nothing
+end
+
+#####
+##### Ocean free surface
+#####
+
+# `η` is the ocean surface height extended onto `grid`; `η₀` is the source it is refreshed from.
+function materialize_free_surface(η₀, gravitational_acceleration, grid)
+    g = convert(eltype(grid), gravitational_acceleration)
+    return (; η = extended_external_variable(η₀, grid), η₀, g)
+end
+
+function update_free_surface!(free_surface)
+    η, η₀ = free_surface
+    η === η₀ || refresh_and_fill_external_field!(η, η₀)
     return nothing
 end
 
@@ -146,8 +162,8 @@ Adapt.adapt_structure(to, τ::SemiImplicitStress) =
                        τ.Cᴰ)
 
 function update_external_stress!(τ::SemiImplicitStress, grid)
-    τ.uₑ === τ.uₑ₀ || refresh_and_fill_external_velocity!(τ.uₑ, τ.uₑ₀)
-    τ.vₑ === τ.vₑ₀ || refresh_and_fill_external_velocity!(τ.vₑ, τ.vₑ₀)
+    τ.uₑ === τ.uₑ₀ || refresh_and_fill_external_field!(τ.uₑ, τ.uₑ₀)
+    τ.vₑ === τ.vₑ₀ || refresh_and_fill_external_field!(τ.vₑ, τ.vₑ₀)
     return nothing
 end
 
