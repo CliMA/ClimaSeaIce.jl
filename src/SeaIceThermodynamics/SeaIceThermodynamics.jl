@@ -10,6 +10,7 @@ export effective_conductivity_factor,
        RadiativeEmission,
        ConductiveFlux,
        IceSnowConductiveFlux,
+       ThicknessDependentConductivity,
        FluxFunction
 
 using Adapt: Adapt
