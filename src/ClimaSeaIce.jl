@@ -25,6 +25,7 @@ export SeaIceModel,
        LandfastBasalStress,
        ViscousRheology,
        ElastoViscoPlasticRheology,
+       IncrementalRemapping,
        FreeSlip,
        NoSlip
 
@@ -32,17 +33,30 @@ export SeaIceModel,
 using KernelAbstractions: @kernel, @index
 using Oceananigans: Oceananigans, AbstractModel, fields, prognostic_fields,
                     prognostic_state, restore_prognostic_state!
-using Oceananigans.Advection: cell_advection_timescale, advective_tracer_flux_x, advective_tracer_flux_y
+using Oceananigans.Advection: cell_advection_timescale
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!, FieldBoundaryConditions
 using Oceananigans.Fields: field, set!, Center, Field, ZeroField, ConstantField
 using Oceananigans.Grids: Face, RectilinearGrid, LatitudeLongitudeGrid, OrthogonalSphericalShellGrid
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaries, ImmersedBoundaryGrid
-using Oceananigans.Operators: Axᶠᶜᶜ, Ayᶜᶠᶜ, Vᶜᶜᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
+using Oceananigans.Operators: Axᶠᶜᶜ, Ayᶜᶠᶜ, Azᶜᶜᶜ, Δzᶠᶜᶜ, Δzᶜᶠᶜ, δxᶜᵃᵃ, δyᵃᶜᵃ
 using Oceananigans.TimeSteppers: tick!, Clock, update_state!
 using Oceananigans.Utils: launch!, prettytime
 
 @inline ice_mass(i, j, k, grid, h, ℵ, ρ) = @inbounds h[i, j, k] * ρ[i, j, k] * ℵ[i, j, k]
+
+assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Center, Nothing) :
+                                       name === :v  ? (Center, Face,   Nothing) :
+                                                      (Center, Center, Nothing)
+
+function default_sea_ice_boundary_conditions(grid, name)
+    bcs = FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
+    if (name === :u || name === :v) && bcs.north isa BoundaryCondition && bcs.north.classification isa Zipper
+        north = BoundaryCondition(bcs.north.classification, - bcs.north.condition)
+        bcs = FieldBoundaryConditions(bcs.west, bcs.east, bcs.south, north, bcs.bottom, bcs.top, bcs.immersed)
+    end
+    return bcs
+end
 
 # Candidate for upstreaming to Oceananigans.
 include("forward_euler_timestepper.jl")
@@ -52,6 +66,7 @@ include("Rheologies/Rheologies.jl")
 include("SeaIceDynamics/SeaIceDynamics.jl")
 include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
+include("incremental_remapping.jl")
 include("tracer_tendency_kernel_functions.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
