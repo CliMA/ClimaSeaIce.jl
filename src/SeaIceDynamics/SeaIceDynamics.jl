@@ -13,7 +13,7 @@ using Oceananigans.Architectures: architecture
 using Oceananigans.DistributedComputations: Distributed
 using Oceananigans.Fields: Field
 using Oceananigans.Grids: Center, Face
-using Oceananigans.Operators: ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
+using Oceananigans.Operators: ℑxyᶜᶠᵃ, ℑxyᶠᶜᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ, ∂xᶠᶜᶜ, ∂yᶜᶠᶜ
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 using Oceananigans.Utils: KernelParameters, launch!
 
@@ -27,7 +27,7 @@ using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ##
-##     ∂u/∂t + f x u = ∇ ⋅ σ / mᵢ  + τₒ / mᵢ + τₐ / mᵢ + g ∇η
+##     ∂u/∂t + f x u = ∇ ⋅ σ / mᵢ  + τₒ / mᵢ + τₐ / mᵢ - g ∇η
 ##
 ## where the terms (left to right) represent the
 ## - time derivative of the ice velocity

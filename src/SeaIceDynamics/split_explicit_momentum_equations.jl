@@ -67,6 +67,7 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
     new_auxiliaries  = Auxiliaries(mom.rheology, grid)
     new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
+    new_free_surface = materialize_free_surface(mom.free_surface.η₀, mom.free_surface.g, grid)
     new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
                         top    = materialize_stress(mom.external_momentum_stresses.top, grid))
 
@@ -80,6 +81,7 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
                                   new_free_drift,
                                   new_stress,
                                   new_basal_stress,
+                                  new_free_surface,
                                   mom.minimum_concentration,
                                   mom.minimum_mass)
 end
@@ -127,7 +129,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     model_fields  = merge(dynamics.auxiliaries.fields, model.velocities,
                        (; h = model.ice_thickness,
                           ℵ = model.ice_concentration,
-                          ρ = model.sea_ice_density))
+                          ρ = model.sea_ice_density,
+                          free_surface = dynamics.free_surface))
 
     reset_velocities!(u, v, model.timestepper)
     initialize_rheology!(model, dynamics.rheology)
@@ -135,6 +138,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     # Refresh the externally-provided stresses / velocities and fill their (extended) halos once per time step.
     update_external_stress!(top_stress, grid)
     update_external_stress!(bottom_stress, grid)
+    update_free_surface!(dynamics.free_surface)
 
     params = dynamics.solver.kernel_parameters
 

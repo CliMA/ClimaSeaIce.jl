@@ -41,6 +41,7 @@ end
 
 if TEST_GROUP == "all" || TEST_GROUP == "timestepping"
     include("test_time_stepping.jl")
+    include("test_free_surface_term.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "checkpointing"
