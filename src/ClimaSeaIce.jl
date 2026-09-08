@@ -8,6 +8,7 @@ module ClimaSeaIce
 end ClimaSeaIce
 
 export SeaIceModel,
+       IncrementalRemapping,
        MeltingConstrainedFluxBalance,
        PrescribedTemperature,
        RadiativeEmission,
@@ -62,6 +63,7 @@ using .Rheologies
 # Timestepping
 include("sea_ice_fe_step.jl")
 include("sea_ice_rk_substep.jl")
+include("incremental_remapping.jl")
 
 # Advection timescale for a `SeaIceModel`. Sea ice dynamics are two-dimensional so
 # we reuse the `cell_advection_timescale` function defined in Oceananigans by passing

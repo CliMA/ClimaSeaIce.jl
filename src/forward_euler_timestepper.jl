@@ -56,3 +56,6 @@ Oceananigans.TimeSteppers.reset!(::ForwardEulerTimeStepper) = nothing
 # Forward Euler is a self-starting timestepper, so no state needs to be saved
 Oceananigans.prognostic_state(::ForwardEulerTimeStepper) = nothing
 Oceananigans.restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::Nothing) = ts
+
+# Forward Euler starts from the restored fields and needs no Runge-Kutta history.
+Oceananigans.restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::NamedTuple) = ts

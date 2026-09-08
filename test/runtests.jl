@@ -29,6 +29,7 @@ end
 
 if TEST_GROUP == "all" || TEST_GROUP == "advection"
     include("test_sea_ice_advection.jl")
+    include("test_incremental_remapping.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "basal_stress"

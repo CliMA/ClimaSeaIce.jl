@@ -33,7 +33,9 @@ function Oceananigans.TimeSteppers.time_step!(model::FESeaIceModel, Δt; kwargs.
     return nothing
 end
 
-function dynamic_time_step!(model::FESeaIceModel, Δt)
+dynamic_time_step!(model::FESeaIceModel, Δt) = dynamic_time_step!(model, model.advection, Δt)
+
+function dynamic_time_step!(model::FESeaIceModel, advection, Δt)
     grid = model.grid
     arch = architecture(grid)
 

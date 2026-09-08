@@ -262,6 +262,7 @@ function SeaIceModel(grid;
     # Fill any settings in advection scheme that might have been deferred until
     # the grid and backend is known
     advection = materialize_advection(advection, grid)
+    validate_advection_timestepper(advection, timestepper)
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,
@@ -297,6 +298,8 @@ function SeaIceModel(grid;
 end
 
 const SIM = SeaIceModel
+
+validate_advection_timestepper(advection, timestepper) = nothing
 
 function Oceananigans.Fields.set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing, u=nothing, v=nothing)
     !isnothing(h)  && set!(model.ice_thickness, h)

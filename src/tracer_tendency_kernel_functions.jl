@@ -1,10 +1,13 @@
 using .SeaIceDynamics: compute_momentum_tendencies!
 
 function compute_tendencies!(model::SIM, Δt)
-    compute_tracer_tendencies!(model)
+    compute_tracer_tendencies!(model, model.advection, Δt)
     compute_momentum_tendencies!(model, model.dynamics, Δt)
     return nothing
 end
+
+# Keep the original entry point for schemes that only need the current state.
+compute_tracer_tendencies!(model::SIM, advection, Δt) = compute_tracer_tendencies!(model)
 
 function compute_tracer_tendencies!(model::SIM)
     grid = model.grid
