@@ -122,7 +122,7 @@ end
 @inline function iced_thickness(i, j, k, grid, h, ℵ, h₀)
     @inbounds ℵᵢ = ℵ[i, j, k]
     @inbounds hᵢ = h[i, j, k]
-    ℵᵐⁱⁿ = minimum_ice_concentration(typeof(h₀))
+    ℵᵐⁱⁿ = zero(h₀)
     iced = (ℵᵢ > ℵᵐⁱⁿ) & !submerged(i, j, k, grid)
     return ifelse(iced, hᵢ, h₀)
 end
@@ -212,7 +212,7 @@ end
     ℵy = α * ℵy
 
     # xa = ∫ℵ̃ x dA / ∫ℵ̃ dA = ℵx Δx² / (12 ℵ₀), measured from the cell centre, and likewise in y
-    ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ₀))
+    ℵᵐⁱⁿ = zero(ℵ₀)
     iced = ℵ₀ > ℵᵐⁱⁿ
     xa = ifelse(iced, ℵx * Δx^2 / (12 * ℵ₀), zero(ℵ₀))
     ya = ifelse(iced, ℵy * Δy^2 / (12 * ℵ₀), zero(ℵ₀))
