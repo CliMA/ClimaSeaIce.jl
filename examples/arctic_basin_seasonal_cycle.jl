@@ -27,6 +27,11 @@ using Oceananigans
 using Oceananigans.Units
 using Oceananigans.Units: Time
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: prescribed_salinity_enthalpy_thermodynamics,
+                                        SeaIceColumnDiscretization,
+                                        ConductiveTemperatureTransport,
+                                        IceWaterThermalEquilibrium
+import ClimaSeaIce.SeaIceThermodynamics: initialize_column_interfaces!
 using CairoMakie
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
@@ -170,6 +175,46 @@ T = [datum[3] for datum in series]
 ℵ = [datum[4] for datum in series]
 Q = [datum[5] for datum in series]
 
+# ## Comparison with the resolved column thermodynamics
+#
+# `ColumnEnergyThermodynamics` reads the same `top_heat_flux`, so we drive a vertically-resolved column with the
+# identical climatological forcing (the time series are horizontally uniform, so the same flux tuple applies) and
+# an ice–water equilibrium base. The resolved column reproduces the same seasonal cycle as the zero-dimensional
+# slab; small differences reflect the column's resolved internal heat storage.
+
+column_grid = RectilinearGrid(size=16, z=SeaIceColumnDiscretization((0, 4)), topology=(Flat, Flat, Bounded))
+
+column_thermodynamics = evolving_salinity_mushy_thermodynamics(column_grid;
+    energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+    heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
+
+column_model = SeaIceModel(column_grid; ice_thermodynamics = column_thermodynamics, top_heat_flux)
+
+set!(column_model, h=0.3, ℵ=1)
+initialize_column_interfaces!(column_grid, column_model.ice_thickness)
+set!(column_thermodynamics; bulk_salinity = 0, temperature = -5)
+
+column_simulation = Simulation(column_model, Δt=8hours, stop_time=30 * 360days)
+
+column_series = []
+function accumulate_column(sim)
+    Tc = sim.model.ice_thermodynamics.auxiliary.surface_temperature
+    h  = sim.model.ice_thickness
+    ℵ  = sim.model.ice_concentration
+    Qe = sim.model.external_heat_fluxes.top
+    Qe = ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions.getflux(Qe, 1, 1, sim.model.grid, first(Tc), sim.model.clock, sim.model.ice_thickness)
+    push!(column_series, (time(sim), first(h), first(Tc), first(ℵ), Qe))
+end
+column_simulation.callbacks[:save] = Callback(accumulate_column)
+run!(column_simulation)
+
+tc = [datum[1] for datum in column_series]
+hc = [datum[2] for datum in column_series]
+Tc = [datum[3] for datum in column_series]
+ℵc = [datum[4] for datum in column_series]
+Qc = [datum[5] for datum in column_series]
+
 set_theme!(Theme(fontsize=24, linewidth=4))
 
 fig = Figure(size=(1000, 1200))
@@ -179,10 +224,15 @@ axh = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
 axℵ = Axis(fig[3, 1], xlabel="Time (days)", ylabel="Ice concentration (-)")
 axQ = Axis(fig[4, 1], xlabel="Time (days)", ylabel="Top heat flux (W m⁻²)")
 
-lines!(axT, t ./ day, T)
-lines!(axh, t ./ day, h)
-lines!(axℵ, t ./ day, ℵ)
-lines!(axQ, t ./ day, Q)
+lines!(axT, t  ./ day, T,  label="slab")
+lines!(axT, tc ./ day, Tc, linestyle=:dash, label="resolved column")
+lines!(axh, t  ./ day, h,  label="slab")
+lines!(axh, tc ./ day, hc, linestyle=:dash, label="resolved column")
+lines!(axℵ, t  ./ day, ℵ,  label="slab")
+lines!(axℵ, tc ./ day, ℵc, linestyle=:dash, label="resolved column")
+lines!(axQ, t  ./ day, Q,  label="slab")
+lines!(axQ, tc ./ day, Qc, linestyle=:dash, label="resolved column")
+axislegend(axh, position=:rb)
 
 current_figure() #hide
 

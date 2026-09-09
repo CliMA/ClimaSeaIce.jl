@@ -3,26 +3,33 @@
 using Printf
 using Oceananigans
 using Oceananigans.Fields: interior, set!
-using Oceananigans.Grids: MutableVerticalDiscretization
+using Oceananigans.TimeSteppers: Clock
 using ClimaSeaIce.SeaIceThermodynamics:
     BubblyBrineConductivity,
     column_energy_thickness_remap!,
-    ColumnBoundaryConditions,
     ConductiveTemperatureTransport,
     FixedDrainedIceSalinityProfile,
     FixedSalinityBrinePocketEnergyRelation,
+    FluxBoundary,
     MaykutUntersteinerConductivity,
-    PrescribedEnergyFlux,
     PrescribedTemperature,
     column_energy_time_step!,
+    SeaIceColumnDiscretization,
     compute_column_thermodynamic_diagnostics!,
     compute_column_transport_coefficients!,
-    icepack_temperature_matrix_step!,
     internal_energy,
     ice_thermal_conductivity,
     prescribed_salinity_enthalpy_thermodynamics,
     salinity_at_normalized_depth,
     temperature
+
+# Standalone column solves read forcing from a model-style external flux set evaluated through `getflux`; these
+# validation columns use scalar top fluxes, so the clock and (empty) model fields are inert placeholders.
+const VALIDATION_CLOCK = Clock(time = 0.0)
+const VALIDATION_FIELDS = NamedTuple()
+
+# Icepack BL99 temperature-matrix solver lives with the validation scripts, not in `src`.
+include(joinpath(@__DIR__, "icepack_bl99_matrix.jl"))
 
 const ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const RESULTS_DIR = joinpath(@__DIR__, "results")
@@ -680,7 +687,7 @@ function run_climaseaice_state_replay(records)
     first_record = first(records)
     n = length(first_record.Tice)
     grid = RectilinearGrid(size = n,
-                           z = (0, 1),
+                           z = SeaIceColumnDiscretization((0, 1)),
                            topology = (Flat, Flat, Bounded))
 
     energy_transport =
@@ -789,23 +796,23 @@ function icepack_temperature_matrix_replay_step(start_record,
     thickness = start_record.hi
     Tbot = isfinite(target_record.sst) ? target_record.sst : start_record.sst
     grid = RectilinearGrid(size = length(start_temperature),
-                           z = (0, thickness),
+                           z = SeaIceColumnDiscretization((0, thickness)),
                            topology = (Flat, Flat, Bounded))
-    boundary_conditions =
-        ColumnBoundaryConditions(top = PrescribedEnergyFlux(flux = per_ice_area_top_flux(target_record,
-                                                                                         target_record.fcondtop_ai)),
-                                 bottom = PrescribedTemperature(Tbot))
+    # Model fluxes are upward-positive; CICE fcondtop is a downward conductive flux into the ice, so negate it.
+    external_heat_fluxes = (top = -per_ice_area_top_flux(target_record, target_record.fcondtop_ai),
+                            bottom = 0.0)
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
         relation,
         salinity_profile = cice_profile_function(start_record.Sice; thickness),
         energy_transport,
-        boundary_conditions)
+        heat_boundary_conditions = (top = FluxBoundary(), bottom = PrescribedTemperature(Tbot)))
 
     set!(thermodynamics;
          bulk_salinity = cice_profile_function(start_record.Sice; thickness),
          temperature = cice_profile_function(start_temperature; thickness))
 
-    icepack_temperature_matrix_step!(thermodynamics, Δt; tolerance = 1e-12)
+    icepack_temperature_matrix_step!(thermodynamics, external_heat_fluxes,
+                                     VALIDATION_CLOCK, VALIDATION_FIELDS, Δt; tolerance = 1e-12)
 
     if remap_to_target_thickness && !isapprox(target_record.hi, start_record.hi; atol = 1e-12, rtol = 0)
         return remap_temperature_to_target_thickness(thermodynamics,
@@ -857,12 +864,10 @@ function remap_temperature_to_target_thickness(thermodynamics,
 end
 
 function set_column_metric!(grid, previous_metric, current_metric; surface = 0)
-    fill!(grid.z.ηⁿ, surface)
-    fill!(grid.z.σᶜᶜ⁻, previous_metric)
-    fill!(grid.z.σᶜᶜⁿ, current_metric)
-    fill!(grid.z.σᶠᶜⁿ, current_metric)
-    fill!(grid.z.σᶜᶠⁿ, current_metric)
-    fill!(grid.z.σᶠᶠⁿ, current_metric)
+    z = grid.z
+    fill!(z.hb⁻, surface); fill!(z.hbⁿ, surface)
+    fill!(z.hs⁻, surface + previous_metric * grid.Lz)
+    fill!(z.hsⁿ, surface + current_metric * grid.Lz)
     return nothing
 end
 
@@ -876,19 +881,18 @@ function moving_metric_forced_step(start_record,
     target_metric = target_record.hi / reference_thickness
     Tbot = isfinite(target_record.sst) ? target_record.sst : start_record.sst
     grid = RectilinearGrid(size = length(start_temperature),
-                           z = MutableVerticalDiscretization((0, reference_thickness)),
+                           z = SeaIceColumnDiscretization((0, reference_thickness)),
                            topology = (Flat, Flat, Bounded))
 
-    boundary_conditions =
-        ColumnBoundaryConditions(top = PrescribedEnergyFlux(flux = per_ice_area_top_flux(target_record,
-                                                                                         target_record.fcondtop_ai)),
-                                 bottom = PrescribedTemperature(Tbot))
+    # Model fluxes are upward-positive; CICE fcondtop is a downward conductive flux into the ice, so negate it.
+    external_heat_fluxes = (top = -per_ice_area_top_flux(target_record, target_record.fcondtop_ai),
+                            bottom = 0.0)
 
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
         relation,
         salinity_profile = cice_profile_function(start_record.Sice; thickness = reference_thickness),
         energy_transport,
-        boundary_conditions)
+        heat_boundary_conditions = (top = FluxBoundary(), bottom = PrescribedTemperature(Tbot)))
 
     set_column_metric!(grid, 1.0, 1.0)
     set!(thermodynamics;
@@ -896,7 +900,7 @@ function moving_metric_forced_step(start_record,
          temperature = cice_profile_function(start_temperature; thickness = reference_thickness))
 
     set_column_metric!(grid, 1.0, target_metric)
-    column_energy_time_step!(thermodynamics, Δt)
+    column_energy_time_step!(thermodynamics, external_heat_fluxes, VALIDATION_CLOCK, VALIDATION_FIELDS, Δt)
 
     return top_to_bottom_profile(thermodynamics.fields.temperature)
 end
@@ -938,18 +942,17 @@ function prognostic_thickness_forced_step(start_record,
                            requested_surface_flux
     Tbot = isfinite(target_record.sst) ? target_record.sst : start_record.sst
     grid = RectilinearGrid(size = length(start_temperature),
-                           z = (0, start_thickness),
+                           z = SeaIceColumnDiscretization((0, start_thickness)),
                            topology = (Flat, Flat, Bounded))
 
-    boundary_conditions =
-        ColumnBoundaryConditions(top = PrescribedEnergyFlux(flux = applied_surface_flux),
-                                 bottom = PrescribedTemperature(Tbot))
+    # Model fluxes are upward-positive; the applied surface flux is a downward flux into the ice, so negate it.
+    external_heat_fluxes = (top = -applied_surface_flux, bottom = 0.0)
 
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
         relation,
         salinity_profile = cice_profile_function(start_record.Sice; thickness = start_thickness),
         energy_transport,
-        boundary_conditions)
+        heat_boundary_conditions = (top = FluxBoundary(), bottom = PrescribedTemperature(Tbot)))
 
     set!(thermodynamics;
          bulk_salinity = cice_profile_function(start_record.Sice; thickness = start_thickness),
@@ -958,7 +961,7 @@ function prognostic_thickness_forced_step(start_record,
     surface_residual_flux = applied_surface_flux - requested_surface_flux
     ocean_heat_flux = isfinite(target_record.fhocn) ? target_record.fhocn : 0.0
 
-    column_energy_time_step!(thermodynamics, Δt)
+    column_energy_time_step!(thermodynamics, external_heat_fluxes, VALIDATION_CLOCK, VALIDATION_FIELDS, Δt)
     stepped_temperature = top_to_bottom_profile(thermodynamics.fields.temperature)
     stepped_salinity = top_to_bottom_profile(thermodynamics.fields.bulk_salinity)
     bottom_conductive_flux =
@@ -1026,24 +1029,24 @@ function icepack_matrix_prognostic_thickness_forced_step(start_record,
                            requested_surface_flux
     Tbot = isfinite(target_record.sst) ? target_record.sst : start_record.sst
     grid = RectilinearGrid(size = length(start_temperature),
-                           z = (0, start_thickness),
+                           z = SeaIceColumnDiscretization((0, start_thickness)),
                            topology = (Flat, Flat, Bounded))
 
-    boundary_conditions =
-        ColumnBoundaryConditions(top = PrescribedEnergyFlux(flux = applied_surface_flux),
-                                 bottom = PrescribedTemperature(Tbot))
+    # Model fluxes are upward-positive; the applied surface flux is a downward flux into the ice, so negate it.
+    external_heat_fluxes = (top = -applied_surface_flux, bottom = 0.0)
 
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
         relation,
         salinity_profile = cice_profile_function(start_record.Sice; thickness = start_thickness),
         energy_transport,
-        boundary_conditions)
+        heat_boundary_conditions = (top = FluxBoundary(), bottom = PrescribedTemperature(Tbot)))
 
     set!(thermodynamics;
          bulk_salinity = cice_profile_function(start_record.Sice; thickness = start_thickness),
          temperature = cice_profile_function(start_temperature; thickness = start_thickness))
 
-    icepack_temperature_matrix_step!(thermodynamics, Δt; tolerance = 1e-12)
+    icepack_temperature_matrix_step!(thermodynamics, external_heat_fluxes,
+                                     VALIDATION_CLOCK, VALIDATION_FIELDS, Δt; tolerance = 1e-12)
 
     stepped_temperature = top_to_bottom_profile(thermodynamics.fields.temperature)
     stepped_salinity = top_to_bottom_profile(thermodynamics.fields.bulk_salinity)
@@ -1104,25 +1107,24 @@ function fixed_grid_forced_step(start_record,
     thickness = start_record.hi
     Tbot = isfinite(target_record.sst) ? target_record.sst : start_record.sst
     grid = RectilinearGrid(size = length(start_temperature),
-                           z = (0, thickness),
+                           z = SeaIceColumnDiscretization((0, thickness)),
                            topology = (Flat, Flat, Bounded))
 
-    boundary_conditions =
-        ColumnBoundaryConditions(top = PrescribedEnergyFlux(flux = per_ice_area_top_flux(target_record,
-                                                                                         target_record.fcondtop_ai)),
-                                 bottom = PrescribedTemperature(Tbot))
+    # Model fluxes are upward-positive; CICE fcondtop is a downward conductive flux into the ice, so negate it.
+    external_heat_fluxes = (top = -per_ice_area_top_flux(target_record, target_record.fcondtop_ai),
+                            bottom = 0.0)
 
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
         relation,
         salinity_profile = cice_profile_function(start_record.Sice; thickness),
         energy_transport,
-        boundary_conditions)
+        heat_boundary_conditions = (top = FluxBoundary(), bottom = PrescribedTemperature(Tbot)))
 
     set!(thermodynamics;
          bulk_salinity = cice_profile_function(start_record.Sice; thickness),
          temperature = cice_profile_function(start_temperature; thickness))
 
-    column_energy_time_step!(thermodynamics, Δt)
+    column_energy_time_step!(thermodynamics, external_heat_fluxes, VALIDATION_CLOCK, VALIDATION_FIELDS, Δt)
 
     if remap_to_target_thickness && !isapprox(target_record.hi, start_record.hi; atol = 1e-12, rtol = 0)
         return remap_temperature_to_target_thickness(thermodynamics,

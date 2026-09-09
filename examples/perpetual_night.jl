@@ -24,7 +24,12 @@
 using Oceananigans
 using Oceananigans.Units
 using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: prescribed_salinity_enthalpy_thermodynamics,
+                                        SeaIceColumnDiscretization,
+                                        ConductiveTemperatureTransport,
+                                        IceWaterThermalEquilibrium
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: RadiativeEmission
+import ClimaSeaIce.SeaIceThermodynamics: initialize_column_interfaces!
 using CairoMakie
 
 grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
@@ -79,6 +84,46 @@ t = [datum[1] for datum in timeseries]
 h = [datum[2] for datum in timeseries]
 T = [datum[3] for datum in timeseries]
 
+# ## Comparison with the resolved column thermodynamics
+#
+# The column thermodynamics reads the *same* `model.external_heat_fluxes` as the slab, so we can drive a resolved
+# column with identical forcing — the outgoing `RadiativeEmission` plus the prescribed incoming flux — and compare
+# it against the slab. (Both use the upward-positive flux convention, so the same flux tuple drives them
+# identically.) The column resolves the internal temperature profile, while the slab assumes a steady linear one.
+
+column_grid = RectilinearGrid(size=16, z=SeaIceColumnDiscretization((0, 2)), topology=(Flat, Flat, Bounded))
+
+column_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(column_grid;
+    salinity_profile = 0.0,
+    energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+    heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
+                                bottom = IceWaterThermalEquilibrium(salinity = 0)))
+
+column_model = SeaIceModel(column_grid;
+                           top_heat_flux = (RadiativeEmission(), -200.0),
+                           ice_thermodynamics = column_thermodynamics)
+
+set!(column_model, h=0.01)
+initialize_column_interfaces!(column_grid, column_model.ice_thickness)
+set!(column_thermodynamics; bulk_salinity=0.0, temperature=-10.0)
+
+column_simulation = Simulation(column_model, Δt=1hour, stop_time=40days)
+
+column_timeseries = []
+
+function accumulate_column(sim)
+    Tc = sim.model.ice_thermodynamics.auxiliary.surface_temperature
+    hc = sim.model.ice_thickness
+    push!(column_timeseries, (time(sim), first(hc), first(Tc)))
+end
+
+column_simulation.callbacks[:save] = Callback(accumulate_column)
+run!(column_simulation)
+
+tc = [datum[1] for datum in column_timeseries]
+hc = [datum[2] for datum in column_timeseries]
+Tc = [datum[3] for datum in column_timeseries]
+
 set_theme!(Theme(fontsize=24, linewidth=4))
 
 fig = Figure(size=(1000, 800))
@@ -86,10 +131,19 @@ fig = Figure(size=(1000, 800))
 axT = Axis(fig[1, 1], xlabel="Time (days)", ylabel="Top temperature (ᵒC)")
 axh = Axis(fig[2, 1], xlabel="Time (days)", ylabel="Ice thickness (m)")
 
-lines!(axT, t ./ day, T)
-lines!(axh, t ./ day, h)
+lines!(axT, t  ./ day, T,  label="slab")
+lines!(axT, tc ./ day, Tc, linestyle=:dash, label="resolved column")
+lines!(axh, t  ./ day, h,  label="slab")
+lines!(axh, tc ./ day, hc, linestyle=:dash, label="resolved column")
+axislegend(axT, position=:rt)
+axislegend(axh, position=:lt)
 
-current_figure() #hide
+save("perpetual_night.png", fig)
+nothing # hide
 
-# Under perpetual night conditions, the ice will cool and grow as it loses
-# heat through radiative emission at the surface.
+# ![](perpetual_night.png)
+#
+# Under perpetual night conditions, the ice cools and grows as it loses heat through radiative emission at the
+# surface. Both thermodynamics respond to the same forcing and follow the same qualitative evolution, but the
+# resolved column grows somewhat more slowly and runs a colder surface: it stores internal energy and resolves
+# the temperature gradient that the zero-dimensional slab assumes is linear over the full thickness.

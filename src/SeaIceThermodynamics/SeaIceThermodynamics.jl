@@ -21,6 +21,7 @@ export SlabThermodynamics,
        ice_thermal_conductivity,
        face_thermal_conductivity,
        ColumnEnergyThermodynamics,
+       SeaIceColumnDiscretization,
        prescribed_salinity_enthalpy_thermodynamics,
        evolving_salinity_mushy_thermodynamics,
        PrescribedBulkSalinity,
@@ -33,11 +34,7 @@ export SlabThermodynamics,
        BrineSalinityDiffusion,
        NoShortwaveAbsorption,
        ExponentialShortwaveAbsorption,
-       ColumnBoundaryConditions,
-       InsulatingBoundary,
-       PrescribedEnergyFlux,
-       PrescribedEnergyFluxBoundaryEnergy,
-       MeltingLimitedSurfaceFlux,
+       FluxBoundary,
        compute_column_internal_energy!,
        compute_column_thermodynamic_diagnostics!,
        compute_column_transport_coefficients!,
@@ -50,7 +47,6 @@ export SlabThermodynamics,
        assemble_column_salinity_system!,
        solve_column_salinity_system!,
        column_energy_time_step!,
-       icepack_temperature_matrix_step!,
        column_salinity_time_step!,
        column_integrated_energy,
        column_integrated_salinity,
@@ -65,7 +61,7 @@ export SlabThermodynamics,
        column_layer_integral,
        MeltingConstrainedFluxBalance,
        MeltingConstrainedSurfaceFluxBalance,
-       OceanFreezingTemperatureBoundary,
+       IceWaterThermalEquilibrium,
        PrescribedTemperature,
        RadiativeEmission,
        ConductiveFlux,
@@ -225,8 +221,6 @@ density of that medium.
     return ℒ₀ + (ρℓ * cℓ / ρ - c) * (T - T₀)
 end
 
-include("column_energy_relations.jl")
-
 # Fallback for no ice_thermodynamics
 @inline thermodynamic_tendency(i, j, k, grid, ::Nothing, args...) = zero(grid)
 
@@ -236,10 +230,14 @@ using .HeatBoundaryConditions:
     IceWaterThermalEquilibrium,
     MeltingConstrainedFluxBalance,
     MeltingConstrainedSurfaceFluxBalance,
-    OceanFreezingTemperatureBoundary,
     RadiativeEmission,
     FluxFunction,
     PrescribedTemperature,
+    FluxBoundary,
+    LinearizedSurfaceTemperatureSolver,
+    NonlinearSurfaceTemperatureSolver,
+    bottom_temperature,
+    top_surface_temperature,
     getflux
 
 using Oceananigans.TimeSteppers: Clock
@@ -258,7 +256,7 @@ import Oceananigans.Utils: prettytime
 # include("EnthalpyMethodThermodynamics.jl")
 
 include("slab_heat_and_tracer_fluxes.jl")
-include("column_energy_thermodynamics.jl")
+include("ColumnThermodynamics/ColumnThermodynamics.jl")
 include("slab_sea_ice_thermodynamics.jl")
 include("slab_thermodynamics_tendencies.jl")
 include("thermodynamic_time_step.jl")
