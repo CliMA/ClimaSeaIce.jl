@@ -31,8 +31,17 @@ if TEST_GROUP == "all" || TEST_GROUP == "advection"
     include("test_sea_ice_advection.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "basal_stress"
+    include("test_landfast_basal_stress.jl")
+end
+
+if TEST_GROUP == "all" || TEST_GROUP == "lateral_boundary_conditions"
+    include("test_lateral_boundary_conditions.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "timestepping"
     include("test_time_stepping.jl")
+    include("test_free_surface_term.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "checkpointing"
@@ -43,8 +52,13 @@ if TEST_GROUP == "all" || TEST_GROUP == "snow"
     include("test_snow_thermodynamics.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "mass_fluxes"
+    include("test_thermodynamic_mass_fluxes.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "energy_conservation"
     include("test_energy_conservation.jl")
+    include("test_rheology_energy_budget.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "column_energy"
@@ -57,4 +71,8 @@ end
 
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"
     include("test_distributed_sea_ice.jl")
+end
+
+if TEST_GROUP == "all" || TEST_GROUP == "quality_assurance"
+    include("test_quality_assurance.jl")
 end

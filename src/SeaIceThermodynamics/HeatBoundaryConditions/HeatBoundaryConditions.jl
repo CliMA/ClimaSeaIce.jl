@@ -5,11 +5,10 @@ export MeltingConstrainedFluxBalance,
        OceanFreezingTemperatureBoundary,
        PrescribedTemperature,
        RadiativeEmission,
-       ConductiveFlux,
        FluxFunction
 
-using Adapt
-using Oceananigans
+using Adapt: Adapt, adapt
+using Oceananigans: Oceananigans
 
 """
     PrescribedTemperature()

@@ -615,6 +615,8 @@ function restore_prognostic_state!(thermodynamics::ColumnEnergyThermodynamics, s
     return thermodynamics
 end
 
+restore_prognostic_state!(::ColumnEnergyThermodynamics, ::Nothing) = nothing
+
 #####
 ##### Diagnostics and column energy step
 #####
