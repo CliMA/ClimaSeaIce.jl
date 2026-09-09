@@ -1,7 +1,7 @@
 using Adapt: Adapt
 using Oceananigans.Grids: halo_size
 using Oceananigans.ImmersedBoundaries: immersed_cell
-using Oceananigans.Operators: Δxᶜᶜᶜ, Δyᶜᶜᶜ, Δxᶠᶜᶜ, Δyᶠᶜᶜ, Δxᶜᶠᶜ, Δyᶜᶠᶜ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
+using Oceananigans.Operators: Azᶜᶜᶜ, Δxᶜᶜᶜ, Δyᶜᶜᶜ, Δxᶠᶜᶜ, Δyᶠᶜᶜ, Δxᶜᶠᶜ, Δyᶜᶠᶜ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
 using Oceananigans.Utils: KernelParameters
 
 """
