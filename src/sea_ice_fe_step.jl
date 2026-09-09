@@ -43,52 +43,59 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     tracers = model.tracers
 
     Gⁿ = model.timestepper.Gⁿ
+    ℵᵐⁱⁿ = minimum_ice_concentration(eltype(grid), model.advection)
 
-    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, tracers, Gⁿ, Δt)
+    launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, tracers, Gⁿ, Δt, ℵᵐⁱⁿ)
 
     return nothing
 end
 
-# Thickness and concentration are updated
-# We compute hⁿ⁺¹ and ℵⁿ⁺¹ in the same kernel to account for ridging:
-# if ℵ > 1, we reset the concentration to 1 and adjust the thickness
-# to conserve the total ice volume in the cell.
-@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt)
+# `Gⁿ.h` and `Gⁿ.hs` carry the tendencies of the contents `𝓋 = ℵ·h` and `𝓋s = ℵ·hs`, from which the
+# thicknesses are recovered as `h = 𝓋/ℵ`.
+@kernel function _dynamic_step_tracers!(h, ℵ, hⁿ, ℵⁿ, hs, hsⁿ, tracers, Gⁿ, Δt, ℵᵐⁱⁿ)
     i, j = @index(Global, NTuple)
     k = 1
 
-    Ghⁿ = Gⁿ.h
+    G𝓋ⁿ = Gⁿ.h
     Gℵⁿ = Gⁿ.ℵ
 
-    # Update ice thickness, clipping negative values
+    # Under Forward Euler the `ⁿ` arguments alias the output fields, so read before writing.
+    𝓋sⁿ = snow_content(i, j, k, hsⁿ, ℵⁿ)
+
     @inbounds begin
-        h⁺ = hⁿ[i, j, k] + Δt * Ghⁿ[i, j, k]
-        ℵ⁺ = ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k]
+        𝓋ⁿ = hⁿ[i, j, k] * ℵⁿ[i, j, k]
+        𝓋⁺ = max(zero(𝓋ⁿ), 𝓋ⁿ + Δt * G𝓋ⁿ[i, j, k])
+        ℵ⁺ = max(zero(𝓋ⁿ), ℵⁿ[i, j, k] + Δt * Gℵⁿ[i, j, k])
 
-        ℵ⁺ = max(zero(ℵ⁺), ℵ⁺) # Concentration cannot be negative, clip it up
-        h⁺ = max(zero(h⁺), h⁺) # Thickness cannot be negative, clip it up
+        empty = (𝓋⁺ ≤ zero(𝓋ⁿ)) | (ℵ⁺ < ℵᵐⁱⁿ)
+        h⁺ = ifelse(ℵ⁺ > 0, 𝓋⁺ / ℵ⁺, zero(𝓋⁺))
 
-        ℵ⁺ = ifelse(h⁺ == 0, zero(ℵ⁺), ℵ⁺) # reset the concentration if there is no sea-ice
-        h⁺ = ifelse(ℵ⁺ == 0, zero(h⁺), h⁺) # reset the thickness if there is no sea-ice
+        # Ridging: cap concentration at 1 and fold the excess into thickness, conserving 𝓋⁺.
+        h⁺ = ifelse(ℵ⁺ > 1, 𝓋⁺, h⁺)
+        ℵ⁺ = min(ℵ⁺, one(ℵ⁺))
 
-        # Ridging and rafting caused by the advection step
-        V⁺ = h⁺ * ℵ⁺
+        h⁺ = ifelse(empty, zero(h⁺), h⁺)
+        ℵ⁺ = ifelse(empty, zero(ℵ⁺), ℵ⁺)
 
-        ℵ[i, j, k] = ifelse(ℵ⁺ > 1, one(ℵ⁺), ℵ⁺)
-        h[i, j, k] = ifelse(ℵ⁺ > 1, V⁺, h⁺)
+        h[i, j, k] = h⁺
+        ℵ[i, j, k] = ℵ⁺
     end
 
-    dynamic_step_snow!(i, j, k, hs, hsⁿ, ℵ, Gⁿ, Δt)
+    dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
 end
+
+@inline minimum_ice_concentration(FT) = convert(FT, 1e-11)
+@inline minimum_ice_concentration(FT, advection) = minimum_ice_concentration(FT)
+
+@inline snow_content(i, j, k, ::Nothing, ℵⁿ) = nothing
+@inline snow_content(i, j, k, hsⁿ, ℵⁿ) = @inbounds hsⁿ[i, j, k] * ℵⁿ[i, j, k]
 
 @inline dynamic_step_snow!(i, j, k, ::Nothing, args...) = nothing
 
-@inline function dynamic_step_snow!(i, j, k, hs, hsⁿ, ℵ, Gⁿ, Δt)
+@inline function dynamic_step_snow!(i, j, k, hs, 𝓋sⁿ, ℵ⁺, Gⁿ, Δt)
     @inbounds begin
-        hs⁺ = hsⁿ[i, j, k] + Δt * Gⁿ.hs[i, j, k]
-        hs⁺ = max(zero(hs⁺), hs⁺)
-        hs⁺ = ifelse(ℵ[i, j, k] ≤ 0, zero(hs⁺), hs⁺)
-        hs[i, j, k] = hs⁺
+        𝓋s⁺ = max(zero(𝓋sⁿ), 𝓋sⁿ + Δt * Gⁿ.hs[i, j, k])
+        hs[i, j, k] = ifelse(ℵ⁺ > 0, 𝓋s⁺ / ℵ⁺, zero(𝓋s⁺))
     end
     return nothing
 end
