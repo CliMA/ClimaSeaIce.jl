@@ -227,6 +227,8 @@ function SeaIceModel(grid;
         merge(prognostic_fields, (; S = ice_salinity))
     end
 
+    thermodynamic_prognostic_fields = component_prognostic_fields(ice_thermodynamics)
+    prognostic_fields = merge(prognostic_fields, thermodynamic_prognostic_fields)
     prognostic_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, velocities)
 
     # TODO: should we have ice thickness and concentration as part of the tracers or
@@ -242,7 +244,8 @@ function SeaIceModel(grid;
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
-            if isnothing(snow_thermodynamics) &&
+            if hasproperty(ice_thermodynamics, :heat_boundary_conditions) &&
+               isnothing(snow_thermodynamics) &&
                ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
                 # Default: external top flux is in equilibrium with internal fluxes.
                 # Build a FluxFunction wrapper using the model's shared liquidus.

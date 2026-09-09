@@ -1,0 +1,43 @@
+metric,status,value,tolerance,evidence
+fixed_grid_forced_replay_max_abs_temperature_error_C,diagnostic,0.0385352387628,,"Hourly CICE fcondtop_ai and bottom conductive forcing, MU71 conductivity, no snow or thickness prognostic"
+fixed_grid_forced_replay_max_relative_temperature_error,pass,0.00640095709485,0.01,"Relative to abs(CICE T), floored by 1 C"
+fixed_grid_forced_replay_max_relative_internal_energy_error,fail,0.0456115853255,0.01,Shifted BL99 internal energy from predicted T and target CICE S; relative floor is fixed from cold Case 1
+fixed_grid_forced_replay_max_relative_column_energy_error,pass,4.28367647105e-06,0.01,Layer-integrated shifted BL99 internal energy over target CICE thickness
+fixed_grid_forced_replay_final_abs_temperature_error_C,diagnostic,0.0379309855593,,Final hourly record at day 5
+fixed_grid_forced_replay_final_relative_temperature_error,pass,0.00605440387128,0.01,Final hourly record at day 5
+cice_thickness_forced_replay_max_abs_temperature_error_C,diagnostic,0.0385573068301,,"Hourly CICE flux forcing, CICE hi sequence, conservative energy remap, and BL99 basal-congelation fill enthalpy"
+cice_thickness_forced_replay_max_relative_temperature_error,pass,0.00640301250826,0.01,"Relative to abs(CICE T), floored by 1 C; thickness is forced from CICE history"
+cice_thickness_forced_replay_max_relative_internal_energy_error,fail,0.0456176421455,0.01,Shifted BL99 internal energy after CICE-thickness-forced remap
+cice_thickness_forced_replay_max_relative_column_energy_error,pass,1.34321992013e-05,0.01,Layer-integrated shifted BL99 internal energy after CICE-thickness-forced remap
+cice_thickness_forced_replay_final_abs_temperature_error_C,diagnostic,0.0379953629133,,Final hourly record after CICE-thickness-forced remap
+cice_thickness_forced_replay_final_relative_temperature_error,pass,0.00606467954684,0.01,Final hourly record after CICE-thickness-forced remap
+icepack_temperature_matrix_cice_thickness_forced_replay_max_abs_temperature_error_C,diagnostic,7.57597494712e-05,,"Sequential source-level BL99 temperature matrix, CICE hi sequence, and conservative energy remap"
+icepack_temperature_matrix_cice_thickness_forced_replay_max_relative_temperature_error,pass,8.75761094276e-06,0.01,"Relative to abs(CICE T), floored by 1 C; source-level matrix with CICE thickness history"
+icepack_temperature_matrix_cice_thickness_forced_replay_max_relative_internal_energy_error,pass,4.44983530947e-05,0.01,Shifted BL99 internal energy for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_max_relative_column_energy_error,pass,8.47946152e-06,0.01,Layer-integrated shifted BL99 internal energy for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_final_abs_temperature_error_C,diagnostic,7.3344528758e-05,,Final hourly record for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_final_relative_temperature_error,pass,7.10882245573e-06,0.01,Final hourly record for sequential source-level matrix with CICE thickness history
+reset_forced_step_max_abs_temperature_error_C,diagnostic,0.00606509786694,,Each interval starts from parsed CICE state
+reset_forced_step_max_relative_temperature_error,pass,0.00102884200771,0.01,Each interval starts from parsed CICE state
+reset_forced_step_max_relative_internal_energy_error,pass,0.00868234725399,0.01,Each interval starts from parsed CICE state; shifted BL99 internal energy
+reset_forced_step_max_relative_column_energy_error,pass,5.42771434591e-07,0.01,Each interval starts from parsed CICE state; target-thickness column integral
+reset_forced_step_first_abs_temperature_error_C,diagnostic,0.00593187090282,,Initial to first-hour interval
+reset_forced_step_first_relative_temperature_error,pass,0.00102884200771,0.01,Initial to first-hour interval
+icepack_temperature_matrix_reset_max_abs_temperature_error_C,diagnostic,1.30611000984e-05,,Source-level BL99 temperature matrix with CICE top conductive flux and bottom ocean temperature
+icepack_temperature_matrix_reset_max_relative_temperature_error,pass,7.96631009519e-07,0.01,Source-level BL99 temperature matrix reset replay
+icepack_temperature_matrix_reset_max_relative_internal_energy_error,pass,1.15394445206e-06,0.01,Shifted BL99 internal energy from source-level temperature-matrix replay
+icepack_temperature_matrix_reset_max_relative_column_energy_error,pass,5.45206572636e-07,0.01,Layer-integrated shifted BL99 internal energy from source-level temperature-matrix replay
+icepack_temperature_matrix_thickness_remapped_reset_max_abs_temperature_error_C,diagnostic,2.46922557601e-05,,Source-level BL99 temperature matrix replay followed by conservative CICE-style layer enthalpy remapping
+icepack_temperature_matrix_thickness_remapped_reset_max_relative_temperature_error,pass,5.14638753313e-06,0.01,"Relative to abs(CICE T), floored by 1 C, after source-level temperature step and thickness remapping"
+icepack_temperature_matrix_thickness_remapped_reset_max_relative_internal_energy_error,pass,2.25784861493e-05,0.01,Shifted BL99 internal energy after source-level temperature step and conservative thickness remapping
+icepack_temperature_matrix_thickness_remapped_reset_max_relative_column_energy_error,pass,2.45401224298e-06,0.01,Column-integrated shifted BL99 internal energy after source-level temperature step and thickness remapping
+thickness_remapped_reset_max_abs_temperature_error_C,diagnostic,0.00606659665129,,Thickness-change intervals remapped conservatively from start thickness to target CICE thickness
+thickness_remapped_reset_max_relative_temperature_error,pass,0.00102909428216,0.01,"Relative to abs(CICE T), floored by 1 C, after conservative thickness remap"
+thickness_remapped_reset_max_relative_internal_energy_error,pass,0.00868447717074,0.01,Shifted BL99 internal energy after conservative thickness remap
+thickness_remapped_reset_max_relative_column_energy_error,pass,2.45463770457e-06,0.01,Layer-integrated shifted BL99 internal energy after conservative thickness remap
+top_ablation_remapped_reset_max_abs_temperature_error_C,diagnostic,0.00593880816153,,Top-ablation intervals remapped conservatively from start thickness to target thickness
+top_ablation_remapped_reset_max_relative_temperature_error,pass,0.00102909428216,0.01,"Relative to abs(CICE T), floored by 1 C, after conservative top-ablation remap"
+top_ablation_remapped_reset_max_relative_internal_energy_error,pass,0.00868447717074,0.01,Shifted BL99 internal energy after conservative top-ablation remap
+top_ablation_remapped_reset_max_relative_column_energy_error,pass,3.32894045991e-07,0.01,Layer-integrated shifted BL99 internal energy after conservative top-ablation remap
+first_hour_bottom_conductive_flux_W_m2,diagnostic,-34.8065956389,,BL99 bottom conductance from parsed state; CICE siflcondbot is sparse in hourly history
+cice_internal_energy_relative_floor_J_m3,diagnostic,2377226.77947,,Frozen relative-error floor from the cold conductive MU71 CICE history

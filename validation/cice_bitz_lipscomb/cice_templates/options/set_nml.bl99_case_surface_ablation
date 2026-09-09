@@ -1,0 +1,2 @@
+default_season = 'summer'
+calc_Tsfc = .false.

@@ -22,6 +22,7 @@ NCDatasets = "0.14"
 Oceananigans = "0.110, 0.111"
 RootSolvers = "0.3, 0.4, 1.0"
 SeawaterPolynomials = "0.3, 0.4"
+Statistics = "1"
 Test = "<0.0.1, 1"
 julia = "1.10"
 
@@ -30,7 +31,8 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "ExplicitImports", "MPI", "NCDatasets", "Test"]
+test = ["Aqua", "ExplicitImports", "MPI", "NCDatasets", "Statistics", "Test"]
