@@ -26,7 +26,7 @@ end
 function run_checkpointer_tests(true_model, test_model, Δt)
     true_simulation = Simulation(true_model, Δt=Δt, stop_iteration=5)
 
-    checkpointer = Checkpointer(true_model, schedule=IterationInterval(5), overwrite_existing=true)
+    checkpointer = Checkpointer(true_model, schedule=IterationInterval(5), overwrite_files=true)
     true_simulation.output_writers[:checkpointer] = checkpointer
 
     run!(true_simulation) # for 5 iterations
@@ -42,7 +42,7 @@ function run_checkpointer_tests(true_model, test_model, Δt)
 
     test_simulation = Simulation(test_model, Δt=Δt, stop_iteration=9)
     test_simulation.output_writers[:checkpointer] =
-        Checkpointer(test_model, schedule=IterationInterval(5), overwrite_existing=true)
+        Checkpointer(test_model, schedule=IterationInterval(5), overwrite_files=true)
 
     set!(test_simulation, checkpoint="checkpoint_iteration5.jld2")
 
@@ -61,7 +61,7 @@ function run_checkpointer_tests(true_model, test_model, Δt)
     test_model2 = deepcopy(test_model)
     test_simulation2 = Simulation(test_model2, Δt=Δt, stop_iteration=9)
     test_simulation2.output_writers[:checkpointer] =
-        Checkpointer(test_model2, schedule=IterationInterval(5), overwrite_existing=true)
+        Checkpointer(test_model2, schedule=IterationInterval(5), overwrite_files=true)
 
     # Pickup from explicit checkpoint path
     run!(test_simulation2, pickup="checkpoint_iteration0.jld2")
@@ -75,7 +75,7 @@ function run_checkpointer_tests(true_model, test_model, Δt)
     test_model3 = deepcopy(test_model)
     test_simulation3 = Simulation(test_model3, Δt=Δt, stop_iteration=9)
     test_simulation3.output_writers[:checkpointer] =
-        Checkpointer(test_model3, schedule=IterationInterval(5), overwrite_existing=true)
+        Checkpointer(test_model3, schedule=IterationInterval(5), overwrite_files=true)
 
     run!(test_simulation3, pickup="checkpoint_iteration5.jld2")
     @info "Testing model equality when running with pickup=checkpoint_iteration5.jld2."
@@ -92,7 +92,7 @@ function run_checkpointer_tests(true_model, test_model, Δt)
     test_model4 = deepcopy(test_model)
     test_simulation4 = Simulation(test_model4, Δt=Δt, stop_iteration=9)
     test_simulation4.output_writers[:checkpointer] =
-        Checkpointer(test_model4, schedule=IterationInterval(5), overwrite_existing=true)
+        Checkpointer(test_model4, schedule=IterationInterval(5), overwrite_files=true)
 
     run!(test_simulation4, pickup=true)
     @info "    Testing model equality when running with pickup=true."
@@ -105,7 +105,7 @@ function run_checkpointer_tests(true_model, test_model, Δt)
     test_model5 = deepcopy(test_model)
     test_simulation5 = Simulation(test_model5, Δt=Δt, stop_iteration=9)
     test_simulation5.output_writers[:checkpointer] =
-        Checkpointer(test_model5, schedule=IterationInterval(5), overwrite_existing=true)
+        Checkpointer(test_model5, schedule=IterationInterval(5), overwrite_files=true)
 
     run!(test_simulation5, pickup=0)
     @info "    Testing model equality when running with pickup=0."
@@ -117,7 +117,7 @@ function run_checkpointer_tests(true_model, test_model, Δt)
     test_model6 = deepcopy(test_model)
     test_simulation6 = Simulation(test_model6, Δt=Δt, stop_iteration=9)
     test_simulation6.output_writers[:checkpointer] =
-        Checkpointer(test_model6, schedule=IterationInterval(5), overwrite_existing=true)
+        Checkpointer(test_model6, schedule=IterationInterval(5), overwrite_files=true)
 
     run!(test_simulation6, pickup=5)
     @info "    Testing model equality when running with pickup=5."
