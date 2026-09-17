@@ -1,0 +1,9 @@
+grid_format      = 'bin'
+grid_type        = 'column'
+kmt_type         = 'default'
+ew_boundary_type = 'open'
+ns_boundary_type = 'open'
+dxrect           = 30.e5
+dyrect           = 30.e5
+lonrefrect       = -156.50d0
+latrefrect       = 71.35d0

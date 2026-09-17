@@ -1,3 +1,11 @@
+"""
+    ConductiveFlux([FT=Oceananigans.defaults.FloatType; conductivity])
+
+Internal conductive heat-flux coefficient for slab ice and snow
+thermodynamics. The slab heat-flux kernel uses `conductivity` in
+`Q = -k (Tᵤ - T_b) / h`, where `Tᵤ` is the top surface temperature, `T_b` is
+the bottom temperature, and `h` is layer thickness.
+"""
 struct ConductiveFlux{K}
     conductivity :: K
 end

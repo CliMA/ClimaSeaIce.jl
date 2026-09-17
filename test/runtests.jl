@@ -61,6 +61,10 @@ if TEST_GROUP == "all" || TEST_GROUP == "energy_conservation"
     include("test_rheology_energy_budget.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "column_energy"
+    include("test_column_energy_thermodynamics.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "netcdf"
     include("test_netcdf_writer.jl")
 end

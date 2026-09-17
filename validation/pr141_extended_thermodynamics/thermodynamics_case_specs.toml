@@ -1,0 +1,28 @@
+[metadata]
+suite = "pr141_extended_thermodynamics"
+description = "Physics-focused validation for the PR141 thermodynamics changes."
+examples = ["examples/melting_in_spring.jl", "examples/arctic_basin_seasonal_cycle.jl"]
+results_dir = "validation/pr141_extended_thermodynamics/results"
+
+[[case]]
+id = "melting_in_spring"
+description = "Snow-insulated spring melt under prescribed radiative forcing."
+summary_csv = "melting_in_spring_summary.csv"
+timeseries_csv = "melting_in_spring_timeseries.csv"
+figure_png = "melting_in_spring.png"
+forcing_wm2 = [-600.0, -800.0, -1000.0, -1200.0]
+initial_snow_thickness_m = 0.2
+require_snow_delays_meltout = true
+require_snow_partially_melts = true
+require_snow_preserves_more_concentration = true
+
+[[case]]
+id = "arctic_basin_seasonal_cycle"
+description = "Repeated annual melt and growth cycle under cyclical forcing."
+summary_csv = "arctic_basin_seasonal_cycle_summary.csv"
+timeseries_csv = "arctic_basin_seasonal_cycle_timeseries.csv"
+figure_png = "arctic_basin_seasonal_cycle.png"
+years_simulated = 30
+minimum_seasonal_thickness_range_m = 0.2
+maximum_year_to_year_thickness_diff_m = 0.05
+maximum_year_to_year_temperature_diff_C = 0.5

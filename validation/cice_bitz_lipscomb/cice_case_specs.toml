@@ -1,0 +1,66 @@
+[metadata]
+cice_root = "/private/tmp/cice-validation/CICE"
+cice_commit = "3c2064659ccf693e644e0cfd21140565ddb8e355"
+icepack_commit = "68097c59aceb2040f8c0cef189bccfe7590a8a32"
+grid = "col"
+pes = "1x1"
+ktherm = 1
+nilyr = 7
+snow = false
+history_fields = ["Tinz", "Tsnz", "hi", "hs", "meltt", "meltb", "congel"]
+
+[conductivity.MU71]
+conduct = "MU71"
+description = "Maykut and Untersteiner 1971 form with Wettlaufer constants."
+
+[conductivity.bubbly]
+conduct = "bubbly"
+description = "Pringle et al. 2007 bubbly-brine conductivity."
+
+[[case]]
+id = "cold_conductive_relaxation"
+description = "Cold fixed-thickness BL99 conductive relaxation."
+runtime_days = 5
+initial_ice_thickness_m = 1.0
+initial_temperature_surface_C = -20.0
+initial_temperature_base_C = -2.0
+surface_forcing = "cold_nonmelting"
+ocean_heat_flux_W_m2 = 0.0
+required_transition = "none"
+conductivity_variants = ["MU71", "bubbly"]
+
+[[case]]
+id = "surface_warming"
+description = "Warm storage near melt before appreciable ablation."
+runtime_days = 2
+initial_ice_thickness_m = 1.0
+initial_temperature_surface_C = -8.0
+initial_temperature_base_C = -1.0
+surface_forcing = "positive_warming"
+prescribed_surface_flux_W_m2 = 8.0
+required_transition = "possible_top_melt_onset"
+conductivity_variants = ["MU71", "bubbly"]
+
+[[case]]
+id = "surface_ablation"
+description = "Positive surface energy case with measurable top melt."
+runtime_days = 5
+initial_ice_thickness_m = 1.0
+initial_temperature_surface_C = -1.0
+initial_temperature_base_C = -0.3
+surface_forcing = "positive_ablation"
+required_transition = "top_melt"
+minimum_top_melt_m = 0.05
+conductivity_variants = ["MU71", "bubbly"]
+
+[[case]]
+id = "basal_growth"
+description = "Cold surface forcing with measurable basal freezing."
+runtime_days = 5
+initial_ice_thickness_m = 0.75
+initial_temperature_surface_C = -20.0
+initial_temperature_base_C = -2.0
+surface_forcing = "cold_growth"
+required_transition = "basal_growth"
+minimum_basal_growth_m = 0.01
+conductivity_variants = ["MU71", "bubbly"]

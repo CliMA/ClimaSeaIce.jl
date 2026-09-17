@@ -1,0 +1,10 @@
+metric,status,value,tolerance,evidence
+fixed_grid_forced_replay_max_abs_temperature_error_C,diagnostic,0.928659282583,,Hourly CICE fcondtop_ai and bottom conductive forcing, MU71 conductivity, no snow or thickness prognostic
+fixed_grid_forced_replay_max_relative_temperature_error,fail,0.292231371859,0.01,Relative to abs(CICE T), floored by 1 C
+fixed_grid_forced_replay_final_abs_temperature_error_C,diagnostic,0.928659282583,,Final hourly record at day 5
+fixed_grid_forced_replay_final_relative_temperature_error,fail,0.292231371859,0.01,Final hourly record at day 5
+reset_forced_step_max_abs_temperature_error_C,diagnostic,0.00940740833049,,Each interval starts from parsed CICE state
+reset_forced_step_max_relative_temperature_error,pass,0.00299615594319,0.01,Each interval starts from parsed CICE state
+reset_forced_step_first_abs_temperature_error_C,diagnostic,0.00940740833049,,Initial to first-hour interval
+reset_forced_step_first_relative_temperature_error,pass,0.00299615594319,0.01,Initial to first-hour interval
+first_hour_bottom_conductive_flux_W_m2,diagnostic,-34.6419711772,,BL99 bottom conductance from parsed state; CICE siflcondbot is sparse in hourly history
