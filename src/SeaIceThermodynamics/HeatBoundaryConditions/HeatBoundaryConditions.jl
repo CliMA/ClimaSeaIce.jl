@@ -1,16 +1,14 @@
 module HeatBoundaryConditions
 
 export MeltingConstrainedFluxBalance,
-       MeltingConstrainedSurfaceFluxBalance,
        IceWaterThermalEquilibrium,
        PrescribedTemperature,
        RadiativeEmission,
-       ConductiveFlux,
        FluxFunction,
        FluxBoundary
 
-using Adapt
-using Oceananigans
+using Adapt: Adapt, adapt
+using Oceananigans: Oceananigans
 
 """
     PrescribedTemperature()
@@ -32,12 +30,5 @@ include("bottom_heat_boundary_conditions.jl")
 include("top_heat_boundary_conditions.jl")
 include("boundary_fluxes.jl")
 include("column_heat_boundary_conditions.jl")
-
-"""
-    MeltingConstrainedSurfaceFluxBalance(args...; kwargs...)
-
-Descriptive alias for `MeltingConstrainedFluxBalance`.
-"""
-const MeltingConstrainedSurfaceFluxBalance = MeltingConstrainedFluxBalance
 
 end

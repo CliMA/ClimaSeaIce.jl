@@ -12,10 +12,7 @@ abstract type AbstractColumnEnergyRelation end
 @inline liquidus_slope(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.liquidus.slope
 @inline reference_temperature(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.reference_temperature
 
-@inline function solid_volumetric_heat_capacity(relation::AbstractColumnEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.density * phase_transitions.heat_capacity
-end
+@inline solid_volumetric_heat_capacity(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.density * relation.phase_transitions.heat_capacity
 
 """
     internal_energy(relation::AbstractColumnEnergyRelation, temperature, bulk_salinity)
@@ -75,8 +72,7 @@ end
 
 Return `dT / dE` at fixed bulk salinity.
 """
-@inline temperature_energy_derivative(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity) =
-    inv(temperature_denominator(relation, internal_energy, bulk_salinity))
+@inline temperature_energy_derivative(relation::AbstractColumnEnergyRelation, internal_energy, bulk_salinity) = inv(temperature_denominator(relation, internal_energy, bulk_salinity))
 
 """
     temperature_salinity_derivative(relation, internal_energy, bulk_salinity)
@@ -140,8 +136,7 @@ struct QuadraticLiquidusEnergyRelation{PT} <: AbstractColumnEnergyRelation
     phase_transitions :: PT
 end
 
-function QuadraticLiquidusEnergyRelation(FT::DataType=Oceananigans.defaults.FloatType;
-                                         phase_transitions = PhaseTransitions(FT))
+function QuadraticLiquidusEnergyRelation(FT::DataType=Oceananigans.defaults.FloatType; phase_transitions = PhaseTransitions(FT))
     return QuadraticLiquidusEnergyRelation(phase_transitions)
 end
 
@@ -152,15 +147,9 @@ function Base.show(io::IO, relation::QuadraticLiquidusEnergyRelation)
     print(io, "`-- phase_transitions: ", summary(relation.phase_transitions))
 end
 
-@inline function liquid_volumetric_heat_capacity(relation::QuadraticLiquidusEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.liquid_density * phase_transitions.liquid_heat_capacity
-end
+@inline liquid_volumetric_heat_capacity(relation::QuadraticLiquidusEnergyRelation) = relation.phase_transitions.liquid_density * relation.phase_transitions.liquid_heat_capacity
 
-@inline function reference_volumetric_latent_heat(relation::QuadraticLiquidusEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.liquid_density * phase_transitions.reference_latent_heat
-end
+@inline reference_volumetric_latent_heat(relation::QuadraticLiquidusEnergyRelation) = relation.phase_transitions.liquid_density * relation.phase_transitions.reference_latent_heat
 
 """
     FixedDrainedIceSalinityProfile([FT=Oceananigans.defaults.FloatType; maximum_salinity=3.2,
@@ -175,13 +164,8 @@ struct FixedDrainedIceSalinityProfile{FT}
     shape_parameter_b :: FT
 end
 
-function FixedDrainedIceSalinityProfile(FT::DataType=Oceananigans.defaults.FloatType;
-                                        maximum_salinity = 3.2,
-                                        shape_parameter_a = 0.407,
-                                        shape_parameter_b = 0.573)
-    return FixedDrainedIceSalinityProfile(convert(FT, maximum_salinity),
-                                          convert(FT, shape_parameter_a),
-                                          convert(FT, shape_parameter_b))
+function FixedDrainedIceSalinityProfile(FT::DataType=Oceananigans.defaults.FloatType; maximum_salinity = 3.2, shape_parameter_a = 0.407, shape_parameter_b = 0.573)
+    return FixedDrainedIceSalinityProfile{FT}(maximum_salinity, shape_parameter_a, shape_parameter_b)
 end
 
 Base.summary(::FixedDrainedIceSalinityProfile) = "FixedDrainedIceSalinityProfile"
@@ -193,25 +177,13 @@ function Base.show(io::IO, profile::FixedDrainedIceSalinityProfile{FT}) where FT
     print(io, "`-- shape_parameter_b: ", profile.shape_parameter_b)
 end
 
-function Adapt.adapt_structure(to, profile::FixedDrainedIceSalinityProfile)
-    return FixedDrainedIceSalinityProfile(Adapt.adapt(to, profile.maximum_salinity),
-                                          Adapt.adapt(to, profile.shape_parameter_a),
-                                          Adapt.adapt(to, profile.shape_parameter_b))
-end
-
-@inline function salinity_at_normalized_depth(profile::FixedDrainedIceSalinityProfile,
-                                              normalized_depth_from_surface)
-    s = normalized_depth_from_surface
+@inline function salinity_at_normalized_depth(profile::FixedDrainedIceSalinityProfile, s)
     exponent = profile.shape_parameter_a / (s + profile.shape_parameter_b)
-    return profile.maximum_salinity / 2 *
-           (one(s) - cos(oftype(s, pi) * s^exponent))
+    return profile.maximum_salinity / 2 * (one(s) - cos(oftype(s, π) * s^exponent))
 end
 
-@inline salinity_at_normalized_height(profile::FixedDrainedIceSalinityProfile, normalized_height_above_base) = 
-    salinity_at_normalized_depth(profile, one(normalized_height_above_base) - normalized_height_above_base)
-
-@inline (profile::FixedDrainedIceSalinityProfile)(normalized_height_above_base) =
-    salinity_at_normalized_height(profile, normalized_height_above_base)
+@inline salinity_at_normalized_height(profile::FixedDrainedIceSalinityProfile, ζ) = salinity_at_normalized_depth(profile, one(ζ) - ζ)
+@inline (profile::FixedDrainedIceSalinityProfile)(ζ) = salinity_at_normalized_height(profile, ζ)
 
 """
     FixedSalinityBrinePocketEnergyRelation([FT=Oceananigans.defaults.FloatType; phase_transitions])
@@ -224,9 +196,7 @@ struct FixedSalinityBrinePocketEnergyRelation{PT} <: AbstractColumnEnergyRelatio
 end
 
 function FixedSalinityBrinePocketEnergyRelation(FT::DataType=Oceananigans.defaults.FloatType;
-                                                phase_transitions = PhaseTransitions(FT;
-                                                    heat_capacity = 2106,
-                                                    liquid_heat_capacity = 4218))
+                                                phase_transitions = PhaseTransitions(FT; heat_capacity = 2106, liquid_heat_capacity = 4218))
     return FixedSalinityBrinePocketEnergyRelation(phase_transitions)
 end
 
@@ -238,12 +208,6 @@ function Base.show(io::IO, relation::FixedSalinityBrinePocketEnergyRelation)
 end
 
 # BL99 scales the liquid volumetric properties by the ice density rather than the liquid density.
-@inline function liquid_volumetric_heat_capacity(relation::FixedSalinityBrinePocketEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.density * phase_transitions.liquid_heat_capacity
-end
+@inline liquid_volumetric_heat_capacity(relation::FixedSalinityBrinePocketEnergyRelation) = relation.phase_transitions.density * relation.phase_transitions.liquid_heat_capacity
 
-@inline function reference_volumetric_latent_heat(relation::FixedSalinityBrinePocketEnergyRelation)
-    phase_transitions = relation.phase_transitions
-    return phase_transitions.density * phase_transitions.reference_latent_heat
-end
+@inline reference_volumetric_latent_heat(relation::FixedSalinityBrinePocketEnergyRelation) = relation.phase_transitions.density * relation.phase_transitions.reference_latent_heat

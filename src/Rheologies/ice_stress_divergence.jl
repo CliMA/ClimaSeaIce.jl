@@ -1,8 +1,6 @@
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, 
-                                       ImmersedBoundaryCondition
-
+using Oceananigans.Advection: conditional_flux_ccc, conditional_flux_ffc
 using Oceananigans.BoundaryConditions: FBC, getbc
-using Oceananigans.Advection:conditional_flux_ccc, conditional_flux_ffc
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, ImmersedBoundaryCondition
 using Oceananigans.Operators: index_left, index_right
 
 const IBG = ImmersedBoundaryGrid
@@ -20,23 +18,50 @@ const f = Face()
 @inline _ice_stress_vx(args...) = ice_stress_vx(args...)
 @inline _ice_stress_vy(args...) = ice_stress_vy(args...)
 
+# The normal stresses never cross an immersed boundary. The tangential stress is what separates a
+# free-slip wall, which transmits none of it, from a no-slip wall, which transmits the ice's own σ₁₂.
 @inline _ice_stress_ux(i, j, k, ibg::IBG, args...) = conditional_flux_ccc(i, j, k, ibg, zero(ibg), ice_stress_ux(i, j, k, ibg, args...))
-@inline _ice_stress_uy(i, j, k, ibg::IBG, args...) = conditional_flux_ffc(i, j, k, ibg, zero(ibg), ice_stress_uy(i, j, k, ibg, args...))
-@inline _ice_stress_vx(i, j, k, ibg::IBG, args...) = conditional_flux_ffc(i, j, k, ibg, zero(ibg), ice_stress_vx(i, j, k, ibg, args...))
 @inline _ice_stress_vy(i, j, k, ibg::IBG, args...) = conditional_flux_ccc(i, j, k, ibg, zero(ibg), ice_stress_vy(i, j, k, ibg, args...))
+
+@inline _ice_stress_uy(i, j, k, grid, rheology, clock, fields, lbc) = ice_stress_uy(i, j, k, grid, rheology, clock, fields)
+@inline _ice_stress_vx(i, j, k, grid, rheology, clock, fields, lbc) = ice_stress_vx(i, j, k, grid, rheology, clock, fields)
+
+@inline _ice_stress_uy(i, j, k, ibg::IBG, rheology, clock, fields, lbc) =
+    wall_shear_stress(lbc, i, j, k, ibg, ice_stress_uy(i, j, k, ibg, rheology, clock, fields))
+
+@inline _ice_stress_vx(i, j, k, ibg::IBG, rheology, clock, fields, lbc) =
+    wall_shear_stress(lbc, i, j, k, ibg, ice_stress_vx(i, j, k, ibg, rheology, clock, fields))
+
+@inline wall_shear_stress(::FreeSlip, i, j, k, ibg, σ) = conditional_flux_ffc(i, j, k, ibg, zero(ibg), σ)
+@inline wall_shear_stress(::NoSlip,   i, j, k, ibg, σ) = σ
 
 #####
 ##### Stress divergence
 #####
 
-@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶠᵃᵃ(i, j, k, grid, Δy_qᶜᶜᶜ, _ice_stress_ux, rheology, clock, fields) +
-                                       δyᵃᶜᵃ(i, j, k, grid, Δx_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields))
+@inline Δy²_qᶜᶜᶜ(i, j, k, grid, q, args...) = Δyᶜᶜᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+@inline Δx²_qᶠᶠᶜ(i, j, k, grid, q, args...) = Δxᶠᶠᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+@inline Δy²_qᶠᶠᶜ(i, j, k, grid, q, args...) = Δyᶠᶠᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+@inline Δx²_qᶜᶜᶜ(i, j, k, grid, q, args...) = Δxᶜᶜᶜ(i, j, k, grid)^2 * q(i, j, k, grid, args...)
+
+# Stress invariants at their native locations
+@inline σD(i, j, k, grid, args...) = _ice_stress_ux(i, j, k, grid, args...) + _ice_stress_vy(i, j, k, grid, args...)
+@inline σT(i, j, k, grid, args...) = _ice_stress_ux(i, j, k, grid, args...) - _ice_stress_vy(i, j, k, grid, args...)
+
+@inline function ∂ⱼ_σ₁ⱼ(i, j, k, grid, rheology, clock, fields, u_immersed_bc)
+    lbc = u_lateral_boundary_condition(u_immersed_bc)
+    δ = Δyᶠᶜᶜ(i, j, k, grid) * δxᶠᵃᵃ(i, j, k, grid, σD, rheology, clock, fields) / 2
+    𝒯 = δxᶠᵃᵃ(i, j, k, grid, Δy²_qᶜᶜᶜ, σT, rheology, clock, fields) / Δyᶠᶜᶜ(i, j, k, grid) / 2
+    S = δyᵃᶜᵃ(i, j, k, grid, Δx²_qᶠᶠᶜ, _ice_stress_uy, rheology, clock, fields, lbc) / Δxᶠᶜᶜ(i, j, k, grid)
+    return (δ + 𝒯 + S) / Azᶠᶜᶜ(i, j, k, grid)
 end
 
-@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields)
-    return 1 / Azᶠᶜᶜ(i, j, k, grid) * (δxᶜᵃᵃ(i, j, k, grid, Δy_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields) +
-                                       δyᵃᶠᵃ(i, j, k, grid, Δx_qᶜᶜᶜ, _ice_stress_vy, rheology, clock, fields))
+@inline function ∂ⱼ_σ₂ⱼ(i, j, k, grid, rheology, clock, fields, v_immersed_bc)
+    lbc = v_lateral_boundary_condition(v_immersed_bc)
+    δ  =   Δxᶜᶠᶜ(i, j, k, grid) * δyᵃᶠᵃ(i, j, k, grid, σD, rheology, clock, fields) / 2
+    𝒯  = - δyᵃᶠᵃ(i, j, k, grid, Δx²_qᶜᶜᶜ, σT, rheology, clock, fields) / Δxᶜᶠᶜ(i, j, k, grid) / 2
+    S =    δxᶜᵃᵃ(i, j, k, grid, Δy²_qᶠᶠᶜ, _ice_stress_vx, rheology, clock, fields, lbc) / Δyᶜᶠᶜ(i, j, k, grid)
+    return (δ + 𝒯 + S) / Azᶜᶠᶜ(i, j, k, grid)
 end
 
 #####

@@ -1,9 +1,3 @@
-#####
-##### Column-thermodynamics heat boundary condition marker. Behavior (Dirichlet, surface melt balance, direct
-##### flux) lives here; the forcing value is read from `model.external_heat_fluxes` via `getflux`, exactly as the
-##### slab does. The solve's dispatch methods live with the column solver.
-#####
-
 """
     FluxBoundary()
 

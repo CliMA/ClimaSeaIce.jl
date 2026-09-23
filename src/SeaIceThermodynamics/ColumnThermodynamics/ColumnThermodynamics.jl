@@ -1,15 +1,13 @@
-import Oceananigans: prognostic_state, restore_prognostic_state!
+using Oceananigans: prognostic_state, prognostic_fields, restore_prognostic_state!
 using KernelAbstractions: @kernel, @index
 using RootSolvers: SecantMethod, find_zero, CompactSolution
-using Oceananigans.Architectures: CPU, architecture
-using Oceananigans.Fields: AbstractField, interior
+using Oceananigans.Architectures: architecture
+using Oceananigans.Fields: AbstractField, interior, set!
 using Oceananigans.Grids: ZDirection, rnode, znode
 using Oceananigans.Operators: Δzᶜᶜᶜ, Δzᶜᶜᶠ, σ⁻, σⁿ
 using Oceananigans.Solvers: BatchedTridiagonalSolver, solve!
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 using Oceananigans.Utils: launch!
-
-@inline on_cpu(grid) = architecture(grid) isa CPU
 
 # Enthalpy/temperature/salinity relations and the moving two-interface vertical coordinate.
 include("column_energy_relations.jl")
@@ -27,6 +25,5 @@ include("column_boundary_fluxes.jl")
 include("column_solvers.jl")
 include("column_volume_update.jl")
 
-# Coupled time stepping and conservation diagnostics.
+# Coupled time stepping.
 include("column_time_stepping.jl")
-include("column_budgets.jl")

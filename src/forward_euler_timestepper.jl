@@ -1,10 +1,5 @@
-#TODO: Move to Oceananigans??
+# Candidate for upstreaming to Oceananigans.
 using Oceananigans.TimeSteppers: AbstractTimeStepper
-using Oceananigans.Fields: FunctionField, location
-using Oceananigans.Utils: @apply_regionally, apply_regionally!
-
-import Oceananigans: prognostic_state, restore_prognostic_state!
-import Oceananigans.TimeSteppers: TimeStepper
 
 mutable struct ForwardEulerTimeStepper{FT, GT, IT} <: AbstractTimeStepper
                  Gⁿ :: GT
@@ -39,10 +34,10 @@ function ForwardEulerTimeStepper(grid, prognostic_fields;
     return ForwardEulerTimeStepper{FT, GT, IT}(Gⁿ, implicit_solver)
 end
 
-TimeStepper(ts::Val{:ForwardEuler}, grid, prognostic_fields; kw...) =
+Oceananigans.TimeSteppers.TimeStepper(ts::Val{:ForwardEuler}, grid, prognostic_fields; kw...) =
     ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
 
-TimeStepper(ts::ForwardEulerTimeStepper, grid, prognostic_fields; kw...) =
+Oceananigans.TimeSteppers.TimeStepper(ts::ForwardEulerTimeStepper, grid, prognostic_fields; kw...) =
     ForwardEulerTimeStepper(grid, prognostic_fields; kw...)
 
 Base.summary(::ForwardEulerTimeStepper) = "ForwardEulerTimeStepper"
@@ -52,13 +47,12 @@ function Base.show(io::IO, ts::ForwardEulerTimeStepper)
     print(io, "└── implicit_solver: ", isnothing(ts.implicit_solver) ? "nothing" : nameof(typeof(ts.implicit_solver)))
 end
 
-reset!(::ForwardEulerTimeStepper) = nothing
+Oceananigans.TimeSteppers.reset!(::ForwardEulerTimeStepper) = nothing
 
 #####
 ##### Checkpointing
 #####
 
 # Forward Euler is a self-starting timestepper, so no state needs to be saved
-prognostic_state(::ForwardEulerTimeStepper) = nothing
-restore_prognostic_state!(ts::ForwardEulerTimeStepper, state) = ts
-restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::Nothing) = ts
+Oceananigans.prognostic_state(::ForwardEulerTimeStepper) = nothing
+Oceananigans.restore_prognostic_state!(ts::ForwardEulerTimeStepper, ::Nothing) = ts

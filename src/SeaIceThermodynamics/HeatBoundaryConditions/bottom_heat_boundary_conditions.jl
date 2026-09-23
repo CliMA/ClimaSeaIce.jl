@@ -1,4 +1,4 @@
-using ClimaSeaIce.SeaIceThermodynamics: melting_temperature
+using ...SeaIceThermodynamics: melting_temperature
 
 #####
 ##### Bottom heat boundary conditions

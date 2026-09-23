@@ -80,24 +80,14 @@ On a stationary vertical grid the column solves
 \partial_t S = \partial_z J_S.
 ```
 
-The currently implemented energy flux closures are
+The energy flux closure is
 
 ```math
-J^E = k \partial_z T,
-\qquad
-J^E = \kappa_E \partial_z E,
-\qquad
 J^E = k \partial_z T + \kappa_E \partial_z E,
 ```
 
-represented by [`ConductiveTemperatureTransport`](@ref),
-[`DiffusiveEnergyTransport`](@ref), and
-[`ConductiveAndDiffusiveEnergyTransport`](@ref). Bulk-salinity transport is
-either disabled with [`NoSalinityTransport`](@ref), or stepped with closed
-boundary scalar diffusion via [`BulkSalinityDiffusion`](@ref).
-[`BrineSalinityDiffusion`](@ref) is reserved as an explicit future marker for a
-brine-salinity transport equation and is not used by the scalar bulk-salinity
-step.
+represented by [`ConductiveTemperatureTransport`](@ref), whose `diffusivity` ``\kappa_E`` defaults to zero. Bulk-salinity transport is either disabled with
+[`NoSalinityTransport`](@ref), or stepped with closed boundary scalar diffusion via [`BulkSalinityDiffusion`](@ref).
 
 Boundary behavior is configured through the `heat_boundary_conditions = (top, bottom)`
 named tuple, while the forcing values are supplied separately as a model-style
@@ -220,7 +210,7 @@ E_k^{n+1}
 {\Delta z_k^{n+1}}.
 ```
 
-This is the equation assembled by `column_energy_time_step!`: the right-hand
+This is the equation assembled at every column step: the right-hand
 side contains the old concentration scaled by the metric ratio
 ``\sigma^-_k / \sigma^n_k``, the explicit swept-face enthalpy integral divided
 by ``\Delta z_k^{n+1}``, and the implicit conductive/diffusive flux divergence
@@ -263,67 +253,31 @@ imposed boundary flux. When
 ``\mathcal{J}^{n+1}=\mathcal{J}^n``, the moving-face term vanishes and these
 equations reduce exactly to the stationary-grid system above.
 
-```@example column_energy_step
+A column is stepped by `SeaIceModel`, which reads the forcing from `model.external_heat_fluxes` and moves the column
+interfaces with the Stefan thickness update described below.
+
+```@example column_model
 using Oceananigans
-using Oceananigans.Fields: set!
-using ClimaSeaIce.SeaIceThermodynamics:
-    ConductiveTemperatureTransport,
-    FluxBoundary,
-    prescribed_salinity_enthalpy_thermodynamics,
-    column_energy_budget,
-    column_energy_time_step!,
-    column_integrated_energy
-using ClimaSeaIce: SeaIceColumnDiscretization
+using Oceananigans.Units
+using ClimaSeaIce
+using ClimaSeaIce.SeaIceThermodynamics: ConductiveTemperatureTransport, IceWaterThermalEquilibrium
 
-# Forcing lives in a model-style `external_heat_fluxes = (top, bottom)` set evaluated through `getflux`,
-# decoupled from the `heat_boundary_conditions` behavior. These scalar fluxes ignore the clock and the
-# (empty) model fields.
-clock = Clock(time = 0.0)
-model_fields = NamedTuple()
-heat_boundary_conditions = (top = FluxBoundary(), bottom = FluxBoundary())
-external_heat_fluxes = (top = 5.0, bottom = 2.0)
-
-grid = RectilinearGrid(size = 8,
-                       z = SeaIceColumnDiscretization((0, 1)),
-                       topology = (Flat, Flat, Bounded))
+grid = RectilinearGrid(size = 8, z = SeaIceColumnDiscretization((0, 1)), topology = (Flat, Flat, Bounded))
 
 thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
-    salinity_profile = 0.0,
-    energy_transport = ConductiveTemperatureTransport(conductivity = 2.0),
-    heat_boundary_conditions)
+    energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+    heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = IceWaterThermalEquilibrium(salinity = 0)))
 
-set!(thermodynamics; bulk_salinity = 0.0, temperature = z -> -12 + 4z)
-initial_energy = column_integrated_energy(thermodynamics)
-column_energy_time_step!(thermodynamics, external_heat_fluxes, clock, model_fields, 5e3)
-budget = column_energy_budget(thermodynamics, external_heat_fluxes, clock, model_fields, initial_energy, 5e3)
+model = SeaIceModel(grid; ice_thermodynamics = thermodynamics, top_heat_flux = 20)
 
-budget.relative_residual < 1e-11
-```
+set!(model, h = 1, ℵ = 1)
+set!(thermodynamics; temperature = -5)
 
-Shortwave absorption enters the same budget through the face-flux difference
-``I_\mathrm{top} - I_\mathrm{bottom}``.
+for _ in 1:24
+    time_step!(model, 1hour)
+end
 
-```@example column_energy_step
-using ClimaSeaIce.SeaIceThermodynamics:
-    ExponentialShortwaveAbsorption,
-    compute_column_shortwave_flux!
-
-shortwave = ExponentialShortwaveAbsorption(surface_transmission = 3.0,
-                                           attenuation_scale = 0.25)
-
-shortwave_thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
-    salinity_profile = 0.0,
-    energy_transport = ConductiveTemperatureTransport(conductivity = 0.0),
-    shortwave_absorption = shortwave,
-    heat_boundary_conditions)
-
-shortwave_fluxes = (top = 0.0, bottom = 0.0)
-set!(shortwave_thermodynamics; bulk_salinity = 0.0, temperature = -10.0)
-initial_energy = column_integrated_energy(shortwave_thermodynamics)
-column_energy_time_step!(shortwave_thermodynamics, shortwave_fluxes, clock, model_fields, 100.0)
-budget = column_energy_budget(shortwave_thermodynamics, shortwave_fluxes, clock, model_fields, initial_energy, 100.0)
-
-budget.relative_residual < 1e-11
+first(interior(model.ice_thickness))
 ```
 
 ## Evolving Salinity
@@ -333,118 +287,12 @@ The evolving-salinity preset adds `bulk_salinity` to the prognostic fields. With
 same initial salinity field. With [`BulkSalinityDiffusion`](@ref), closed
 boundaries conserve column-integrated salinity while reducing salinity variance.
 
-```@example column_salinity_step
-using Oceananigans
-using Oceananigans.Fields: set!, interior
-using ClimaSeaIce.SeaIceThermodynamics:
-    BulkSalinityDiffusion,
-    ConductiveTemperatureTransport,
-    FluxBoundary,
-    evolving_salinity_mushy_thermodynamics,
-    column_integrated_salinity,
-    column_salt_budget,
-    column_salinity_time_step!
-using ClimaSeaIce: SeaIceColumnDiscretization
-
-grid = RectilinearGrid(size = 8,
-                       z = SeaIceColumnDiscretization((0, 1)),
-                       topology = (Flat, Flat, Bounded))
-
-thermodynamics = evolving_salinity_mushy_thermodynamics(grid;
-    energy_transport = ConductiveTemperatureTransport(conductivity = 2.0),
-    salinity_transport = BulkSalinityDiffusion(diffusivity = 1e-4),
-    heat_boundary_conditions = (top = FluxBoundary(), bottom = FluxBoundary()))
-
-set!(thermodynamics;
-     bulk_salinity = z -> 5 + sin(2pi * z),
-     temperature = -10.0)
-
-salinity_variance(thermodynamics) = begin
-    S = vec(Array(interior(thermodynamics.fields.bulk_salinity)))
-    S_mean = sum(S) / length(S)
-    sum(abs2, S .- S_mean) / length(S)
-end
-
-initial_salt = column_integrated_salinity(thermodynamics)
-initial_variance = salinity_variance(thermodynamics)
-column_salinity_time_step!(thermodynamics, 100)
-budget = column_salt_budget(thermodynamics, initial_salt, 100)
-
-budget.relative_residual < 1e-12 &&
-    salinity_variance(thermodynamics) <= initial_variance
-```
-
 ## Fixed and Evolving Presets
 
 The fixed-salinity preset is a strict subcase of the evolving-salinity preset
-when salinity transport is disabled. A side-by-side run with the same initial
-temperature and salinity profiles reports the resulting equivalence diagnostics.
-The examples section also includes a single-column comparison between a
+when salinity transport is disabled. The examples section includes a single-column comparison between a
 Bitz-Lipscomb-style fixed-salinity column and an evolving-salinity mushy column
 with bulk-salinity diffusion.
-
-```@example column_equivalence
-using Oceananigans
-using Oceananigans.Fields: set!, interior
-using ClimaSeaIce.SeaIceThermodynamics:
-    ConductiveTemperatureTransport,
-    FluxBoundary,
-    NoSalinityTransport,
-    column_energy_time_step!,
-    evolving_salinity_mushy_thermodynamics,
-    prescribed_salinity_enthalpy_thermodynamics
-using ClimaSeaIce: SeaIceColumnDiscretization
-
-clock = Clock(time = 0.0)
-model_fields = NamedTuple()
-
-grid = RectilinearGrid(size = 8,
-                       z = SeaIceColumnDiscretization((0, 1)),
-                       topology = (Flat, Flat, Bounded))
-
-heat_boundary_conditions = (top = FluxBoundary(), bottom = FluxBoundary())
-external_heat_fluxes = (top = 0.0, bottom = 0.0)
-energy_transport = ConductiveTemperatureTransport(conductivity = 2.0)
-
-fixed = prescribed_salinity_enthalpy_thermodynamics(grid;
-    salinity_profile = 0.0,
-    energy_transport,
-    heat_boundary_conditions)
-
-evolving = evolving_salinity_mushy_thermodynamics(grid;
-    energy_transport,
-    salinity_transport = NoSalinityTransport(),
-    heat_boundary_conditions)
-
-set!(fixed;
-     bulk_salinity = z -> 4 + z,
-     temperature = z -> -15 + 3z)
-
-set!(evolving;
-     bulk_salinity = z -> 4 + z,
-     temperature = z -> -15 + 3z)
-
-initial_salinity = vec(Array(interior(evolving.fields.bulk_salinity)))
-
-for _ in 1:100
-    column_energy_time_step!(fixed, external_heat_fluxes, clock, model_fields, 1000)
-    column_energy_time_step!(evolving, external_heat_fluxes, clock, model_fields, 1000)
-end
-
-diagnostics = (max_internal_energy_difference =
-                   maximum(abs.(vec(Array(interior(fixed.fields.internal_energy))) .-
-                                vec(Array(interior(evolving.fields.internal_energy))))),
-               max_temperature_difference =
-                   maximum(abs.(vec(Array(interior(fixed.fields.temperature))) .-
-                                vec(Array(interior(evolving.fields.temperature))))),
-               max_salinity_drift =
-                   maximum(abs.(vec(Array(interior(evolving.fields.bulk_salinity))) .-
-                                initial_salinity)))
-
-(diagnostics..., passes = diagnostics.max_internal_energy_difference < 1e-10 &&
-                          diagnostics.max_temperature_difference < 1e-10 &&
-                          diagnostics.max_salinity_drift == 0)
-```
 
 ## Stefan Thickness Updates
 
@@ -456,185 +304,15 @@ is
 \Delta h = \frac{\Delta t\,\delta J^E}{\rho_i L_0}.
 ```
 
-A [`MeltingConstrainedFluxBalance`](@ref) top boundary computes the surface
-residual by comparing the requested top flux to the flux required to bring the
-top cell to [`complete_melt_energy`](@ref). The applied energy flux warms the
-column; the residual is negative for melt and can be passed to
-[`column_stefan_thickness_update!`](@ref). The same residual closes
-[`column_energy_budget`](@ref) through the `surface_stefan_residual_flux`
-keyword, and is computed by
-[`compute_column_surface_stefan_residual_flux!`](@ref).
-
-```@example column_surface_melt
-using Oceananigans
-using Oceananigans.Fields: set!, interior
-using ClimaSeaIce.SeaIceThermodynamics:
-    ConductiveTemperatureTransport,
-    FluxBoundary,
-    MeltingConstrainedFluxBalance,
-    QuadraticLiquidusEnergyRelation,
-    column_energy_budget,
-    column_energy_time_step!,
-    column_integrated_energy,
-    compute_column_surface_stefan_residual_flux!,
-    complete_melt_energy,
-    internal_energy,
-    prescribed_salinity_enthalpy_thermodynamics
-using ClimaSeaIce: SeaIceColumnDiscretization
-
-clock = Clock(time = 0.0)
-model_fields = NamedTuple()
-
-grid = RectilinearGrid(size = 1,
-                       z = SeaIceColumnDiscretization((0, 1)),
-                       topology = (Flat, Flat, Bounded))
-
-relation = QuadraticLiquidusEnergyRelation(Float64)
-S = 5.0
-T = -2.0
-dt = 100.0
-E₀ = internal_energy(relation, T, S)
-Ê = complete_melt_energy(relation, S)
-excess_flux = 3.0
-requested_flux = (Ê - E₀) / dt + excess_flux
-
-# Upward-positive convention: a warming surface flux (heat into the ice) is negative.
-external_heat_fluxes = (top = -requested_flux, bottom = 0.0)
-
-thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
-    relation,
-    salinity_profile = S,
-    energy_transport = ConductiveTemperatureTransport(conductivity = 0.0),
-    heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
-                                bottom = FluxBoundary()))
-
-set!(thermodynamics; bulk_salinity = S, temperature = T)
-initial_energy = column_integrated_energy(thermodynamics)
-
-residual_flux = Field{Center, Center, Nothing}(grid)
-compute_column_surface_stefan_residual_flux!(residual_flux, thermodynamics, external_heat_fluxes, clock, model_fields, dt)
-surface_residual = first(interior(residual_flux))
-
-column_energy_time_step!(thermodynamics, external_heat_fluxes, clock, model_fields, dt)
-budget = column_energy_budget(thermodynamics, external_heat_fluxes, clock, model_fields, initial_energy, dt;
-                              surface_stefan_residual_flux = surface_residual)
-
-abs(first(interior(thermodynamics.fields.internal_energy)) - Ê) < 1e-7 &&
-    budget.relative_residual < 1e-12 &&
-    surface_residual < 0
-```
-
-[`column_stefan_thickness_update!`](@ref) applies this update to a thickness
-field, with positive residual flux growing ice and negative residual flux
-melting ice. [`column_stefan_thickness_budget`](@ref) reports the corresponding
-scalar residual.
-
-```@example column_stefan_update
-using ClimaSeaIce.SeaIceThermodynamics:
-    QuadraticLiquidusEnergyRelation,
-    column_stefan_thickness_budget,
-    column_stefan_thickness_change
-
-phase_transitions = QuadraticLiquidusEnergyRelation(Float64).phase_transitions
-ρi = 900.0
-δQ = 12.0
-dt = 3600.0
-Δh = column_stefan_thickness_change(phase_transitions, ρi, δQ, dt)
-budget = column_stefan_thickness_budget(1.0, 1.0 + Δh,
-                                        phase_transitions, ρi, δQ, dt)
-
-budget.relative_residual < 1e-12
-```
-
-## Split Thickness Remapping
-
-CICE/Icepack `thickness_changes` first advances the temperature solve, then
-repartitions layer enthalpy onto the new equal-layer geometry. ClimaSeaIce
-exposes the corresponding split operation with
-[`column_energy_thickness_remap!`](@ref). The helper conservatively remaps
-layer-averaged internal energy from `source_faces` to `target_faces`, fills
-uncovered target intervals with a supplied `fill_energy`, and recomputes
-diagnostics. Passing `bulk_salinity` resets fixed-salinity profiles after the
-remap instead of remapping salinity as a prognostic tracer.
-
-For old source intervals ``[z^-_{\ell-1/2}, z^-_{\ell+1/2}]`` and new target
-intervals ``[z^+_{k-1/2}, z^+_{k+1/2}]``, the remapped internal energy is
-
-```math
-E^+_k =
-\frac{1}{\Delta z^+_k}
-\left[
-\sum_\ell E^-_\ell
-\left|[z^-_{\ell-1/2}, z^-_{\ell+1/2}]
-      \cap
-      [z^+_{k-1/2}, z^+_{k+1/2}]\right|
-+ E_\mathrm{fill}
-\left(\Delta z^+_k -
-\sum_\ell
-\left|[z^-_{\ell-1/2}, z^-_{\ell+1/2}]
-      \cap
-      [z^+_{k-1/2}, z^+_{k+1/2}]\right|
-\right)
-\right].
-```
-
-This is the finite-volume counterpart of the moving-metric swept-face term
-above, applied as a split geometry update. It is used when the CICE-compatible
-sequence requires a temperature solve on the old equal-layer grid followed by
-Icepack-style equal-layer repartitioning on the new thickness.
-
-For top ablation, `source_faces` and `target_faces` share the bottom face and
-the top part of the old column is removed. For basal growth, the old source
-faces are offset upward by the growth amount and the exposed lower interval is
-filled with the new-ice enthalpy.
-
-```@example column_thickness_remap
-using Oceananigans
-using Oceananigans.Fields: set!, interior
-using ClimaSeaIce.SeaIceThermodynamics:
-    ConductiveTemperatureTransport,
-    FluxBoundary,
-    QuadraticLiquidusEnergyRelation,
-    column_energy_thickness_remap!,
-    conservative_column_remap,
-    prescribed_salinity_enthalpy_thermodynamics
-using ClimaSeaIce: SeaIceColumnDiscretization
-
-grid = RectilinearGrid(size = 4,
-                       z = SeaIceColumnDiscretization((0, 1)),
-                       topology = (Flat, Flat, Bounded))
-
-relation = QuadraticLiquidusEnergyRelation(Float64)
-thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
-    relation,
-    salinity_profile = 0,
-    energy_transport = ConductiveTemperatureTransport(conductivity = 0),
-    heat_boundary_conditions = (top = FluxBoundary(), bottom = FluxBoundary()))
-
-set!(thermodynamics; bulk_salinity = 0, temperature = z -> -12 + 8z)
-
-source_faces = collect(range(0, 4; length = 5))
-target_faces = collect(range(0, 3; length = 5))
-source_energy = vec(Array(interior(thermodynamics.fields.internal_energy)))
-expected_energy = conservative_column_remap(source_energy,
-                                            source_faces,
-                                            target_faces)
-
-column_energy_thickness_remap!(thermodynamics,
-                               source_faces,
-                               target_faces;
-                               bulk_salinity = z -> 1 + z)
-
-maximum(abs.(vec(Array(interior(thermodynamics.fields.internal_energy))) .-
-             expected_energy)) < 1e-12
-```
+A [`MeltingConstrainedFluxBalance`](@ref) top boundary computes the surface residual by comparing the requested top
+flux to the flux required to bring the top cell to [`complete_melt_energy`](@ref). The applied energy flux warms the
+column and the residual, negative for melt, moves the surface interface. At a Dirichlet base the residual is the
+conductive flux into the base minus the ocean heat flux, and it moves the basal interface.
 
 ## Validation
 
-The focused `column_energy` test group checks the thermodynamic relation,
-container interfaces, stationary and moving-grid energy budgets, salinity
-budgets, CPU allocation discipline, runtime scaling, conservative Stefan
-thickness updates, conservative split thickness remapping, and a manufactured
-pure-ice conductive mode. The manufactured case verifies second order spatial
+The focused `column_energy` test group checks the thermodynamic relation, container interfaces, stationary and
+moving-grid energy budgets, salinity conservation, the melting-limited surface balance, the coupled Stefan update, and a
+manufactured pure-ice conductive mode. The manufactured case verifies second order spatial
 convergence of the finite-volume diffusion operator and first order temporal
 convergence of the backward-Euler step.

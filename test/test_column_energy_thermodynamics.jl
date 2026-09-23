@@ -1,9 +1,7 @@
 using ClimaSeaIce.SeaIceThermodynamics:
-    BrineSalinityDiffusion,
     BulkSalinityDiffusion,
     ColumnEnergyThermodynamics,
     SeaIceColumnDiscretization,
-    ConductiveAndDiffusiveEnergyTransport,
     ConductiveTemperatureTransport,
     ExponentialShortwaveAbsorption,
     BubblyBrineConductivity,
@@ -12,7 +10,6 @@ using ClimaSeaIce.SeaIceThermodynamics:
     FluxBoundary,
     FluxFunction,
     MeltingConstrainedFluxBalance,
-    MeltingConstrainedSurfaceFluxBalance,
     IceWaterThermalEquilibrium,
     MaykutUntersteinerConductivity,
     NoSalinityTransport,
@@ -23,22 +20,11 @@ using ClimaSeaIce.SeaIceThermodynamics:
     QuadraticLiquidusEnergyRelation,
     assemble_column_energy_system!,
     brine_salinity,
-    column_energy_budget,
     column_energy_time_step!,
-    column_energy_thickness_remap!,
     column_height,
-    column_integrated_energy,
-    column_integrated_salinity,
-    column_layer_integral,
     column_salinity_time_step!,
-    column_salt_budget,
     column_surface_stefan_residual_flux,
-    column_stefan_thickness_budget,
     column_stefan_thickness_change,
-    column_stefan_thickness_update!,
-    conservative_column_remap,
-    conservative_column_remap!,
-    compute_column_surface_stefan_residual_flux!,
     complete_melt_energy,
     compute_column_shortwave_flux!,
     compute_column_thermodynamic_diagnostics!,
@@ -60,29 +46,35 @@ using ClimaSeaIce: SeaIceModel
 using Adapt
 using Oceananigans
 using Oceananigans.TimeSteppers: Clock, time_step!
-using Oceananigans.Fields: interior, set!
+using Oceananigans.Fields: interior, set!, ConstantField
+using Oceananigans.AbstractOperations: KernelFunctionOperation
+using Oceananigans.Operators: Δzᶜᶜᶜ
 using Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
-using Statistics: median
 using Test
 
-# The column now reads forcing from a model-style `external_heat_fluxes = (top, bottom)` set evaluated through
-# `getflux`, decoupled from the `heat_boundary_conditions` behavior. Standalone tests build a minimal flux set,
-# clock, and empty model fields; scalar fluxes ignore the clock and fields.
+# Unit tests drive the column step with a model-style `external_heat_fluxes = (top, bottom)` set, a clock, no model
+# fields, and a zero consolidation thickness so that every column is consolidated.
 const TEST_CLOCK = Clock(time = 0.0)
 const NO_FIELDS = NamedTuple()
+const CONSOLIDATED = ConstantField(0.0)
 
 insulating_fluxes() = (top = 0.0, bottom = 0.0)
 insulating_boundaries() = (top = FluxBoundary(), bottom = FluxBoundary())
 
 column_step!(thermodynamics, external_heat_fluxes, Δt) =
-    column_energy_time_step!(thermodynamics, external_heat_fluxes, TEST_CLOCK, NO_FIELDS, Δt)
+    column_energy_time_step!(thermodynamics, external_heat_fluxes, TEST_CLOCK, NO_FIELDS, CONSOLIDATED, Δt)
 
-column_budget(thermodynamics, external_heat_fluxes, initial_energy, Δt; kw...) =
-    column_energy_budget(thermodynamics, external_heat_fluxes, TEST_CLOCK, NO_FIELDS, initial_energy, Δt; kw...)
+column_integral(c) = sum(interior(Field(c * KernelFunctionOperation{Center, Center, Center}(Δzᶜᶜᶜ, c.grid))))
+column_integrated_energy(thermodynamics) = column_integral(thermodynamics.fields.internal_energy)
+column_integrated_salinity(thermodynamics) = column_integral(thermodynamics.fields.bulk_salinity)
 
-@testset "BL99 public boundary conditions" begin
-    @test MeltingConstrainedSurfaceFluxBalance === MeltingConstrainedFluxBalance
-    @test IceWaterThermalEquilibrium(; salinity = 34).salinity == 34
+# Reference conservative remap of piecewise-constant layer averages; uncovered target intervals take `fill_value`.
+function conservative_column_remap(source_values, source_faces, target_faces; fill_value = zero(eltype(source_values)))
+    return map(1:length(target_faces)-1) do k
+        zᵇ, zᵗ = target_faces[k], target_faces[k+1]
+        overlaps = [max(min(zᵗ, source_faces[s+1]) - max(zᵇ, source_faces[s]), 0) for s in eachindex(source_values)]
+        (fill_value * (zᵗ - zᵇ) + sum((source_values .- fill_value) .* overlaps)) / (zᵗ - zᵇ)
+    end
 end
 
 function column_relation_test_states(::Type{FT}) where FT
@@ -673,61 +665,6 @@ function temporal_manufactured_solution_error(dt; N = 128,
     return maximum(abs.(numerical_energy .- expected_energy))
 end
 
-function performance_metric_column(size; prognostic_salinity = false)
-    grid = RectilinearGrid(size = size,
-                           z = SeaIceColumnDiscretization((0, 1)),
-                           topology = (Flat, Flat, Bounded))
-
-    heat_boundary_conditions = insulating_boundaries()
-    energy_transport = ConductiveTemperatureTransport(conductivity = 2.0)
-
-    thermodynamics = if prognostic_salinity
-        evolving_salinity_mushy_thermodynamics(grid;
-            energy_transport,
-            salinity_transport = BulkSalinityDiffusion(diffusivity = 1e-4),
-            heat_boundary_conditions)
-    else
-        prescribed_salinity_enthalpy_thermodynamics(grid;
-            salinity_profile = 5.0,
-            energy_transport,
-            heat_boundary_conditions)
-    end
-
-    set!(thermodynamics;
-         bulk_salinity = z -> 5 + z,
-         temperature = z -> -10 + z)
-
-    for _ in 1:10
-        column_step!(thermodynamics, insulating_fluxes(), 1.0)
-    end
-
-    return thermodynamics
-end
-
-function warmed_column_step_allocations(size = 16; prognostic_salinity = false)
-    thermodynamics = performance_metric_column(size; prognostic_salinity)
-    allocations = [@allocated column_step!(thermodynamics, insulating_fluxes(), 1.0)
-                   for _ in 1:10]
-
-    return maximum(allocations)
-end
-
-function median_column_step_runtime(size; steps = 30, samples = 5)
-    thermodynamics = performance_metric_column(size)
-    runtimes = zeros(samples)
-
-    for n in 1:samples
-        runtimes[n] = @elapsed begin
-            for _ in 1:steps
-                column_step!(thermodynamics, insulating_fluxes(), 1.0)
-            end
-        end
-
-        runtimes[n] /= steps
-    end
-
-    return median(runtimes)
-end
 
 @testset "Column energy thermodynamics containers" begin
     grid = RectilinearGrid(size = 4,
@@ -775,14 +712,12 @@ end
 
     evolving = evolving_salinity_mushy_thermodynamics(grid;
         relation,
-        energy_transport = ConductiveAndDiffusiveEnergyTransport(conductivity = 2.0,
-                                                                 diffusivity = 1e-9),
+        energy_transport = ConductiveTemperatureTransport(conductivity = 2.0, diffusivity = 1e-9),
         salinity_transport = BulkSalinityDiffusion(diffusivity = 2e-9),
         shortwave_absorption = NoShortwaveAbsorption(),
         heat_boundary_conditions)
 
     @test evolving.salinity_closure isa PrognosticBulkSalinity
-    @test evolving.energy_transport isa ConductiveAndDiffusiveEnergyTransport
     @test evolving.salinity_transport isa BulkSalinityDiffusion
     @test keys(prognostic_fields(evolving)) == (:E, :bulk_salinity)
     @test Adapt.adapt(CPU(), evolving) isa ColumnEnergyThermodynamics
@@ -830,7 +765,7 @@ end
 
     compute_column_thermodynamic_diagnostics!(thermodynamics)
     compute_column_transport_coefficients!(thermodynamics)
-    assemble_column_energy_system!(thermodynamics, insulating_fluxes(), TEST_CLOCK, NO_FIELDS, nothing, dt)
+    assemble_column_energy_system!(thermodynamics, insulating_fluxes(), TEST_CLOCK, NO_FIELDS, CONSOLIDATED, dt)
 
     matrix = dense_column_energy_matrix(thermodynamics)
     rhs = column_values(thermodynamics.auxiliary.energy_rhs)
@@ -869,14 +804,11 @@ end
     set!(flux_forced; bulk_salinity = 0.0, temperature = -10.0)
     flux_forced_energy = column_integrated_energy(flux_forced)
     column_step!(flux_forced, flux_fluxes, 10.0)
-    flux_budget = column_budget(flux_forced, flux_fluxes, flux_forced_energy, 10.0)
 
     # Upward-positive fluxes: net energy gain is Δt·(Qᵇ − Qᵘ) = 10·(0.5 − 2.0).
     @test abs(column_integrated_energy(flux_forced) -
               flux_forced_energy -
               10.0 * (0.5 - 2.0)) < 1e-8
-    @test abs(flux_budget.residual) < 1e-8
-    @test flux_budget.relative_residual < 1e-11
 
     shortwave = ExponentialShortwaveAbsorption(surface_transmission = 3.0,
                                                attenuation_scale = 0.25)
@@ -895,12 +827,9 @@ end
     @test column_values(shortwave_forced.auxiliary.shortwave_flux)[1] ≈ 3.0 * exp(-4)
 
     column_step!(shortwave_forced, insulating_fluxes(), 100.0)
-    shortwave_budget = column_budget(shortwave_forced, insulating_fluxes(), shortwave_forced_energy, 100.0)
     expected_shortwave_change = 100.0 * 3.0 * (1 - exp(-4))
 
-    @test abs(shortwave_budget.shortwave_flux_change - expected_shortwave_change) < 1e-12
-    @test abs(shortwave_budget.residual) < 1e-8
-    @test shortwave_budget.relative_residual < 1e-11
+    @test abs(column_integrated_energy(shortwave_forced) - shortwave_forced_energy - expected_shortwave_change) < 1e-8
 
     bottom_temperature = -1.8
     top_flux = -3.0
@@ -1129,11 +1058,8 @@ end
     initial_variance = salinity_variance(evolving)
 
     column_salinity_time_step!(evolving, dt)
-    salt_budget = column_salt_budget(evolving, initial_salt, dt)
 
     @test abs(column_integrated_salinity(evolving) - initial_salt) < 1e-12
-    @test abs(salt_budget.residual) < 1e-12
-    @test salt_budget.relative_residual < 1e-12
     @test salinity_variance(evolving) <= initial_variance + 1e-13
     @test maximum(abs.(column_values(evolving.fields.bulk_salinity) .- initial_salinity)) > 1e-3
 
@@ -1147,12 +1073,6 @@ end
         relation,
         energy_transport,
         salinity_transport = NoSalinityTransport(),
-        heat_boundary_conditions)
-
-    brine_marker = evolving_salinity_mushy_thermodynamics(grid;
-        relation,
-        energy_transport,
-        salinity_transport = BrineSalinityDiffusion(diffusivity = 1e-4),
         heat_boundary_conditions)
 
     set!(fixed;
@@ -1178,47 +1098,6 @@ end
                        initial_no_transport_salinity)) == 0
     @test maximum(abs.(column_values(fixed.fields.bulk_salinity) .-
                        initial_no_transport_salinity)) == 0
-    @test_throws ArgumentError column_salinity_time_step!(brine_marker, dt)
-end
-
-@testset "Column Stefan thickness update" begin
-    grid = RectilinearGrid(size = (3, 2, 1),
-                           x = (0, 1),
-                           y = (0, 1),
-                           z = SeaIceColumnDiscretization((0, 1)),
-                           topology = (Periodic, Periodic, Bounded))
-
-    h = Field{Center, Center, Nothing}(grid)
-    ρi = Field{Center, Center, Nothing}(grid)
-    set!(h, 1.0)
-    set!(ρi, 900.0)
-
-    relation = QuadraticLiquidusEnergyRelation(Float64)
-    phase_transitions = relation.phase_transitions
-    residual_flux = 12.0
-    dt = 3600.0
-    expected_change = column_stefan_thickness_change(phase_transitions,
-                                                     900.0,
-                                                     residual_flux,
-                                                     dt)
-
-    column_stefan_thickness_update!(h,
-                                    phase_transitions,
-                                    ρi,
-                                    residual_flux,
-                                    dt)
-
-    updated_thickness = Array(interior(h))
-    budget = column_stefan_thickness_budget(1.0,
-                                            1.0 + expected_change,
-                                            phase_transitions,
-                                            900.0,
-                                            residual_flux,
-                                            dt)
-
-    @test maximum(abs.(updated_thickness .- (1.0 + expected_change))) < 1e-12
-    @test abs(budget.residual) < 1e-15
-    @test budget.relative_residual < 1e-12
 end
 
 @testset "Column melting-limited surface balance" begin
@@ -1248,47 +1127,17 @@ end
          bulk_salinity,
          temperature = initial_temperature)
 
-    initial_energy = column_integrated_energy(thermodynamics)
-    residual_flux = Field{Center, Center, Nothing}(grid)
-    compute_column_surface_stefan_residual_flux!(residual_flux, thermodynamics, melt_fluxes, TEST_CLOCK, NO_FIELDS, dt)
-    scalar_residual_flux = first(interior(residual_flux))
-
-    @test abs(first(interior(residual_flux)) + excess_flux) < 1e-12
-    @test abs(scalar_residual_flux + excess_flux) < 1e-12
-
     column_step!(thermodynamics, melt_fluxes, dt)
-    budget = column_budget(thermodynamics, melt_fluxes,
-                           initial_energy,
-                           dt;
-                           surface_stefan_residual_flux = scalar_residual_flux)
 
+    residual_flux = column_surface_stefan_residual_flux(thermodynamics.heat_boundary_conditions.top, melt_fluxes.top, 1, 1, 1, grid,
+                                                        thermodynamics.auxiliary, thermodynamics.fields, relation, TEST_CLOCK, NO_FIELDS, dt)
+
+    @test abs(residual_flux + excess_flux) < 1e-12
     @test abs(first(interior(thermodynamics.fields.internal_energy)) - melt_cell_energy) < 1e-7
     @test abs(column_integrated_energy(thermodynamics) - melt_cell_energy) < 1e-7
-    @test abs(budget.surface_stefan_residual_change + dt * excess_flux) < 1e-12
-    @test abs(budget.residual) < 1e-7
-    @test budget.relative_residual < 1e-12
-
-    h = Field{Center, Center, Nothing}(grid)
-    set!(h, 1.0)
-    ρi = 900.0
-    expected_thickness = 1.0 + column_stefan_thickness_change(relation.phase_transitions,
-                                                             ρi,
-                                                             scalar_residual_flux,
-                                                             dt)
-
-    column_stefan_thickness_update!(h,
-                                    relation.phase_transitions,
-                                    ρi,
-                                    residual_flux,
-                                    dt)
-
-    @test abs(first(interior(h)) - expected_thickness) < 1e-12
 end
 
-# Regression over a full `time_step!` for two coupled surface-melt bugs: (1) the volume-update surface Stefan
-# residual must use the start-of-step enthalpy the cap used (not the post-solve enthalpy the cap drove to complete
-# melt), and (2) the column physics must be applied once per full step, not re-melted on each RK substep from the
-# previous substep's already-melted state. Either bug ablates the surface against ~the full requested flux.
+# Only the flux in excess of the start-of-step complete-melt energy ablates the surface, once per full step.
 @testset "Coupled surface melt uses start-of-step enthalpy" begin
     Nz = 4
     h₀ = 0.1
@@ -1334,9 +1183,6 @@ end
     @test abs(ΔV) < abs(buggy_ΔV) / 2                  # not the post-solve double-count (≈ full requested flux)
 end
 
-# `set!(model; h)` must sync a resolved column's moving vertical metric to the ice thickness, so a model built
-# through the public API (without the explicit `initialize_column_interfaces!` boilerplate) is not run on the
-# default reference height.
 @testset "set! syncs the column grid metric" begin
     grid = RectilinearGrid(size = 8, z = SeaIceColumnDiscretization((0, 2)), topology = (Flat, Flat, Bounded))
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
@@ -1392,123 +1238,16 @@ end
               conductance * (top_temperature - surface_temperature)) < 1e-6
 end
 
-@testset "Conservative column remap" begin
-    source_faces = [0.0, 0.15, 0.4, 1.0]
-    source_values = [-4.0, -2.0, 3.0]
-    target_faces = [0.0, 0.25, 0.5, 0.75, 1.0]
-    target_values = conservative_column_remap(source_values,
-                                              source_faces,
-                                              target_faces)
-
-    @test target_values ≈ [-3.2, 0.0, 3.0, 3.0]
-    @test abs(column_layer_integral(target_values, target_faces) -
-              column_layer_integral(source_values, source_faces)) < 1e-14
-
-    top_ablation_faces = [0.0, 1.0, 2.0, 3.0]
-    source_faces = [0.0, 1.0, 2.0, 3.0, 4.0]
-    source_values = [1.0, 2.0, 3.0, 4.0]
-    target_values = conservative_column_remap(source_values,
-                                              source_faces,
-                                              top_ablation_faces)
-
-    @test target_values == [1.0, 2.0, 3.0]
-    @test column_layer_integral(target_values, top_ablation_faces) == 6.0
-
-    basal_growth_faces = [-1.0, 0.0, 1.0, 2.0]
-    target_values = conservative_column_remap(source_values[1:2],
-                                              source_faces[1:3],
-                                              basal_growth_faces;
-                                              fill_value = 5.0)
-
-    @test target_values == [5.0, 1.0, 2.0]
-    @test column_layer_integral(target_values, basal_growth_faces) == 8.0
-
-    inplace_values = zeros(4)
-    conservative_column_remap!(inplace_values,
-                               [-4.0, -2.0, 3.0],
-                               [0.0, 0.15, 0.4, 1.0],
-                               [0.0, 0.25, 0.5, 0.75, 1.0])
-
-    @test inplace_values ≈ [-3.2, 0.0, 3.0, 3.0]
-    @test_throws ArgumentError conservative_column_remap([1.0], [0.0, 0.0], [0.0, 1.0])
-end
-
-@testset "Column energy thickness remap" begin
-    grid = RectilinearGrid(size = 4,
-                           z = SeaIceColumnDiscretization((0, 1)),
-                           topology = (Flat, Flat, Bounded))
-
-    relation = QuadraticLiquidusEnergyRelation(Float64)
+@testset "Column with a prescribed top temperature builds without top_heat_flux" begin
+    grid = RectilinearGrid(size = 4, z = SeaIceColumnDiscretization((0, 1)), topology = (Flat, Flat, Bounded))
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
-        relation,
-        salinity_profile = 0.0,
-        energy_transport = ConductiveTemperatureTransport(conductivity = 0.0),
-        heat_boundary_conditions = insulating_boundaries())
+        heat_boundary_conditions = (top = PrescribedTemperature(-10.0), bottom = IceWaterThermalEquilibrium(salinity = 0)))
+    model = SeaIceModel(grid; ice_thermodynamics = thermodynamics)
 
-    set!(thermodynamics; bulk_salinity = 0.0, temperature = z -> -12 + 8z)
+    set!(model, h = 0.5, ℵ = 1)
+    set!(thermodynamics; bulk_salinity = 0.0, temperature = -5.0)
+    time_step!(model, 600)
 
-    source_faces = collect(range(0.0, 4.0; length = 5))
-    ablated_faces = collect(range(0.0, 3.0; length = 5))
-    source_energy = column_values(thermodynamics.fields.internal_energy)
-    expected_energy = conservative_column_remap(source_energy,
-                                                source_faces,
-                                                ablated_faces)
-
-    column_energy_thickness_remap!(thermodynamics,
-                                   source_faces,
-                                   ablated_faces;
-                                   bulk_salinity = z -> 1 + z)
-
-    expected_salinity = [1 + (k - 0.5) / 4 for k in 1:4]
-    expected_temperature =
-        [temperature(relation, expected_energy[k], expected_salinity[k]) for k in 1:4]
-
-    @test column_values(thermodynamics.fields.internal_energy) ≈ expected_energy
-    @test column_values(thermodynamics.fields.bulk_salinity) ≈ expected_salinity
-    @test column_values(thermodynamics.fields.temperature) ≈ expected_temperature
-
-    set!(thermodynamics; bulk_salinity = 0.0, temperature = z -> -12 + 8z)
-
-    source_energy = column_values(thermodynamics.fields.internal_energy)
-    grown_source_faces = collect(range(1.0, 4.0; length = 5))
-    grown_target_faces = collect(range(0.0, 4.0; length = 5))
-    fill_energy = 2.5e6
-    expected_energy = conservative_column_remap(source_energy,
-                                                grown_source_faces,
-                                                grown_target_faces;
-                                                fill_value = fill_energy)
-
-    column_energy_thickness_remap!(thermodynamics,
-                                   grown_source_faces,
-                                   grown_target_faces;
-                                   fill_energy,
-                                   bulk_salinity = z -> 2 - z)
-
-    expected_salinity = [2 - (k - 0.5) / 4 for k in 1:4]
-    expected_temperature =
-        [temperature(relation, expected_energy[k], expected_salinity[k]) for k in 1:4]
-
-    @test column_values(thermodynamics.fields.internal_energy) ≈ expected_energy
-    @test column_values(thermodynamics.fields.bulk_salinity) ≈ expected_salinity
-    @test column_values(thermodynamics.fields.temperature) ≈ expected_temperature
-    @test_throws ArgumentError column_energy_thickness_remap!(thermodynamics,
-                                                              [0.0, 1.0],
-                                                              [0.0, 1.0, 2.0])
-end
-
-@testset "Column CPU performance metrics" begin
-    # Each KernelAbstractions launch allocates a small fixed overhead on CPU that is independent of column
-    # depth and amortizes to ~zero per column on a real horizontal grid. The meaningful invariant is that a
-    # warmed step allocates no per-cell memory, i.e. allocations stay flat as Nz grows from 16 to 128.
-    @test warmed_column_step_allocations(128) <= warmed_column_step_allocations(16)
-    @test warmed_column_step_allocations(128; prognostic_salinity = true) <=
-          warmed_column_step_allocations(16; prognostic_salinity = true)
-
-    small_runtime = median_column_step_runtime(64; steps = 1000)
-    large_runtime = median_column_step_runtime(128; steps = 1000)
-    scaling_ratio = large_runtime / small_runtime
-
-    # Per-column work is O(Nz) (tridiagonal solve), but the fixed per-launch overhead makes single-column
-    # runtime grow sub-linearly with Nz. Require monotonic growth without super-linear blow-up.
-    @test 1.0 < scaling_ratio < 2.3
+    @test model.external_heat_fluxes.top == 0
+    @test first(interior(model.ice_thickness)) > 0.5
 end

@@ -1,10 +1,7 @@
 # # Sea ice advected by an atmospheric anticyclone example
 #
 # This example simulates sea ice advected by an atmospheric anticyclone, based on
-# the experiment found in the paper:
-#
-# > Simulating Linear Kinematic Features in Viscous-Plastic Sea Ice Models on
-# > Quadrilateral and Triangular Grids With Different Variable Staggering
+# the experiment described by [Mehlmann2021](@citet).
 #
 # The ice is driven by a moving anticyclonic atmospheric eddy and interacts with
 # a cyclonic ocean eddy. This example demonstrates how to:
@@ -164,7 +161,7 @@ outputs = (; h, u, v, ℵ)
 simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
                                                  filename = "sea_ice_advected_by_anticyclone.jld2",
                                                  schedule = IterationInterval(5),
-                                                 overwrite_existing = true)
+                                                 overwrite_files = true)
 
 
 # We can finally run the simulation

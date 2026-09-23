@@ -59,13 +59,13 @@ MeltingConstrainedFluxBalance() = MeltingConstrainedFluxBalance(NonlinearSurface
                                     internal_fluxes, external_fluxes, clock, model_fields)
 
     # Schematic of the Stefan condition at an upper top
-    #        
+    #
     #  air       ↑   Qx ≡ external_fluxes. Example: Qx = σ T⁴
     #          |⎴⎴⎴|
     # ----------------------- ↕ hₛ(t) → ℒ ∂t hₛ = δQ | T ≤ Tₘ
     #          |⎵⎵⎵|
     #  ice       ↑   Qi ≡ internal_fluxes. Example Qi = - k ∂z T
-    #      
+    #
 
     Qi = getflux(internal_fluxes, i, j, grid, top_surface_temperature, clock, model_fields)
     Qx = getflux(external_fluxes, i, j, grid, top_surface_temperature, clock, model_fields)

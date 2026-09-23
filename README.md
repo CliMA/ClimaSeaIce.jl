@@ -1,39 +1,52 @@
+# ClimaSeaIce.jl
 
-<p align="center">
-  <a href="https://doi.org/10.5281/zenodo.16143708" >
-    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.16143708.svg?style=flat-square"/>
-  </a>
-  <a href="https://codecov.io/gh/CliMA/ClimaSeaIce.jl" >
-    <img src="https://codecov.io/gh/CliMA/ClimaSeaIce.jl/graph/badge.svg?token=3Smw4jVzZG"/>
-  </a>
-  <a href="https://clima.github.io/ClimaSeaIceDocumentation/dev">
-    <img alt="Development documentation" src="https://img.shields.io/badge/documentation-in%20development-orange">
-  </a>
-</p>
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16143708.svg?style=flat-square)](https://doi.org/10.5281/zenodo.16143708)
+[![Aqua](https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![codecov](https://codecov.io/gh/CliMA/ClimaSeaIce.jl/graph/badge.svg?token=3Smw4jVzZG)](https://codecov.io/gh/CliMA/ClimaSeaIce.jl)
+[![Documentation](https://img.shields.io/badge/documentation-in%20development-orange)](https://clima.github.io/ClimaSeaIceDocumentation/dev)
 
-<!-- Title -->
-<h1 align="center">
-  ClimaSeaIce.jl
-</h1>
+ClimaSeaIce.jl is Julia software for simulating the freezing, melting, and horizontal motion of sea ice on CPUs and GPUs. It is designed for climate-scale sea-ice modeling, supports standalone simulations, and can be coupled to ocean models built with [Oceananigans.jl](https://github.com/CliMA/Oceananigans.jl).
 
-<!-- description -->
-<p align="center">
-  <strong>🧊 Fast and friendly Julia software for simulating the freezing, melting, and horizontal motion of salty ice on CPUs and GPUs.</strong>
-</p>
+## What ClimaSeaIce provides
 
+- Sea-ice thermodynamics for freezing, melting, conductive heat transfer, and surface and basal heat-flux parameterizations.
+- Sea-ice dynamics with explicit and split-explicit momentum solvers.
+- Multiple rheological closures, including viscous and elasto-visco-plastic options.
+- Support for standalone sea-ice models and models coupled to Oceananigans-based ocean simulations.
 
-ClimaSeaIce is a library that empowers users to configure and run simulations of sea ice freezing, melting, and horizontal motion on the
-large time and spatial scales appropriate for climate modeling.
-We support stand-alone simulations of sea ice dynamics as well as simulations coupled to ocean models based on [Oceananigans]().
+## Installation
 
-## [Documentation!](https://clima.github.io/ClimaSeaIceDocumentation/dev/)
+Install the latest registered release with
 
-Our documentation and source code are works in progress.
-When things have progressed, we'll put an outline here.
+```julia
+using Pkg
+Pkg.add("ClimaSeaIce")
+```
 
-### Citing
+To use the development version from GitHub, use
 
-If you use ClimaSeaIcea for your research, teaching, or fun 🤩, everyone in our community will be grateful
-if you give credit by citing the corresponding Zenodo record, e.g.,
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/CliMA/ClimaSeaIce.jl")
+```
 
-> Silvestri, S. et al. (2026). CliMA/ClimaSeaIce.jl: v0.4.3 (v0.4.3). Zenodo. https://doi.org/10.5281/zenodo.16143708
+## Documentation
+
+Documentation is available at:
+
+- [Stable documentation](https://clima.github.io/ClimaSeaIceDocumentation/stable/)
+- [Development documentation](https://clima.github.io/ClimaSeaIceDocumentation/dev/)
+
+The documentation includes model setup, physics descriptions, examples, and internal implementation notes.
+
+## Quick start
+
+The main entry point is `SeaIceModel`. Thermodynamic parameterizations live under `SeaIceThermodynamics`, and momentum closures and rheologies live under `SeaIceDynamics` and `Rheologies`.
+
+Example scripts are available in [`examples/`](https://github.com/CliMA/ClimaSeaIce.jl/tree/main/examples).
+
+## Citing
+
+If you use ClimaSeaIce.jl in research, teaching, or derived software, please cite the Zenodo record:
+
+> Silvestri, S. et al. (2026). *CliMA/ClimaSeaIce.jl: v0.5.6* (v0.5.6). Zenodo. <https://doi.org/10.5281/zenodo.16143708>

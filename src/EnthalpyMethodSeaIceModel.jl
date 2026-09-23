@@ -1,25 +1,12 @@
 module EnthalpyMethodSeaIceModels
 
-using Oceananigans.BoundaryConditions:
-    fill_halo_regions!,
-    regularize_field_boundary_conditions,
-    FieldBoundaryConditions,
-    compute_z_bcs!,
-    ValueBoundaryCondition
-
-using Oceananigans.Utils: prettytime, launch!
-using Oceananigans.Fields: CenterField, ZFaceField, Field, Center, Face, interior, TracerFields
-using Oceananigans.Models: AbstractModel
-using Oceananigans.TimeSteppers: Clock, tick!
-using Oceananigans.Operators
-
 using KernelAbstractions: @kernel, @index
-
-# Simulations interface
-import Oceananigans: fields, prognostic_fields
-import Oceananigans.Fields: set!
-import Oceananigans.TimeSteppers: time_step!, update_state!
-import Oceananigans.Simulations: reset!
+using Oceananigans: Oceananigans, AbstractModel, fields
+using Oceananigans.BoundaryConditions: fill_halo_regions!, regularize_field_boundary_conditions, compute_z_bcs!
+using Oceananigans.Fields: CenterField, interior, TracerFields, set!
+using Oceananigans.Operators: ℑzᵃᵃᶠ, ∂zᶜᶜᶜ, ∂zᶜᶜᶠ
+using Oceananigans.TimeSteppers: Clock, tick!, update_state!
+using Oceananigans.Utils: prettytime, launch!
 
 mutable struct EnthalpyMethodSeaIceModel{Grid,
                                          Tim,
@@ -80,17 +67,17 @@ function EnthalpyMethodSeaIceModel(; grid,
     clock = Clock{eltype(grid)}(time = 0)
 
     return EnthalpyMethodSeaIceModel(grid,
-                                    nothing,
-                                    clock,
-                                    closure,
-                                    state,
-                                    ice_heat_capacity,
-                                    water_heat_capacity,
-                                    fusion_enthalpy,
-                                    tendencies)
+                                     nothing,
+                                     clock,
+                                     closure,
+                                     state,
+                                     ice_heat_capacity,
+                                     water_heat_capacity,
+                                     fusion_enthalpy,
+                                     tendencies)
 end
 
-function set!(model::ETSIM; T=nothing, H=nothing)
+function Oceananigans.Fields.set!(model::ETSIM; T=nothing, H=nothing)
 
     setting_temperature = !isnothing(T)
     setting_enthalpy = !isnothing(H)
@@ -114,8 +101,8 @@ end
 ##### Utilities
 #####
 
-fields(model::ETSIM) = model.state
-prognostic_fields(model::ETSIM) = (; model.state.H)
+Oceananigans.fields(model::ETSIM) = model.state
+Oceananigans.prognostic_fields(model::ETSIM) = (; model.state.H)
 
 #####
 ##### Time-stepping
@@ -130,14 +117,14 @@ function compute_porosity!(model)
     return nothing
 end
 
-@kernel function _compute_porosity!(ϕ, grid, T)   
-    i, j, k = @index(Global, NTuple) 
+@kernel function _compute_porosity!(ϕ, grid, T)
+    i, j, k = @index(Global, NTuple)
 
     FT = eltype(grid)
     Tₘ = zero(FT) # melting temperature
 
     @inbounds begin
-        Tᵢ = T[i, j, k] 
+        Tᵢ = T[i, j, k]
         ϕ[i, j, k] = ifelse(Tᵢ < Tₘ, one(FT), zero(FT))
     end
 end
@@ -166,23 +153,19 @@ function update_enthalpy!(model)
     # set temperature from enthalpy via dH = c dT + ℒ ϕ
     interior(H) .= c .* interior(T) + ℒ * interior(ϕ)
 
-    arch = model.grid.architecture
     fill_halo_regions!(H, model.clock, fields(model))
 
     return nothing
 end
 
-function update_state!(model::ETSIM)
-    grid = model.grid
-    arch = grid.architecture
-    args = (model.clock, fields(model))
+function Oceananigans.TimeSteppers.update_state!(model::ETSIM)
     compute_temperature!(model)
     compute_porosity!(model)
     compute_diffusivity!(model.closure, model)
     return nothing
 end
 
-function time_step!(model::ETSIM, Δt; callbacks=nothing)
+function Oceananigans.TimeSteppers.time_step!(model::ETSIM, Δt; callbacks=nothing)
     grid = model.grid
     arch = grid.architecture
     Ψ = model.state
@@ -242,7 +225,7 @@ function compute_diffusivity!(closure::MolecularDiffusivity, model)
 end
 
 @kernel function _compute_molecular_diffusivity!(κ, κ_ice, κ_water, ϕ)
-    i, j, k = @index(Global, NTuple) 
+    i, j, k = @index(Global, NTuple)
     @inbounds begin
         ϕᵢ = ϕ[i, j, k] # porosity or liquid fraction
         κ[i, j, k] = κ_ice * (1 - ϕᵢ) + κ_water * ϕᵢ
