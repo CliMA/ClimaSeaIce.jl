@@ -170,7 +170,7 @@ end
     # resistors in series formulation: F = (Tb - Tu) / (hs/ks + hi/ki).
     ks = snow_thermodynamics.internal_heat_flux.conductivity
     ki = ice_thermodynamics.internal_heat_flux.conductivity
-    combined_flux = IceSnowConductiveFlux(ks, ki)
+    combined_flux = IceSnowConductiveFlux(ks, ki, ice_thermodynamics.internal_heat_flux.itd_shape)
 
     # Column internal heat flux
     Qic = internal_flux_function(combined_flux, liquidus, bottom_bc)

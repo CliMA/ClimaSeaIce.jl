@@ -1,6 +1,6 @@
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions,
-    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat
+using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions, ThicknessDependentConductivity,
+    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: PrescribedTemperature, FluxFunction
 using Oceananigans
 using Oceananigans: prognostic_fields
@@ -185,4 +185,16 @@ end
         run!(simulation)
         @test model.clock.iteration == 3
     end
+end
+
+@testset "Sub-grid thickness correction of the conductivity" begin
+    # N equal-area categories of thickness (2i - 1) h / N conduct Σᵢ 1 / (2i - 1) times more than the mean thickness
+    @test ConductiveFlux(Float64; conductivity=2).conductivity == 2
+    @test ConductiveFlux(Float64; conductivity=2, thickness_categories=5).conductivity ≈ 2 * (1 + 1/3 + 1/5 + 1/7 + 1/9)
+
+    # The thickness-dependent correction s / (s - 1) grows as the assumed distribution widens with thickness
+    flux = ConductiveFlux(Float64; conductivity=2, itd_shape=ThicknessDependentConductivity())
+    thin_conductance  = 0.1 * slab_internal_heat_flux(flux, -10.0, -1.8, 0.1)
+    thick_conductance = 5.0 * slab_internal_heat_flux(flux, -10.0, -1.8, 5.0)
+    @test thick_conductance > thin_conductance > 2 * 8.2
 end

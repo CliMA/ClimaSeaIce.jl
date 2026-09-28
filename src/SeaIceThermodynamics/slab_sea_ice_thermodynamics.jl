@@ -41,10 +41,11 @@ live on `SeaIceModel` (as `snow_density` and `phase_transitions` respectively).
 """
 function snow_slab_thermodynamics(grid;
                                   conductivity = 0.31, # W/(m K)
+                                  thickness_categories = 1,
                                   kw...)
 
     FT = eltype(grid)
-    internal_heat_flux = ConductiveFlux(FT; conductivity)
+    internal_heat_flux = ConductiveFlux(FT; conductivity, thickness_categories)
     return SlabThermodynamics(grid; internal_heat_flux, kw...)
 end
 
