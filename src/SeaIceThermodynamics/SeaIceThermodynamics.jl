@@ -1,7 +1,6 @@
 module SeaIceThermodynamics
 
-export effective_conductivity_factor,
-       SlabThermodynamics,
+export SlabThermodynamics,
        snow_slab_thermodynamics,
        sea_ice_slab_thermodynamics,
        PhaseTransitions,
@@ -10,7 +9,8 @@ export effective_conductivity_factor,
        RadiativeEmission,
        ConductiveFlux,
        IceSnowConductiveFlux,
-       ThicknessDependentConductivity,
+       UniformThicknessDistribution,
+       GammaThicknessDistribution,
        FluxFunction
 
 using Adapt: Adapt

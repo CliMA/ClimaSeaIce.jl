@@ -1,6 +1,6 @@
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions, ThicknessDependentConductivity,
-    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux
+using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions, GammaThicknessDistribution,
+    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux, itd_factor
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: PrescribedTemperature, FluxFunction
 using Oceananigans
 using Oceananigans: prognostic_fields
@@ -189,12 +189,35 @@ end
 
 @testset "Sub-grid thickness correction of the conductivity" begin
     # N equal-area categories of thickness (2i - 1) h / N conduct Σᵢ 1 / (2i - 1) times more than the mean thickness
-    @test ConductiveFlux(Float64; conductivity=2).conductivity == 2
-    @test ConductiveFlux(Float64; conductivity=2, thickness_categories=5).conductivity ≈ 2 * (1 + 1/3 + 1/5 + 1/7 + 1/9)
+    bare = ConductiveFlux(Float64; conductivity=2)
+    flux = ConductiveFlux(Float64; conductivity=2, itd_shape=UniformThicknessDistribution(Float64; categories=5))
+    @test slab_internal_heat_flux(bare, -10.0, -1.8, 1.0) ≈ 2 * 8.2
+    @test slab_internal_heat_flux(flux, -10.0, -1.8, 1.0) ≈ 2 * 8.2 * (1 + 1/3 + 1/5 + 1/7 + 1/9)
+    @test UniformThicknessDistribution(Float64; categories=1).conductivity_factor == 1
 
     # The thickness-dependent correction s / (s - 1) grows as the assumed distribution widens with thickness
-    flux = ConductiveFlux(Float64; conductivity=2, itd_shape=ThicknessDependentConductivity())
+    flux = ConductiveFlux(Float64; conductivity=2, itd_shape=GammaThicknessDistribution())
     thin_conductance  = 0.1 * slab_internal_heat_flux(flux, -10.0, -1.8, 0.1)
     thick_conductance = 5.0 * slab_internal_heat_flux(flux, -10.0, -1.8, 5.0)
     @test thick_conductance > thin_conductance > 2 * 8.2
+end
+
+@testset "Sub-grid thickness correction of the snow and ice column" begin
+    grid = RectilinearGrid(size=(1, 1), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
+    model = SeaIceModel(grid; snow_thermodynamics=snow_slab_thermodynamics(grid))
+    set!(model, h=1, hs=0.3)
+
+    fields = (h = model.ice_thickness, hs = model.snow_thickness)
+    liquidus = model.phase_transitions.liquidus
+    bottom_heat_boundary_condition = model.ice_thermodynamics.heat_boundary_conditions.bottom
+    column_flux(flux) = ice_snow_conductive_flux(1, 1, grid, -10.0, model.clock, fields, (; flux, liquidus, bottom_heat_boundary_condition))
+    snow_ice_temperature(flux) = interface_temperature(1, 1, grid, flux, bottom_heat_boundary_condition, liquidus, -10.0, fields)
+
+    # Snow and ice are scaled alike: the column conducts `itd_factor` times more and the snow-ice interface stays put
+    bare = IceSnowConductiveFlux(0.31, 2.0)
+    for itd_shape in (UniformThicknessDistribution(Float64; categories=5), GammaThicknessDistribution(Float64))
+        corrected = IceSnowConductiveFlux(0.31, 2.0, itd_shape)
+        @test column_flux(corrected) ≈ itd_factor(itd_shape, 1.0) * column_flux(bare)
+        @test snow_ice_temperature(corrected) ≈ snow_ice_temperature(bare)
+    end
 end
