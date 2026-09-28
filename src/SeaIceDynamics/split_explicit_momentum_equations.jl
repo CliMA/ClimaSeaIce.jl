@@ -1,5 +1,5 @@
 using Oceananigans: instantiated_location
-using Oceananigans.Architectures: convert_to_device, architecture
+using Oceananigans.Architectures: convert_to_device, architecture, child_architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.Grids: AbstractGrid, halo_size, halo_size, topology, with_halo, peripheral_node,
@@ -8,7 +8,7 @@ using Oceananigans.Grids: AbstractGrid, halo_size, halo_size, topology, with_hal
                           LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                           LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
 using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
-using Oceananigans.Utils: configure_kernel
+using Oceananigans.Utils: configure_kernel, launch_captured!, step_value
 
 const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 RightCenterFolded, RightFaceFolded,
@@ -147,12 +147,12 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     substeps = dynamics.solver.substeps
 
-    u_args = (u, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, u_immersed_bc, top_stress, bottom_stress, basal_stress, u_forcing)
-    v_args = (v, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, v_immersed_bc, top_stress, bottom_stress, basal_stress, v_forcing)
+    u_args = (u, grid, substeps, rheology, model_fields, free_drift, coriolis, massmin, ℵmin, u_immersed_bc, top_stress, bottom_stress, basal_stress, u_forcing)
+    v_args = (v, grid, substeps, rheology, model_fields, free_drift, coriolis, massmin, ℵmin, v_immersed_bc, top_stress, bottom_stress, basal_stress, v_forcing)
 
     u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
     v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
-    stresses_args    = (model_fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc)
+    stresses_args    = (model_fields, grid, rheology, u_immersed_bc, v_immersed_bc)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
         # We need to timestep ~150 substeps, which means
@@ -177,23 +177,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         fill_halo_regions!(converted_u_halo...; only_local_halos = true)
         fill_halo_regions!(converted_v_halo...; only_local_halos = true)
 
-        for substep in 1 : substeps
-            # Compute stresses! depending on the particular rheology implementation
-            compute_stresses!(dynamics, converted_stresses_args...)
+        step_values = (; Δt, clock = convert_to_device(arch, clock))
 
-            # Alternating leap-frog.
-            if iseven(substep)
-                u_velocity_kernel!(converted_u_args...)
-                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
-                v_velocity_kernel!(converted_v_args...)
-                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
-            else
-                v_velocity_kernel!(converted_v_args...)
-                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
-                u_velocity_kernel!(converted_u_args...)
-                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
-            end
-        end
+        launch_captured!(substep_momentum!, child_architecture(arch), step_values, dynamics, u_velocity_kernel!, v_velocity_kernel!,
+                         converted_u_args, converted_v_args, converted_u_halo, converted_v_halo, converted_stresses_args, substeps)
     end
 
     finalize_rheology!(model_fields, rheology)
@@ -201,13 +188,42 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     return nothing
 end
 
-@kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology,
-                                   fields, free_drift, clock, coriolis,
+function substep_momentum!(step_values, dynamics, u_velocity_kernel!, v_velocity_kernel!,
+                           u_args, v_args, u_halo, v_halo, stresses_args, substeps)
+
+    Δt, clock = step_values
+    fields, grid, rheology, u_immersed_bc, v_immersed_bc = stresses_args
+
+    for substep in 1 : substeps
+        # Compute stresses! depending on the particular rheology implementation
+        compute_stresses!(dynamics, fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc)
+
+        # Alternating leap-frog.
+        if iseven(substep)
+            u_velocity_kernel!(Δt, clock, u_args...)
+            fill_halo_regions!(u_halo...; only_local_halos = true)
+            v_velocity_kernel!(Δt, clock, v_args...)
+            fill_halo_regions!(v_halo...; only_local_halos = true)
+        else
+            v_velocity_kernel!(Δt, clock, v_args...)
+            fill_halo_regions!(v_halo...; only_local_halos = true)
+            u_velocity_kernel!(Δt, clock, u_args...)
+            fill_halo_regions!(u_halo...; only_local_halos = true)
+        end
+    end
+
+    return nothing
+end
+
+@kernel function _u_velocity_step!(Δt, clock, u, grid, substeps, rheology,
+                                   fields, free_drift, coriolis,
                                    minimum_mass, minimum_concentration,
                                    u_immersed_bc, u_top_stress, u_bottom_stress, basal_stress, u_forcing)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
+    Δt   = step_value(Δt)
+    clock = step_value(clock)
 
     mᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
     ℵᵢ = ℑxᶠᵃᵃ(i, j, kᴺ, grid, fields.ℵ)
@@ -236,13 +252,15 @@ end
     @inbounds u[i, j, 1] = ifelse(active_ice, uᴰ, ifelse(marginal_ice, uᶠ, zero(grid))) * active
 end
 
-@kernel function _v_velocity_step!(v, grid, Δt, substeps, rheology,
-                                   fields, free_drift, clock, coriolis,
+@kernel function _v_velocity_step!(Δt, clock, v, grid, substeps, rheology,
+                                   fields, free_drift, coriolis,
                                    minimum_mass, minimum_concentration,
                                    v_immersed_bc, v_top_stress, v_bottom_stress, basal_stress, v_forcing)
 
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
+    Δt   = step_value(Δt)
+    clock = step_value(clock)
 
     mᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, ice_mass, fields.h, fields.ℵ, fields.ρ)
     ℵᵢ = ℑyᵃᶠᵃ(i, j, kᴺ, grid, fields.ℵ)
