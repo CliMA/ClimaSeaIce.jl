@@ -72,8 +72,9 @@ function Oceananigans.Advection.materialize_advection(scheme::IncrementalRemappi
     return IncrementalRemapping{N, R, T}(reconstruction, transports)
 end
 
-validate_advection_timestepper(::IncrementalRemapping, timestepper) =
+function validate_advection_timestepper(::IncrementalRemapping, timestepper)
     throw(ArgumentError("IncrementalRemapping requires timestepper = :ForwardEuler, got $(summary(timestepper))"))
+end
 
 validate_advection_timestepper(::IncrementalRemapping, ::ForwardEulerTimeStepper) = nothing
 
@@ -123,7 +124,7 @@ validate_advection_timestepper(::IncrementalRemapping, ::ForwardEulerTimeStepper
     return cmin, cmax
 end
 
-# Thickness of a neighbour, replaced by the local value where that neighbour carries no ice, so open
+# Thickness of a neighbor, replaced by the local value where that neighbor carries no ice, so open
 # water does not drag the thickness reconstruction of an ice-covered cell toward zero.
 @inline function iced_thickness(i, j, k, grid, h, ℵ, h₀)
     @inbounds ℵᵢ = ℵ[i, j, k]
@@ -148,7 +149,7 @@ end
     return hmin, hmax
 end
 
-# Barth--Jespersen scaling: the largest α ≤ 1 keeping the reconstruction within the neighbourhood
+# Barth--Jespersen scaling: the largest α ≤ 1 keeping the reconstruction within the neighborhood
 # bounds over a cell whose extreme corner sits `δ` away from the anchor.
 @inline function limiting_factor(δ, c₀, cmin, cmax)
     α = min(one(δ), (cmax - c₀) / δ, (c₀ - cmin) / δ)
@@ -217,7 +218,7 @@ end
     ℵx = α * ℵx
     ℵy = α * ℵy
 
-    # xa = ∫ℵ̃ x dA / ∫ℵ̃ dA = ℵx Δx² / (12 ℵ₀), measured from the cell centre, and likewise in y
+    # xa = ∫ℵ̃ x dA / ∫ℵ̃ dA = ℵx Δx² / (12 ℵ₀), measured from the cell center, and likewise in y
     ℵᵐⁱⁿ = minimum_ice_concentration(typeof(ℵ₀))
     iced = ℵ₀ > ℵᵐⁱⁿ
     xa = ifelse(iced, ℵx * Δx^2 / (12 * ℵ₀), zero(ℵ₀))
@@ -242,8 +243,8 @@ end
 ##### Point evaluation of the reconstruction
 #####
 
-# Evaluate the reconstructions at `(x, y)`, measured from the centre of cell `(i, j)`. The point may lie
-# in a neighbouring cell, so the containing cell is located first and its own reconstruction is used.
+# Evaluate the reconstructions at `(x, y)`, measured from the center of cell `(i, j)`. The point may lie
+# in a neighboring cell, so the containing cell is located first and its own reconstruction is used.
 @inline function reconstruct(i, j, k, grid, x, y, ℵ, h, hs, r)
     Δx = Δxᶜᶜᶜ(i, j, k, grid)
     Δy = Δyᶜᶜᶜ(i, j, k, grid)
@@ -279,10 +280,8 @@ end
 ##### Transport through the swept region of a face
 #####
 
-# The region swept through the face is spanned by (x, y)(η, s) = p(η) - s Δt 𝐮(η) on (η, s) ∈ [0, 1]²,
-# where `p(η)` runs along the face and `𝐮(η)` is the corner velocity interpolated along it, in
-# coordinates local to the face midpoint. The Jacobian is signed, so a face whose normal velocity
-# changes sign along its length contributes the difference of the two lobes.
+# Swept region: (x, y)(η, s) = p(η) - s Δt 𝐮(η) on [0, 1]², with `p` along the face and `𝐮` the interpolated corner
+# velocity, local to the face midpoint. The signed Jacobian subtracts the two lobes of a sign-changing face.
 @inline function x_face_transport(i, j, k, grid, ::Val{N}, Δt, u, v, ℵ, h, hs, r) where N
     FT = eltype(grid)
 
@@ -367,11 +366,9 @@ end
 @inline mask_immersed_transport_x(i, j, k, grid, 𝔉) = 𝔉
 @inline mask_immersed_transport_y(i, j, k, grid, 𝔉) = 𝔉
 
-@inline mask_immersed_transport_x(i, j, k, ibg::ImmersedBoundaryGrid, 𝔉) =
-    conditional_flux_fcc(i, j, k, ibg, zero(ibg), 𝔉)
+@inline mask_immersed_transport_x(i, j, k, ibg::ImmersedBoundaryGrid, 𝔉) = conditional_flux_fcc(i, j, k, ibg, zero(ibg), 𝔉)
 
-@inline mask_immersed_transport_y(i, j, k, ibg::ImmersedBoundaryGrid, 𝔉) =
-    conditional_flux_cfc(i, j, k, ibg, zero(ibg), 𝔉)
+@inline mask_immersed_transport_y(i, j, k, ibg::ImmersedBoundaryGrid, 𝔉) = conditional_flux_cfc(i, j, k, ibg, zero(ibg), 𝔉)
 
 @kernel function _compute_x_transports!(transports, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
     i, j = @index(Global, NTuple)

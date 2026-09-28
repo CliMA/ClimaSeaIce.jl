@@ -169,7 +169,7 @@ outputs = (; h, u, v, ℵ)
 simulation.output_writers[:sea_ice] = JLD2Writer(model, outputs;
                                                  filename = "marginal_ice_advection.jld2",
                                                  schedule = IterationInterval(10),
-                                                 overwrite_existing = true)
+                                                 overwrite_files = true)
 
 # We can finally run the simulation
 

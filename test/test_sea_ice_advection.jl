@@ -83,9 +83,8 @@ end
 ##### Incremental remapping
 #####
 
-remapping_grid(Nx; halo = 4) =
-    RectilinearGrid(size = (Nx, Nx, 1), x = (0, 1), y = (0, 1), z = (-1, 0),
-                    halo = (halo, halo, halo), topology = (Periodic, Periodic, Bounded))
+remapping_grid(Nx; halo = 4) = RectilinearGrid(size = (Nx, Nx, 1), x = (0, 1), y = (0, 1), z = (-1, 0),
+                                               halo = (halo, halo, halo), topology = (Periodic, Periodic, Bounded))
 
 # A discretely non-divergent swirl: u = -∂ψ/∂y, v = ∂ψ/∂x from a streamfunction at cell corners.
 function swirling_velocities(grid; amplitude = 0.1)

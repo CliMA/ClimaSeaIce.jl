@@ -141,10 +141,7 @@ hexact = @lift([iced(mod(ξ - U * time($iter), 1)) ? 1.5 : 0.0 for ξ in x])
 lines!(axℵ, x, ℵexact, color = (:black, 0.35), linewidth = 6, label = "exact")
 lines!(axh, x, hexact, color = (:black, 0.35), linewidth = 6)
 
-## The thickness is only meaningful where there is ice to carry it. Each scheme leaves a different
-## trail of vanishing concentration behind the hat, and `h` is defined out to wherever that trail
-## survives the model's `ℵᵐⁱⁿ` floor — so plotting `h` unmasked makes the schemes look shifted
-## relative to one another when it is only their tails that differ.
+## `h` is masked where the ice vanishes, so the schemes' different trailing tails do not show up as shifts
 ice_threshold = 1e-3
 
 for (n, configuration) in enumerate(configurations)
