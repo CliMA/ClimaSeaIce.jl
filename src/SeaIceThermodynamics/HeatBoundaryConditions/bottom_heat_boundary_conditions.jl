@@ -34,7 +34,8 @@ IceWaterThermalEquilibrium(; salinity=0) = IceWaterThermalEquilibrium(salinity)
 @inline bottom_temperature(i, j, grid, bc::PrescribedTemperature{<:Number}, args...) = bc.temperature
 
 @inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, liquidus)
-    Sₒ = get_tracer(i, j, 1, grid, bc.salinity)
+    kᴺ = size(grid, 3)
+    Sₒ = get_tracer(i, j, kᴺ, grid, bc.salinity)
     return melting_temperature(liquidus, Sₒ)
 end
 
