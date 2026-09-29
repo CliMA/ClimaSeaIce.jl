@@ -9,6 +9,8 @@ export SlabThermodynamics,
        RadiativeEmission,
        ConductiveFlux,
        IceSnowConductiveFlux,
+       UniformThicknessDistribution,
+       GammaThicknessDistribution,
        FluxFunction
 
 using Adapt: Adapt
