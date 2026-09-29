@@ -25,12 +25,8 @@ const f = Face()
 
 @inline _ice_stress_uy(i, j, k, grid, rheology, clock, fields, lbc) = ice_stress_uy(i, j, k, grid, rheology, clock, fields)
 @inline _ice_stress_vx(i, j, k, grid, rheology, clock, fields, lbc) = ice_stress_vx(i, j, k, grid, rheology, clock, fields)
-
-@inline _ice_stress_uy(i, j, k, ibg::IBG, rheology, clock, fields, lbc) =
-    wall_shear_stress(lbc, i, j, k, ibg, ice_stress_uy(i, j, k, ibg, rheology, clock, fields))
-
-@inline _ice_stress_vx(i, j, k, ibg::IBG, rheology, clock, fields, lbc) =
-    wall_shear_stress(lbc, i, j, k, ibg, ice_stress_vx(i, j, k, ibg, rheology, clock, fields))
+@inline _ice_stress_uy(i, j, k, ibg::IBG, rheology, clock, fields, lbc) = wall_shear_stress(lbc, i, j, k, ibg, ice_stress_uy(i, j, k, ibg, rheology, clock, fields))
+@inline _ice_stress_vx(i, j, k, ibg::IBG, rheology, clock, fields, lbc) = wall_shear_stress(lbc, i, j, k, ibg, ice_stress_vx(i, j, k, ibg, rheology, clock, fields))
 
 @inline wall_shear_stress(::FreeSlip, i, j, k, ibg, σ) = conditional_flux_ffc(i, j, k, ibg, zero(ibg), σ)
 @inline wall_shear_stress(::NoSlip,   i, j, k, ibg, σ) = σ
