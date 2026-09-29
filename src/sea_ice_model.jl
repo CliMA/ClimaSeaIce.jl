@@ -50,19 +50,6 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, S
     advection :: A
 end
 
-assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Center, Nothing) :
-                                       name === :v  ? (Center, Face,   Nothing) :
-                                                      (Center, Center, Nothing)
-
-function default_sea_ice_boundary_conditions(grid, name)
-    bcs = FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
-    if (name === :u || name === :v) && bcs.north isa BoundaryCondition && bcs.north.classification isa Zipper
-        north = BoundaryCondition(bcs.north.classification, - bcs.north.condition)
-        bcs = FieldBoundaryConditions(bcs.west, bcs.east, bcs.south, north, bcs.bottom, bcs.top, bcs.immersed)
-    end
-    return bcs
-end
-
 """
     SeaIceModel(grid;
                 clock                       = Clock{eltype(grid)}(time = 0),
@@ -232,6 +219,7 @@ function SeaIceModel(grid;
     # TODO: should we have ice thickness and concentration as part of the tracers or
     # just additional fields of the sea ice model?
     tracers = merge(tracers, (; S = ice_salinity))
+
     timestepper = TimeStepper(timestepper, grid, prognostic_fields)
 
     # The layered (snow + ice) step writes the ice top surface temperature, so it
@@ -262,6 +250,8 @@ function SeaIceModel(grid;
     # Fill any settings in advection scheme that might have been deferred until
     # the grid and backend is known
     advection = materialize_advection(advection, grid)
+
+    validate_advection_timestepper(advection, timestepper)
 
     # Package the external fluxes and boundary conditions
     external_heat_fluxes = (top = top_heat_flux,
@@ -297,6 +287,8 @@ function SeaIceModel(grid;
 end
 
 const SIM = SeaIceModel
+
+validate_advection_timestepper(advection, timestepper) = nothing
 
 function Oceananigans.Fields.set!(model::SIM; h=nothing, ℵ=nothing, hs=nothing, u=nothing, v=nothing)
     !isnothing(h)  && set!(model.ice_thickness, h)
