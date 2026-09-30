@@ -103,7 +103,7 @@ end
                                   bottom_external_heat_flux,
                                   clock, model_fields)
 
-    hⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_𝓋, hⁿ, ℵⁿ, hᶜ, Δt)
+    hⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics.concentration_evolution, ∂t_𝓋, hⁿ, ℵⁿ, hᶜ, Δt)
 
     @inbounds begin
         ρi = sea_ice_density[i, j, 1]
@@ -267,7 +267,7 @@ end
                                     Quiᵉᶠᶠ, Qbi,
                                     clock, model_fields)
 
-    hiⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics, ∂t_𝓋, hiⁿ, ℵⁿ, hᶜ, Δt)
+    hiⁿ⁺¹, ℵⁿ⁺¹ = ice_volume_update(ice_thermodynamics.concentration_evolution, ∂t_𝓋, hiⁿ, ℵⁿ, hᶜ, Δt)
 
     # Conserve snow volume when concentration changes: new ice has no snow,
     # so hs adjusts to keep hs * ℵ constant (analogous to how ice tracks hi * ℵ).
@@ -301,12 +301,12 @@ end
 ##### Shared helper functions
 #####
 
-@inline function ice_volume_update(ice_thermodynamics, ∂t_𝓋, hⁿ, ℵⁿ, hᶜ, Δt)
+@inline function ice_volume_update(concentration_evolution, ∂t_𝓋, hⁿ, ℵⁿ, hᶜ, Δt)
     𝓋ⁿ⁺¹ = hⁿ * ℵⁿ + Δt * ∂t_𝓋
     𝓋ⁿ⁺¹ = max(zero(𝓋ⁿ⁺¹), 𝓋ⁿ⁺¹)
 
     ∂t_𝓋 = (𝓋ⁿ⁺¹ - hⁿ * ℵⁿ) / Δt
-    ℵ⁺   = concentration_thermodynamic_step(ice_thermodynamics.concentration_evolution, ∂t_𝓋, ℵⁿ, hⁿ, hᶜ, Δt)
+    ℵ⁺   = concentration_thermodynamic_step(concentration_evolution, ∂t_𝓋, ℵⁿ, hⁿ, hᶜ, Δt)
     h⁺   = 𝓋ⁿ⁺¹ / ℵ⁺
 
     # Treat pathological cases
