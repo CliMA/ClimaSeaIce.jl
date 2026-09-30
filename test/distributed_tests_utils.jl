@@ -160,7 +160,7 @@ function run_distributed_jld2_simulation(grid, filename)
                                                     schedule = IterationInterval(1),
                                                     filename,
                                                     with_halos = false,
-                                                    overwrite_existing = true)
+                                                    overwrite_files = true)
 
     run!(simulation)
 

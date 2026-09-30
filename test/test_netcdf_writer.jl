@@ -32,7 +32,7 @@ function test_netcdf_writer(arch)
             simulation.output_writers[:nc] = NetCDFWriter(model, Oceananigans.prognostic_fields(model);
                                                           filename = filepath,
                                                           schedule = IterationInterval(1),
-                                                          overwrite_existing = true)
+                                                          overwrite_files = true)
 
             run!(simulation)
 

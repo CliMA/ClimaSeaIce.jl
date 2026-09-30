@@ -25,12 +25,8 @@ const f = Face()
 
 @inline _ice_stress_uy(i, j, k, grid, rheology, clock, fields, lbc) = ice_stress_uy(i, j, k, grid, rheology, clock, fields)
 @inline _ice_stress_vx(i, j, k, grid, rheology, clock, fields, lbc) = ice_stress_vx(i, j, k, grid, rheology, clock, fields)
-
-@inline _ice_stress_uy(i, j, k, ibg::IBG, rheology, clock, fields, lbc) =
-    wall_shear_stress(lbc, i, j, k, ibg, ice_stress_uy(i, j, k, ibg, rheology, clock, fields))
-
-@inline _ice_stress_vx(i, j, k, ibg::IBG, rheology, clock, fields, lbc) =
-    wall_shear_stress(lbc, i, j, k, ibg, ice_stress_vx(i, j, k, ibg, rheology, clock, fields))
+@inline _ice_stress_uy(i, j, k, ibg::IBG, rheology, clock, fields, lbc) = wall_shear_stress(lbc, i, j, k, ibg, ice_stress_uy(i, j, k, ibg, rheology, clock, fields))
+@inline _ice_stress_vx(i, j, k, ibg::IBG, rheology, clock, fields, lbc) = wall_shear_stress(lbc, i, j, k, ibg, ice_stress_vx(i, j, k, ibg, rheology, clock, fields))
 
 @inline wall_shear_stress(::FreeSlip, i, j, k, ibg, σ) = conditional_flux_ffc(i, j, k, ibg, zero(ibg), σ)
 @inline wall_shear_stress(::NoSlip,   i, j, k, ibg, σ) = σ
@@ -87,12 +83,12 @@ end
     iᴱ, jᴺ, _ = map(index_right, (i, j, k), (f, c, c))
 
     # Impose i) immersed fluxes if we're on an immersed boundary or ii) zero otherwise.
-    qᵂ = conditional_flux_ccc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Axᶜᶜᶜ(iᵂ, j, k, ibg)
-    qᴱ = conditional_flux_ccc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Axᶜᶜᶜ(iᴱ, j, k, ibg)
-    qˢ = conditional_flux_ffc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Ayᶠᶠᶜ(i, jˢ, k, ibg)
-    qᴺ = conditional_flux_ffc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Ayᶠᶠᶜ(i, jᴺ, k, ibg)
+    qᵂ = conditional_flux_ccc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Δyᶜᶜᶜ(iᵂ, j, k, ibg)
+    qᴱ = conditional_flux_ccc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Δyᶜᶜᶜ(iᴱ, j, k, ibg)
+    qˢ = conditional_flux_ffc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Δxᶠᶠᶜ(i, jˢ, k, ibg)
+    qᴺ = conditional_flux_ffc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Δxᶠᶠᶜ(i, jᴺ, k, ibg)
 
-    return (qᴱ - qᵂ + qᴺ - qˢ) / Vᶠᶜᶜ(i, j, k, ibg)
+    return (qᴱ - qᵂ + qᴺ - qˢ) / Azᶠᶜᶜ(i, j, k, ibg)
 end
 
 @inline function immersed_∂ⱼ_σ₂ⱼ(i, j, k, ibg::IBG, v_bc::IBC, rheology, clock, fields)
@@ -106,12 +102,12 @@ end
     iᴱ, jᴺ, _ = map(index_right, (i, j, k), (c, f, c))
 
     # Impose i) immersed fluxes if we're on an immersed boundary or ii) zero otherwise.
-    qᵂ = conditional_flux_ffc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Axᶠᶠᶜ(iᵂ, j, k, ibg)
-    qᴱ = conditional_flux_ffc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Axᶠᶠᶜ(iᴱ, j, k, ibg)
-    qˢ = conditional_flux_ccc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Ayᶜᶜᶜ(i, jˢ, k, ibg)
-    qᴺ = conditional_flux_ccc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Ayᶜᶜᶜ(i, jᴺ, k, ibg)
+    qᵂ = conditional_flux_ffc(iᵂ, j, k, ibg, q̃ᵂ, zero(ibg)) * Δyᶠᶠᶜ(iᵂ, j, k, ibg)
+    qᴱ = conditional_flux_ffc(iᴱ, j, k, ibg, q̃ᴱ, zero(ibg)) * Δyᶠᶠᶜ(iᴱ, j, k, ibg)
+    qˢ = conditional_flux_ccc(i, jˢ, k, ibg, q̃ˢ, zero(ibg)) * Δxᶜᶜᶜ(i, jˢ, k, ibg)
+    qᴺ = conditional_flux_ccc(i, jᴺ, k, ibg, q̃ᴺ, zero(ibg)) * Δxᶜᶜᶜ(i, jᴺ, k, ibg)
 
-    return (qᴱ - qᵂ + qᴺ - qˢ) / Vᶜᶠᶜ(i, j, k, ibg)
+    return (qᴱ - qᵂ + qᴺ - qˢ) / Azᶜᶠᶜ(i, j, k, ibg)
 end
 
 # TODO: Implement immersed fluxes (0 for the moment)
