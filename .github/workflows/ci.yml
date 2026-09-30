@@ -147,7 +147,7 @@ jobs:
       - uses: julia-actions/julia-runtest@v1
         env:
           TEST_GROUP: "basal_stress"
-          
+
   lateral_boundary_conditions:
     name: Lateral Boundary Conditions - Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}

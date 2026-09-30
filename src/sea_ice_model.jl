@@ -215,7 +215,7 @@ function SeaIceModel(grid;
         merge(prognostic_fields, (; S = ice_salinity))
     end
 
-    thermodynamic_prognostic_fields = Oceananigans.prognostic_fields(ice_thermodynamics)
+    thermodynamic_prognostic_fields = component_prognostic_fields(ice_thermodynamics)
     prognostic_fields = merge(prognostic_fields, thermodynamic_prognostic_fields)
     prognostic_fields = isnothing(dynamics) ? prognostic_fields : merge(prognostic_fields, velocities)
 
