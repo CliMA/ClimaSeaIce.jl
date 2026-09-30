@@ -17,6 +17,7 @@ example_scripts = [
     "freezing_bucket.jl",
     "melting_in_spring.jl",
     "freezing_of_a_lake.jl",
+    "column_energy_comparison.jl",
     "ice_advected_by_anticyclone.jl",
     "one_dimensional_ice_advection.jl",
     "marginal_ice_advection.jl",
@@ -34,6 +35,7 @@ example_pages = [
     "Freezing bucket" => "literated/freezing_bucket.md",
     "Melting in Spring" => "literated/melting_in_spring.md",
     "Freezing of a Lake" => "literated/freezing_of_a_lake.md",
+    "Column energy comparison" => "literated/column_energy_comparison.md",
     "Ice advected by anticyclone" => "literated/ice_advected_by_anticyclone.md",
     "One-dimensional ice advection" => "literated/one_dimensional_ice_advection.md",
     "Marginal sea ice advection" => "literated/marginal_ice_advection.md",
@@ -60,12 +62,16 @@ pages = [
 
     "Physics" => [
         "Thermodynamics" => "physics/thermodynamics.md",
+        "Column energy thermodynamics" => "physics/column_energy_thermodynamics.md",
         "Layered snow + ice implementation" => "physics/layered_snow_ice_implementation.md",
         "Dynamics and Rheology" => "physics/dynamics_and_rheology.md",
         "Discrete strain and stress" => "physics/discrete_strain_and_stress.md",
     ],
 
     "Examples" => example_pages,
+    "Validation" => [
+        "Bitz-Lipscomb CICE" => "validation/bitz_lipscomb_cice.md",
+    ],
     "Timestepping" => "timestepping.md",
     "References" => "references.md",
 

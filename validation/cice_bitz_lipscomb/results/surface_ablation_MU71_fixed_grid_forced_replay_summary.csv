@@ -1,0 +1,107 @@
+metric,status,value,tolerance,evidence
+prognostic_thickness_forced_replay_acceptance_ratio,fail,3.57820733413,1,Sequential forced replay that predicts thickness from the CICE-compatible top flux split and predicted basal conductive residual
+prognostic_thickness_forced_replay_thickness_acceptance_ratio,pass,0.0592094028269,1,"Maximum acceptance ratio for final thickness, top melt, basal growth, bottom melt, and cold fixed-thickness drift"
+prognostic_thickness_forced_replay_fixed_thickness_drift_m,pass,0,,Fixed-thickness drift used for the cold conductive relaxation case
+prognostic_thickness_forced_replay_fixed_thickness_acceptance_ratio,pass,0,1,Cold-case fixed-thickness acceptance ratio against the 1e-6 m requirement
+prognostic_thickness_forced_replay_temperature_acceptance_ratio,fail,3.57820733413,1,Official temperature gate for the prognostic-thickness forced replay
+prognostic_thickness_forced_replay_max_relative_cice_enthalpy_error,pass,0.00106851507914,0.01,CICE negative enthalpy for the prognostic-thickness forced replay
+prognostic_thickness_forced_replay_max_relative_column_energy_error,pass,0.000458154590623,0.01,Layer-integrated shifted BL99 internal energy for the prognostic-thickness forced replay
+prognostic_thickness_forced_replay_final_hi_m,diagnostic,0.896941712967,,Final ice thickness predicted by the prognostic-thickness forced replay
+prognostic_thickness_forced_replay_final_hi_error_m,pass,0.000371732822585,0.00896569980144,Absolute error relative to final CICE hi
+prognostic_thickness_forced_replay_final_hi_acceptance_ratio,pass,0.0414616628727,1,Final-thickness acceptance ratio against CICE hi
+prognostic_thickness_forced_replay_top_melt_m,diagnostic,0.102985686902,,Cumulative top melt predicted from the top flux split fcondtop_ai - fsurf_ai
+prognostic_thickness_forced_replay_top_melt_error_m,pass,6.10133358439e-05,0.00103046700238,Absolute top-melt error relative to integrated CICE meltt
+prognostic_thickness_forced_replay_top_melt_acceptance_ratio,pass,0.0592094028269,1,Top-melt acceptance ratio against integrated CICE meltt
+prognostic_thickness_forced_replay_basal_growth_m,diagnostic,0,,Cumulative basal growth predicted from the bottom conductive residual
+prognostic_thickness_forced_replay_basal_growth_error_m,pass,7.1739552197e-19,0.001,Absolute basal-growth error relative to integrated CICE congel
+prognostic_thickness_forced_replay_basal_growth_acceptance_ratio,pass,7.1739552197e-16,1,Basal-growth acceptance ratio against integrated CICE congel
+prognostic_thickness_forced_replay_bottom_melt_m,diagnostic,7.26001309196e-05,,Cumulative bottom melt predicted from the bottom conductive residual
+prognostic_thickness_forced_replay_bottom_melt_error_m,pass,1.28988950529e-05,0.001,Absolute bottom-melt error relative to integrated CICE meltb
+prognostic_thickness_forced_replay_bottom_melt_acceptance_ratio,pass,0.0128988950529,1,Bottom-melt acceptance ratio against integrated CICE meltb
+icepack_matrix_prognostic_thickness_forced_replay_acceptance_ratio,pass,0.990152772454,1,Sequential source-level BL99 matrix replay that predicts thickness from top flux split and basal conductive residual
+icepack_matrix_prognostic_thickness_forced_replay_thickness_acceptance_ratio,pass,0.0361602095668,1,"Source-level maximum acceptance ratio for final thickness, melt/growth, and cold fixed-thickness drift"
+icepack_matrix_prognostic_thickness_forced_replay_fixed_thickness_drift_m,pass,0,,Source-level fixed-thickness drift used for cold conductive relaxation
+icepack_matrix_prognostic_thickness_forced_replay_fixed_thickness_acceptance_ratio,pass,0,1,Source-level cold-case fixed-thickness acceptance ratio against the 1e-6 m requirement
+icepack_matrix_prognostic_thickness_forced_replay_temperature_acceptance_ratio,pass,0.990152772454,1,Official temperature gate for the source-level prognostic-thickness forced replay
+icepack_matrix_prognostic_thickness_forced_replay_max_relative_cice_enthalpy_error,pass,0.000350067301532,0.01,CICE negative enthalpy for the source-level prognostic-thickness forced replay
+icepack_matrix_prognostic_thickness_forced_replay_max_relative_column_energy_error,pass,0.000349562885523,0.01,Layer-integrated shifted BL99 internal energy for the source-level prognostic-thickness forced replay
+icepack_matrix_prognostic_thickness_forced_replay_final_hi_m,diagnostic,0.896894181728,,Final ice thickness predicted by the source-level prognostic-thickness forced replay
+icepack_matrix_prognostic_thickness_forced_replay_final_hi_error_m,pass,0.000324201583733,0.00896569980144,Source-level absolute error relative to final CICE hi
+icepack_matrix_prognostic_thickness_forced_replay_top_melt_m,diagnostic,0.10303560405,,Source-level cumulative top melt predicted from the top flux split
+icepack_matrix_prognostic_thickness_forced_replay_top_melt_error_m,pass,1.10961882793e-05,0.00103046700238,Source-level absolute top-melt error relative to integrated CICE meltt
+icepack_matrix_prognostic_thickness_forced_replay_basal_growth_m,diagnostic,0,,Source-level cumulative basal growth predicted from the bottom conductive residual
+icepack_matrix_prognostic_thickness_forced_replay_basal_growth_error_m,pass,7.1739552197e-19,0.001,Source-level absolute basal-growth error relative to integrated CICE congel
+fixed_grid_forced_replay_max_abs_temperature_error_C,diagnostic,0.558965818851,,"Hourly CICE fcondtop_ai and prescribed bottom ocean temperature, MU71 conductivity, no snow or thickness prognostic"
+fixed_grid_forced_replay_max_relative_temperature_error,fail,0.43770623144,0.01,"Relative to abs(CICE T), floored by 1 C"
+fixed_grid_forced_replay_temperature_acceptance_ratio,fail,27.9482909425,1,Official temperature gate: 1% relative error or 0.02 C absolute fallback when |T_CICE| < 2 C
+fixed_grid_forced_replay_max_relative_internal_energy_error,fail,0.907662846086,0.01,Shifted BL99 internal energy from predicted T and target CICE S; relative floor is fixed from cold Case 1
+fixed_grid_forced_replay_max_relative_cice_enthalpy_error,fail,0.0143799201203,0.01,"CICE negative enthalpy q_i = E - rho_i L0, with floor fixed from cold Case 1"
+fixed_grid_forced_replay_max_relative_column_energy_error,fail,0.101747749258,0.01,Layer-integrated shifted BL99 internal energy over target CICE thickness
+fixed_grid_forced_replay_final_abs_temperature_error_C,diagnostic,0.558965818851,,Final hourly record at day 5
+fixed_grid_forced_replay_final_relative_temperature_error,fail,0.43770623144,0.01,Final hourly record at day 5
+cice_thickness_forced_replay_max_abs_temperature_error_C,diagnostic,0.0692657826806,,"Hourly CICE flux forcing, CICE hi sequence, conservative energy remap, and BL99 basal-congelation fill enthalpy"
+cice_thickness_forced_replay_max_relative_temperature_error,fail,0.0542395682928,0.01,"Relative to abs(CICE T), floored by 1 C; thickness is forced from CICE history"
+cice_thickness_forced_replay_temperature_acceptance_ratio,fail,3.46328913403,1,Official temperature gate for CICE-thickness-forced remap
+cice_thickness_forced_replay_max_relative_internal_energy_error,fail,0.132919652211,0.01,Shifted BL99 internal energy after CICE-thickness-forced remap
+cice_thickness_forced_replay_max_relative_cice_enthalpy_error,pass,0.00103521589492,0.01,CICE negative enthalpy after CICE-thickness-forced remap
+cice_thickness_forced_replay_max_relative_column_energy_error,pass,0.000946200398751,0.01,Layer-integrated shifted BL99 internal energy after CICE-thickness-forced remap
+cice_thickness_forced_replay_final_abs_temperature_error_C,diagnostic,0.0692657826806,,Final hourly record after CICE-thickness-forced remap
+cice_thickness_forced_replay_final_relative_temperature_error,fail,0.0542395682928,0.01,Final hourly record after CICE-thickness-forced remap
+moving_metric_cice_thickness_forced_replay_max_abs_temperature_error_C,diagnostic,0.0745056310508,,Hourly CICE flux forcing and CICE hi sequence integrated on MutableVerticalDiscretization with moving Jacobian metric
+moving_metric_cice_thickness_forced_replay_max_relative_temperature_error,fail,0.058342706993,0.01,"Relative to abs(CICE T), floored by 1 C; CICE thickness is represented by the mutable vertical metric"
+moving_metric_cice_thickness_forced_replay_temperature_acceptance_ratio,fail,3.72528155254,1,Official temperature gate for MutableVerticalDiscretization moving-metric replay
+moving_metric_cice_thickness_forced_replay_max_relative_internal_energy_error,fail,0.142655169054,0.01,Shifted BL99 internal energy from MutableVerticalDiscretization moving-metric replay
+moving_metric_cice_thickness_forced_replay_max_relative_cice_enthalpy_error,pass,0.00111103885724,0.01,CICE negative enthalpy from MutableVerticalDiscretization moving-metric replay
+moving_metric_cice_thickness_forced_replay_max_relative_column_energy_error,pass,0.00074455979389,0.01,Layer-integrated shifted BL99 internal energy from MutableVerticalDiscretization moving-metric replay
+moving_metric_cice_thickness_forced_replay_final_abs_temperature_error_C,diagnostic,0.0745056310508,,Final hourly record for MutableVerticalDiscretization moving-metric replay
+moving_metric_cice_thickness_forced_replay_final_relative_temperature_error,fail,0.058342706993,0.01,Final hourly record for MutableVerticalDiscretization moving-metric replay
+icepack_temperature_matrix_cice_thickness_forced_replay_max_abs_temperature_error_C,diagnostic,0.0175525145233,,"Sequential source-level BL99 temperature matrix, CICE hi sequence, and conservative energy remap"
+icepack_temperature_matrix_cice_thickness_forced_replay_max_relative_temperature_error,fail,0.0137447491872,0.01,"Relative to abs(CICE T), floored by 1 C; source-level matrix with CICE thickness history"
+icepack_temperature_matrix_cice_thickness_forced_replay_temperature_acceptance_ratio,pass,0.877625726166,1,Official temperature gate: 1% relative error or 0.02 C absolute fallback when |T_CICE| < 2 C
+icepack_temperature_matrix_cice_thickness_forced_replay_max_relative_internal_energy_error,fail,0.0344588185143,0.01,Shifted BL99 internal energy for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_max_relative_cice_enthalpy_error,pass,0.000285545531375,0.01,CICE negative enthalpy for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_max_relative_column_energy_error,pass,7.77190706404e-05,0.01,Layer-integrated shifted BL99 internal energy for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_final_abs_temperature_error_C,diagnostic,0.0175525145233,,Final hourly record for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_final_relative_temperature_error,fail,0.0137447491872,0.01,Final hourly record for sequential source-level matrix with CICE thickness history
+icepack_temperature_matrix_cice_thickness_forced_replay_final_temperature_acceptance_ratio,pass,0.877625726166,1,Final hourly record under the official temperature gate with near-zero absolute fallback
+icepack_temperature_matrix_cice_thickness_forced_replay_max_error_time_days,diagnostic,5,,CICE history time where the sequential source-level matrix reached its maximum absolute temperature error
+icepack_temperature_matrix_cice_thickness_forced_replay_max_error_layer_from_top,diagnostic,1,,"One-based CICE ice layer index, top to bottom, for the maximum sequential source-level matrix temperature error"
+icepack_temperature_matrix_cice_thickness_forced_replay_max_error_predicted_temperature_C,diagnostic,-1.29458669567,,Predicted temperature at the maximum-error time and layer
+icepack_temperature_matrix_cice_thickness_forced_replay_max_error_cice_temperature_C,diagnostic,-1.27703418115,,CICE temperature at the maximum-error time and layer
+icepack_temperature_matrix_cice_thickness_forced_replay_final_top_temperature_error_C,diagnostic,-0.0175525145233,,Predicted minus CICE top-layer temperature at the final hourly record
+icepack_temperature_matrix_cice_thickness_forced_replay_final_bottom_temperature_error_C,diagnostic,0.000556099736938,,Predicted minus CICE bottom-layer temperature at the final hourly record
+reset_forced_step_max_abs_temperature_error_C,diagnostic,0.0243254276375,,Each interval starts from parsed CICE state
+reset_forced_step_max_relative_temperature_error,fail,0.0190483763055,0.01,Each interval starts from parsed CICE state
+reset_forced_step_temperature_acceptance_ratio,fail,1.21627138187,1,Official temperature gate for reset-each-interval fixed-grid replay
+reset_forced_step_max_relative_internal_energy_error,fail,0.0476096002941,0.01,Each interval starts from parsed CICE state; shifted BL99 internal energy
+reset_forced_step_max_relative_cice_enthalpy_error,pass,0.000370797050366,0.01,Each interval starts from parsed CICE state; CICE negative enthalpy
+reset_forced_step_max_relative_column_energy_error,pass,0.000938867549975,0.01,Each interval starts from parsed CICE state; target-thickness column integral
+reset_forced_step_first_abs_temperature_error_C,diagnostic,0.0155073873301,,Initial to first-hour interval
+reset_forced_step_first_relative_temperature_error,pass,0.00851823688937,0.01,Initial to first-hour interval
+icepack_temperature_matrix_reset_max_abs_temperature_error_C,diagnostic,0.0155073873301,,Source-level BL99 temperature matrix with CICE top conductive flux and bottom ocean temperature
+icepack_temperature_matrix_reset_max_relative_temperature_error,fail,0.012032765097,0.01,Source-level BL99 temperature matrix reset replay
+icepack_temperature_matrix_reset_temperature_acceptance_ratio,pass,0.775369366504,1,Official temperature gate for source-level BL99 temperature matrix reset replay
+icepack_temperature_matrix_reset_max_relative_internal_energy_error,fail,0.0301966972949,0.01,Shifted BL99 internal energy from source-level temperature-matrix replay
+icepack_temperature_matrix_reset_max_relative_cice_enthalpy_error,pass,0.000235180430388,0.01,CICE negative enthalpy from source-level temperature-matrix replay
+icepack_temperature_matrix_reset_max_relative_column_energy_error,pass,0.000938867549975,0.01,Layer-integrated shifted BL99 internal energy from source-level temperature-matrix replay
+icepack_temperature_matrix_thickness_remapped_reset_max_abs_temperature_error_C,diagnostic,0.00117442020916,,Source-level BL99 temperature matrix replay followed by conservative CICE-style layer enthalpy remapping
+icepack_temperature_matrix_thickness_remapped_reset_max_relative_temperature_error,pass,0.000919646651979,0.01,"Relative to abs(CICE T), floored by 1 C, after source-level temperature step and thickness remapping"
+icepack_temperature_matrix_thickness_remapped_reset_temperature_acceptance_ratio,pass,0.0587210104578,1,Official temperature gate after source-level temperature step and thickness remapping
+icepack_temperature_matrix_thickness_remapped_reset_max_relative_internal_energy_error,pass,0.002322920769,0.01,Shifted BL99 internal energy after source-level temperature step and conservative thickness remapping
+icepack_temperature_matrix_thickness_remapped_reset_max_relative_cice_enthalpy_error,pass,1.80915648118e-05,0.01,CICE negative enthalpy after source-level temperature step and conservative thickness remapping
+icepack_temperature_matrix_thickness_remapped_reset_max_relative_column_energy_error,pass,6.21487025528e-07,0.01,Column-integrated shifted BL99 internal energy after source-level temperature step and thickness remapping
+thickness_remapped_reset_max_abs_temperature_error_C,diagnostic,0.00992488865964,,Thickness-change intervals remapped conservatively from start thickness to target CICE thickness
+thickness_remapped_reset_max_relative_temperature_error,pass,0.0077718269457,0.01,"Relative to abs(CICE T), floored by 1 C, after conservative thickness remap"
+thickness_remapped_reset_temperature_acceptance_ratio,pass,0.496244432982,1,Official temperature gate after conservative thickness remap
+thickness_remapped_reset_max_relative_internal_energy_error,fail,0.0195520787001,0.01,Shifted BL99 internal energy after conservative thickness remap
+thickness_remapped_reset_max_relative_cice_enthalpy_error,pass,0.000152277126163,0.01,CICE negative enthalpy after conservative thickness remap
+thickness_remapped_reset_max_relative_column_energy_error,pass,1.94602446253e-06,0.01,Layer-integrated shifted BL99 internal energy after conservative thickness remap
+top_ablation_remapped_reset_max_abs_temperature_error_C,diagnostic,0.00992488865964,,Top-ablation intervals remapped conservatively from start thickness to target thickness
+top_ablation_remapped_reset_max_relative_temperature_error,pass,0.0077718269457,0.01,"Relative to abs(CICE T), floored by 1 C, after conservative top-ablation remap"
+top_ablation_remapped_reset_temperature_acceptance_ratio,pass,0.496244432982,1,Official temperature gate after conservative top-ablation remap
+top_ablation_remapped_reset_max_relative_internal_energy_error,fail,0.0195520787001,0.01,Shifted BL99 internal energy after conservative top-ablation remap
+top_ablation_remapped_reset_max_relative_cice_enthalpy_error,pass,0.000152277126163,0.01,CICE negative enthalpy after conservative top-ablation remap
+top_ablation_remapped_reset_max_relative_column_energy_error,pass,1.94602446253e-06,0.01,Layer-integrated shifted BL99 internal energy after conservative top-ablation remap
+first_hour_bottom_conductive_flux_W_m2,diagnostic,-5.04615969558e-13,,BL99 bottom conductance from parsed state; CICE siflcondbot is sparse in hourly history
+cice_internal_energy_relative_floor_J_m3,diagnostic,2377226.77947,,Frozen relative-error floor from the cold conductive MU71 CICE history
+cice_enthalpy_relative_floor_J_m3,diagnostic,295867899.346,,Frozen CICE negative-enthalpy relative-error floor from the cold conductive MU71 CICE history
