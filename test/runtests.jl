@@ -44,6 +44,10 @@ if TEST_GROUP == "all" || TEST_GROUP == "timestepping"
     include("test_free_surface_term.jl")
 end
 
+if TEST_GROUP == "all" || TEST_GROUP == "vertical_grid"
+    include("test_vertical_grid_invariance.jl")
+end
+
 if TEST_GROUP == "all" || TEST_GROUP == "checkpointing"
     include("test_checkpointing.jl")
 end
