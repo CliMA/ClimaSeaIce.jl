@@ -6,7 +6,7 @@ export SeaIceMomentumEquation, ExplicitSolver, SplitExplicitSolver, SemiImplicit
        LandfastBasalStress
 
 using Adapt: Adapt
-using KernelAbstractions: @kernel, @index, @atomic
+using KernelAbstractions: @kernel, @index
 using Oceananigans: Oceananigans, prognostic_state, prognostic_fields,
                     restore_prognostic_state!, fields
 using Oceananigans.Architectures: architecture

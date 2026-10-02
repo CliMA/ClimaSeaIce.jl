@@ -1,5 +1,5 @@
 using Oceananigans: instantiated_location
-using Oceananigans.Architectures: convert_to_device, architecture, on_architecture
+using Oceananigans.Architectures: convert_to_device, architecture, device, on_architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node,
@@ -89,8 +89,10 @@ The velocities and stresses are bit-for-bit the same as without skipping. The on
 diagnostic `Δ` of the `ElastoViscoPlasticRheology`, which is left stale where there is no ice.
 It is only ever read at the point where it was just computed.
 
-The lists are filled in place, in buffers allocated once, using an atomic counter. The order of the indices
-in a list varies between runs, but this does not change the result, since each point is computed independently.
+The lists are filled in place, in buffers allocated once, so no memory is allocated during the time step.
+The lists are built row by row: each row `j` is first counted, the row counts are summed to find where
+each row starts in the list, and then each row is written in order of `i`. The indices are therefore
+sorted, so that consecutive entries are neighbours in memory.
 """
 struct SkipIceFreeCells{V, S}
     velocity :: V # `IceCoverMaps` over the velocity kernel range
@@ -102,27 +104,37 @@ SkipIceFreeCells() = SkipIceFreeCells(nothing, nothing)
 
 ice_free_cells_option(skip::Bool) = skip ? SkipIceFreeCells() : nothing
 
-struct IceCoverMaps{I, C, H, K}
+struct IceCoverMaps{I, C, T, H, R, K}
     first_substep :: I # Indices computed during the first substep
     iced :: I          # Indices computed during all the other substeps
-    counts :: C        # Number of indices in each list, on the architecture
+    row_counts :: C    # Number of indices of each list in each row
+    row_offsets :: C   # Where each row starts in each list
+    counts :: T        # Number of indices in each list, on the architecture
     host_counts :: H   # Number of indices in each list, on the CPU
-    kernel :: K        # Kernel filling the lists
+    ranges :: R        # The `(i, j)` ranges covered by the lists
+    kernels :: K       # Kernels counting the rows, summing the counts, and filling the rows
 end
 
 function IceCoverMaps(grid, ranges)
     arch = architecture(grid)
-    N = prod(length.(ranges))
+    dev  = device(arch)
+    N    = prod(length.(ranges))
+    Ny   = length(ranges[2])
 
     # The indices are signed because the stress range extends into the halos
     first_substep = on_architecture(arch, Vector{NTuple{2, Int32}}(undef, N))
     iced          = on_architecture(arch, Vector{NTuple{2, Int32}}(undef, N))
+    row_counts    = on_architecture(arch, zeros(Int32, 2, Ny))
+    row_offsets   = on_architecture(arch, zeros(Int32, 2, Ny))
     counts        = on_architecture(arch, zeros(Int32, 2))
     host_counts   = zeros(Int32, 2)
 
-    kernel, _ = configure_kernel(arch, grid, KernelParameters(ranges...), _build_ice_cover_maps!)
+    workgroup = min(Ny, 64)
+    kernels = (count = _count_ice_cover_rows!(dev, workgroup, Ny),
+               sum   = _sum_ice_cover_rows!(dev, 1, 1), # The number of rows is small: a single work item
+               fill  = _fill_ice_cover_rows!(dev, workgroup, Ny))
 
-    return IceCoverMaps(first_substep, iced, counts, host_counts, kernel)
+    return IceCoverMaps(first_substep, iced, row_counts, row_offsets, counts, host_counts, ranges, kernels)
 end
 
 # Velocity kernels run over their `kernel_parameters`, stress kernels over the rheology-specific range
@@ -138,9 +150,8 @@ function materialize_ice_free_cells(::SkipIceFreeCells, grid, rheology, kernel_p
     return SkipIceFreeCells(velocity, stress)
 end
 
-@kernel function _build_ice_cover_maps!(first_substep, iced, counts, grid, rheology, fields)
-    i, j = @index(Global, NTuple)
-
+# Whether `(i, j)` belongs to the first-substep list and to the iced list
+@inline function ice_cover_lists(i, j, grid, rheology, fields)
     h = fields.h
     ℵ = fields.ℵ
     ρ = fields.ρ
@@ -154,24 +165,68 @@ end
     moving = @inbounds !iszero(fields.u[i, j, 1]) | !iszero(fields.v[i, j, 1])
     unsettled = moving | unsettled_stresses(i, j, grid, rheology, fields)
 
-    index = (Int32(i), Int32(j))
+    return has_ice | unsettled, has_ice
+end
 
-    if has_ice | unsettled
-        n = @atomic counts[1] += Int32(1)
-        @inbounds first_substep[n] = index
+@kernel function _count_ice_cover_rows!(row_counts, grid, rheology, fields, irange, j₀)
+    j′ = @index(Global, Linear)
+    j  = j′ + j₀
+
+    n₁ = Int32(0)
+    n₂ = Int32(0)
+    for i in irange
+        first_substep, iced = ice_cover_lists(i, j, grid, rheology, fields)
+        n₁ += first_substep
+        n₂ += iced
     end
 
-    if has_ice
-        n = @atomic counts[2] += Int32(1)
-        @inbounds iced[n] = index
+    @inbounds row_counts[1, j′] = n₁
+    @inbounds row_counts[2, j′] = n₂
+end
+
+@kernel function _sum_ice_cover_rows!(row_offsets, counts, row_counts)
+    n₁ = Int32(0)
+    n₂ = Int32(0)
+    @inbounds for j′ in 1:size(row_counts, 2)
+        row_offsets[1, j′] = n₁
+        row_offsets[2, j′] = n₂
+        n₁ += row_counts[1, j′]
+        n₂ += row_counts[2, j′]
+    end
+
+    @inbounds counts[1] = n₁
+    @inbounds counts[2] = n₂
+end
+
+@kernel function _fill_ice_cover_rows!(first_substep_list, iced_list, row_offsets, grid, rheology, fields, irange, j₀)
+    j′ = @index(Global, Linear)
+    j  = j′ + j₀
+
+    n₁ = @inbounds row_offsets[1, j′]
+    n₂ = @inbounds row_offsets[2, j′]
+    for i in irange
+        first_substep, iced = ice_cover_lists(i, j, grid, rheology, fields)
+        index = (Int32(i), Int32(j))
+        if first_substep
+            n₁ += Int32(1)
+            @inbounds first_substep_list[n₁] = index
+        end
+        if iced
+            n₂ += Int32(1)
+            @inbounds iced_list[n₂] = index
+        end
     end
 end
 
 # Fill the lists and return views of their filled parts.
 # This requires copying the two counts to the CPU, but allocates no memory.
 function update_ice_cover_maps!(maps::IceCoverMaps, grid, rheology, fields)
-    fill!(maps.counts, 0)
-    maps.kernel(maps.first_substep, maps.iced, maps.counts, grid, rheology, fields)
+    irange, jrange = maps.ranges
+    j₀ = first(jrange) - 1
+
+    maps.kernels.count(maps.row_counts, grid, rheology, fields, irange, j₀)
+    maps.kernels.sum(maps.row_offsets, maps.counts, maps.row_counts)
+    maps.kernels.fill(maps.first_substep, maps.iced, maps.row_offsets, grid, rheology, fields, irange, j₀)
     copyto!(maps.host_counts, maps.counts)
 
     first_substep = view(maps.first_substep, 1:Int(maps.host_counts[1]))
