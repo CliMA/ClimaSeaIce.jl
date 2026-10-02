@@ -1,5 +1,5 @@
 using Oceananigans: instantiated_location
-using Oceananigans.Architectures: convert_to_device, architecture
+using Oceananigans.Architectures: convert_to_device, architecture, on_architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node,
@@ -15,34 +15,195 @@ const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                                 LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
-struct SplitExplicitSolver{I, K}
+struct SplitExplicitSolver{I, K, S}
     substeps :: I
     kernel_parameters :: K
+    ice_free_cells :: S
 end
 
+SplitExplicitSolver(substeps, kernel_parameters) = SplitExplicitSolver(substeps, kernel_parameters, nothing)
+
 """
-    SplitExplicitSolver(grid::AbstractGrid; substeps=120)
+    SplitExplicitSolver(grid::AbstractGrid; substeps=120, skip_ice_free_cells=false)
 
 Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
 by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
+
+If `skip_ice_free_cells = true`, all substeps after the first are computed only in cells
+that have ice in them or in a neighbouring cell. The answer does not change, since
+the ice-free cells already stop changing after the first substep. See [`SkipIceFreeCells`](@ref).
 """
-SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(grid::AbstractGrid; substeps=120, skip_ice_free_cells=false) =
+    SplitExplicitSolver(substeps, :xy, ice_free_cells_option(skip_ice_free_cells))
 
 # When no grid is provided, we assume a serial grid with default kernel parameters
-SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(; substeps=120, skip_ice_free_cells=false) =
+    SplitExplicitSolver(substeps, :xy, ice_free_cells_option(skip_ice_free_cells))
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
 # Shenanigans for extending the halos in Distributed grids
 
-function SplitExplicitSolver(grid::DistributedGrid; substeps=120)
+function SplitExplicitSolver(grid::DistributedGrid; substeps=120, skip_ice_free_cells=false)
     Nx, Ny, _ = size(grid)
     Hx, Hy, _ = halo_size(grid)
     TX, TY, _ = topology(grid)
     kernel_sizes = map(split_explicit_kernel_size, (TX, TY), (Nx, Ny), (Hx, Hy))
-    return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
+    return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...), ice_free_cells_option(skip_ice_free_cells))
+end
+
+skips_ice_free_cells(solver::SplitExplicitSolver) = !isnothing(solver.ice_free_cells)
+
+Base.summary(solver::SplitExplicitSolver) =
+    string("SplitExplicitSolver(substeps=", solver.substeps,
+           ", skip_ice_free_cells=", skips_ice_free_cells(solver), ")")
+
+#####
+##### Skipping ice-free cells
+#####
+
+"""
+    SkipIceFreeCells
+
+Lets the `SplitExplicitSolver` skip the points where nothing changes during the substeps.
+
+A point `(i, j)` is "iced" when any of the cells `(i-1:i, j-1:j)` has nonzero ice mass. These are the cells that set
+- the `(Center, Center)` point `(i, j)`,
+- the `(Face, Face)` point `(i, j)`, whose mass is interpolated from the four cells,
+- the `(Face, Center)` point `(i, j)`, whose mass is interpolated from cells `i-1` and `i`, and
+- the `(Center, Face)` point `(i, j)`, whose mass is interpolated from cells `j-1` and `j`.
+
+At points that are not iced, every substep writes the same values: zero velocities, unchanged
+stresses (zero mass), zero viscosities (zero ice strength) and the relaxation parameter of an
+ice-free cell. A point that is not iced and already holds these values is "settled", and launching
+the kernels there changes nothing.
+
+At the beginning of each `time_step_momentum!`, two lists of `(i, j)` indices are built for each kernel range:
+- the points that are iced or not yet settled (for example, where the ice has just melted), which the first substep computes, and
+- the iced points, which all the other substeps compute: after the first substep every other point is settled.
+
+The ice thickness and concentration do not change during the substeps, so neither do the lists.
+The velocities and stresses are bit-for-bit the same as without skipping. The only exception is the
+diagnostic `Δ` of the `ElastoViscoPlasticRheology`, which is left stale where there is no ice.
+It is only ever read at the point where it was just computed.
+
+The lists are filled in place, in buffers allocated once, using an atomic counter. The order of the indices
+in a list varies between runs, but this does not change the result, since each point is computed independently.
+"""
+struct SkipIceFreeCells{V, S}
+    velocity :: V # `IceCoverMaps` over the velocity kernel range
+    stress :: S   # `IceCoverMaps` over the stress kernel range (`nothing` if the rheology has no stress kernels)
+end
+
+# Before the solver knows its grid
+SkipIceFreeCells() = SkipIceFreeCells(nothing, nothing)
+
+ice_free_cells_option(skip::Bool) = skip ? SkipIceFreeCells() : nothing
+
+struct IceCoverMaps{I, C, H, K}
+    first_substep :: I # Indices computed during the first substep
+    iced :: I          # Indices computed during all the other substeps
+    counts :: C        # Number of indices in each list, on the architecture
+    host_counts :: H   # Number of indices in each list, on the CPU
+    kernel :: K        # Kernel filling the lists
+end
+
+function IceCoverMaps(grid, ranges)
+    arch = architecture(grid)
+    N = prod(length.(ranges))
+
+    # The indices are signed because the stress range extends into the halos
+    first_substep = on_architecture(arch, Vector{NTuple{2, Int32}}(undef, N))
+    iced          = on_architecture(arch, Vector{NTuple{2, Int32}}(undef, N))
+    counts        = on_architecture(arch, zeros(Int32, 2))
+    host_counts   = zeros(Int32, 2)
+
+    kernel, _ = configure_kernel(arch, grid, KernelParameters(ranges...), _build_ice_cover_maps!)
+
+    return IceCoverMaps(first_substep, iced, counts, host_counts, kernel)
+end
+
+# Velocity kernels run over their `kernel_parameters`, stress kernels over the rheology-specific range
+kernel_ranges(grid, ::Symbol) = (1:size(grid, 1), 1:size(grid, 2))
+kernel_ranges(grid, ::KernelParameters{S, O}) where {S, O} = Tuple(1+o:s+o for (s, o) in zip(S, O))
+
+materialize_ice_free_cells(::Nothing, grid, rheology, kernel_parameters) = nothing
+
+function materialize_ice_free_cells(::SkipIceFreeCells, grid, rheology, kernel_parameters)
+    velocity = IceCoverMaps(grid, kernel_ranges(grid, kernel_parameters))
+    stress_ranges = stress_kernel_ranges(rheology, grid)
+    stress = isnothing(stress_ranges) ? nothing : IceCoverMaps(grid, stress_ranges)
+    return SkipIceFreeCells(velocity, stress)
+end
+
+@kernel function _build_ice_cover_maps!(first_substep, iced, counts, grid, rheology, fields)
+    i, j = @index(Global, NTuple)
+
+    h = fields.h
+    ℵ = fields.ℵ
+    ρ = fields.ρ
+
+    # `≠ 0` rather than `> 0` so that cells with negative or NaN mass are still computed
+    has_ice = (ice_mass(i,   j,   1, grid, h, ℵ, ρ) != 0) |
+              (ice_mass(i-1, j,   1, grid, h, ℵ, ρ) != 0) |
+              (ice_mass(i,   j-1, 1, grid, h, ℵ, ρ) != 0) |
+              (ice_mass(i-1, j-1, 1, grid, h, ℵ, ρ) != 0)
+
+    moving = @inbounds !iszero(fields.u[i, j, 1]) | !iszero(fields.v[i, j, 1])
+    unsettled = moving | unsettled_stresses(i, j, grid, rheology, fields)
+
+    index = (Int32(i), Int32(j))
+
+    if has_ice | unsettled
+        n = @atomic counts[1] += Int32(1)
+        @inbounds first_substep[n] = index
+    end
+
+    if has_ice
+        n = @atomic counts[2] += Int32(1)
+        @inbounds iced[n] = index
+    end
+end
+
+# Fill the lists and return views of their filled parts.
+# This requires copying the two counts to the CPU, but allocates no memory.
+function update_ice_cover_maps!(maps::IceCoverMaps, grid, rheology, fields)
+    fill!(maps.counts, 0)
+    maps.kernel(maps.first_substep, maps.iced, maps.counts, grid, rheology, fields)
+    copyto!(maps.host_counts, maps.counts)
+
+    first_substep = view(maps.first_substep, 1:Int(maps.host_counts[1]))
+    iced          = view(maps.iced,          1:Int(maps.host_counts[2]))
+
+    return first_substep, iced
+end
+
+function restricted_kernels(full_kernels, arch, grid, rheology, velocity_map, stress_map)
+    u_kernel! = configure_mapped_kernel(arch, grid, _u_velocity_step!, velocity_map)
+    v_kernel! = configure_mapped_kernel(arch, grid, _v_velocity_step!, velocity_map)
+    stress_kernels = isnothing(stress_map) ? full_kernels.stress :
+                     mapped_stress_kernels(full_kernels.stress, rheology, arch, grid, stress_map)
+    return (; stress = stress_kernels, u = u_kernel!, v = v_kernel!)
+end
+
+# Kernels for the first substep and for all the other substeps
+substep_kernels(::Nothing, full_kernels, args...) = (full_kernels, full_kernels)
+
+function substep_kernels(skip::SkipIceFreeCells, full_kernels, arch, grid, rheology, fields)
+    velocity_first, velocity_iced = update_ice_cover_maps!(skip.velocity, grid, rheology, fields)
+
+    if isnothing(skip.stress)
+        stress_first = stress_iced = nothing
+    else
+        stress_first, stress_iced = update_ice_cover_maps!(skip.stress, grid, rheology, fields)
+    end
+
+    first_kernels = restricted_kernels(full_kernels, arch, grid, rheology, velocity_first, stress_first)
+    later_kernels = restricted_kernels(full_kernels, arch, grid, rheology, velocity_iced,  stress_iced)
+
+    return first_kernels, later_kernels
 end
 
 maybe_extended_grid(mom::SplitExplicitMomentumEquation, grid::DistributedGrid) = maybe_extended_grid(mom.solver, grid)
@@ -63,9 +224,15 @@ function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
     end
 end
 
+function materialize_split_explicit_solver(solver, rheology, grid)
+    kernel_parameters = SplitExplicitSolver(grid; substeps = solver.substeps).kernel_parameters
+    ice_free_cells = materialize_ice_free_cells(solver.ice_free_cells, grid, rheology, kernel_parameters)
+    return SplitExplicitSolver(solver.substeps, kernel_parameters, ice_free_cells)
+end
+
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
     new_auxiliaries  = Auxiliaries(mom.rheology, grid)
-    new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
+    new_solver       = materialize_split_explicit_solver(mom.solver, mom.rheology, grid)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
     new_free_surface = materialize_free_surface(mom.free_surface.η₀, mom.free_surface.g, grid)
     new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
@@ -177,26 +344,39 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         fill_halo_regions!(converted_u_halo...; only_local_halos = true)
         fill_halo_regions!(converted_v_halo...; only_local_halos = true)
 
-        for substep in 1 : substeps
-            # Compute stresses! depending on the particular rheology implementation
-            compute_stresses!(dynamics, converted_stresses_args...)
+        # Possibly restrict the kernels to the points that change during the substeps (see `SkipIceFreeCells`)
+        full_kernels = (; stress = dynamics.auxiliaries.kernels, u = u_velocity_kernel!, v = v_velocity_kernel!)
+        first_kernels, later_kernels = substep_kernels(dynamics.solver.ice_free_cells, full_kernels,
+                                                       arch, grid, rheology, model_fields)
 
-            # Alternating leap-frog.
-            if iseven(substep)
-                u_velocity_kernel!(converted_u_args...)
-                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
-                v_velocity_kernel!(converted_v_args...)
-                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
-            else
-                v_velocity_kernel!(converted_v_args...)
-                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
-                u_velocity_kernel!(converted_u_args...)
-                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
-            end
+        for substep in 1 : substeps
+            kernels = substep == 1 ? first_kernels : later_kernels
+            momentum_substep!(kernels, substep, converted_stresses_args, converted_u_args, converted_v_args,
+                              converted_u_halo, converted_v_halo)
         end
     end
 
     finalize_rheology!(model_fields, rheology)
+
+    return nothing
+end
+
+function momentum_substep!(kernels, substep, stresses_args, u_args, v_args, u_halo, v_halo)
+    # Compute stresses! depending on the particular rheology implementation
+    compute_stresses!(kernels.stress, stresses_args...)
+
+    # Alternating leap-frog.
+    if iseven(substep)
+        kernels.u(u_args...)
+        fill_halo_regions!(u_halo...; only_local_halos = true)
+        kernels.v(v_args...)
+        fill_halo_regions!(v_halo...; only_local_halos = true)
+    else
+        kernels.v(v_args...)
+        fill_halo_regions!(v_halo...; only_local_halos = true)
+        kernels.u(u_args...)
+        fill_halo_regions!(u_halo...; only_local_halos = true)
+    end
 
     return nothing
 end
