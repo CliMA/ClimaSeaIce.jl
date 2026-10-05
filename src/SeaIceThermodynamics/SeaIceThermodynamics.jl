@@ -56,7 +56,7 @@ Note: the function `melting_temperature(liquidus, salinity)` returns the melting
 """
 function LinearLiquidus(FT::DataType=Oceananigans.defaults.FloatType;
                         salinity_slope = 0.0542, # psu / ᵒC
-                        depth_slope = 7.89e-4 # psu / m
+                        depth_slope = 7.89e-4, # psu / m
                         freshwater_melting_temperature = 0) # ᵒC
 
     return LinearLiquidus(convert(FT, freshwater_melting_temperature),
