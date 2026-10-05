@@ -23,43 +23,49 @@ using Oceananigans.Utils: launch!
 
 struct LinearLiquidus{FT}
     freshwater_melting_temperature :: FT
-    slope :: FT
+    salinity_slope :: FT
+    depth_slope :: FT
 end
 
 """
     LinearLiquidus(FT=Oceananigans.defaults.FloatType,
-                   slope = 0.054, # psu / ᵒC
+                   salinity_slope = 0.054, # psu / ᵒC
+                   depth_slope :: FT
                    freshwater_melting_temperature = 0) # ᵒC
 
-Return a linear model for the dependence of the melting temperature of
-saltwater on salinity,
+
+Return a liquidus that depends linearly on salinity `S` and on the vertical coordinate `z`,
 
 ```math
-Tₘ(S) = T₀ - m S ,
+Tₘ(S, z) = T₀ - m S + λ z ,
 ```
 
-where ``Tₘ(S)`` is the melting temperature as a function of salinity ``S``,
-``T₀`` is the melting temperature of freshwater, and ``m`` is the ratio
-between the melting temperature and salinity (equivalently,
-``m ≡ (T₀ - Tₘ) / S``). The sign convention is chosen so that ``m > 0`` for
-saltwater, meaning the melting temperature decreases as salinity increases.
+where ``T₀`` is the `freshwater_melting_temperature`, ``m`` is the `salinity_slope`, and ``λ`` is the `depth_slope`, so that
+the melting temperature decreases with salinity and with depth (``z < 0`` below the surface). The sign convention 
+for ``m`` is chosen so that ``m > 0`` for saltwater, meaning the melting temperature decreases as salinity increases.
+Likewise `λ > 0` meaning that the melting temperature increases increasing the depth (remember that for the ocean `z < 0`!).
 
-The defaults assume that salinity is given in practical salinity units `psu` and
-temperature is in degrees Celsius.
+`melting_temperature(liquidus, S)` returns the surface value, `melting_temperature(liquidus, S, z)` the value at `z`.
 
-Note: the function `melting_temperature(liquidus, salinity)` returns the
-melting temperature given `salinity`.
+The defaults fit the TEOS-10 freezing point of air-saturated seawater, in Conservative Temperature, within 0.02 K
+over `S = 28-36 g kg⁻¹` and the top 1000 m.
+
+The defaults assume that salinity is given in absolute salinity units `psu` and temperature is in degrees Celsius.
+
+Note: the function `melting_temperature(liquidus, salinity)` returns the melting temperature given `salinity`.
 """
 function LinearLiquidus(FT::DataType=Oceananigans.defaults.FloatType;
-                        slope = 0.054, # psu / ᵒC
+                        salinity_slope = 0.0542, # psu / ᵒC
+                        depth_slope = 7.89e-4 # psu / m
                         freshwater_melting_temperature = 0) # ᵒC
 
     return LinearLiquidus(convert(FT, freshwater_melting_temperature),
-                          convert(FT, slope))
+                          convert(FT, salinity_slope),
+                          convert(FT, depth_slope))
 end
 
-@inline function melting_temperature(liquidus::LinearLiquidus, salinity)
-    return liquidus.freshwater_melting_temperature - liquidus.slope * salinity
+@inline function melting_temperature(liquidus::LinearLiquidus, salinity, z = 0)
+    return liquidus.freshwater_melting_temperature - liquidus.salinity_slope * salinity + liquidus.depth_slope * z
 end
 
 Base.summary(lq::LinearLiquidus) = "LinearLiquidus(freshwater_melting_temperature = $(lq.freshwater_melting_temperature), slope = $(lq.slope))"
