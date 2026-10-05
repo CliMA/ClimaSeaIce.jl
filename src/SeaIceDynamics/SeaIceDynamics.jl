@@ -9,7 +9,7 @@ using Adapt: Adapt
 using KernelAbstractions: @kernel, @index
 using Oceananigans: Oceananigans, prognostic_state, prognostic_fields,
                     restore_prognostic_state!, fields
-using Oceananigans.Architectures: architecture
+using Oceananigans.Architectures: architecture, CPU
 using Oceananigans.DistributedComputations: Distributed
 using Oceananigans.Fields: Field
 using Oceananigans.Grids: Center, Face
@@ -23,7 +23,8 @@ using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
                     Auxiliaries,compute_stresses!,
                     initialize_rheology!, finalize_rheology!,
                     compute_substep_Δtᶠᶜᶜ, compute_substep_Δtᶜᶠᶜ,
-                    sum_of_forcing_u, sum_of_forcing_v
+                    sum_of_forcing_u, sum_of_forcing_v,
+                    stress_kernel_ranges, mapped_stress_kernels, configure_mapped_kernel
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ##
