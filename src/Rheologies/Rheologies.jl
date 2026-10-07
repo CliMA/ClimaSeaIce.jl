@@ -53,12 +53,7 @@ mapped_stress_kernels(kernels, rheology, arch, grid, active_cells_map) = kernels
 struct NoKernel end
 @inline (::NoKernel)(args...) = nothing
 
-"""
-    configure_mapped_kernel(arch, grid, kernel!, active_cells_map)
-
-Configure `kernel!` to run only over the `(i, j)` indices listed in `active_cells_map`.
-Returns a `NoKernel` (which does nothing when called) if `active_cells_map` is empty.
-"""
+# Configure `kernel!` to run only over the `(i, j)` indices in `active_cells_map`
 function configure_mapped_kernel(arch, grid, kernel!, active_cells_map)
     isempty(active_cells_map) && return NoKernel()
     return first(configure_kernel(arch, grid, :xy, kernel!; active_cells_map))

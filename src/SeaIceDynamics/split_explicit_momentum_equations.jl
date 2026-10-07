@@ -32,9 +32,7 @@ by subcycling `substeps` times in between each ice_thermodynamics / tracer advec
 
 The default number of substeps is 120.
 
-On an `ImmersedBoundaryGrid` with an active-columns map (`active_cells_map = true` or
-`active_z_columns = true`), the substeps are computed only near columns that are not immersed;
-see [`ImmersedActiveCells`](@ref).
+On an `ImmersedBoundaryGrid` with an active-columns map, immersed columns are skipped.
 """
 SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, :xy)
 
@@ -75,30 +73,8 @@ end
 ##### Skipping immersed columns
 #####
 
-"""
-    ImmersedActiveCells
-
-Index lists (and the kernels launched over them) that restrict the split-explicit substeps
-to the points near columns that are not immersed. Built once, when the solver is materialized,
-for an `ImmersedBoundaryGrid` with an active-columns map.
-
-A point `(i, j)` is kept when any of the cells `(i-1:i, j-1:j)` is not immersed. These are the cells that set
-- the `(Center, Center)` point `(i, j)`,
-- the `(Face, Face)` point `(i, j)`, whose mass is interpolated from the four cells,
-- the `(Face, Center)` point `(i, j)`, whose mass is interpolated from cells `i-1` and `i`, and
-- the `(Center, Face)` point `(i, j)`, whose mass is interpolated from cells `j-1` and `j`.
-
-Immersed columns hold no ice (`update_state!` masks the prognostic fields there), so at every point that is not kept
-the kernels would only ever write the values the fields start with: zero velocities (the velocity
-points are peripheral), unchanged (zero) stresses, zero viscosities and the relaxation parameter
-`max_relaxation_parameter`. Skipping these points therefore gives bit-for-bit the same velocities,
-stresses and relaxation parameter. The viscosities `ζ` and the diagnostic `Δ` of the
-`ElastoViscoPlasticRheology` are not computed at the skipped points (where the full kernels can
-produce NaNs in the halos); they are only ever read at the point where they were just computed.
-
-The lists are sorted, so that consecutive entries are neighbours in memory, and hold signed
-indices because the stress range extends into the halos.
-"""
+# Kernels launched only at points `(i, j)` where any of the cells `(i-1:i, j-1:j)` is not immersed.
+# Elsewhere the kernels would leave the fields unchanged, so the result is bit-for-bit the same.
 struct ImmersedActiveCells{L, K}
     lists :: L   # (; velocity, stress) index lists, on the architecture
     kernels :: K # (; u, v, stress) kernels launched over the lists
@@ -280,8 +256,21 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
                                   u_velocity_kernel!, v_velocity_kernel!)
 
         for substep in 1 : substeps
-            momentum_substep!(kernels, substep, converted_stresses_args, converted_u_args, converted_v_args,
-                              converted_u_halo, converted_v_halo)
+            # Compute stresses! depending on the particular rheology implementation
+            compute_stresses!(kernels.stress, converted_stresses_args...)
+
+            # Alternating leap-frog.
+            if iseven(substep)
+                kernels.u(converted_u_args...)
+                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
+                kernels.v(converted_v_args...)
+                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
+            else
+                kernels.v(converted_v_args...)
+                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
+                kernels.u(converted_u_args...)
+                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
+            end
         end
     end
 
@@ -293,26 +282,6 @@ end
 # Kernels over the whole domain, or only near the columns that are not immersed
 substep_kernels(::Nothing, stress_kernels, u_kernel!, v_kernel!) = (; stress = stress_kernels, u = u_kernel!, v = v_kernel!)
 substep_kernels(active_cells::ImmersedActiveCells, args...) = active_cells.kernels
-
-function momentum_substep!(kernels, substep, stresses_args, u_args, v_args, u_halo, v_halo)
-    # Compute stresses! depending on the particular rheology implementation
-    compute_stresses!(kernels.stress, stresses_args...)
-
-    # Alternating leap-frog.
-    if iseven(substep)
-        kernels.u(u_args...)
-        fill_halo_regions!(u_halo...; only_local_halos = true)
-        kernels.v(v_args...)
-        fill_halo_regions!(v_halo...; only_local_halos = true)
-    else
-        kernels.v(v_args...)
-        fill_halo_regions!(v_halo...; only_local_halos = true)
-        kernels.u(u_args...)
-        fill_halo_regions!(u_halo...; only_local_halos = true)
-    end
-
-    return nothing
-end
 
 @kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology,
                                    fields, free_drift, clock, coriolis,
