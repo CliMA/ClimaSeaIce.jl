@@ -43,21 +43,7 @@ Auxiliaries(rheology, grid::AbstractGrid) = Auxiliaries(NamedTuple(), nothing)
 initialize_rheology!(model, rheology) = nothing
 finalize_rheology!(fields, rheology) = nothing
 
-compute_stresses!(kernels, fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc) = nothing
-
-# Rheologies that do not store stresses in auxiliary fields have no stress kernels to restrict
-stress_kernel_ranges(rheology, grid) = nothing
-mapped_stress_kernels(kernels, rheology, arch, grid, ::Nothing) = kernels
-
-# A kernel launched over an empty map does nothing
-struct NoKernel end
-@inline (::NoKernel)(args...) = nothing
-
-# Configure `kernel!` to run only over the `(i, j)` indices in `active_cells_map`
-function configure_mapped_kernel(arch, grid, kernel!, active_cells_map)
-    isempty(active_cells_map) && return NoKernel()
-    return first(configure_kernel(arch, grid, :xy, kernel!; active_cells_map))
-end
+compute_stresses!(dynamics, fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc) = nothing
 Oceananigans.prognostic_fields(mom, ::AbstractRheology) = NamedTuple()
 
 # Nothing rheology or viscous rheology

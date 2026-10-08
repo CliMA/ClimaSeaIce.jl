@@ -1,8 +1,7 @@
 using Oceananigans: instantiated_location
-using Oceananigans.Architectures: convert_to_device, architecture, on_architecture
+using Oceananigans.Architectures: convert_to_device, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, immersed_cell
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node,
                           LeftConnected, RightConnected, FullyConnected,
                           RightCenterFolded, RightFaceFolded,
@@ -16,13 +15,10 @@ const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                                 LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
 
-struct SplitExplicitSolver{I, K, A}
+struct SplitExplicitSolver{I, K}
     substeps :: I
     kernel_parameters :: K
-    active_cells :: A
 end
-
-SplitExplicitSolver(substeps, kernel_parameters) = SplitExplicitSolver(substeps, kernel_parameters, nothing)
 
 """
     SplitExplicitSolver(grid::AbstractGrid; substeps=120)
@@ -31,13 +27,11 @@ Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice
 by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
-
-On an `ImmersedBoundaryGrid` with an active-columns map, immersed columns are skipped.
 """
-SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, Val(:xy))
 
 # When no grid is provided, we assume a serial grid with default kernel parameters
-SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, Val(:xy))
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
@@ -69,56 +63,9 @@ function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
     end
 end
 
-#####
-##### Skipping immersed columns
-#####
-
-# Stress kernels are launched only at points `(i, j)` where any of the cells `(i-1:i, j-1:j)` is not immersed.
-# Elsewhere the kernels would leave the fields unchanged, so the result is bit-for-bit the same.
-immersed_active_cells(grid, rheology) = nothing
-
-function immersed_active_cells(grid::ImmersedBoundaryGrid, rheology)
-    isnothing(grid.active_z_columns) && return nothing
-    stress_ranges = stress_kernel_ranges(rheology, grid)
-    return isnothing(stress_ranges) ? nothing : active_cells_list(grid, stress_ranges)
-end
-
-@kernel function _compute_active_neighbourhood!(mask, grid, i₀, j₀)
-    i′, j′ = @index(Global, NTuple)
-    i  = i′ + i₀
-    j  = j′ + j₀
-    kᴺ = size(grid, 3)
-
-    active = !immersed_cell(i,   j,   kᴺ, grid) |
-             !immersed_cell(i-1, j,   kᴺ, grid) |
-             !immersed_cell(i,   j-1, kᴺ, grid) |
-             !immersed_cell(i-1, j-1, kᴺ, grid)
-
-    @inbounds mask[i′, j′] = active
-end
-
-# The `(i, j)` indices in `ranges` near at least one column that is not immersed
-function active_cells_list(grid, ranges)
-    arch = architecture(grid)
-    i₀ = first(ranges[1]) - 1
-    j₀ = first(ranges[2]) - 1
-
-    mask = on_architecture(arch, zeros(Bool, length.(ranges)...))
-    kernel!, _ = configure_kernel(arch, grid, KernelParameters(size(mask), (0, 0)), _compute_active_neighbourhood!)
-    kernel!(mask, grid, i₀, j₀)
-
-    # Built once, on the CPU; `findall` returns the indices sorted with `i` fastest
-    indices = findall(on_architecture(CPU(), mask))
-    list = [(Int32(I[1] + i₀), Int32(I[2] + j₀)) for I in indices]
-
-    return on_architecture(arch, list)
-end
-
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
     new_auxiliaries  = Auxiliaries(mom.rheology, grid)
-    solver           = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
-    active_cells     = immersed_active_cells(grid, mom.rheology)
-    new_solver       = SplitExplicitSolver(solver.substeps, solver.kernel_parameters, active_cells)
+    new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
     new_free_surface = materialize_free_surface(mom.free_surface.η₀, mom.free_surface.g, grid)
     new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
@@ -193,12 +140,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     update_external_stress!(bottom_stress, grid)
     update_free_surface!(dynamics.free_surface)
 
-    params = dynamics.solver.kernel_parameters
+    params = possibly_load_active_cells_map(grid, dynamics.solver.kernel_parameters, false)
 
-    active_cells_map = possibly_load_active_cells_map(nothing, grid, params, false)
-
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!; active_cells_map)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!; active_cells_map)
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
 
@@ -232,11 +177,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         fill_halo_regions!(converted_u_halo...; only_local_halos = true)
         fill_halo_regions!(converted_v_halo...; only_local_halos = true)
 
-        stress_kernels = mapped_stress_kernels(dynamics.auxiliaries.kernels, rheology, arch, grid, dynamics.solver.active_cells)
-
         for substep in 1 : substeps
             # Compute stresses! depending on the particular rheology implementation
-            compute_stresses!(stress_kernels, converted_stresses_args...)
+            compute_stresses!(dynamics, converted_stresses_args...)
 
             # Alternating leap-frog.
             if iseven(substep)

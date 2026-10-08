@@ -11,6 +11,9 @@ Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 RootSolvers = "7181ea78-2dcb-4de3-ab41-2b8ab5a31e74"
 SeawaterPolynomials = "d496a93d-167e-4197-9f49-d3af4ff8fe40"
 
+[sources]
+Oceananigans = {url = "https://github.com/CliMA/Oceananigans.jl", rev = "ss/halo-active-cells-map"}
+
 [compat]
 Adapt = "3, 4"
 Aqua = "0.8"
@@ -19,7 +22,7 @@ JLD2 = "0.6.2"
 KernelAbstractions = "0.9"
 MPI = "0.20"
 NCDatasets = "0.14"
-Oceananigans = "0.113"
+Oceananigans = "0.114"
 RootSolvers = "0.3, 0.4, 1.0"
 SeawaterPolynomials = "0.3, 0.4"
 Test = "<0.0.1, 1"

@@ -3,7 +3,7 @@ using KernelAbstractions: @kernel, @index
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: synchronize_communication!
-using Oceananigans.Grids: AbstractGrid, halo_size
+using Oceananigans.Grids: AbstractGrid, surface_kernel_parameters
 
 using ClimaSeaIce: default_sea_ice_boundary_conditions
 
@@ -142,7 +142,7 @@ end
 function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 
     arch       = architecture(grid)
-    parameters = KernelParameters(stress_kernel_ranges(r, grid)...)
+    parameters = surface_kernel_parameters(grid)
 
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
@@ -218,23 +218,8 @@ end
 # The parameterization for an `ElastoViscoPlasticRheology`
 @inline ice_strength(i, j, k, grid, P★, C, h, ℵ) = @inbounds P★ * h[i, j, k] * ℵ[i, j, k] * exp(- C * (1 - ℵ[i, j, k]))
 
-# The stresses are computed over the halo-extended domain, so that the stress divergence is available
-# at every velocity point computed by the split-explicit solver.
-function stress_kernel_ranges(::ElastoViscoPlasticRheology, grid)
-    Nx, Ny, _ = size(grid)
-    Hx, Hy, _ = halo_size(grid)
-    return (-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
-end
-
-# Stress kernels launched only over the cells listed in `active_cells_map`
-function mapped_stress_kernels(kernels, ::ElastoViscoPlasticRheology, arch, grid, active_cells_map::AbstractArray)
-    _viscosity_kernel! = configure_mapped_kernel(arch, grid, _compute_evp_viscosities!, active_cells_map)
-    _stresses_kernel!  = configure_mapped_kernel(arch, grid, _compute_evp_stresses!,   active_cells_map)
-    return (; _viscosity_kernel!, _stresses_kernel!, kernels._initialize_rhology!)
-end
-
 # Specific compute stresses for the EVP rheology
-function compute_stresses!(kernels, fields, grid, rheology::ElastoViscoPlasticRheology, Δt, u_immersed_bc, v_immersed_bc)
+function compute_stresses!(dynamics, fields, grid, rheology::ElastoViscoPlasticRheology, Δt, u_immersed_bc, v_immersed_bc)
 
     h   = fields.h
     ρᵢ  = fields.ρ
@@ -243,8 +228,8 @@ function compute_stresses!(kernels, fields, grid, rheology::ElastoViscoPlasticRh
     v   = fields.v
     lbc = lateral_boundary_condition(u_immersed_bc, v_immersed_bc)
 
-    kernels._viscosity_kernel!(fields, grid, rheology, u, v, lbc)
-    kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt, lbc)
+    dynamics.auxiliaries.kernels._viscosity_kernel!(fields, grid, rheology, u, v, lbc)
+    dynamics.auxiliaries.kernels._stresses_kernel!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt, lbc)
 
     return nothing
 end
