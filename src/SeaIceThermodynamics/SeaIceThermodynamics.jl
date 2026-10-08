@@ -68,12 +68,13 @@ end
     return liquidus.freshwater_melting_temperature - liquidus.salinity_slope * salinity + liquidus.depth_slope * z
 end
 
-Base.summary(lq::LinearLiquidus) = "LinearLiquidus(freshwater_melting_temperature = $(lq.freshwater_melting_temperature), slope = $(lq.slope))"
+Base.summary(lq::LinearLiquidus) = "LinearLiquidus(freshwater_melting_temperature = $(lq.freshwater_melting_temperature), salinity_slope = $(lq.salinity_slope), depth_slope = $(lq.depth_slope))"
 
 function Base.show(io::IO, lq::LinearLiquidus{FT}) where FT
     print(io, summary(lq), "{", FT, "}", '\n')
     print(io, "├── freshwater_melting_temperature: ", lq.freshwater_melting_temperature, '\n')
-    print(io, "└── slope: ", lq.slope)
+    print(io, "├── salinity_slope: ", lq.salinity_slope, '\n')
+    print(io, "└── depth_slope: ", lq.depth_slope)
 end
 
 struct PhaseTransitions{FT, L}
