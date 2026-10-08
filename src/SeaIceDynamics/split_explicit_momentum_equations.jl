@@ -2,7 +2,7 @@ using Oceananigans: instantiated_location
 using Oceananigans.Architectures: convert_to_device, architecture, on_architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, immersed_cell
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, build_active_z_columns
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node,
                           LeftConnected, RightConnected, FullyConnected,
                           RightCenterFolded, RightFaceFolded,
@@ -105,35 +105,16 @@ function immersed_active_cells(grid::ImmersedBoundaryGrid, rheology, auxiliaries
     return ImmersedActiveCells(lists, (; u, v, stress))
 end
 
-@kernel function _compute_active_neighbourhood!(mask, grid, i₀, j₀)
-    i′, j′ = @index(Global, NTuple)
-    i  = i′ + i₀
-    j  = j′ + j₀
-    kᴺ = size(grid, 3)
-
-    active = !immersed_cell(i,   j,   kᴺ, grid) |
-             !immersed_cell(i-1, j,   kᴺ, grid) |
-             !immersed_cell(i,   j-1, kᴺ, grid) |
-             !immersed_cell(i-1, j-1, kᴺ, grid)
-
-    @inbounds mask[i′, j′] = active
-end
-
 # The `(i, j)` indices in `ranges` near at least one column that is not immersed
-function active_cells_list(grid, ranges)
-    arch = architecture(grid)
-    i₀ = first(ranges[1]) - 1
-    j₀ = first(ranges[2]) - 1
+function active_cells_list(grid, (irange, jrange))
+    parameters = KernelParameters(first(irange)-1:last(irange), first(jrange)-1:last(jrange))
+    columns = build_active_z_columns(grid.underlying_grid, grid.immersed_boundary; parameters)
+    columns = on_architecture(CPU(), columns)
 
-    mask = on_architecture(arch, zeros(Bool, length.(ranges)...))
-    kernel!, _ = configure_kernel(arch, grid, KernelParameters(size(mask), (0, 0)), _compute_active_neighbourhood!)
-    kernel!(mask, grid, i₀, j₀)
+    points = Set((Int32(i + di), Int32(j + dj)) for (i, j) in columns, di in 0:1, dj in 0:1)
+    list = sort!([p for p in points if p[1] in irange && p[2] in jrange], by = reverse)
 
-    # Built once, on the CPU; `findall` returns the indices sorted with `i` fastest
-    indices = findall(on_architecture(CPU(), mask))
-    list = [(Int32(I[1] + i₀), Int32(I[2] + j₀)) for I in indices]
-
-    return on_architecture(arch, list)
+    return on_architecture(architecture(grid), list)
 end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)

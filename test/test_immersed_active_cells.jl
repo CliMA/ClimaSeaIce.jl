@@ -34,7 +34,7 @@ function tripolar_grid(; active_cells_map)
     return ImmersedBoundaryGrid(underlying, GridFittedBottom(bottom); active_cells_map)
 end
 
-function immersed_band_model(grid; rheology = ElastoViscoPlasticRheology())
+function immersed_band_model(grid; rheology = ElastoViscoPlasticRheology(), no_slip = false)
     uₒ = XFaceField(grid)
     vₒ = YFaceField(grid)
     set!(uₒ, (λ, φ, z...) ->  0.2 * cosd(3λ))
@@ -45,7 +45,12 @@ function immersed_band_model(grid; rheology = ElastoViscoPlasticRheology())
                                       bottom_momentum_stress = SemiImplicitStress(uₑ = uₒ, vₑ = vₒ),
                                       rheology, solver = SplitExplicitSolver(grid; substeps = 50))
 
-    model = SeaIceModel(grid; dynamics, advection = ClimaSeaIce.IncrementalRemapping(), timestepper = :ForwardEuler)
+    immersed = no_slip ? ValueBoundaryCondition(0) : nothing
+    boundary_conditions = (u = FieldBoundaryConditions(grid, (Face(), Center(), nothing); immersed),
+                           v = FieldBoundaryConditions(grid, (Center(), Face(), nothing); immersed))
+
+    model = SeaIceModel(grid; dynamics, boundary_conditions,
+                        advection = ClimaSeaIce.IncrementalRemapping(), timestepper = :ForwardEuler)
 
     ice(φ) = abs(φ) > latitude_cutoff + 10
     set!(model, h = (λ, φ, z...) -> ice(φ) * (1 + 0.5 * sind(2λ)),
@@ -106,6 +111,12 @@ end
             s || @warn "  $field differs on the $name"
             @test s
         end
+    end
+
+    @info "  Comparing with no-slip walls..."
+    for build_grid in (latitude_longitude_grid, tripolar_grid)
+        _, _, same = compare_active_cells(build_grid; no_slip = true, Nt = 3)
+        @test all(values(same))
     end
 
     @info "  Comparing a rheology without stress kernels..."
