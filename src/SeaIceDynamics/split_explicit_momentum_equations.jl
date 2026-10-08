@@ -2,14 +2,14 @@ using Oceananigans: instantiated_location
 using Oceananigans.Architectures: convert_to_device, architecture, on_architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
-using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, build_active_z_columns
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, immersed_cell
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node,
                           LeftConnected, RightConnected, FullyConnected,
                           RightCenterFolded, RightFaceFolded,
                           LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                           LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
 using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
-using Oceananigans.Utils: configure_kernel
+using Oceananigans.Utils: configure_kernel, possibly_load_active_cells_map
 
 const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 RightCenterFolded, RightFaceFolded,
@@ -73,55 +73,65 @@ end
 ##### Skipping immersed columns
 #####
 
-# Kernels launched only at points `(i, j)` where any of the cells `(i-1:i, j-1:j)` is not immersed.
+# Stress kernels launched only at points `(i, j)` where any of the cells `(i-1:i, j-1:j)` is not immersed.
 # Elsewhere the kernels would leave the fields unchanged, so the result is bit-for-bit the same.
 struct ImmersedActiveCells{L, K}
-    lists :: L   # (; velocity, stress) index lists, on the architecture
-    kernels :: K # (; u, v, stress) kernels launched over the lists
+    list :: L    # index list, on the architecture
+    kernels :: K # stress kernels launched over the list
 end
 
-# Velocity kernels run over their `kernel_parameters`, stress kernels over the rheology-specific range
-kernel_ranges(grid, ::Symbol) = (1:size(grid, 1), 1:size(grid, 2))
-kernel_ranges(grid, ::KernelParameters{S, O}) where {S, O} = Tuple(1+o:s+o for (s, o) in zip(S, O))
-
 # Only grids with an active-columns map skip immersed columns
-immersed_active_cells(grid, rheology, auxiliaries, kernel_parameters) = nothing
+immersed_active_cells(grid, rheology, auxiliaries) = nothing
 
-function immersed_active_cells(grid::ImmersedBoundaryGrid, rheology, auxiliaries, kernel_parameters)
+function immersed_active_cells(grid::ImmersedBoundaryGrid, rheology, auxiliaries)
     isnothing(grid.active_z_columns) && return nothing
 
-    arch = architecture(grid)
-    velocity_list = active_cells_list(grid, kernel_ranges(grid, kernel_parameters))
-
     stress_ranges = stress_kernel_ranges(rheology, grid)
-    stress_list = isnothing(stress_ranges) ? nothing : active_cells_list(grid, stress_ranges)
+    isnothing(stress_ranges) && return nothing
 
-    u = configure_mapped_kernel(arch, grid, _u_velocity_step!, velocity_list)
-    v = configure_mapped_kernel(arch, grid, _v_velocity_step!, velocity_list)
-    stress = isnothing(stress_list) ? auxiliaries.kernels :
-             mapped_stress_kernels(auxiliaries.kernels, rheology, arch, grid, stress_list)
+    arch = architecture(grid)
+    list = active_cells_list(grid, stress_ranges)
+    kernels = mapped_stress_kernels(auxiliaries.kernels, rheology, arch, grid, list)
 
-    lists = (; velocity = velocity_list, stress = stress_list)
-    return ImmersedActiveCells(lists, (; u, v, stress))
+    return ImmersedActiveCells(list, kernels)
+end
+
+@kernel function _compute_active_neighbourhood!(mask, grid, i₀, j₀)
+    i′, j′ = @index(Global, NTuple)
+    i  = i′ + i₀
+    j  = j′ + j₀
+    kᴺ = size(grid, 3)
+
+    active = !immersed_cell(i,   j,   kᴺ, grid) |
+             !immersed_cell(i-1, j,   kᴺ, grid) |
+             !immersed_cell(i,   j-1, kᴺ, grid) |
+             !immersed_cell(i-1, j-1, kᴺ, grid)
+
+    @inbounds mask[i′, j′] = active
 end
 
 # The `(i, j)` indices in `ranges` near at least one column that is not immersed
-function active_cells_list(grid, (irange, jrange))
-    parameters = KernelParameters(first(irange)-1:last(irange), first(jrange)-1:last(jrange))
-    columns = build_active_z_columns(grid.underlying_grid, grid.immersed_boundary; parameters)
-    columns = on_architecture(CPU(), columns)
+function active_cells_list(grid, ranges)
+    arch = architecture(grid)
+    i₀ = first(ranges[1]) - 1
+    j₀ = first(ranges[2]) - 1
 
-    points = Set((Int32(i + di), Int32(j + dj)) for (i, j) in columns, di in 0:1, dj in 0:1)
-    list = sort!([p for p in points if p[1] in irange && p[2] in jrange], by = reverse)
+    mask = on_architecture(arch, zeros(Bool, length.(ranges)...))
+    kernel!, _ = configure_kernel(arch, grid, KernelParameters(size(mask), (0, 0)), _compute_active_neighbourhood!)
+    kernel!(mask, grid, i₀, j₀)
 
-    return on_architecture(architecture(grid), list)
+    # Built once, on the CPU; `findall` returns the indices sorted with `i` fastest
+    indices = findall(on_architecture(CPU(), mask))
+    list = [(Int32(I[1] + i₀), Int32(I[2] + j₀)) for I in indices]
+
+    return on_architecture(arch, list)
 end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
     new_auxiliaries  = Auxiliaries(mom.rheology, grid)
-    kernel_parameters = SplitExplicitSolver(grid; substeps = mom.solver.substeps).kernel_parameters
-    active_cells     = immersed_active_cells(grid, mom.rheology, new_auxiliaries, kernel_parameters)
-    new_solver       = SplitExplicitSolver(mom.solver.substeps, kernel_parameters, active_cells)
+    solver           = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
+    active_cells     = immersed_active_cells(grid, mom.rheology, new_auxiliaries)
+    new_solver       = SplitExplicitSolver(solver.substeps, solver.kernel_parameters, active_cells)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
     new_free_surface = materialize_free_surface(mom.free_surface.η₀, mom.free_surface.g, grid)
     new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
@@ -198,8 +208,10 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     params = dynamics.solver.kernel_parameters
 
-    u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!)
-    v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
+    active_cells_map = possibly_load_active_cells_map(nothing, grid, params, false)
+
+    u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!; active_cells_map)
+    v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!; active_cells_map)
 
     substeps = dynamics.solver.substeps
 
@@ -233,23 +245,22 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         fill_halo_regions!(converted_u_halo...; only_local_halos = true)
         fill_halo_regions!(converted_v_halo...; only_local_halos = true)
 
-        kernels = substep_kernels(dynamics.solver.active_cells, dynamics.auxiliaries.kernels,
-                                  u_velocity_kernel!, v_velocity_kernel!)
+        stress_kernels = substep_stress_kernels(dynamics.solver.active_cells, dynamics.auxiliaries.kernels)
 
         for substep in 1 : substeps
             # Compute stresses! depending on the particular rheology implementation
-            compute_stresses!(kernels.stress, converted_stresses_args...)
+            compute_stresses!(stress_kernels, converted_stresses_args...)
 
             # Alternating leap-frog.
             if iseven(substep)
-                kernels.u(converted_u_args...)
+                u_velocity_kernel!(converted_u_args...)
                 fill_halo_regions!(converted_u_halo...; only_local_halos = true)
-                kernels.v(converted_v_args...)
+                v_velocity_kernel!(converted_v_args...)
                 fill_halo_regions!(converted_v_halo...; only_local_halos = true)
             else
-                kernels.v(converted_v_args...)
+                v_velocity_kernel!(converted_v_args...)
                 fill_halo_regions!(converted_v_halo...; only_local_halos = true)
-                kernels.u(converted_u_args...)
+                u_velocity_kernel!(converted_u_args...)
                 fill_halo_regions!(converted_u_halo...; only_local_halos = true)
             end
         end
@@ -260,9 +271,9 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     return nothing
 end
 
-# Kernels over the whole domain, or only near the columns that are not immersed
-substep_kernels(::Nothing, stress_kernels, u_kernel!, v_kernel!) = (; stress = stress_kernels, u = u_kernel!, v = v_kernel!)
-substep_kernels(active_cells::ImmersedActiveCells, args...) = active_cells.kernels
+# Stress kernels over the whole domain, or only near the columns that are not immersed
+substep_stress_kernels(::Nothing, stress_kernels) = stress_kernels
+substep_stress_kernels(active_cells::ImmersedActiveCells, stress_kernels) = active_cells.kernels
 
 @kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology,
                                    fields, free_drift, clock, coriolis,

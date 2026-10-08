@@ -24,7 +24,7 @@ using ..Rheologies: ∂ⱼ_σ₁ⱼ, ∂ⱼ_σ₂ⱼ,
                     initialize_rheology!, finalize_rheology!,
                     compute_substep_Δtᶠᶜᶜ, compute_substep_Δtᶜᶠᶜ,
                     sum_of_forcing_u, sum_of_forcing_v,
-                    stress_kernel_ranges, mapped_stress_kernels, configure_mapped_kernel
+                    stress_kernel_ranges, mapped_stress_kernels
 
 ## A Framework to solve for the ice momentum equation, in the form:
 ##

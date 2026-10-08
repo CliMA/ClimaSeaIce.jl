@@ -80,7 +80,7 @@ function compare_active_cells(build_grid; Nt = 6, kw...)
         # The viscosities are only read where they were just computed, so they are not computed at the
         # skipped points either (where the full kernels can leave NaNs): compare them at the computed points
         same[name] = if name in (:ζᶜᶜᶜ, :ζᶠᶠᶜ)
-            computed = Array(skip.dynamics.solver.active_cells.lists.stress)
+            computed = Array(skip.dynamics.solver.active_cells.list)
             all(isequal(aux_full[name][i, j, 1], aux_skip[name][i, j, 1]) for (i, j) in computed)
         else
             isequal(parent(aux_full[name]), parent(aux_skip[name]))
@@ -97,9 +97,8 @@ end
 
         # Only the grid with the map skips immersed columns, and it skips most of the domain
         @test isnothing(full.dynamics.solver.active_cells)
-        lists = skip.dynamics.solver.active_cells.lists
-        @test length(lists.velocity) < 0.6 * size(skip.grid, 1) * size(skip.grid, 2)
-        @test !isnothing(lists.stress)
+        @test length(skip.grid.active_z_columns) < 0.6 * size(skip.grid, 1) * size(skip.grid, 2)
+        @test !isnothing(skip.dynamics.solver.active_cells)
 
         # Sanity checks: the ice moved, and there is none in the immersed band
         @test maximum(abs, interior(full.velocities.u)) > 0
@@ -121,6 +120,6 @@ end
 
     @info "  Comparing a rheology without stress kernels..."
     _, skip, same = compare_active_cells(latitude_longitude_grid; rheology = ViscousRheology(ν = 1000), Nt = 3)
-    @test isnothing(skip.dynamics.solver.active_cells.lists.stress)
+    @test isnothing(skip.dynamics.solver.active_cells)
     @test all(values(same))
 end
