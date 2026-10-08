@@ -73,27 +73,14 @@ end
 ##### Skipping immersed columns
 #####
 
-# Stress kernels launched only at points `(i, j)` where any of the cells `(i-1:i, j-1:j)` is not immersed.
+# Stress kernels are launched only at points `(i, j)` where any of the cells `(i-1:i, j-1:j)` is not immersed.
 # Elsewhere the kernels would leave the fields unchanged, so the result is bit-for-bit the same.
-struct ImmersedActiveCells{L, K}
-    list :: L    # index list, on the architecture
-    kernels :: K # stress kernels launched over the list
-end
+immersed_active_cells(grid, rheology) = nothing
 
-# Only grids with an active-columns map skip immersed columns
-immersed_active_cells(grid, rheology, auxiliaries) = nothing
-
-function immersed_active_cells(grid::ImmersedBoundaryGrid, rheology, auxiliaries)
+function immersed_active_cells(grid::ImmersedBoundaryGrid, rheology)
     isnothing(grid.active_z_columns) && return nothing
-
     stress_ranges = stress_kernel_ranges(rheology, grid)
-    isnothing(stress_ranges) && return nothing
-
-    arch = architecture(grid)
-    list = active_cells_list(grid, stress_ranges)
-    kernels = mapped_stress_kernels(auxiliaries.kernels, rheology, arch, grid, list)
-
-    return ImmersedActiveCells(list, kernels)
+    return isnothing(stress_ranges) ? nothing : active_cells_list(grid, stress_ranges)
 end
 
 @kernel function _compute_active_neighbourhood!(mask, grid, i₀, j₀)
@@ -130,7 +117,7 @@ end
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
     new_auxiliaries  = Auxiliaries(mom.rheology, grid)
     solver           = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
-    active_cells     = immersed_active_cells(grid, mom.rheology, new_auxiliaries)
+    active_cells     = immersed_active_cells(grid, mom.rheology)
     new_solver       = SplitExplicitSolver(solver.substeps, solver.kernel_parameters, active_cells)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
     new_free_surface = materialize_free_surface(mom.free_surface.η₀, mom.free_surface.g, grid)
@@ -245,7 +232,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
         fill_halo_regions!(converted_u_halo...; only_local_halos = true)
         fill_halo_regions!(converted_v_halo...; only_local_halos = true)
 
-        stress_kernels = substep_stress_kernels(dynamics.solver.active_cells, dynamics.auxiliaries.kernels)
+        stress_kernels = mapped_stress_kernels(dynamics.auxiliaries.kernels, rheology, arch, grid, dynamics.solver.active_cells)
 
         for substep in 1 : substeps
             # Compute stresses! depending on the particular rheology implementation
@@ -270,10 +257,6 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
     return nothing
 end
-
-# Stress kernels over the whole domain, or only near the columns that are not immersed
-substep_stress_kernels(::Nothing, stress_kernels) = stress_kernels
-substep_stress_kernels(active_cells::ImmersedActiveCells, stress_kernels) = active_cells.kernels
 
 @kernel function _u_velocity_step!(u, grid, Δt, substeps, rheology,
                                    fields, free_drift, clock, coriolis,

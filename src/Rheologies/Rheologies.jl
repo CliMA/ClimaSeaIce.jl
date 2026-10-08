@@ -47,7 +47,7 @@ compute_stresses!(kernels, fields, grid, rheology, Δt, u_immersed_bc, v_immerse
 
 # Rheologies that do not store stresses in auxiliary fields have no stress kernels to restrict
 stress_kernel_ranges(rheology, grid) = nothing
-mapped_stress_kernels(kernels, rheology, arch, grid, active_cells_map) = kernels
+mapped_stress_kernels(kernels, rheology, arch, grid, ::Nothing) = kernels
 
 # A kernel launched over an empty map does nothing
 struct NoKernel end

@@ -227,7 +227,7 @@ function stress_kernel_ranges(::ElastoViscoPlasticRheology, grid)
 end
 
 # Stress kernels launched only over the cells listed in `active_cells_map`
-function mapped_stress_kernels(kernels, ::ElastoViscoPlasticRheology, arch, grid, active_cells_map)
+function mapped_stress_kernels(kernels, ::ElastoViscoPlasticRheology, arch, grid, active_cells_map::AbstractArray)
     _viscosity_kernel! = configure_mapped_kernel(arch, grid, _compute_evp_viscosities!, active_cells_map)
     _stresses_kernel!  = configure_mapped_kernel(arch, grid, _compute_evp_stresses!,   active_cells_map)
     return (; _viscosity_kernel!, _stresses_kernel!, kernels._initialize_rhology!)

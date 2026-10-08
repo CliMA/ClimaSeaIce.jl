@@ -80,7 +80,7 @@ function compare_active_cells(build_grid; Nt = 6, kw...)
         # The viscosities are only read where they were just computed, so they are not computed at the
         # skipped points either (where the full kernels can leave NaNs): compare them at the computed points
         same[name] = if name in (:ζᶜᶜᶜ, :ζᶠᶠᶜ)
-            computed = Array(skip.dynamics.solver.active_cells.list)
+            computed = Array(skip.dynamics.solver.active_cells)
             all(isequal(aux_full[name][i, j, 1], aux_skip[name][i, j, 1]) for (i, j) in computed)
         else
             isequal(parent(aux_full[name]), parent(aux_skip[name]))
