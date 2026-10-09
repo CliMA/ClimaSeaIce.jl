@@ -1,7 +1,8 @@
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions, GammaThicknessDistribution,
-    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux, itd_factor
-using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: PrescribedTemperature, FluxFunction
+    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux, itd_factor,
+    bottom_temperature, melting_temperature
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: PrescribedTemperature, FluxFunction, IceWaterThermalEquilibrium
 using Oceananigans
 using Oceananigans: prognostic_fields
 using Oceananigans.Fields: interior
@@ -207,11 +208,11 @@ end
     model = SeaIceModel(grid; snow_thermodynamics=snow_slab_thermodynamics(grid))
     set!(model, h=1, hs=0.3)
 
-    fields = (h = model.ice_thickness, hs = model.snow_thickness)
-    liquidus = model.phase_transitions.liquidus
+    fields = (h = model.ice_thickness, hs = model.snow_thickness, ρi = model.sea_ice_density, ρs = model.snow_density)
+    phase_transitions = model.phase_transitions
     bottom_heat_boundary_condition = model.ice_thermodynamics.heat_boundary_conditions.bottom
-    column_flux(flux) = ice_snow_conductive_flux(1, 1, grid, -10.0, model.clock, fields, (; flux, liquidus, bottom_heat_boundary_condition))
-    snow_ice_temperature(flux) = interface_temperature(1, 1, grid, flux, bottom_heat_boundary_condition, liquidus, -10.0, fields)
+    column_flux(flux) = ice_snow_conductive_flux(1, 1, grid, -10.0, model.clock, fields, (; flux, phase_transitions, bottom_heat_boundary_condition))
+    snow_ice_temperature(flux) = interface_temperature(1, 1, grid, flux, bottom_heat_boundary_condition, phase_transitions, -10.0, fields)
 
     # Snow and ice are scaled alike: the column conducts `itd_factor` times more and the snow-ice interface stays put
     bare = IceSnowConductiveFlux(0.31, 2.0)
@@ -220,4 +221,30 @@ end
         @test column_flux(corrected) ≈ itd_factor(itd_shape, 1.0) * column_flux(bare)
         @test snow_ice_temperature(corrected) ≈ snow_ice_temperature(bare)
     end
+end
+
+@testset "Melting temperature at the base of floating ice" begin
+    grid = RectilinearGrid(size=(1, 1), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
+    bottom_heat_boundary_condition = IceWaterThermalEquilibrium(salinity=34)
+    ice_thermodynamics = sea_ice_slab_thermodynamics(grid; bottom_heat_boundary_condition)
+
+    bare_ice = SeaIceModel(grid; ice_thermodynamics, sea_ice_density=900)
+    snowy_ice = SeaIceModel(grid; ice_thermodynamics, sea_ice_density=900, snow_density=330,
+                            snow_thermodynamics=snow_slab_thermodynamics(grid))
+
+    set!(bare_ice, h=2)
+    set!(snowy_ice, h=2, hs=0.3)
+
+    phase_transitions = bare_ice.phase_transitions
+    liquidus = phase_transitions.liquidus
+    ρw = phase_transitions.liquid_density
+    Tb(model) = bottom_temperature(1, 1, grid, bottom_heat_boundary_condition, phase_transitions, Oceananigans.fields(model))
+
+    # The base of floating ice sits at the depth where the water carries the weight of the ice and snow above it
+    @test Tb(bare_ice)  ≈ melting_temperature(liquidus, 34, - 900 * 2 / ρw)
+    @test Tb(snowy_ice) ≈ melting_temperature(liquidus, 34, - (900 * 2 + 330 * 0.3) / ρw)
+    @test Tb(snowy_ice) < Tb(bare_ice) < melting_temperature(liquidus, 34)
+
+    set!(bare_ice, h=0)
+    @test Tb(bare_ice) == melting_temperature(liquidus, 34)
 end
