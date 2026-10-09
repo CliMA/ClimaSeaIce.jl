@@ -83,7 +83,7 @@ end
     bottom_bc = parameters.bottom_heat_boundary_condition
     liquidus = parameters.liquidus
     Tu = top_surface_temperature
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
     hi = @inbounds fields.h[i, j, 1]
     return slab_internal_heat_flux(flux, Tu, Tb, hi)
 end
@@ -118,7 +118,7 @@ Adapt.adapt_structure(to, f::IceSnowConductiveFlux) = IceSnowConductiveFlux(Adap
     ks = flux.snow_conductivity
     ki = flux.ice_conductivity
     Tu = top_surface_temperature
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
     @inbounds hi = fields.h[i, j, 1]
     @inbounds hs = fields.hs[i, j, 1]
     f = itd_factor(flux.itd_shape, hi)
@@ -133,7 +133,7 @@ end
                                        bottom_bc, liquidus, Tu, fields)
     ki = flux.ice_conductivity
     ks = flux.snow_conductivity
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
     @inbounds hi = fields.h[i, j, 1]
     @inbounds hs = fields.hs[i, j, 1]
 

@@ -78,7 +78,7 @@ the tendency kernels via `model.phase_transitions`.
 function SlabThermodynamics(grid;
                             top_surface_temperature        = nothing,
                             top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
-                            bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
+                            bottom_heat_boundary_condition = IceWaterThermalEquilibrium(eltype(grid)),
                             # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
                             internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
                             concentration_evolution        = ProportionalEvolution())

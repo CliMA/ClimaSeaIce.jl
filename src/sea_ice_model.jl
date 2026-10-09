@@ -345,6 +345,9 @@ Oceananigans.TimeSteppers.reset!(::SIM) = nothing
 snow_fields(::Nothing) = NamedTuple()
 snow_fields(hs) = (; hs)
 
+snow_fields(::Nothing, ρs) = NamedTuple()
+snow_fields(hs, ρs) = (; hs, ρs)
+
 component_fields(component) = fields(component)
 component_fields(::Nothing) = NamedTuple()
 
@@ -356,7 +359,7 @@ component_prognostic_fields(model, ::Nothing) = NamedTuple()
 Oceananigans.fields(model::SIM) = merge((; h  = model.ice_thickness,
                                            ℵ  = model.ice_concentration,
                                            ρi = model.sea_ice_density),
-                                        snow_fields(model.snow_thickness),
+                                        snow_fields(model.snow_thickness, model.snow_density),
                                         model.tracers,
                                         model.velocities,
                                         component_fields(model.ice_thermodynamics),

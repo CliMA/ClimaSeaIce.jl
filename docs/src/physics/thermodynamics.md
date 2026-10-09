@@ -141,10 +141,13 @@ top_bc = PrescribedTemperature(-5.0)
 ## Bottom boundary condition
 
 The default bottom boundary condition, `IceWaterThermalEquilibrium`, assumes the ice-ocean
-interface is at the salinity-dependent melting temperature:
+interface is at the melting temperature of the water at the base of the ice:
 ```math
-T_b = T_m(S)
+T_b = T_m(S, z_b) , \qquad z_b = - \frac{\rho_i h_i + \rho_s h_s}{\rho_w} ,
 ```
+
+where ``z_b`` is the height of the base of floating ice relative to the sea surface, set by the weight of the
+overlying ice and snow, and ``\rho_w`` is the water density.
 
 This is appropriate when the ocean mixed layer is well-mixed and maintains thermal
 equilibrium with the ice bottom.
@@ -281,7 +284,7 @@ end
     flux = parameters.flux           # ::NonLinearConductiveFlux
     bottom_bc = parameters.bottom_heat_boundary_condition
     liquidus = parameters.liquidus
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
     hi = @inbounds fields.h[i, j, 1]
     k_eff = flux.k0 * (1 + flux.α * Tu)
     return ifelse(hi ≤ 0, zero(hi), -k_eff * (Tu - Tb) / hi)

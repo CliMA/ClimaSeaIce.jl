@@ -163,7 +163,7 @@ end
     bottom_bc = ice_thermodynamics.heat_boundary_conditions.bottom
     @inbounds Si = model_fields.S[i, j, 1]
 
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, model_fields)
     Tm = melting_temperature(liquidus, Si)
 
     # Snow surface solve using the combined snow+ice conductive flux with a

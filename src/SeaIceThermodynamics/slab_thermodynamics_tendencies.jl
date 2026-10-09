@@ -46,7 +46,7 @@ end
 
     consolidated_ice = hi ≥ hc
 
-    Tbi = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+    Tbi = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus, model_fields)
 
     # Energy per unit volume of sea-ice: bulk-density × per-mass latent heat
     ℰb = ρi * latent_heat(phase_transitions, Tbi)
@@ -111,7 +111,7 @@ end
             Tuₘ = melting_temperature(liquidus, Si)
             Tuⁿ = min(Tuⁿ, Tuₘ)
         else # slab is unconsolidated and does not have an independent surface temperature
-            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus, model_fields)
         end
         @inbounds Tu[i, j, k] = Tuⁿ
     end
