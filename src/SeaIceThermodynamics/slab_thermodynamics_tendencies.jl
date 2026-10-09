@@ -1,23 +1,6 @@
 using .HeatBoundaryConditions: bottom_temperature, top_surface_temperature
 
 #####
-##### Ice interior conductive flux
-#####
-
-# Given the wrapped `FluxFunction` for the ice layer, evaluate the
-# conductive flux at the ice-top temperature. Both the bare-ice path and
-# the layered path build the wrapper inline before calling here.
-@inline function ice_interior_heat_flux(Qi_function,
-                                        i, j, k, grid, Tui,
-                                        consolidated_ice, clock, model_fields)
-    # If the ice is consolidated, we use the internal heat flux.
-    # Slab is unconsolidated, there is no internal heat flux (Qi -> ∞)
-    return ifelse(consolidated_ice,
-                  getflux(Qi_function, i, j, grid, Tui, clock, model_fields),
-                  zero(grid))
-end
-
-#####
 ##### Pure ice melt/freeze tendency
 #####
 
@@ -26,39 +9,22 @@ end
 # absorption), compute the volume tendency of the ice slab. No surface solve
 # is performed here.
 @inline function ice_melt_freeze_tendency(i, j, k, grid,
-                                          ice_thermodynamics::SlabThermodynamics,
                                           phase_transitions,
                                           sea_ice_density,
-                                          Qi_function,
                                           Tui,
-                                          ice_thickness,
-                                          ice_consolidation_thickness,
                                           top_effective_heat_flux,
                                           bottom_external_heat_flux,
                                           clock, model_fields)
 
-    @inbounds hi = ice_thickness[i, j, k]
-    @inbounds hc = ice_consolidation_thickness[i, j, k]
     @inbounds ρi = sea_ice_density[i, j, 1]
 
-    consolidated_ice = hi ≥ hc
-
-    # The slab stores ρi ℒ₀ per unit volume, so the same energy is exchanged at both interfaces
+    # The slab stores ρi ℒ₀ per unit volume and the internal flux only moves energy between its two interfaces
     ℰ = ρi * phase_transitions.reference_latent_heat
 
-    # Retrieve fluxes
     Qui = getflux(top_effective_heat_flux, i, j, grid, Tui, clock, model_fields)
     Qbi = getflux(bottom_external_heat_flux, i, j, grid, Tui, clock, model_fields)
-    Qii = ice_interior_heat_flux(Qi_function, i, j, k, grid, Tui,
-                                 consolidated_ice, clock, model_fields)
 
-    # Upper (top) and bottom interface velocities
-    # wu < 0 => top melting (volume loss from top)
-    # wb > 0 => bottom freezing (volume gain at bottom)
-    wu = (Qui - Qii) / ℰ
-    wb = (Qii - Qbi) / ℰ
-
-    return wu + wb
+    return (Qui - Qbi) / ℰ
 end
 
 #####
@@ -118,12 +84,9 @@ end
     Qbi = getflux(bottom_external_heat_flux, i, j, grid, Tui, clock, model_fields)
 
     return ice_melt_freeze_tendency(i, j, k, grid,
-                                    ice_thermodynamics,
                                     phase_transitions,
                                     sea_ice_density,
-                                    Qi_function,
                                     Tui,
-                                    ice_thickness, ice_consolidation_thickness,
                                     Qui, Qbi,
                                     clock, model_fields)
 end

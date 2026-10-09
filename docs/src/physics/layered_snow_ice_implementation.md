@@ -22,7 +22,6 @@ Two conventions coexist and must be treated consistently:
   turbulent fluxes ``\times \aleph`` on the ice path, interface heat ``\times \aleph`` on the ocean path).
 - ``Q_{is}`` (column conductive flux ``(T_b - T_u) / R``, with ``R = h_s/k_s + h_i/k_i``) is intrinsically **per unit ice area**: the thermal resistance only
   applies where ice exists.
-- ``Q_{ii}`` (ice-only internal conductive flux) is similarly per-ice.
 
 ## Snow-surface energy balance
 

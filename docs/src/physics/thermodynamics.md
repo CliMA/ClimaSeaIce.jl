@@ -102,7 +102,12 @@ where:
 
 The slab carries no sensible heat and stores the energy ``- \rho_i \mathscr{L}_0`` per unit volume, so the
 same latent heat is exchanged at both interfaces, independently from their temperatures, and the column
-conserves energy.
+conserves energy. The internal flux only moves energy between the two interfaces and cancels from the thickness
+tendency,
+```math
+w_u + w_b = \frac{Q_x - Q_b}{\rho_i \mathscr{L}_0} ,
+```
+so that ``Q_i`` enters the evolution of the slab only through the surface temperature.
 
 Negative velocities indicate melting; positive velocities indicate freezing.
 
