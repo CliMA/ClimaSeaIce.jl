@@ -233,9 +233,9 @@ function SeaIceModel(grid;
             if isnothing(snow_thermodynamics) &&
                ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
                 # Default: external top flux is in equilibrium with internal fluxes.
-                # Build a FluxFunction wrapper using the model's shared liquidus.
+                # Build a FluxFunction wrapper using the model's shared phase transitions.
                 top_heat_flux = internal_flux_function(ice_thermodynamics.internal_heat_flux,
-                                                       phase_transitions.liquidus,
+                                                       phase_transitions,
                                                        ice_thermodynamics.heat_boundary_conditions.bottom)
             else
                 # Default: no external top surface flux

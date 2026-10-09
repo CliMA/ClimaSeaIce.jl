@@ -163,7 +163,7 @@ end
     bottom_bc = ice_thermodynamics.heat_boundary_conditions.bottom
     @inbounds Si = model_fields.S[i, j, 1]
 
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, model_fields)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, phase_transitions, model_fields)
     Tm = melting_temperature(liquidus, Si)
 
     # Snow surface solve using the combined snow+ice conductive flux with a
@@ -173,10 +173,10 @@ end
     combined_flux = IceSnowConductiveFlux(ks, ki, ice_thermodynamics.internal_heat_flux.itd_shape)
 
     # Column internal heat flux
-    Qic = internal_flux_function(combined_flux, liquidus, bottom_bc)
+    Qic = internal_flux_function(combined_flux, phase_transitions, bottom_bc)
 
     # Ice-only flux wrapper for the ice-interior evaluation at Tsi.
-    Qii = internal_flux_function(ice_thermodynamics.internal_heat_flux, liquidus, bottom_bc)
+    Qii = internal_flux_function(ice_thermodynamics.internal_heat_flux, phase_transitions, bottom_bc)
 
     snow_top_bc = snow_thermodynamics.heat_boundary_conditions.top
     Tu = snow_thermodynamics.top_surface_temperature
@@ -200,7 +200,7 @@ end
 
     # Tsi = Tb + (Tus - Tb) * Ri / (Rs + Ri)
     # When hs = 0: Tsi = Tus (snow layer has zero resistance)
-    Tsi = interface_temperature(i, j, grid, combined_flux, bottom_bc, liquidus, Tus, model_fields)
+    Tsi = interface_temperature(i, j, grid, combined_flux, bottom_bc, phase_transitions, Tus, model_fields)
 
     # Store Tsi as the ice top surface temperature
     @inbounds ice_thermodynamics.top_surface_temperature[i, j, 1] = Tsi

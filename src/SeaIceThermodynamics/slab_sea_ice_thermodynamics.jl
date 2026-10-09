@@ -78,7 +78,7 @@ the tendency kernels via `model.phase_transitions`.
 function SlabThermodynamics(grid;
                             top_surface_temperature        = nothing,
                             top_heat_boundary_condition    = MeltingConstrainedFluxBalance(),
-                            bottom_heat_boundary_condition = IceWaterThermalEquilibrium(eltype(grid)),
+                            bottom_heat_boundary_condition = IceWaterThermalEquilibrium(),
                             # Default internal flux: thermal conductivity of 2 kg m s⁻³ K⁻¹, appropriate for freshwater ice
                             internal_heat_flux             = ConductiveFlux(eltype(grid), conductivity=2),
                             concentration_evolution        = ProportionalEvolution())
@@ -126,12 +126,12 @@ end
 #####
 
 """
-    internal_flux_function(flux, liquidus, bottom_heat_boundary_condition)
+    internal_flux_function(flux, phase_transitions, bottom_heat_boundary_condition)
 
 Wrap a raw internal-flux coefficient (`ConductiveFlux`, `IceSnowConductiveFlux`,
 user `Function`, or user struct) in the `FluxFunction` shape expected by the
 surface-temperature solver and by `getflux`. The wrapper is built at the
-tendency-kernel level so that `liquidus` and `bottom_heat_boundary_condition`
+tendency-kernel level so that `phase_transitions` and `bottom_heat_boundary_condition`
 can be read from `model.phase_transitions` and the slab's heat BCs without
 threading those values through `SlabThermodynamics` at construction time.
 
@@ -166,9 +166,9 @@ coefficient carries a `.conductivity` field and that the coupling is
 resistors-in-series. Custom flux types for a layered column are out of
 scope for this refactor.
 """
-@inline function internal_flux_function(flux, liquidus, bottom_heat_boundary_condition)
+@inline function internal_flux_function(flux, phase_transitions, bottom_heat_boundary_condition)
     parameters = (flux = flux,
-                  liquidus = liquidus,
+                  phase_transitions = phase_transitions,
                   bottom_heat_boundary_condition = bottom_heat_boundary_condition)
 
     return FluxFunction(flux_kernel(flux);
@@ -177,7 +177,7 @@ scope for this refactor.
 end
 
 # Pass-through when the user has already assembled the `FluxFunction` wrapper.
-@inline internal_flux_function(f::FluxFunction, liquidus, bottom_heat_boundary_condition) = f
+@inline internal_flux_function(f::FluxFunction, phase_transitions, bottom_heat_boundary_condition) = f
 
 """
     flux_kernel(flux)

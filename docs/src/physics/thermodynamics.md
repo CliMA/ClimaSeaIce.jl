@@ -147,7 +147,8 @@ T_b = T_m(S, z_b) , \qquad z_b = - \frac{\rho_i h_i + \rho_s h_s}{\rho_w} ,
 ```
 
 where ``z_b`` is the height of the base of floating ice relative to the sea surface, set by the weight of the
-overlying ice and snow, and ``\rho_w`` is the water density.
+overlying ice and snow, and ``\rho_w`` is the `liquid_density` of [`PhaseTransitions`](@ref), the same density
+that sets the freeboard for snow-ice formation.
 
 This is appropriate when the ocean mixed layer is well-mixed and maintains thermal
 equilibrium with the ice bottom.
@@ -213,9 +214,9 @@ The value you pass via `internal_heat_flux = ...` to `SlabThermodynamics`
 (and to its `sea_ice_slab_thermodynamics` and `snow_slab_thermodynamics`
 helpers) is the *raw coefficient* of the layer's internal flux — not a
 `FluxFunction`. The tendency kernel wraps it in a `FluxFunction` on the
-fly, threading in `model.phase_transitions.liquidus` and the slab's bottom
-boundary condition as parameters. This avoids baking the shared liquidus
-into each slab at construction time.
+fly, threading in `model.phase_transitions` and the slab's bottom
+boundary condition as parameters. This avoids baking the shared phase
+transitions into each slab at construction time.
 
 Four shapes are supported out of the box:
 
@@ -239,7 +240,7 @@ parameters) -> Q`:
 ```@example thermodynamics
 @inline function radiative_internal_flux(i, j, grid, Tu, clock, fields, parameters)
     hi = @inbounds fields.h[i, j, 1]
-    # parameters.flux is the function itself; parameters.liquidus and
+    # parameters.flux is the function itself; parameters.phase_transitions and
     # parameters.bottom_heat_boundary_condition are injected by the slab.
     return ifelse(hi ≤ 0, zero(hi), -5.0 * Tu)  # toy radiative model
 end
@@ -253,7 +254,7 @@ ice_thermodynamics_rad = SlabThermodynamics(grid;
 If you have already packaged the kernel, its parameters, and the
 temperature-dependence flag in a `FluxFunction`, you can pass it directly.
 The slab stores it unchanged; the tendency kernel does *not* inject its
-own `liquidus` / `bottom_heat_boundary_condition`:
+own `phase_transitions` / `bottom_heat_boundary_condition`:
 
 ```@example thermodynamics
 using ClimaSeaIce.SeaIceThermodynamics: FluxFunction
@@ -267,7 +268,7 @@ ice_thermodynamics_fn = SlabThermodynamics(grid;
 ```
 
 This is the right choice when your flux needs parameters that the default
-liquidus/bottom-BC injection cannot supply.
+phase-transitions/bottom-BC injection cannot supply.
 
 ### A custom flux struct (extend `flux_kernel`)
 
@@ -283,8 +284,8 @@ end
 @inline function nonlinear_conductive_flux(i, j, grid, Tu, clock, fields, parameters)
     flux = parameters.flux           # ::NonLinearConductiveFlux
     bottom_bc = parameters.bottom_heat_boundary_condition
-    liquidus = parameters.liquidus
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
+    phase_transitions = parameters.phase_transitions
+    Tb = bottom_temperature(i, j, grid, bottom_bc, phase_transitions, fields)
     hi = @inbounds fields.h[i, j, 1]
     k_eff = flux.k0 * (1 + flux.α * Tu)
     return ifelse(hi ≤ 0, zero(hi), -k_eff * (Tu - Tb) / hi)

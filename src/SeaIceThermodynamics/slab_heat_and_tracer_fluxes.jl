@@ -81,9 +81,9 @@ end
                                          clock, fields, parameters)
     flux = parameters.flux
     bottom_bc = parameters.bottom_heat_boundary_condition
-    liquidus = parameters.liquidus
+    phase_transitions = parameters.phase_transitions
     Tu = top_surface_temperature
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, phase_transitions, fields)
     hi = @inbounds fields.h[i, j, 1]
     return slab_internal_heat_flux(flux, Tu, Tb, hi)
 end
@@ -107,18 +107,18 @@ Adapt.adapt_structure(to, f::IceSnowConductiveFlux) = IceSnowConductiveFlux(Adap
 # Combined snow+ice conductive flux using resistors in series, scaled by the sub-grid thickness factor f
 # that applies to snow and ice alike: F = f (Tb - Tu) / (hs/ks + hi/ki)
 # Uses the same parameter structure as slab_internal_heat_flux:
-# parameters = (flux = IceSnowConductiveFlux, liquidus, bottom_heat_boundary_condition)
+# parameters = (flux = IceSnowConductiveFlux, phase_transitions, bottom_heat_boundary_condition)
 @inline function ice_snow_conductive_flux(i, j, grid,
                                           top_surface_temperature::Number,
                                           clock, fields, parameters)
     flux = parameters.flux
     bottom_bc = parameters.bottom_heat_boundary_condition
-    liquidus = parameters.liquidus
+    phase_transitions = parameters.phase_transitions
 
     ks = flux.snow_conductivity
     ki = flux.ice_conductivity
     Tu = top_surface_temperature
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, phase_transitions, fields)
     @inbounds hi = fields.h[i, j, 1]
     @inbounds hs = fields.hs[i, j, 1]
     f = itd_factor(flux.itd_shape, hi)
@@ -130,10 +130,10 @@ end
 # Compute interface temperature Tsi from surface temperature Tu
 # using the snow+ice resistance ratio: Tsi = Tb + (Tu - Tb) * Ri / (Rs + Ri)
 @inline function interface_temperature(i, j, grid, flux::IceSnowConductiveFlux,
-                                       bottom_bc, liquidus, Tu, fields)
+                                       bottom_bc, phase_transitions, Tu, fields)
     ki = flux.ice_conductivity
     ks = flux.snow_conductivity
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus, fields)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, phase_transitions, fields)
     @inbounds hi = fields.h[i, j, 1]
     @inbounds hs = fields.hs[i, j, 1]
 

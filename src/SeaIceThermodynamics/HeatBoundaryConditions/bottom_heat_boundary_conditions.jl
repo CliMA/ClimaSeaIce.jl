@@ -4,15 +4,14 @@ using ...SeaIceThermodynamics: melting_temperature
 ##### Bottom heat boundary conditions
 #####
 
-struct IceWaterThermalEquilibrium{S, FT}
+struct IceWaterThermalEquilibrium{S}
     salinity :: S
-    water_density :: FT
 end
 
-Adapt.adapt_structure(to, iwte::IceWaterThermalEquilibrium) = IceWaterThermalEquilibrium(adapt(to, iwte.salinity), iwte.water_density)
+Adapt.adapt_structure(to, iwte::IceWaterThermalEquilibrium) = IceWaterThermalEquilibrium(adapt(to, iwte.salinity))
 
 """
-    IceWaterThermalEquilibrium(FT = Oceananigans.defaults.FloatType; salinity = 0, water_density = 1026)
+    IceWaterThermalEquilibrium(; salinity = 0)
 
 Represents an ice-water interface in heat equilibrium, such that the bottom temperature ``T_b`` is equal to the
 melting temperature at the base of the ice,
@@ -22,13 +21,12 @@ T_b = Tₘ(S, z_b) ,
 ```
 
 where ``S`` is the `salinity` at the ice-water boundary and ``z_b`` is the height of the base of floating ice
-relative to the sea surface (see `ice_base_height`), which depends on the ice and snow load and on the
-`water_density`.
+relative to the sea surface (see `ice_base_height`), set by the ice and snow load and by the `liquid_density`
+of the `PhaseTransitions`.
 
 Both freezing and melting may occur at an ice-water boundary.
 """
-IceWaterThermalEquilibrium(FT::DataType = Oceananigans.defaults.FloatType; salinity = 0, water_density = 1026) = IceWaterThermalEquilibrium(salinity, convert(FT, water_density))
-IceWaterThermalEquilibrium(salinity; water_density = 1026) = IceWaterThermalEquilibrium(Oceananigans.defaults.FloatType; salinity, water_density)
+IceWaterThermalEquilibrium(; salinity = 0) = IceWaterThermalEquilibrium(salinity)
 
 """
     ice_base_height(hi, hs, ρi, ρs, ρw)
@@ -58,10 +56,10 @@ end
 @inline bottom_temperature(i, j, grid, bc::PrescribedTemperature, args...) = @inbounds bc.temperature[i, j]
 @inline bottom_temperature(i, j, grid, bc::PrescribedTemperature{<:Number}, args...) = bc.temperature
 
-@inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, liquidus, fields)
+@inline function bottom_temperature(i, j, grid, bc::IceWaterThermalEquilibrium, phase_transitions, fields)
     Sₒ = get_tracer(i, j, 1, grid, bc.salinity)
-    zᵇ = ice_base_height(i, j, fields, bc.water_density)
-    return melting_temperature(liquidus, Sₒ, zᵇ)
+    zᵇ = ice_base_height(i, j, fields, phase_transitions.liquid_density)
+    return melting_temperature(phase_transitions.liquidus, Sₒ, zᵇ)
 end
 
 @inline function bottom_flux_imbalance(i, j, grid, bottom_heat_bc, top_temperature,
