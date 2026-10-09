@@ -37,20 +37,14 @@ end
                                           bottom_external_heat_flux,
                                           clock, model_fields)
 
-    bottom_heat_bc = ice_thermodynamics.heat_boundary_conditions.bottom
-    liquidus = phase_transitions.liquidus
-
     @inbounds hi = ice_thickness[i, j, k]
     @inbounds hc = ice_consolidation_thickness[i, j, k]
     @inbounds ρi = sea_ice_density[i, j, 1]
 
     consolidated_ice = hi ≥ hc
 
-    Tbi = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
-
-    # Energy per unit volume of sea-ice: bulk-density × per-mass latent heat
-    ℰb = ρi * latent_heat(phase_transitions, Tbi)
-    ℰu = ρi * latent_heat(phase_transitions, Tui)
+    # The slab stores ρi ℒ₀ per unit volume, so the same energy is exchanged at both interfaces
+    ℰ = ρi * phase_transitions.reference_latent_heat
 
     # Retrieve fluxes
     Qui = getflux(top_effective_heat_flux, i, j, grid, Tui, clock, model_fields)
@@ -61,8 +55,8 @@ end
     # Upper (top) and bottom interface velocities
     # wu < 0 => top melting (volume loss from top)
     # wb > 0 => bottom freezing (volume gain at bottom)
-    wu = (Qui - Qii) / ℰu
-    wb = (Qii - Qbi) / ℰb
+    wu = (Qui - Qii) / ℰ
+    wb = (Qii - Qbi) / ℰ
 
     return wu + wb
 end
