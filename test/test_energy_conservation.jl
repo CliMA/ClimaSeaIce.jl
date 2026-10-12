@@ -1,5 +1,5 @@
 using ClimaSeaIce
-using ClimaSeaIce.SeaIceThermodynamics: latent_heat, bottom_temperature
+using ClimaSeaIce.SeaIceThermodynamics: latent_heat, bottom_temperature, IceWaterThermalEquilibrium
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: FluxFunction
 using Oceananigans
 using Oceananigans.Fields: interior
@@ -17,7 +17,7 @@ end
     return p.flux_value
 end
 
-function energy_conservation_test(; snow=false, precipitation=false, melting=false)
+function energy_conservation_test(; snow=false, precipitation=false, melting=false, salinity=0)
     grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 
     Ta = melting ? 5.0 : -15.0
@@ -32,8 +32,11 @@ function energy_conservation_test(; snow=false, precipitation=false, melting=fal
     snow_thermo = snow ? snow_slab_thermodynamics(grid) : nothing
     Ps = precipitation ? 6e-5 : 0
 
+    ice_thermodynamics = sea_ice_slab_thermodynamics(grid; bottom_heat_boundary_condition = IceWaterThermalEquilibrium(; salinity))
+
     model = SeaIceModel(grid;
                         ice_consolidation_thickness = 0.05,
+                        ice_thermodynamics,
                         top_heat_flux,
                         bottom_heat_flux = bot_heat_flux,
                         snow_thermodynamics = snow_thermo,
@@ -108,6 +111,23 @@ end
 
     @testset "Snow with precipitation, melting" begin
         @test energy_conservation_test(snow=true, precipitation=true, melting=true) < rtol
+    end
+
+    # A salty ocean keeps the ice base below the reference temperature of the latent heat
+    @testset "Bare ice on a salty ocean, freezing" begin
+        @test energy_conservation_test(snow=false, melting=false, salinity=35) < rtol
+    end
+
+    @testset "Bare ice on a salty ocean, melting" begin
+        @test energy_conservation_test(snow=false, melting=true, salinity=35) < rtol
+    end
+
+    @testset "Snow-covered ice on a salty ocean, freezing" begin
+        @test energy_conservation_test(snow=true, melting=false, salinity=35) < rtol
+    end
+
+    @testset "Snow-covered ice on a salty ocean, melting" begin
+        @test energy_conservation_test(snow=true, melting=true, salinity=35) < rtol
     end
 end
 

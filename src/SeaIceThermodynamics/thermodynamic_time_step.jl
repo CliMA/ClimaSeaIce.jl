@@ -175,9 +175,6 @@ end
     # Column internal heat flux
     Qic = internal_flux_function(combined_flux, liquidus, bottom_bc)
 
-    # Ice-only flux wrapper for the ice-interior evaluation at Tsi.
-    Qii = internal_flux_function(ice_thermodynamics.internal_heat_flux, liquidus, bottom_bc)
-
     snow_top_bc = snow_thermodynamics.heat_boundary_conditions.top
     Tu = snow_thermodynamics.top_surface_temperature
     Qu = top_external_heat_flux
@@ -258,12 +255,9 @@ end
     # Pass the cached Qbi scalar (not the closure) so the bottom-flux closure is evaluated exactly once per step
     Quiᵉᶠᶠ = Qui + Qs * ℵtmp
     ∂t_𝓋 = ice_melt_freeze_tendency(i, j, 1, grid,
-                                    ice_thermodynamics,
                                     phase_transitions,
                                     sea_ice_density,
-                                    Qii,
                                     Tsi,
-                                    ice_thickness, ice_consolidation_thickness,
                                     Quiᵉᶠᶠ, Qbi,
                                     clock, model_fields)
 
