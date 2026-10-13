@@ -15,7 +15,7 @@ using Oceananigans.Operators: Azᶜᶜᶜ, Azᶜᶠᶜ, Azᶠᶜᶜ, Azᶠᶠᶜ
                               δxᶜᵃᵃ, δxᶜᶜᶜ, δxᶠᵃᵃ, δxᶠᶠᶜ,
                               δyᵃᶜᵃ, δyᵃᶠᵃ, δyᶜᶜᶜ, δyᶠᶠᶜ,
                               ℑxyᶜᶜᵃ, ℑxyᶠᶠᵃ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
-using Oceananigans.Utils: KernelParameters, configure_kernel
+using Oceananigans.Utils: KernelParameters, configure_kernel, step_value
 
 using ..ClimaSeaIce: ice_mass
 

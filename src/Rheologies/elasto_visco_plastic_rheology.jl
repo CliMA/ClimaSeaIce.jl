@@ -297,6 +297,7 @@ end
 @kernel function _compute_evp_stresses!(fields, grid, rheology, u, v, h, ℵ, ρᵢ, Δt, lbc)
     i, j = @index(Global, NTuple)
     kᴺ   = size(grid, 3)
+    Δt   = step_value(Δt)
 
     e⁻² = rheology.yield_curve_eccentricity^(-2)
     α⁺  = rheology.max_relaxation_parameter
