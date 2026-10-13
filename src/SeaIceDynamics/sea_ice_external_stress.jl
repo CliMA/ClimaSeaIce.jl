@@ -40,9 +40,9 @@ using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid
 #####
 ##### Stress materialization
 #####
-@inline grids_match(field, grid) = field.grid === grid
+@inline grids_match(field, grid) = field.grid === grid || (field.grid == grid && halo_size(field.grid) == halo_size(grid)
 @inline grids_match(field, grid::ImmersedBoundaryGrid) = 
-    field.grid.underlying_grid === grid.underlying_grid
+    field.grid.underlying_grid == grid.underlying_grid && halo_size(field.grid.underlying_grid) == halo_size(grid.underlying_grid)
 
 # By default a stress is left untouched (e.g. `nothing`, a `Number`, a `ZeroField`).
 extended_external_variable(src, grid) = src
