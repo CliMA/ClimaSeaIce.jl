@@ -93,12 +93,21 @@ conductive_flux = ConductiveFlux(Float64; conductivity = 2.0)
 At each interface, the difference between incoming and outgoing heat fluxes drives
 melting or freezing:
 ```math
-w_u = \frac{Q_x - Q_i}{\mathscr{L}(T_u)}, \quad w_b = \frac{Q_i - Q_b}{\mathscr{L}(T_b)}
+w_u = \frac{Q_x - Q_i}{\rho_i \mathscr{L}_0}, \quad w_b = \frac{Q_i - Q_b}{\rho_i \mathscr{L}_0}
 ```
 where:
 - ``Q_x`` is the external (atmospheric) heat flux into the top surface
 - ``Q_i`` is the internal conductive flux
 - ``Q_b`` is the oceanic heat flux at the bottom
+
+The slab carries no sensible heat and stores the energy ``- \rho_i \mathscr{L}_0`` per unit volume, so the
+same latent heat is exchanged at both interfaces, independently from their temperatures, and the column
+conserves energy. The internal flux only moves energy between the two interfaces and cancels from the thickness
+tendency,
+```math
+w_u + w_b = \frac{Q_x - Q_b}{\rho_i \mathscr{L}_0} ,
+```
+so that ``Q_i`` enters the evolution of the slab only through the surface temperature.
 
 Negative velocities indicate melting; positive velocities indicate freezing.
 
