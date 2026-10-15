@@ -93,7 +93,6 @@ end
 
 extended_surface_height(η₀, grid) = η₀
 
-# An integer `ZeroField` makes the free-surface tilt a `Union{Int, Float}` inside kernels
 extended_surface_height(::ZeroField, grid) = ZeroField(eltype(grid))
 
 function extended_surface_height(η₀::Field, grid)
