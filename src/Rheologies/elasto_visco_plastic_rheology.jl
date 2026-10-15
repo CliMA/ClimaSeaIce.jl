@@ -3,7 +3,7 @@ using KernelAbstractions: @kernel, @index
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: synchronize_communication!
-using Oceananigans.Grids: AbstractGrid, halo_size
+using Oceananigans.Grids: AbstractGrid, surface_kernel_parameters
 
 using ClimaSeaIce: default_sea_ice_boundary_conditions
 
@@ -142,9 +142,7 @@ end
 function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 
     arch       = architecture(grid)
-    Nx, Ny, _  = size(grid)
-    Hx, Hy, _  = halo_size(grid)
-    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
+    parameters = surface_kernel_parameters(grid)
 
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)

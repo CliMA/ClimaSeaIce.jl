@@ -8,7 +8,7 @@ using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripher
                           LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
                           LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
 using Oceananigans.Models.HydrostaticFreeSurfaceModels.SplitExplicitFreeSurfaces: split_explicit_kernel_size
-using Oceananigans.Utils: configure_kernel
+using Oceananigans.Utils: configure_kernel, possibly_load_active_cells_map
 
 const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
                                 RightCenterFolded, RightFaceFolded,
@@ -28,10 +28,10 @@ by subcycling `substeps` times in between each ice_thermodynamics / tracer advec
 
 The default number of substeps is 120.
 """
-SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, Val(:xy))
 
 # When no grid is provided, we assume a serial grid with default kernel parameters
-SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, Val(:xy))
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
@@ -140,7 +140,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     update_external_stress!(bottom_stress, grid)
     update_free_surface!(dynamics.free_surface)
 
-    params = dynamics.solver.kernel_parameters
+    params = possibly_load_active_cells_map(grid, dynamics.solver.kernel_parameters, false)
 
     u_velocity_kernel!, _ = configure_kernel(arch, grid, params, _u_velocity_step!)
     v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
