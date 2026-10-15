@@ -46,9 +46,9 @@ end
     bottom_heat_bc = ice_thermodynamics.heat_boundary_conditions.bottom
     liquidus = phase_transitions.liquidus
 
-    # Build the internal-flux wrapper inline using the model's shared liquidus.
+    # Build the internal-flux wrapper inline using the model's shared phase transitions.
     Qi_function = internal_flux_function(ice_thermodynamics.internal_heat_flux,
-                                         liquidus, bottom_heat_bc)
+                                         phase_transitions, bottom_heat_bc)
     Qu = top_external_heat_flux
     Tu = ice_thermodynamics.top_surface_temperature
 
@@ -71,7 +71,7 @@ end
             Tuₘ = melting_temperature(liquidus, Si)
             Tuⁿ = min(Tuⁿ, Tuₘ)
         else # slab is unconsolidated and does not have an independent surface temperature
-            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, liquidus)
+            Tuⁿ = bottom_temperature(i, j, grid, bottom_heat_bc, phase_transitions, model_fields)
         end
         @inbounds Tu[i, j, k] = Tuⁿ
     end
