@@ -129,6 +129,8 @@ T_u \leq T_m(S)
 
 When the surface would otherwise be warmer than the melting point, it is clamped to ``T_m(S)``
 and the excess heat drives surface melting.
+[`MeltingConstrainedSurfaceFluxBalance`](@ref) is a descriptive alias for this
+same boundary condition.
 
 ```@example thermodynamics
 using ClimaSeaIce.SeaIceThermodynamics: MeltingConstrainedFluxBalance
@@ -160,7 +162,8 @@ overlying ice and snow, and ``\rho_w`` is the `liquid_density` of [`PhaseTransit
 that sets the freeboard for snow-ice formation.
 
 This is appropriate when the ocean mixed layer is well-mixed and maintains thermal
-equilibrium with the ice bottom.
+equilibrium with the ice bottom. [`OceanFreezingTemperatureBoundary`](@ref) is
+a descriptive alias for this same boundary condition.
 
 ## External heat fluxes
 
