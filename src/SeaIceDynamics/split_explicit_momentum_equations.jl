@@ -17,37 +17,44 @@ const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
 struct SplitExplicitSolver{I, K}
     substeps :: I
     kernel_parameters :: K
+    extend_halos :: Bool
 end
 
 """
-    SplitExplicitSolver(grid::AbstractGrid; substeps=120)
+    SplitExplicitSolver(grid::AbstractGrid; substeps=120, extend_halos=true)
 
 Creates a `SplitExplicitSolver` that controls the dynamical evolution of sea-ice momentum
 by subcycling `substeps` times in between each ice_thermodynamics / tracer advection time step.
 
 The default number of substeps is 120.
+
+On a distributed grid, `extend_halos = true` (default) extends the halos in `Connected` directions to
+`2substeps + 3` cells and substeps into them without communication. With `extend_halos = false` the halos
+are not extended and the velocity halos are filled, including communication, after each update.
 """
-SplitExplicitSolver(grid::AbstractGrid; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(grid::AbstractGrid; substeps=120, extend_halos=true) = SplitExplicitSolver(substeps, :xy, extend_halos)
 
 # When no grid is provided, we assume a serial grid with default kernel parameters
-SplitExplicitSolver(; substeps=120) = SplitExplicitSolver(substeps, :xy)
+SplitExplicitSolver(; substeps=120, extend_halos=true) = SplitExplicitSolver(substeps, :xy, extend_halos)
 
 const SplitExplicitMomentumEquation = SeaIceMomentumEquation{<:SplitExplicitSolver}
 
 # Shenanigans for extending the halos in Distributed grids
 
-function SplitExplicitSolver(grid::DistributedGrid; substeps=120)
+function SplitExplicitSolver(grid::DistributedGrid; substeps=120, extend_halos=true)
+    extend_halos || return SplitExplicitSolver(substeps, :xy, false)
     Nx, Ny, _ = size(grid)
     Hx, Hy, _ = halo_size(grid)
     TX, TY, _ = topology(grid)
     kernel_sizes = map(connected_range, (TX, TY), (Nx, Ny), (Hx, Hy))
-    return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
+    return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...), true)
 end
 
 maybe_extended_grid(mom::SplitExplicitMomentumEquation, grid::DistributedGrid) = maybe_extended_grid(mom.solver, grid)
 
 # Halo-extended velocity grid for a split-explicit solver on a distributed grid.
 function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
+    solver.extend_halos || return grid
     old_halos = halo_size(grid)
     Nsubsteps = solver.substeps
     TX, TY, _ = topology(grid)
@@ -64,7 +71,7 @@ end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
     new_auxiliaries  = Auxiliaries(mom.rheology, grid)
-    new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps)
+    new_solver       = SplitExplicitSolver(grid; substeps = mom.solver.substeps, extend_halos = mom.solver.extend_halos)
     new_basal_stress = materialize_basal_stress(mom.basal_stress, grid)
     new_free_surface = materialize_free_surface(mom.free_surface.η₀, mom.free_surface.g, grid)
     new_stress       = (bottom = materialize_stress(mom.external_momentum_stresses.bottom, grid),
@@ -84,6 +91,9 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
                                   mom.minimum_concentration,
                                   mom.minimum_mass)
 end
+
+fill_velocity_halos!(u, halo_args, communicate) =
+    communicate ? fill_halo_regions!(u) : fill_halo_regions!(halo_args...; only_local_halos = true)
 
 # Reset the velocities to the previous time step
 # This does nothing for a FE model, but is necessary for an RK model.
@@ -145,6 +155,7 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     v_velocity_kernel!, _ = configure_kernel(arch, grid, params, _v_velocity_step!)
 
     substeps = dynamics.solver.substeps
+    communicate = arch isa Distributed && !dynamics.solver.extend_halos
 
     u_args = (u, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, u_immersed_bc, top_stress, bottom_stress, basal_stress, u_forcing)
     v_args = (v, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, v_immersed_bc, top_stress, bottom_stress, basal_stress, v_forcing)
@@ -173,8 +184,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
 
         converted_stresses_args = convert_to_device(arch, stresses_args)
 
-        fill_halo_regions!(converted_u_halo...; only_local_halos = true)
-        fill_halo_regions!(converted_v_halo...; only_local_halos = true)
+        fill_velocity_halos!(u, converted_u_halo, communicate)
+        fill_velocity_halos!(v, converted_v_halo, communicate)
 
         for substep in 1 : substeps
             # Compute stresses! depending on the particular rheology implementation
@@ -183,14 +194,14 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
             # Alternating leap-frog.
             if iseven(substep)
                 u_velocity_kernel!(converted_u_args...)
-                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
+                fill_velocity_halos!(u, converted_u_halo, communicate)
                 v_velocity_kernel!(converted_v_args...)
-                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
+                fill_velocity_halos!(v, converted_v_halo, communicate)
             else
                 v_velocity_kernel!(converted_v_args...)
-                fill_halo_regions!(converted_v_halo...; only_local_halos = true)
+                fill_velocity_halos!(v, converted_v_halo, communicate)
                 u_velocity_kernel!(converted_u_args...)
-                fill_halo_regions!(converted_u_halo...; only_local_halos = true)
+                fill_velocity_halos!(u, converted_u_halo, communicate)
             end
         end
     end
