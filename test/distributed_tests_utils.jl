@@ -37,7 +37,7 @@ function test_extended_halos()
     @test kp == KernelParameters(-Hx+2:Nx+Hx-1, 1:Ny)
 end
 
-function test_distributed_simulations()
+function test_distributed_simulations(; kw...)
     grid = RectilinearGrid(CPU();
                            size = (100, 100, 1),
                            x = (-10kilometers, 10kilometers),
@@ -45,7 +45,7 @@ function test_distributed_simulations()
                            z = (-1, 0),
                            halo = (5, 5, 5))
 
-    models = run_distributed_simulation(grid)
+    models = run_distributed_simulation(grid; kw...)
 
     # Retrieve Serial quantities
     us, vs = models.velocities
@@ -70,7 +70,7 @@ function test_distributed_simulations()
                                z = (-1, 0),
                                halo = (5, 5, 5))
 
-        modelp = run_distributed_simulation(grid)
+        modelp = run_distributed_simulation(grid; kw...)
         up, vp = modelp.velocities
         hp = modelp.ice_thickness
         ℵp = modelp.ice_concentration
@@ -105,7 +105,7 @@ function run_distributed_sea_ice_jl2dwriter(arch, filename)
 end
 
 # Just a random simulation on a rectilinear grid
-function run_distributed_simulation(grid)
+function run_distributed_simulation(grid; substeps = 10, extend_halos = true)
 
     τᵤ = 0.01
     τᵥ = 0.01
@@ -118,7 +118,7 @@ function run_distributed_simulation(grid)
                                       bottom_momentum_stress = τₒ,
                                       rheology = ElastoViscoPlasticRheology(),
                                       coriolis = FPlane(f = 1e-4),
-                                      solver = SplitExplicitSolver(grid, substeps=10))
+                                      solver = SplitExplicitSolver(grid; substeps, extend_halos))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
 
