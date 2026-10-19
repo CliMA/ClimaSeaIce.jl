@@ -60,6 +60,8 @@ function refresh_and_fill_external_field!(dst::Field, src)
     return nothing
 end
 
+refresh_and_fill_external_field!(::ZeroField, ::ZeroField) = nothing
+
 materialize_stress(stress, grid) = extended_external_variable(stress, grid)
 
 function materialize_stress(stress::NamedTuple, grid)
@@ -90,6 +92,8 @@ function materialize_free_surface(η₀, gravitational_acceleration, grid)
 end
 
 extended_surface_height(η₀, grid) = η₀
+
+extended_surface_height(::ZeroField, grid) = ZeroField(eltype(grid))
 
 function extended_surface_height(η₀::Field, grid)
     Oceananigans.location(η₀) === (Center, Center, Nothing) && grids_match(η₀, grid) && return η₀
