@@ -2,7 +2,7 @@ using Oceananigans: instantiated_location
 using Oceananigans.Architectures: convert_to_device, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
-using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node,
+using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node, connected_range,
                           LeftConnected, RightConnected, FullyConnected,
                           RightCenterFolded, RightFaceFolded,
                           LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
@@ -41,7 +41,7 @@ function SplitExplicitSolver(grid::DistributedGrid; substeps=120)
     Nx, Ny, _ = size(grid)
     Hx, Hy, _ = halo_size(grid)
     TX, TY, _ = topology(grid)
-    kernel_sizes = map(split_explicit_kernel_size, (TX, TY), (Nx, Ny), (Hx, Hy))
+    kernel_sizes = map(connected_range, (TX, TY), (Nx, Ny), (Hx, Hy))
     return SplitExplicitSolver(substeps, KernelParameters(kernel_sizes...))
 end
 
