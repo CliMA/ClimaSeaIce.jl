@@ -2,6 +2,7 @@ using Adapt
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Fields: ZeroField, compute!, interior
 using Oceananigans.Grids: halo_size
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid
 
 # Default no-op implicit stress coefficients for stress types without
 # an implicit component.
@@ -39,9 +40,9 @@ using Oceananigans.Grids: halo_size
 #####
 ##### Stress materialization
 #####
-
-# Whether `field` already lives on `grid`, so it can be read across `grid`'s halo as-is.
 @inline grids_match(field, grid) = field.grid === grid || (field.grid == grid && halo_size(field.grid) == halo_size(grid))
+@inline grids_match(field, grid::ImmersedBoundaryGrid) = 
+    field.grid.underlying_grid == grid.underlying_grid && halo_size(field.grid.underlying_grid) == halo_size(grid.underlying_grid)
 
 # By default a stress is left untouched (e.g. `nothing`, a `Number`, a `ZeroField`).
 extended_external_variable(src, grid) = src
