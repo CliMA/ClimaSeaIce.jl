@@ -1,6 +1,7 @@
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions, GammaThicknessDistribution,
     IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux, itd_factor,
+    thermal_resistance,
     bottom_temperature, melting_temperature
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: PrescribedTemperature, FluxFunction, IceWaterThermalEquilibrium
 using Oceananigans
@@ -214,13 +215,22 @@ end
     column_flux(flux) = ice_snow_conductive_flux(1, 1, grid, -10.0, model.clock, fields, (; flux, phase_transitions, bottom_heat_boundary_condition))
     snow_ice_temperature(flux) = interface_temperature(1, 1, grid, flux, bottom_heat_boundary_condition, phase_transitions, -10.0, fields)
 
-    # Snow and ice are scaled alike: the column conducts `itd_factor` times more and the snow-ice interface stays put
-    bare = IceSnowConductiveFlux(0.31, 2.0)
-    for itd_shape in (UniformThicknessDistribution(Float64; categories=5), GammaThicknessDistribution(Float64))
-        corrected = IceSnowConductiveFlux(0.31, 2.0, itd_shape)
-        @test column_flux(corrected) ≈ itd_factor(itd_shape, 1.0) * column_flux(bare)
-        @test snow_ice_temperature(corrected) ≈ snow_ice_temperature(bare)
-    end
+    # The same distribution in snow and ice: the column conducts `itd_factor` times more and the snow-ice interface stays put
+    bare = IceSnowConductiveFlux(ConductiveFlux(Float64; conductivity=0.31), ConductiveFlux(Float64; conductivity=2.0))
+    itd_shape = UniformThicknessDistribution(Float64; categories=5)
+    corrected = IceSnowConductiveFlux(ConductiveFlux(Float64; conductivity=0.31, itd_shape),
+                                      ConductiveFlux(Float64; conductivity=2.0, itd_shape))
+    @test column_flux(corrected) ≈ itd_factor(itd_shape, 1.0) * column_flux(bare)
+    @test snow_ice_temperature(corrected) ≈ snow_ice_temperature(bare)
+end
+
+@testset "Thermal resistance of the ice and snow column" begin
+    f = 1 + 1/3 + 1/5 + 1/7 + 1/9
+    snow = ConductiveFlux(Float64; conductivity=0.31)
+    ice  = ConductiveFlux(Float64; conductivity=2, itd_shape=UniformThicknessDistribution(Float64; categories=5))
+
+    @test thermal_resistance(ice, 1.5) ≈ 1.5 / (2f)
+    @test thermal_resistance(IceSnowConductiveFlux(snow, ice), 1.5, 0.3) ≈ 0.3 / 0.31 + 1.5 / (2f)
 end
 
 @testset "Melting temperature at the base of floating ice" begin
