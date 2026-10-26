@@ -74,7 +74,50 @@ end
     FT = eltype(grid)
     conductance > eps(FT) || return Tₛ⁻
     balance(T) = getflux(external_flux, i, j, grid, T, clock, model_fields) - conductance * (T_top - T)
-    return find_zero(balance, SecantMethod{FT}(Tₛ⁻ + one(FT), Tₛ⁻), CompactSolution()).root
+
+    # Keep the fast solve when it actually closes the heat balance. For thin
+    # snow, secant can report nonconvergence and return a remote iterate even
+    # when the physical root lies close to melting.
+    solution = find_zero(balance, SecantMethod{FT}(Tₛ⁻ + one(FT), Tₛ⁻), CompactSolution())
+    candidate = solution.root
+    if solution.converged && isfinite(candidate)
+        residual = balance(candidate)
+        isfinite(residual) && abs(residual) <= 1e-6 && return candidate
+    end
+
+    # The surface is capped at the melting point by the caller. A root above
+    # 0°C therefore needs no solve, while a colder root can be bracketed.
+    warm = zero(FT)
+    warm_residual = balance(warm)
+    isfinite(warm_residual) || return FT(NaN)
+    warm_residual <= 0 && return warm
+
+    cold = min(T_top, warm) - one(FT)
+    width = one(FT)
+    cold_residual = balance(cold)
+    for _ in 1:32
+        isfinite(cold_residual) || return FT(NaN)
+        cold_residual <= 0 && break
+        width *= 2
+        cold -= width
+        cold_residual = balance(cold)
+    end
+    (isfinite(cold_residual) && cold_residual <= 0) || return FT(NaN)
+
+    for _ in 1:64
+        trial = (cold + warm) / 2
+        residual = balance(trial)
+        isfinite(residual) || return FT(NaN)
+        abs(residual) <= 1e-6 && return trial
+        if residual > 0
+            warm = trial
+        else
+            cold = trial
+        end
+    end
+
+    trial = (cold + warm) / 2
+    return abs(balance(trial)) <= 1e-4 ? trial : FT(NaN)
 end
 
 @kernel function _update_column_surface_temperature!(auxiliary, fields, grid, external_flux, relation, clock, model_fields)
@@ -82,11 +125,18 @@ end
     Nz = size(grid, 3)
 
     @inbounds begin
-        conductance = column_boundary_temperature_conductance(i, j, Nz+1, Nz, grid, auxiliary)
-        Tₘ = melting_temperature(relation.phase_transitions.liquidus, fields.bulk_salinity[i, j, Nz])
-        Tₛ = column_surface_temperature_balance(i, j, grid, auxiliary.surface_temperature[i, j, 1], conductance,
-                                                fields.temperature[i, j, Nz], external_flux, clock, model_fields)
-        auxiliary.surface_temperature[i, j, 1] = min(Tₛ, Tₘ)
+        # Masked cells and zero-height columns have no ice surface balance.
+        # Keep a finite diagnostic value without solving an undefined balance.
+        if Oceananigans.ImmersedBoundaries.immersed_cell(i, j, Nz, grid) ||
+           column_height(grid, i, j) <= eps(eltype(grid))
+            auxiliary.surface_temperature[i, j, 1] = fields.temperature[i, j, Nz]
+        else
+            conductance = column_boundary_temperature_conductance(i, j, Nz+1, Nz, grid, auxiliary)
+            Tₘ = melting_temperature(relation.phase_transitions.liquidus, fields.bulk_salinity[i, j, Nz])
+            Tₛ = column_surface_temperature_balance(i, j, grid, auxiliary.surface_temperature[i, j, 1], conductance,
+                                                    fields.temperature[i, j, Nz], external_flux, clock, model_fields)
+            auxiliary.surface_temperature[i, j, 1] = min(Tₛ, Tₘ)
+        end
     end
 end
 

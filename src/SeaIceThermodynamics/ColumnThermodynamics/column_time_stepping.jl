@@ -8,8 +8,12 @@ function cached_external_heat_fluxes(th::ColumnEnergyThermodynamics, Qe, clock, 
     grid = th.fields.internal_energy.grid
     cache = th.auxiliary.bottom_external_flux
     launch!(architecture(grid), grid, :xy, _cache_column_bottom_external_flux!, cache, th.fields, grid, Qe.bottom, clock, model_fields)
-    return (top = Qe.top, bottom = cache)
+    return (top = Qe.top, bottom = cached_column_bottom_flux(Qe.bottom, cache))
 end
+
+@inline cached_column_bottom_flux(bottom, cache) = cache
+@inline cached_column_bottom_flux(bottom::ColumnBasalHeatFlux, cache) =
+    ColumnBasalHeatFlux(cache, bottom.interface_cell, bottom.frazil)
 
 function column_surface_energy_solve!(top_boundary, th::ColumnEnergyThermodynamics, Qe, clock, fields, hc, Δt)
     assemble_column_energy_system!(th, Qe, clock, fields, hc, Δt)

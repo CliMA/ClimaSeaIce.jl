@@ -1,14 +1,18 @@
 using Adapt: Adapt
-using Oceananigans.Grids: halo_size
+using Oceananigans.Grids: halo_size, topology, Periodic
 using Oceananigans.ImmersedBoundaries: immersed_cell
 using Oceananigans.Operators: Azᶜᶜᶜ, Δxᶜᶜᶜ, Δyᶜᶜᶜ, Δxᶠᶜᶜ, Δyᶠᶜᶜ, Δxᶜᶠᶜ, Δyᶜᶠᶜ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
 using Oceananigans.Utils: KernelParameters
+using .SeaIceThermodynamics: ColumnEnergyThermodynamics, SeaIceColumnGrid,
+                                PrescribedBulkSalinity, PrognosticBulkSalinity
 
 """
     struct IncrementalRemapping
 
 Two-dimensional conservative transport of the ice concentration `ℵ` and of the thickness-like tracers
-`h` and `hs`, following [Lipscomb and Hunke (2004)](@cite LipscombHunke2004).
+`h` and `hs`, following [Lipscomb and Hunke (2004)](@cite LipscombHunke2004). When a resolved
+column is present, each layer's internal energy and prognostic salinity are transported with the
+same ice-volume flux using first-order donor values.
 
 `ℵ`, `h` and `hs` are reconstructed as limited linear functions inside each cell. The material crossing
 a face during a step occupies the region swept by the backward trajectories of the face, and both the
@@ -52,6 +56,8 @@ function Oceananigans.Advection.materialize_advection(scheme::IncrementalRemappi
     end
 
     center_field() = Field{Center, Center, Nothing}(grid)
+    x_column_field() = grid isa SeaIceColumnGrid ? Field{Face, Center, Center}(grid) : nothing
+    y_column_field() = grid isa SeaIceColumnGrid ? Field{Center, Face, Center}(grid) : nothing
 
     # `(xa, ya)` is the centroid of the reconstructed ice area, which anchors the tracer reconstructions.
     reconstruction = (ℵx = center_field(), ℵy = center_field(),
@@ -61,10 +67,14 @@ function Oceananigans.Advection.materialize_advection(scheme::IncrementalRemappi
 
     transports = (x = (ℵ = Field{Face, Center, Nothing}(grid),
                        𝓋 = Field{Face, Center, Nothing}(grid),
-                       𝓋s = Field{Face, Center, Nothing}(grid)),
+                       𝓋s = Field{Face, Center, Nothing}(grid),
+                       E = x_column_field(),
+                       S = x_column_field()),
                   y = (ℵ = Field{Center, Face, Nothing}(grid),
                        𝓋 = Field{Center, Face, Nothing}(grid),
-                       𝓋s = Field{Center, Face, Nothing}(grid)))
+                       𝓋s = Field{Center, Face, Nothing}(grid),
+                       E = y_column_field(),
+                       S = y_column_field()))
 
     R = typeof(reconstruction)
     T = typeof(transports)
@@ -458,7 +468,120 @@ function compute_tracer_tendencies!(model::SIM, advection::IncrementalRemapping{
 
     launch!(arch, grid, KernelParameters(1:Nx+1, 1:Ny), _compute_x_transports!, transports.x, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
     launch!(arch, grid, KernelParameters(1:Nx, 1:Ny+1), _compute_y_transports!, transports.y, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
+    synchronize_periodic_transport!(arch, grid, transports.x.ℵ, transports.y.ℵ)
+    synchronize_periodic_transport!(arch, grid, transports.x.𝓋, transports.y.𝓋)
+    synchronize_periodic_transport!(arch, grid, transports.x.𝓋s, transports.y.𝓋s)
     launch!(arch, grid, :xy, _compute_remapping_tendencies!, model.timestepper.Gⁿ, grid, transports, Δt, hs)
 
+    compute_column_transports!(model.ice_thermodynamics, arch, grid, transports)
+
     return nothing
+end
+
+# Internal energy and prognostic bulk salinity are intensive properties of ice. Their
+# horizontal flux is the same ice-volume flux used above, multiplied by the donor
+# column value. This first-order donor step is conservative even when ice area is
+# capped during ridging (the ice-volume flux itself is unchanged).
+compute_column_transports!(thermodynamics, args...) = nothing
+
+function compute_column_transports!(th::ColumnEnergyThermodynamics, arch, grid, transports)
+    Nx, Ny, Nz = size(grid)
+    E = th.fields.internal_energy
+    launch!(arch, grid, KernelParameters(1:Nx+1, 1:Ny, 1:Nz), _compute_x_column_transport!,
+            transports.x.E, transports.x.𝓋, E)
+    launch!(arch, grid, KernelParameters(1:Nx, 1:Ny+1, 1:Nz), _compute_y_column_transport!,
+            transports.y.E, transports.y.𝓋, E)
+    synchronize_periodic_transport!(arch, grid, transports.x.E, transports.y.E)
+    compute_column_salinity_transports!(th.salinity_closure, arch, grid, transports, th.fields.bulk_salinity)
+    return nothing
+end
+
+compute_column_salinity_transports!(::PrescribedBulkSalinity, args...) = nothing
+
+function compute_column_salinity_transports!(::PrognosticBulkSalinity, arch, grid, transports, S)
+    Nx, Ny, Nz = size(grid)
+    launch!(arch, grid, KernelParameters(1:Nx+1, 1:Ny, 1:Nz), _compute_x_column_transport!,
+            transports.x.S, transports.x.𝓋, S)
+    launch!(arch, grid, KernelParameters(1:Nx, 1:Ny+1, 1:Nz), _compute_y_column_transport!,
+            transports.y.S, transports.y.𝓋, S)
+    synchronize_periodic_transport!(arch, grid, transports.x.S, transports.y.S)
+    return nothing
+end
+
+function synchronize_periodic_transport!(arch, grid, Fx, Fy)
+    Nx, Ny, _ = size(grid)
+    Nz = size(Fx, 3)
+    topology(grid, 1) == Periodic && launch!(arch, grid, KernelParameters(1:1, 1:Ny, 1:Nz),
+                                            _copy_periodic_x_transport!, Fx, Nx)
+    topology(grid, 2) == Periodic && launch!(arch, grid, KernelParameters(1:Nx, 1:1, 1:Nz),
+                                            _copy_periodic_y_transport!, Fy, Ny)
+    return nothing
+end
+
+@kernel function _copy_periodic_x_transport!(F, Nx)
+    _, j, k = @index(Global, NTuple)
+    @inbounds F[Nx+1, j, k] = F[1, j, k]
+end
+
+@kernel function _copy_periodic_y_transport!(F, Ny)
+    i, _, k = @index(Global, NTuple)
+    @inbounds F[i, Ny+1, k] = F[i, 1, k]
+end
+
+@kernel function _compute_x_column_transport!(F, F𝓋, tracer)
+    i, j, k = @index(Global, NTuple)
+    @inbounds begin
+        volume = F𝓋[i, j, 1]
+        donor = ifelse(volume ≥ 0, i-1, i)
+        F[i, j, k] = volume * tracer[donor, j, k]
+    end
+end
+
+@kernel function _compute_y_column_transport!(F, F𝓋, tracer)
+    i, j, k = @index(Global, NTuple)
+    @inbounds begin
+        volume = F𝓋[i, j, 1]
+        donor = ifelse(volume ≥ 0, j-1, j)
+        F[i, j, k] = volume * tracer[i, donor, k]
+    end
+end
+
+remap_column_tracers!(model, advection, Δt) = nothing
+
+function remap_column_tracers!(model, advection::IncrementalRemapping, Δt)
+    remap_column_properties!(model, model.ice_thermodynamics, advection.transports)
+end
+
+remap_column_properties!(model, thermodynamics, transports) = nothing
+
+function remap_column_properties!(model, th::ColumnEnergyThermodynamics, transports)
+    grid = model.grid
+    arch = architecture(grid)
+    E = th.fields.internal_energy
+    launch!(arch, grid, :xyz, _remap_column_tracer!, E, model.ice_thickness,
+            model.ice_concentration, transports.x.E, transports.y.E,
+            transports.x.𝓋, transports.y.𝓋, grid)
+    remap_column_salinity!(th.salinity_closure, arch, grid, th.fields.bulk_salinity,
+                           model.ice_thickness, model.ice_concentration, transports)
+    return nothing
+end
+
+remap_column_salinity!(::PrescribedBulkSalinity, args...) = nothing
+
+function remap_column_salinity!(::PrognosticBulkSalinity, arch, grid, S, h, ℵ, transports)
+    launch!(arch, grid, :xyz, _remap_column_tracer!, S, h, ℵ,
+            transports.x.S, transports.y.S, transports.x.𝓋, transports.y.𝓋, grid)
+    return nothing
+end
+
+@kernel function _remap_column_tracer!(tracer, h, ℵ, Fx, Fy, F𝓋x, F𝓋y, grid)
+    i, j, k = @index(Global, NTuple)
+    @inbounds begin
+        area = Azᶜᶜᶜ(i, j, k, grid)
+        volume⁻ = h[i, j, 1] * ℵ[i, j, 1]
+        volume⁺ = volume⁻ - transport_divergence(i, j, F𝓋x, F𝓋y) / area
+        content⁺ = volume⁻ * tracer[i, j, k] -
+                   (Fx[i+1, j, k] - Fx[i, j, k] + Fy[i, j+1, k] - Fy[i, j, k]) / area
+        tracer[i, j, k] = ifelse(volume⁺ > eps(eltype(grid)), content⁺ / volume⁺, tracer[i, j, k])
+    end
 end

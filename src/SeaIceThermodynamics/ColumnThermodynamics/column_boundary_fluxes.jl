@@ -6,6 +6,14 @@
 @inline column_bottom_boundary_energy_factor(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(Δt)
 @inline column_top_boundary_energy_factor(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(Δt)
 
+@inline function column_surface_is_melting(i, j, k, auxiliary, fields, relation)
+    @inbounds begin
+        Tₛ = auxiliary.surface_temperature[i, j, 1]
+        Tₘ = melting_temperature(relation.phase_transitions.liquidus, fields.bulk_salinity[i, j, k])
+    end
+    return Tₛ >= Tₘ
+end
+
 @inline function column_bottom_boundary_energy_factor(bc::ColumnDirichletBoundary, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
     conductance = column_boundary_temperature_conductance(i, j, 1, k, grid, auxiliary)
     TE = @inbounds fields.temperature_energy_derivative[i, j, k]
@@ -14,6 +22,14 @@ end
 
 @inline function column_top_boundary_energy_factor(bc::ColumnDirichletBoundary, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
     Nz = size(grid, 3)
+    conductance = column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary)
+    TE = @inbounds fields.temperature_energy_derivative[i, j, k]
+    return Δt * conductance * TE / Δzᶜᶜᶜ(i, j, k, grid)
+end
+
+@inline function column_top_boundary_energy_factor(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    Nz = size(grid, 3)
+    column_surface_is_melting(i, j, Nz, auxiliary, fields, relation) || return zero(Δt)
     conductance = column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary)
     TE = @inbounds fields.temperature_energy_derivative[i, j, k]
     return Δt * conductance * TE / Δzᶜᶜᶜ(i, j, k, grid)
@@ -49,28 +65,30 @@ end
     return conductance * (Tᵇ - T + TE * E) - getflux(ext, i, j, grid, Tᵇ, clock, model_fields)
 end
 
-# The surface flux -Qᵘ(Tₛ) is capped at the energy that completely melts the top cell; the excess drives surface melt.
+# At a melting surface, only the conductive flux enters the top cell. The
+# atmospheric energy in excess of conduction ablates ice at the surface.
 @inline function column_top_boundary_energy_flux(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
-    Δz = Δzᶜᶜᶜ(i, j, k, grid)
-    E  = @inbounds fields.internal_energy[i, j, k]
-    S  = @inbounds fields.bulk_salinity[i, j, k]
     Tₛ = @inbounds auxiliary.surface_temperature[i, j, 1]
-    requested = - getflux(ext, i, j, grid, Tₛ, clock, model_fields)
-    available = column_energy_to_complete_melt(relation, E, S, Δz) / Δt
-    return min(requested, max(available, zero(available)))
+    column_surface_is_melting(i, j, k, auxiliary, fields, relation) ||
+        return -getflux(ext, i, j, grid, Tₛ, clock, model_fields)
+    conductance = column_boundary_temperature_conductance(i, j, size(grid, 3)+1, k, grid, auxiliary)
+    @inbounds begin
+        T = fields.temperature[i, j, k]
+        E = fields.internal_energy[i, j, k]
+        TE = fields.temperature_energy_derivative[i, j, k]
+    end
+    return conductance * (Tₛ - T + TE * E)
 end
 
 @inline column_surface_stefan_residual_flux(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(eltype(grid))
 
 @inline function column_surface_stefan_residual_flux(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
-    Δz = Δzᶜᶜᶜ(i, j, k, grid)
-    # the cap is evaluated against the start-of-step enthalpy, the same one the surface solve used
-    E  = @inbounds auxiliary.surface_start_energy[i, j, 1]
-    S  = @inbounds fields.bulk_salinity[i, j, k]
+    column_surface_is_melting(i, j, k, auxiliary, fields, relation) || return zero(Δt)
     Tₛ = @inbounds auxiliary.surface_temperature[i, j, 1]
-    requested = - getflux(ext, i, j, grid, Tₛ, clock, model_fields)
-    available = column_energy_to_complete_melt(relation, E, S, Δz) / Δt
-    applied = min(requested, max(available, zero(available)))
-    return applied - requested
+    T = @inbounds fields.temperature[i, j, k]
+    conductance = column_boundary_temperature_conductance(i, j, k+1, k, grid, auxiliary)
+    Qᶜ = conductance * (T - Tₛ)
+    Qᵃ = getflux(ext, i, j, grid, Tₛ, clock, model_fields)
+    return min(Qᵃ - Qᶜ, zero(Qᵃ))
 end
 
