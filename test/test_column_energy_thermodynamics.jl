@@ -1,5 +1,6 @@
 using ClimaSeaIce.SeaIceThermodynamics:
     BulkSalinityDiffusion,
+    ColumnBasalHeatFlux,
     ColumnEnergyThermodynamics,
     SeaIceColumnDiscretization,
     ConductiveTemperatureTransport,
@@ -18,12 +19,16 @@ using ClimaSeaIce.SeaIceThermodynamics:
     PrescribedTemperature,
     PrognosticBulkSalinity,
     QuadraticLiquidusEnergyRelation,
+    SnowColumnTopFlux,
+    SecantMethod,
+    CompactSolution,
     assemble_column_energy_system!,
     brine_salinity,
     column_energy_time_step!,
     column_height,
     column_salinity_time_step!,
     column_surface_stefan_residual_flux,
+    column_surface_temperature_balance,
     column_stefan_thickness_change,
     complete_melt_energy,
     compute_column_shortwave_flux!,
@@ -31,6 +36,7 @@ using ClimaSeaIce.SeaIceThermodynamics:
     compute_column_transport_coefficients!,
     evolving_salinity_mushy_thermodynamics,
     face_thermal_conductivity,
+    find_zero,
     ice_thermal_conductivity,
     initialize_column_interfaces!,
     internal_energy,
@@ -38,12 +44,14 @@ using ClimaSeaIce.SeaIceThermodynamics:
     prescribed_salinity_enthalpy_thermodynamics,
     salinity_at_normalized_depth,
     salinity_at_normalized_height,
+    snow_column_fluxes,
     solve_column_energy_system!,
     temperature,
     temperature_energy_derivative,
     temperature_salinity_derivative
 
 using ClimaSeaIce: SeaIceModel
+using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: getflux
 using ClimaSeaIce: IncrementalRemapping, UniformThicknessDistribution, snow_slab_thermodynamics
 using Adapt
 using Oceananigans
@@ -1275,6 +1283,33 @@ end
     @test isapprox(V¹ * (E¹ - ρL) - V⁰ * (E⁰ - ρL), -Qᵃ * Δt; atol = 1e-5)
 end
 
+@testset "Basal heat and frazil use grid-cell area" begin
+    # One quarter of the cell has ice. The interface supplies 40 W/m² of ice,
+    # hence only 10 W/m² of grid cell. Frazil is already per grid-cell area.
+    grid = RectilinearGrid(size = 4, z = SeaIceColumnDiscretization((0, 1)),
+                           topology = (Flat, Flat, Bounded))
+    relation = FixedSalinityBrinePocketEnergyRelation(Float64)
+    ice = prescribed_salinity_enthalpy_thermodynamics(grid;
+        relation, salinity_profile = 4.0,
+        energy_transport = ConductiveTemperatureTransport(conductivity = 0.0),
+        heat_boundary_conditions = (top = FluxBoundary(), bottom = PrescribedTemperature(-5.0)))
+    basal = ColumnBasalHeatFlux(40.0, 10.0, -20.0)
+    model = SeaIceModel(grid; ice_thermodynamics = ice,
+                        phase_transitions = relation.phase_transitions,
+                        top_heat_flux = 0.0, bottom_heat_flux = basal)
+    set!(model; h = 1.0, ℵ = 0.25)
+    set!(ice; temperature = -5.0)
+
+    Δt = 60.0
+    volume_before = model.ice_thickness[1, 1, 1] * model.ice_concentration[1, 1, 1]
+    time_step!(model, Δt)
+    volume_after = model.ice_thickness[1, 1, 1] * model.ice_concentration[1, 1, 1]
+    ρL = model.sea_ice_density[1, 1, 1] * relation.phase_transitions.reference_latent_heat
+
+    # The +10 W/m² interface loss and -20 W/m² frazil gain yield net growth.
+    @test isapprox(volume_after - volume_before, 10.0 * Δt / ρL; rtol = 1e-8)
+end
+
 @testset "set! syncs the column grid metric" begin
     grid = RectilinearGrid(size = 8, z = SeaIceColumnDiscretization((0, 2)), topology = (Flat, Flat, Bounded))
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
@@ -1328,6 +1363,59 @@ end
     # Upward-positive massless-surface balance: Q_atm(Tₛ) = conductance·(T_top − Tₛ), to the iteration tolerance.
     @test abs((Q₀ - λ * (surface_temperature - T_ref)) -
               conductance * (top_temperature - surface_temperature)) < 1e-6
+end
+
+@testset "Captured thin-snow surface temperature failure" begin
+    # One Arctic cell at model hour 1840.167: the old unguarded secant returned
+    # -234°C with a 1553 W/m² heat-balance error. No forcing file is needed.
+    air_temperature = 277.728916422526
+    air_humidity = 0.0048475598062699046
+    pressure = 103132.7359375
+    wind_speed = hypot(1.986268457770367, -0.03793264776467879)
+    downward_longwave = 339.66806640625
+    downward_shortwave = 57.385873349507946
+    hs, h = 0.00023206826032621405, 1.0537630538084337
+    Ttop, Tprevious = -0.2160028923486799, -0.216
+    conductance = 2 * 0.1 / (h / 8)
+
+    function atmospheric_flux(T)
+        eice = 611.2 * exp(22.46 * T / (272.62 + T))
+        qsat = 0.622 * eice / (pressure - 0.378 * eice)
+        sensible = 1.3 * 1004.0 * 1.3e-3 * wind_speed * (T + 273.15 - air_temperature)
+        latent = 1.3 * 2.83e6 * 1.3e-3 * wind_speed * (qsat - air_humidity)
+        longwave = 0.97 * 5.670374419e-8 * (T + 273.15)^4 - downward_longwave
+        shortwave = -0.2 * downward_shortwave
+        return sensible + latent + longwave + shortwave
+    end
+
+    grid = RectilinearGrid(Float64; size = (1, 1, 8), x = (0, 1), y = (0, 1),
+                           z = SeaIceColumnDiscretization((0, 1)),
+                           topology = (Bounded, Bounded, Bounded))
+    snow_thickness = Field{Center, Center, Nothing}(grid)
+    ice_thickness = Field{Center, Center, Nothing}(grid)
+    snow_skin = Field{Center, Center, Nothing}(grid)
+    set!(snow_thickness, hs)
+    set!(ice_thickness, h)
+    atmosphere = FluxFunction((i, j, grid, T, clock, fields) -> atmospheric_flux(T);
+                              top_temperature_dependent = true)
+    snow_top = SnowColumnTopFlux(atmosphere, snow_thickness, ice_thickness,
+                                0.31, nothing, 330.0, 334000.0, snow_skin, 60.0)
+    clock = Clock(time = 1840.1666666666667 * 3600)
+    state = NamedTuple()
+    balance(T) = getflux(snow_top, 1, 1, grid, T, clock, state) - conductance * (Ttop - T)
+
+    raw = find_zero(balance, SecantMethod{Float64}(Tprevious + 1, Tprevious), CompactSolution())
+    @test !raw.converged && raw.root < -100
+    @test abs(balance(raw.root)) > 100
+
+    corrected = column_surface_temperature_balance(1, 1, grid, Tprevious,
+                                                   conductance, Ttop, snow_top, clock, state)
+    snow_temperature, snow_flux, snow_melt = snow_column_fluxes(snow_top, 1, 1, grid, corrected, clock, state)
+    @test -1 < corrected < 0
+    @test abs(balance(corrected)) < 1e-5
+    @test abs(0.31 * (corrected - snow_temperature) / hs - snow_flux) < 1e-5
+    @test snow_melt > 0
+    @test abs(snow_flux - atmospheric_flux(snow_temperature) - snow_melt) < 1e-5
 end
 
 @testset "Column with a prescribed top temperature builds without top_heat_flux" begin
