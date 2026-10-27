@@ -39,6 +39,10 @@ end
 
     K = snow_column_conductance(f, i, j, hs)
     balance(Ts) = K * (Tice - Ts) - getflux(f.atmosphere, i, j, grid, Ts, clock, model_fields)
+    tolerance(Ts) = column_flux_balance_tolerance(grid,
+                                                   getflux(f.atmosphere, i, j, grid, Ts, clock, model_fields),
+                                                   K * (Tice - Ts), K,
+                                                   max(abs(Tice), abs(Ts)))
 
     # A positive residual at the snow melting point means that the unconstrained
     # skin would be above 0 C. Pin it at melting and spend the excess on snow.
@@ -77,7 +81,7 @@ end
             bad = oftype(Tice, NaN)
             return bad, bad, bad
         end
-        abs(residual) <= 1e-6 && return trial, getflux(f.atmosphere, i, j, grid, trial, clock, model_fields), zero(Tice)
+        abs(residual) <= tolerance(trial) && return trial, getflux(f.atmosphere, i, j, grid, trial, clock, model_fields), zero(Tice)
         if residual > 0
             cold = trial
         else
@@ -85,7 +89,7 @@ end
         end
     end
     Ts = (cold + warm) / 2
-    if abs(balance(Ts)) > 1e-4
+    if abs(balance(Ts)) > tolerance(Ts)
         bad = oftype(Tice, NaN)
         return bad, bad, bad
     end
@@ -96,6 +100,27 @@ end
 @inline function HeatBoundaryConditions.getflux(f::SnowColumnTopFlux, i, j, grid, Tice, clock, model_fields)
     _, Qice, _ = snow_column_fluxes(f, i, j, grid, Tice, clock, model_fields)
     return Qice
+end
+
+# Differentiate the snow/atmosphere balance with respect to the ice surface
+# temperature. The resulting conductance enters the implicit ice-column row.
+@inline function column_external_flux_temperature_slope(f::SnowColumnTopFlux, i, j, grid, Tice, clock, model_fields)
+    hs = @inbounds f.snow_thickness[i, j, 1]
+    hs <= snow_conduction_thickness_cutoff &&
+        return column_external_flux_temperature_slope(f.atmosphere, i, j, grid, Tice, clock, model_fields)
+
+    K = snow_column_conductance(f, i, j, hs)
+    Qatmₘ = getflux(f.atmosphere, i, j, grid, zero(Tice), clock, model_fields)
+    Qexcess = K * Tice - Qatmₘ
+    if Qexcess >= 0
+        ρs = column_parameter(f.snow_density, i, j)
+        capacity = ρs * f.latent_heat * hs / f.Δt
+        return Qexcess >= capacity ? zero(Tice) : K
+    end
+
+    Ts, _, _ = snow_column_fluxes(f, i, j, grid, Tice, clock, model_fields)
+    λ = column_external_flux_temperature_slope(f.atmosphere, i, j, grid, Ts, clock, model_fields)
+    return K * λ / (K + λ)
 end
 
 @kernel function _column_snow_volume_update!(ice_thickness, ice_concentration,
