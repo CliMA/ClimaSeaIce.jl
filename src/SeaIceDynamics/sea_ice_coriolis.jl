@@ -102,9 +102,9 @@ const TS = AbstractRotation{<:TriadScheme}
 
 @inline function x_f_cross_U_2D(i, j, k, grid, coriolis::TS, U)
     fv = (𝒯⁺⁺(i-1, j, k, grid, coriolis) * masked_Δx_qᶜᶠᶜ(i-1, j+1, k, grid, U.v) +
-          𝒯⁻⁺(i,   j, k, grid, coriolis) * masked_Δx_qᶜᶠᶜ(i,   j,   k, grid, U.v) +
+          𝒯⁻⁻(i,   j, k, grid, coriolis) * masked_Δx_qᶜᶠᶜ(i,   j,   k, grid, U.v) +
           𝒯⁺⁻(i-1, j, k, grid, coriolis) * masked_Δx_qᶜᶠᶜ(i-1, j,   k, grid, U.v) +
-          𝒯⁻⁻(i,   j, k, grid, coriolis) * masked_Δx_qᶜᶠᶜ(i,   j+1, k, grid, U.v)) / 12
+          𝒯⁻⁺(i,   j, k, grid, coriolis) * masked_Δx_qᶜᶠᶜ(i,   j+1, k, grid, U.v)) / 12
     return - fv * Δx⁻¹ᶠᶜᶜ(i, j, k, grid)
 end
 
