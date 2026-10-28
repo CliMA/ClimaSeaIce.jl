@@ -314,8 +314,8 @@ own type parameters.
 
 !!! note "Layered snow + ice coupling"
     The layered path in `_layered_thermodynamic_time_step!` assumes that
-    each layer's flux carries a `.conductivity` field and that the coupling
-    is `IceSnowConductiveFlux` (resistors in series). Replacing the
+    each layer's flux is a `ConductiveFlux` and that the coupling is
+    `IceSnowConductiveFlux` (resistors in series). Replacing the
     internal flux with a non-conductive formulation in the layered case
     requires changes to the layered kernel and is out of scope for the
     current refactor.

@@ -167,10 +167,8 @@ end
     Tm = melting_temperature(liquidus, Si)
 
     # Snow surface solve using the combined snow+ice conductive flux with a
-    # resistors in series formulation: F = (Tb - Tu) / (hs/ks + hi/ki).
-    ks = snow_thermodynamics.internal_heat_flux.conductivity
-    ki = ice_thermodynamics.internal_heat_flux.conductivity
-    combined_flux = IceSnowConductiveFlux(ks, ki, ice_thermodynamics.internal_heat_flux.itd_shape)
+    # resistors in series formulation: F = (Tb - Tu) / (Rs + Ri).
+    combined_flux = IceSnowConductiveFlux(snow_thermodynamics.internal_heat_flux, ice_thermodynamics.internal_heat_flux)
 
     # Column internal heat flux
     Qic = internal_flux_function(combined_flux, phase_transitions, bottom_bc)
