@@ -42,6 +42,7 @@ Auxiliaries(rheology, grid::AbstractGrid) = Auxiliaries(NamedTuple(), nothing)
 # Nothing rheology
 initialize_rheology!(model, rheology) = nothing
 finalize_rheology!(fields, rheology) = nothing
+fill_stress_halos!(fields, rheology) = nothing
 
 compute_stresses!(dynamics, fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc) = nothing
 Oceananigans.prognostic_fields(mom, ::AbstractRheology) = NamedTuple()

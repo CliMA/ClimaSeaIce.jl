@@ -87,6 +87,49 @@ function test_distributed_simulations()
     end
 end
 
+# More substeps than the 25-cell subdomains can hold in a single extended halo (2 * 30 + 3 = 63),
+# so the halos are exchanged every `halo_exchange_interval` substeps instead.
+function test_halo_exchange_interval()
+    substeps = 30
+
+    grid = RectilinearGrid(CPU();
+                           size = (100, 100, 1),
+                           x = (-10kilometers, 10kilometers),
+                           y = (-10kilometers, 10kilometers),
+                           z = (-1, 0),
+                           halo = (5, 5, 5))
+
+    models = run_distributed_simulation(grid; substeps)
+    us, vs = map(φ -> interior(φ, :, :, 1), models.velocities)
+    hs = interior(models.ice_thickness, :, :, 1)
+    ℵs = interior(models.ice_concentration, :, :, 1)
+
+    for partition in (Partition(1, 4), Partition(2, 2)), halo_exchange_interval in (1, 4, 7)
+        arch = Distributed(CPU(); partition)
+        @root @info "Testing $(ranks(arch)) distributed simulation with $substeps substeps, halo exchange every $halo_exchange_interval"
+        grid = RectilinearGrid(arch;
+                               size = (100, 100, 1),
+                               x = (-10kilometers, 10kilometers),
+                               y = (-10kilometers, 10kilometers),
+                               z = (-1, 0),
+                               halo = (5, 5, 5))
+
+        modelp = run_distributed_simulation(grid; substeps, halo_exchange_interval)
+        @test halo_size(modelp.velocities.u.grid)[2] == max(2halo_exchange_interval + 3, 5)
+
+        up, vp = map(φ -> interior(reconstruct_global_field(φ), :, :, 1), modelp.velocities)
+        hp = interior(reconstruct_global_field(modelp.ice_thickness), :, :, 1)
+        ℵp = interior(reconstruct_global_field(modelp.ice_concentration), :, :, 1)
+
+        @test all(us .≈ up)
+        @test all(vs .≈ vp)
+        @test all(hs .≈ hp)
+        @test all(ℵs .≈ ℵp)
+    end
+
+    return nothing
+end
+
 # Run the distributed grid simulation and save down reconstructed results
 function run_distributed_sea_ice_jl2dwriter(arch, filename)
     distributed_grid = RectilinearGrid(arch;
@@ -105,7 +148,7 @@ function run_distributed_sea_ice_jl2dwriter(arch, filename)
 end
 
 # Just a random simulation on a rectilinear grid
-function run_distributed_simulation(grid)
+function run_distributed_simulation(grid; substeps = 10, halo_exchange_interval = substeps)
 
     τᵤ = 0.01
     τᵥ = 0.01
@@ -118,7 +161,7 @@ function run_distributed_simulation(grid)
                                       bottom_momentum_stress = τₒ,
                                       rheology = ElastoViscoPlasticRheology(),
                                       coriolis = FPlane(f = 1e-4),
-                                      solver = SplitExplicitSolver(grid, substeps=10))
+                                      solver = SplitExplicitSolver(grid; substeps, halo_exchange_interval))
 
     model = SeaIceModel(grid; dynamics, advection = WENO(order=7))
 
