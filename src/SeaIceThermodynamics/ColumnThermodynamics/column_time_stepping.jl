@@ -34,9 +34,9 @@ end
         Tₘ = melting_temperature(relation.phase_transitions.liquidus, fields.bulk_salinity[i, j, Nz])
         was_melting = Tₛ_previous[i, j, 1] >= Tₘ
         is_melting = Tₛ[i, j, 1] >= Tₘ
-        if was_melting != is_melting
-            E[i, j, k] = (E_previous[i, j, k] + E[i, j, k]) / 2
-        end
+        E[i, j, k] = ifelse(was_melting != is_melting,
+                            (E_previous[i, j, k] + E[i, j, k]) / 2,
+                            E[i, j, k])
     end
 end
 
@@ -49,9 +49,9 @@ end
     @inbounds begin
         previous_update = E_previous[i, j, k] - E_before_previous[i, j, k]
         current_update = E[i, j, k] - E_previous[i, j, k]
-        if previous_update * current_update < 0
-            E[i, j, k] = (E[i, j, k] + E_previous[i, j, k]) / 2
-        end
+        E[i, j, k] = ifelse(previous_update * current_update < 0,
+                            (E[i, j, k] + E_previous[i, j, k]) / 2,
+                            E[i, j, k])
     end
 end
 
@@ -102,18 +102,7 @@ function column_surface_energy_solve!(top_boundary, thermodynamics::ColumnEnergy
         E⁻⁻ .= E⁻
     end
 
-    ΔE = Array(E .- E⁻)
-    eidx = argmax(abs.(ΔE))
-    ΔTs = Array(Tₛ .- Tₛ⁻)
-    sidx = argmax(abs.(ΔTs))
-    T = Array(interior(thermodynamics.fields.temperature))
-    TE = Array(interior(thermodynamics.fields.temperature_energy_derivative))
-    S = Array(interior(thermodynamics.fields.bulk_salinity))
-    Efinal = Array(E)
-    error("Column energy/surface solve did not converge within $max_iterations iterations " *
-          "(energy change $energy_change, tolerance $energy_tolerance at $eidx: E=$(Efinal[eidx]), T=$(T[eidx]), " *
-          "dT/dE=$(TE[eidx]), S=$(S[eidx]); " *
-          "surface change $surface_change, tolerance $surface_tolerance at $sidx: Ts=$(Array(Tₛ)[sidx]))")
+    error("Column energy/surface solve did not converge within $max_iterations iterations (energy change $energy_change, surface change $surface_change).")
 end
 
 function column_energy_time_step!(thermodynamics::ColumnEnergyThermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)

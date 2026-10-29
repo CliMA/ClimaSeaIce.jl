@@ -1,6 +1,6 @@
 using Oceananigans: prognostic_state, prognostic_fields, restore_prognostic_state!
 using KernelAbstractions: @kernel, @index
-using RootSolvers: SecantMethod, find_zero, CompactSolution
+using RootSolvers: BisectionMethod, find_zero, CompactSolution, ResidualTolerance
 using Oceananigans.Architectures: architecture
 using Oceananigans.Fields: AbstractField, interior, set!
 using Oceananigans.Grids: ZDirection, rnode, znode

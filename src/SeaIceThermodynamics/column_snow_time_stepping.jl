@@ -3,124 +3,78 @@
 # no heat capacity; its latent reservoir is spent before heat reaches the ice.
 const snow_conduction_thickness_cutoff = 1e-8 # m; thinner films are thermally indistinguishable from bare ice
 
-struct SnowColumnTopFlux{F, H, I, K, S, D, L, T, DT}
+struct SnowColumnTopFlux{F, H, I, K, S, M}
     atmosphere :: F
     snow_thickness :: H
     ice_thickness :: I
     snow_conductivity :: K
     itd_shape :: S
-    snow_density :: D
-    latent_heat :: L
-    snow_surface_temperature :: T
-    Δt :: DT
+    snow_melt_potential :: M
 end
 
-Adapt.adapt_structure(to, f::SnowColumnTopFlux) =
-    SnowColumnTopFlux(Adapt.adapt(to, f.atmosphere),
-                      Adapt.adapt(to, f.snow_thickness),
-                      Adapt.adapt(to, f.ice_thickness),
-                      Adapt.adapt(to, f.snow_conductivity),
-                      Adapt.adapt(to, f.itd_shape),
-                      Adapt.adapt(to, f.snow_density),
-                      Adapt.adapt(to, f.latent_heat),
-                      Adapt.adapt(to, f.snow_surface_temperature), f.Δt)
+Adapt.@adapt_structure SnowColumnTopFlux
 
-@inline function snow_column_conductance(f::SnowColumnTopFlux, i, j, hs)
-    @inbounds h = f.ice_thickness[i, j, 1]
-    return f.snow_conductivity * itd_factor(f.itd_shape, h) / hs
+@inline function snow_column_conductance(i, j, grid, f::SnowColumnTopFlux)
+    @inbounds begin
+        h = f.ice_thickness[i, j, 1]
+        hs = f.snow_thickness[i, j, 1]
+    end
+    return f.snow_conductivity * itd_factor(f.itd_shape, h) / max(hs, oftype(hs, snow_conduction_thickness_cutoff))
 end
 
-@inline function snow_column_fluxes(f::SnowColumnTopFlux, i, j, grid, Tice, clock, model_fields)
+@inline function snow_column_fluxes(i, j, grid, f::SnowColumnTopFlux, Tice, clock, model_fields)
     @inbounds hs = f.snow_thickness[i, j, 1]
-    if hs <= snow_conduction_thickness_cutoff
-        Q = getflux(f.atmosphere, i, j, grid, Tice, clock, model_fields)
-        return Tice, Q, zero(Q)
-    end
-
-    K = snow_column_conductance(f, i, j, hs)
-    balance(Ts) = K * (Tice - Ts) - getflux(f.atmosphere, i, j, grid, Ts, clock, model_fields)
-    tolerance(Ts) = column_flux_balance_tolerance(grid,
-                                                   getflux(f.atmosphere, i, j, grid, Ts, clock, model_fields),
-                                                   K * (Tice - Ts), K,
-                                                   max(abs(Tice), abs(Ts)))
-
-    # A positive residual at the snow melting point means that the unconstrained
-    # skin would be above 0 C. Pin it at melting and spend the excess on snow.
-    Qatmₘ = getflux(f.atmosphere, i, j, grid, zero(Tice), clock, model_fields)
-    Qconductₘ = K * Tice
-    if Qconductₘ >= Qatmₘ
-        ρs = column_parameter(f.snow_density, i, j)
-        capacity = ρs * f.latent_heat * hs / f.Δt
-        Qmelt = min(Qconductₘ - Qatmₘ, capacity)
-        return zero(Tice), Qatmₘ + Qmelt, Qmelt
-    end
-
-    # On the cold branch, solve snow conduction = atmospheric heat loss.
-    # Include the ice temperature in the bracket: a fixed -100°C endpoint
-    # does not enclose the root if an upstream ice-surface solve fails cold.
-    cold = min(oftype(Tice, -100), Tice - one(Tice))
-    warm = zero(Tice)
-    width = one(Tice)
-    cold_residual = balance(cold)
-    for _ in 1:32
-        isfinite(cold_residual) || return oftype(Tice, NaN), oftype(Tice, NaN), oftype(Tice, NaN)
-        cold_residual >= 0 && break
-        width *= 2
-        cold -= width
-        cold_residual = balance(cold)
-    end
-    if !(isfinite(cold_residual) && cold_residual >= 0)
-        bad = oftype(Tice, NaN)
-        return bad, bad, bad
-    end
-
-    for _ in 1:64
-        trial = (cold + warm) / 2
-        residual = balance(trial)
-        if !isfinite(residual)
-            bad = oftype(Tice, NaN)
-            return bad, bad, bad
-        end
-        abs(residual) <= tolerance(trial) && return trial, getflux(f.atmosphere, i, j, grid, trial, clock, model_fields), zero(Tice)
-        if residual > 0
-            cold = trial
-        else
-            warm = trial
-        end
-    end
-    Ts = (cold + warm) / 2
-    if abs(balance(Ts)) > tolerance(Ts)
-        bad = oftype(Tice, NaN)
-        return bad, bad, bad
-    end
-    Qice = getflux(f.atmosphere, i, j, grid, Ts, clock, model_fields)
-    return Ts, Qice, zero(Qice)
+    K = snow_column_conductance(i, j, grid, f)
+    Ts = column_surface_temperature_balance(i, j, grid, Tice, K, Tice, f.atmosphere, clock, model_fields)
+    Qatm = getflux(f.atmosphere, i, j, grid, Ts, clock, model_fields)
+    Qmelt = ifelse(Ts >= 0, min(max(K * Tice - Qatm, zero(Tice)),
+                              column_parameter(f.snow_melt_potential, i, j)), zero(Tice))
+    Qbare = getflux(f.atmosphere, i, j, grid, Tice, clock, model_fields)
+    snowy = hs > snow_conduction_thickness_cutoff
+    return ifelse(snowy, Ts, Tice), ifelse(snowy, Qatm + Qmelt, Qbare), ifelse(snowy, Qmelt, zero(Tice))
 end
 
 @inline function HeatBoundaryConditions.getflux(f::SnowColumnTopFlux, i, j, grid, Tice, clock, model_fields)
-    _, Qice, _ = snow_column_fluxes(f, i, j, grid, Tice, clock, model_fields)
+    _, Qice, _ = snow_column_fluxes(i, j, grid, f, Tice, clock, model_fields)
     return Qice
 end
 
-# Differentiate the snow/atmosphere balance with respect to the ice surface
-# temperature. The resulting conductance enters the implicit ice-column row.
+@inline function column_surface_temperature_balance(i, j, grid, Tₛ⁻, conductance, T_top,
+                                                    f::SnowColumnTopFlux, clock, model_fields)
+    C = max(conductance, eps(eltype(grid)))
+    K = snow_column_conductance(i, j, grid, f)
+    # Ice and snow conductances act in series while both surfaces are cold.
+    Ts = column_surface_temperature_balance(i, j, grid, Tₛ⁻, C * K / (C + K), T_top,
+                                            f.atmosphere, clock, model_fields)
+    Ti = (C * T_top + K * Ts) / (C + K)
+    Qatm = getflux(f.atmosphere, i, j, grid, zero(T_top), clock, model_fields)
+    capacity = column_parameter(f.snow_melt_potential, i, j)
+    exhausted = (Ts >= 0) & (K * Ti - Qatm >= capacity)
+    Ti = ifelse(exhausted, T_top - (Qatm + capacity) / C, Ti)
+    bare = column_surface_temperature_balance(i, j, grid, Tₛ⁻, C, T_top, f.atmosphere, clock, model_fields)
+    hs = @inbounds f.snow_thickness[i, j, 1]
+    Ti = ifelse(hs > snow_conduction_thickness_cutoff, Ti, bare)
+    return ifelse(conductance > eps(eltype(grid)), min(Ti, zero(Ti)), Tₛ⁻)
+end
+
 @inline function column_external_flux_temperature_slope(f::SnowColumnTopFlux, i, j, grid, Tice, clock, model_fields)
     hs = @inbounds f.snow_thickness[i, j, 1]
-    hs <= snow_conduction_thickness_cutoff &&
-        return column_external_flux_temperature_slope(f.atmosphere, i, j, grid, Tice, clock, model_fields)
-
-    K = snow_column_conductance(f, i, j, hs)
-    Qatmₘ = getflux(f.atmosphere, i, j, grid, zero(Tice), clock, model_fields)
-    Qexcess = K * Tice - Qatmₘ
-    if Qexcess >= 0
-        ρs = column_parameter(f.snow_density, i, j)
-        capacity = ρs * f.latent_heat * hs / f.Δt
-        return Qexcess >= capacity ? zero(Tice) : K
-    end
-
-    Ts, _, _ = snow_column_fluxes(f, i, j, grid, Tice, clock, model_fields)
+    K = snow_column_conductance(i, j, grid, f)
+    Qatm = getflux(f.atmosphere, i, j, grid, zero(Tice), clock, model_fields)
+    Qexcess = K * Tice - Qatm
+    capacity = column_parameter(f.snow_melt_potential, i, j)
+    Ts, _, _ = snow_column_fluxes(i, j, grid, f, Tice, clock, model_fields)
     λ = column_external_flux_temperature_slope(f.atmosphere, i, j, grid, Ts, clock, model_fields)
-    return K * λ / (K + λ)
+    melting_slope = ifelse(Qexcess >= capacity, zero(Tice), K)
+    snowy_slope = ifelse(Qexcess >= 0, melting_slope, K * λ / (K + λ))
+    bare_slope = column_external_flux_temperature_slope(f.atmosphere, i, j, grid, Tice, clock, model_fields)
+    return ifelse(hs > snow_conduction_thickness_cutoff, snowy_slope, bare_slope)
+end
+
+@kernel function _compute_snow_melt_potential!(potential, grid, snow_thickness, snow_density, latent_heat, Δt)
+    i, j = @index(Global, NTuple)
+    ρs = column_parameter(snow_density, i, j)
+    @inbounds potential[i, j, 1] = ρs * latent_heat * snow_thickness[i, j, 1] / Δt
 end
 
 @kernel function _column_snow_volume_update!(ice_thickness, ice_concentration,
@@ -132,7 +86,6 @@ end
                                              snow_surface_temperature, mass_fluxes,
                                              clock, model_fields, Δt)
     i, j = @index(Global, NTuple)
-    Nz = size(grid, 3)
 
     @inbounds begin
         hⁿ = ice_thickness[i, j, 1]
@@ -147,51 +100,24 @@ end
         z.hs⁻[i, j, 1] = z.hsⁿ[i, j, 1]
         z.hb⁻[i, j, 1] = z.hbⁿ[i, j, 1]
 
-        if hⁿ >= hᶜ
-            Qᵇ = column_basal_stefan_flux(heat_boundary_conditions.bottom,
-                                          external_heat_fluxes.bottom, fields, auxiliary,
-                                          grid, relation, clock, model_fields, i, j)
-            Qˢ = column_surface_stefan_residual_flux(heat_boundary_conditions.top,
-                                                     external_heat_fluxes.top, i, j, Nz,
-                                                     grid, auxiliary, fields, relation,
-                                                     clock, model_fields, Δt)
-            δhᵇ = column_stefan_thickness_change(phase_transitions, ρi, Qᵇ, Δt)
-            δhˢ = column_surface_melt_thickness_change(Qˢ, Δt, fields, relation, grid, i, j)
-            cell_flux_correction = column_cell_flux_correction(external_heat_fluxes.bottom, ℵⁿ, i, j, grid,
-                                                               zero(eltype(grid)), clock, model_fields)
-            ∂t_V = ℵⁿ * (δhᵇ + δhˢ) / Δt - cell_flux_correction / (ρi * phase_transitions.reference_latent_heat)
-            surface_shift = δhˢ
-        else
-            Tb = column_bottom_reference_temperature(heat_boundary_conditions.bottom,
-                                                     i, j, grid, fields, relation)
-            ℰ = ρi * latent_heat(phase_transitions, Tb)
-            Qu = column_unconsolidated_top_flux(heat_boundary_conditions.top,
-                                                external_heat_fluxes.top, conductivity,
-                                                Tb, hⁿ, i, j, grid, fields, relation,
-                                                clock, model_fields)
-            Qb = getflux(external_heat_fluxes.bottom, i, j, grid, Tb, clock, model_fields)
-            cell_flux_correction = column_cell_flux_correction(external_heat_fluxes.bottom, ℵⁿ, i, j, grid, Tb, clock, model_fields)
-            ∂t_V = (ℵⁿ * (Qu - Qb) - cell_flux_correction) / ℰ
-            surface_shift = zero(eltype(grid))
-        end
+        ∂t_V, surface_shift = column_volume_tendency(i, j, grid, hⁿ, ℵⁿ, hᶜ, ρi, phase_transitions,
+                                                   fields, auxiliary, heat_boundary_conditions,
+                                                   external_heat_fluxes, relation, conductivity,
+                                                   clock, model_fields, Δt)
 
         h⁺, ℵ⁺ = ice_volume_update(ProportionalEvolution(), ∂t_V, hⁿ, ℵⁿ, hᶜ, Δt)
 
         Tice = auxiliary.surface_temperature[i, j, 1]
-        Ts, _, Qmelt = snow_column_fluxes(external_heat_fluxes.top, i, j,
-                                          grid, Tice, clock, model_fields)
+        Ts, _, Qmelt = snow_column_fluxes(i, j, grid, external_heat_fluxes.top, Tice, clock, model_fields)
         snow_surface_temperature[i, j, 1] = Ts
-        if hsⁿ > snow_conduction_thickness_cutoff && Ts < 0
-            Qatm = getflux(external_heat_fluxes.top.atmosphere, i, j, grid, Ts, clock, model_fields)
-            Ksnow = snow_column_conductance(external_heat_fluxes.top, i, j, hsⁿ)
-            auxiliary.snow_surface_residual[i, j, 1] = abs(Ksnow * (Tice - Ts) - Qatm)
-        else
-            auxiliary.snow_surface_residual[i, j, 1] = zero(Tice)
-        end
+        Qatm = getflux(external_heat_fluxes.top.atmosphere, i, j, grid, Ts, clock, model_fields)
+        Ksnow = snow_column_conductance(i, j, grid, external_heat_fluxes.top)
+        auxiliary.snow_surface_residual[i, j, 1] = ifelse((hsⁿ > snow_conduction_thickness_cutoff) & (Ts < 0),
+                                                         abs(Ksnow * (Tice - Ts) - Qatm), zero(Tice))
         snowfall_rate = snow_accumulation(i, j, snowfall, ρs, ℵ⁺, clock)
-        hs_conservative = ifelse(ℵ⁺ > 0, Vsⁿ / ℵ⁺, zero(hsⁿ))
-        hs⁺ = max(zero(hsⁿ), hs_conservative +
-                  Δt * (snowfall_rate - Qmelt / (ρs * phase_transitions.reference_latent_heat)))
+        Vs⁺ = max(zero(Vsⁿ), Vsⁿ + Δt * (ℵ⁺ * snowfall_rate -
+                   ℵⁿ * Qmelt / (ρs * phase_transitions.reference_latent_heat)))
+        hs⁺ = ifelse(ℵ⁺ > 0, Vs⁺ / ℵ⁺, zero(hsⁿ))
 
         h_before_flooding = h⁺
         h⁺, hs⁺ = snow_ice_formation(h⁺, hs⁺, ρi, ρs, phase_transitions.liquid_density)
@@ -225,16 +151,16 @@ function thermodynamic_time_step!(model, th::ColumnEnergyThermodynamics,
         throw(ArgumentError("Snow and ice surface temperatures must use separate fields"))
 
     cached = cached_external_heat_fluxes(th, model.external_heat_fluxes, model.clock, fields(model))
+    grid = model.grid
+    launch!(architecture(grid), grid, :xy, _compute_snow_melt_potential!,
+            th.auxiliary.snow_melt_potential, grid, model.snow_thickness, model.snow_density,
+            model.phase_transitions.reference_latent_heat, Δt)
     snow_top = SnowColumnTopFlux(cached.top, model.snow_thickness, model.ice_thickness,
                                  snow.internal_heat_flux.conductivity,
-                                 snow.internal_heat_flux.itd_shape,
-                                 model.snow_density,
-                                 model.phase_transitions.reference_latent_heat,
-                                 snow.top_surface_temperature, Δt)
+                                 snow.internal_heat_flux.itd_shape, th.auxiliary.snow_melt_potential)
     Qe = (top = snow_top, bottom = cached.bottom)
     column_energy_time_step!(th, Qe, model.clock, fields(model), model.ice_consolidation_thickness, Δt)
 
-    grid = model.grid
     launch!(architecture(grid), grid, :xy, _column_snow_volume_update!,
             model.ice_thickness, model.ice_concentration, model.snow_thickness,
             model.ice_consolidation_thickness, model.sea_ice_density, model.snow_density,

@@ -21,8 +21,6 @@ using ClimaSeaIce.SeaIceThermodynamics:
     PrognosticBulkSalinity,
     QuadraticLiquidusEnergyRelation,
     SnowColumnTopFlux,
-    SecantMethod,
-    CompactSolution,
     assemble_column_energy_system!,
     brine_salinity,
     column_energy_time_step!,
@@ -37,7 +35,6 @@ using ClimaSeaIce.SeaIceThermodynamics:
     compute_column_transport_coefficients!,
     evolving_salinity_mushy_thermodynamics,
     face_thermal_conductivity,
-    find_zero,
     ice_thermal_conductivity,
     initialize_column_interfaces!,
     internal_energy,
@@ -1512,8 +1509,7 @@ end
     # Linearized warming atmospheric flux Q_atm(Tₛ) = Q₀ - λ (Tₛ - T_ref), evaluated at the surface temperature.
     # A T-dependent flux is what makes the outer iteration non-trivial — a scalar flux would converge in one pass.
     Q₀, λ, T_ref = 5.0, 0.5, -10.0
-    atmospheric_flux(i, j, grid, T, clock, fields) = Q₀ - λ * (T - T_ref)
-    top_flux = FluxFunction(atmospheric_flux; top_temperature_dependent = true)
+    top_flux = LinearizedSurfaceFlux(Q₀, T_ref, -λ)
     ext = (top = top_flux, bottom = 0.0)
 
     thermodynamics = prescribed_salinity_enthalpy_thermodynamics(grid;
@@ -1569,24 +1565,19 @@ end
                            topology = (Bounded, Bounded, Bounded))
     snow_thickness = Field{Center, Center, Nothing}(grid)
     ice_thickness = Field{Center, Center, Nothing}(grid)
-    snow_skin = Field{Center, Center, Nothing}(grid)
     set!(snow_thickness, hs)
     set!(ice_thickness, h)
     atmosphere = FluxFunction((i, j, grid, T, clock, fields) -> atmospheric_flux(T);
                               top_temperature_dependent = true)
     snow_top = SnowColumnTopFlux(atmosphere, snow_thickness, ice_thickness,
-                                0.31, nothing, 330.0, 334000.0, snow_skin, 60.0)
+                                0.31, nothing, 330.0 * 334000.0 * hs / 60.0)
     clock = Clock(time = 1840.1666666666667 * 3600)
     state = NamedTuple()
     balance(T) = getflux(snow_top, 1, 1, grid, T, clock, state) - conductance * (Ttop - T)
 
-    raw = find_zero(balance, SecantMethod{Float64}(Tprevious + 1, Tprevious), CompactSolution())
-    @test !raw.converged && raw.root < -100
-    @test abs(balance(raw.root)) > 100
-
     corrected = column_surface_temperature_balance(1, 1, grid, Tprevious,
                                                    conductance, Ttop, snow_top, clock, state)
-    snow_temperature, snow_flux, snow_melt = snow_column_fluxes(snow_top, 1, 1, grid, corrected, clock, state)
+    snow_temperature, snow_flux, snow_melt = snow_column_fluxes(1, 1, grid, snow_top, corrected, clock, state)
     @test -1 < corrected < 0
     @test abs(balance(corrected)) < 1e-5
     @test abs(0.31 * (corrected - snow_temperature) / hs - snow_flux) < 1e-5
@@ -1611,7 +1602,7 @@ end
 @testset "Resolved ice column with finite slab snow closes its surface budget" begin
     function snow_case(Qatm, hs⁰; Δt = 600.0, initial_temperature = -5.0,
                        h⁰ = 1.0, snowfall = 0.0, snow_itd_shape = nothing,
-                       ice_conductivity = 2.0)
+                       ice_conductivity = 2.0, ℵ⁰ = 1.0, bottom_heat_flux = 0.0)
         Nz = 8
         grid = RectilinearGrid(Float64; size = (1, 1, Nz), x = (0, 1), y = (0, 1),
                                z = SeaIceColumnDiscretization((0, 1)),
@@ -1625,9 +1616,9 @@ end
         snow = snow_slab_thermodynamics(grid; itd_shape = snow_itd_shape)
         model = SeaIceModel(grid; ice_thermodynamics = ice, snow_thermodynamics = snow,
                             phase_transitions = relation.phase_transitions,
-                            top_heat_flux = Qatm, bottom_heat_flux = 0.0,
+                            top_heat_flux = Qatm, bottom_heat_flux,
                             timestepper = :ForwardEuler, snowfall)
-        set!(model; h = h⁰, ℵ = 1.0, hs = hs⁰, u = 0.0, v = 0.0)
+        set!(model; h = h⁰, ℵ = ℵ⁰, hs = hs⁰, u = 0.0, v = 0.0)
         set!(ice; bulk_salinity = 4.0, temperature = initial_temperature)
         E⁰ = sum(interior(ice.fields.internal_energy)) * h⁰ / Nz
         time_step!(model, Δt)
@@ -1654,6 +1645,9 @@ end
     dust = snow_case(20.0, 1e-12)
     warm = snow_case(-100.0, 0.2)
     exhausted = snow_case(-2000.0, 1e-4; Δt = 20.0, initial_temperature = -0.3)
+    fractional_growth = snow_case(-100.0, 0.01; Δt = 5400.0, initial_temperature = -0.3,
+                                  h⁰ = 0.05, ℵ⁰ = 0.1,
+                                  bottom_heat_flux = ColumnBasalHeatFlux(0.0, 0.0, -100.0))
     bare_melt = snow_case(-100.0, 1e-12; Δt = 900.0, h⁰ = 1.5, ice_conductivity = 0.0)
     accumulating = snow_case(0.0, 0.1; snowfall = 0.003)
     flooded = snow_case(0.0, 0.2; h⁰ = 0.1)
@@ -1670,8 +1664,16 @@ end
     @test thin.hs ≈ 1e-7 && thin.Ts < 0 && thin.skin_residual < 1e-5
     @test dust.hs ≈ 1e-12 && dust.Ts == dust.Ti && dust.skin_residual == 0
     @test warm.hs < 0.2 && warm.Ts == 0
-    @test exhausted.hs < 1e-7 && exhausted.Ts == 0 && exhausted.ice_mass_flux < 0
+    @test exhausted.hs < 1e-12 && exhausted.Ts == 0 && exhausted.ice_mass_flux < 0
+    @test 0 < exhausted.ℵ < 1
+    @test isapprox(exhausted.snow_mass_flux, -330 * 1e-4 / 20; rtol = 1e-12)
     phase_transitions = FixedSalinityBrinePocketEnergyRelation(Float64).phase_transitions
+    Qmelt = 0.31 / 0.01 * fractional_growth.Ti + 100
+    @test fractional_growth.ℵ > 0.1
+    @test fractional_growth.Ts == 0
+    @test 0 < Qmelt < 330 * phase_transitions.reference_latent_heat * 0.01 / 5400
+    @test isapprox(fractional_growth.snow_mass_flux,
+                   -0.1 * Qmelt / phase_transitions.reference_latent_heat; rtol = 1e-10)
     Tₘ = -phase_transitions.liquidus.slope * 4.0
     melt_energy = phase_transitions.density * (
         phase_transitions.heat_capacity * (Tₘ + 5.0) +

@@ -53,9 +53,9 @@ end
 
 @inline function column_top_boundary_energy_factor(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
     Nz = size(grid, 3)
-    conductance = column_surface_is_melting(i, j, Nz, auxiliary, fields, relation) ?
-                  column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary) :
-                  column_cold_surface_conductance(ext, i, j, k, grid, auxiliary, clock, model_fields)
+    conductance = ifelse(column_surface_is_melting(i, j, Nz, auxiliary, fields, relation),
+                         column_boundary_temperature_conductance(i, j, Nz+1, k, grid, auxiliary),
+                         column_cold_surface_conductance(ext, i, j, k, grid, auxiliary, clock, model_fields))
     TE = @inbounds fields.temperature_energy_derivative[i, j, k]
     return Δt * conductance * TE / Δzᶜᶜᶜ(i, j, k, grid)
 end
@@ -94,30 +94,27 @@ end
 # atmospheric energy in excess of conduction ablates ice at the surface.
 @inline function column_top_boundary_energy_flux(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
     Tₛ = @inbounds auxiliary.surface_temperature[i, j, 1]
-    if !column_surface_is_melting(i, j, k, auxiliary, fields, relation)
-        conductance = column_cold_surface_conductance(ext, i, j, k, grid, auxiliary, clock, model_fields)
-        E = @inbounds fields.internal_energy[i, j, k]
-        TE = @inbounds fields.temperature_energy_derivative[i, j, k]
-        return -getflux(ext, i, j, grid, Tₛ, clock, model_fields) + conductance * TE * E
-    end
+    cold_conductance = column_cold_surface_conductance(ext, i, j, k, grid, auxiliary, clock, model_fields)
     conductance = column_boundary_temperature_conductance(i, j, size(grid, 3)+1, k, grid, auxiliary)
     @inbounds begin
         T = fields.temperature[i, j, k]
         E = fields.internal_energy[i, j, k]
         TE = fields.temperature_energy_derivative[i, j, k]
     end
-    return conductance * (Tₛ - T + TE * E)
+    cold_flux = -getflux(ext, i, j, grid, Tₛ, clock, model_fields) + cold_conductance * TE * E
+    melting_flux = conductance * (Tₛ - T + TE * E)
+    return ifelse(column_surface_is_melting(i, j, k, auxiliary, fields, relation), melting_flux, cold_flux)
 end
 
 @inline column_surface_stefan_residual_flux(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(eltype(grid))
 
 @inline function column_surface_stefan_residual_flux(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
-    column_surface_is_melting(i, j, k, auxiliary, fields, relation) || return zero(Δt)
     Tₛ = @inbounds auxiliary.surface_temperature[i, j, 1]
     T = @inbounds fields.temperature[i, j, k]
     conductance = column_boundary_temperature_conductance(i, j, k+1, k, grid, auxiliary)
     Qᶜ = conductance * (T - Tₛ)
     Qᵃ = getflux(ext, i, j, grid, Tₛ, clock, model_fields)
-    return min(Qᵃ - Qᶜ, zero(Qᵃ))
+    return ifelse(column_surface_is_melting(i, j, k, auxiliary, fields, relation),
+                  min(Qᵃ - Qᶜ, zero(Qᵃ)), zero(Qᵃ))
 end
 

@@ -42,7 +42,7 @@ Return the Stefan thickness change `Δt Q / (ρᵢ ℒ)` implied by a residual i
     return max(zero(E), complete_melt_energy(relation, S) - E + meltwater_sensible_heat)
 end
 
-@inline function column_surface_melt_thickness_change(Qˢ, Δt, fields, relation, grid, i, j)
+@inline function column_surface_melt_thickness_change(i, j, grid, Qˢ, Δt, fields, relation)
     remaining_energy = max(zero(Qˢ), -Qˢ * Δt)
     δhˢ = zero(Qˢ)
     Nz = size(grid, 3)
@@ -81,12 +81,31 @@ end
     return Qi + getflux(ext, i, j, grid, Tᵗ, clock, model_fields)
 end
 
+@inline function column_volume_tendency(i, j, grid, h, ℵ, hᶜ, ρ, phase_transitions,
+                                        fields, auxiliary, bcs, Qe, relation, conductivity,
+                                        clock, model_fields, Δt)
+    Nz = size(grid, 3)
+    Qᵇ = column_basal_stefan_flux(bcs.bottom, Qe.bottom, fields, auxiliary, grid, relation, clock, model_fields, i, j)
+    Qˢ = column_surface_stefan_residual_flux(bcs.top, Qe.top, i, j, Nz, grid, auxiliary, fields, relation, clock, model_fields, Δt)
+    δhᵇ = column_stefan_thickness_change(phase_transitions, ρ, Qᵇ, Δt)
+    δhˢ = column_surface_melt_thickness_change(i, j, grid, Qˢ, Δt, fields, relation)
+    correction = column_cell_flux_correction(Qe.bottom, ℵ, i, j, grid, zero(eltype(grid)), clock, model_fields)
+    consolidated_tendency = ℵ * (δhᵇ + δhˢ) / Δt - correction / (ρ * phase_transitions.reference_latent_heat)
+
+    Tᵇ = column_bottom_reference_temperature(bcs.bottom, i, j, grid, fields, relation)
+    ℰ = ρ * latent_heat(phase_transitions, Tᵇ)
+    Qᵘ = column_unconsolidated_top_flux(bcs.top, Qe.top, conductivity, Tᵇ, h, i, j, grid, fields, relation, clock, model_fields)
+    Qᵇ = getflux(Qe.bottom, i, j, grid, Tᵇ, clock, model_fields)
+    correction = column_cell_flux_correction(Qe.bottom, ℵ, i, j, grid, Tᵇ, clock, model_fields)
+    slab_tendency = (ℵ * (Qᵘ - Qᵇ) - correction) / ℰ
+    return ifelse(h >= hᶜ, consolidated_tendency, slab_tendency), ifelse(h >= hᶜ, δhˢ, zero(δhˢ))
+end
+
 @kernel function _column_stefan_volume_update!(ice_thickness, ice_concentration, consolidation_thickness,
                                                sea_ice_density, phase_transitions, z, fields, auxiliary, grid,
                                                heat_boundary_conditions, external_heat_fluxes, relation, conductivity,
                                                clock, model_fields, Δt)
     i, j = @index(Global, NTuple)
-    Nz = size(grid, 3)
     bcs = heat_boundary_conditions
     Qe = external_heat_fluxes
 
@@ -99,23 +118,9 @@ end
         z.hs⁻[i, j, 1] = z.hsⁿ[i, j, 1]
         z.hb⁻[i, j, 1] = z.hbⁿ[i, j, 1]
 
-        if hⁿ ≥ hᶜ
-            Qᵇ = column_basal_stefan_flux(bcs.bottom, Qe.bottom, fields, auxiliary, grid, relation, clock, model_fields, i, j)
-            Qˢ = column_surface_stefan_residual_flux(bcs.top, Qe.top, i, j, Nz, grid, auxiliary, fields, relation, clock, model_fields, Δt)
-            δhᵇ = column_stefan_thickness_change(phase_transitions, ρᵢ, Qᵇ, Δt)
-            δhˢ = column_surface_melt_thickness_change(Qˢ, Δt, fields, relation, grid, i, j)
-            cell_flux_correction = column_cell_flux_correction(Qe.bottom, ℵⁿ, i, j, grid, zero(eltype(grid)), clock, model_fields)
-            ∂t_V = ℵⁿ * (δhᵇ + δhˢ) / Δt - cell_flux_correction / (ρᵢ * phase_transitions.reference_latent_heat)
-            δzˢ = δhˢ
-        else
-            Tᵇ = column_bottom_reference_temperature(bcs.bottom, i, j, grid, fields, relation)
-            ℰ  = ρᵢ * latent_heat(phase_transitions, Tᵇ)
-            Qᵘ = column_unconsolidated_top_flux(bcs.top, Qe.top, conductivity, Tᵇ, hⁿ, i, j, grid, fields, relation, clock, model_fields)
-            Qᵇ = getflux(Qe.bottom, i, j, grid, Tᵇ, clock, model_fields)
-            cell_flux_correction = column_cell_flux_correction(Qe.bottom, ℵⁿ, i, j, grid, Tᵇ, clock, model_fields)
-            ∂t_V = (ℵⁿ * (Qᵘ - Qᵇ) - cell_flux_correction) / ℰ
-            δzˢ = zero(eltype(grid))
-        end
+        ∂t_V, δzˢ = column_volume_tendency(i, j, grid, hⁿ, ℵⁿ, hᶜ, ρᵢ, phase_transitions,
+                                          fields, auxiliary, bcs, Qe, relation, conductivity,
+                                          clock, model_fields, Δt)
 
         h⁺, ℵ⁺ = ice_volume_update(ProportionalEvolution(), ∂t_V, hⁿ, ℵⁿ, hᶜ, Δt)
 

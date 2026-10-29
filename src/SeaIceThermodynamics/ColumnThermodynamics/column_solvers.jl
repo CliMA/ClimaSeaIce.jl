@@ -35,39 +35,38 @@ end
     Qe = external_heat_fluxes
 
     @inbounds begin
-        if column_consolidated(consolidation_thickness, grid, i, j)
-            κE = energy_diffusivity(energy_transport)
-            I = auxiliary.shortwave_flux
+        κE = energy_diffusivity(energy_transport)
+        I = auxiliary.shortwave_flux
 
-            left_self     = k == 1  ? zero(Δt) : column_energy_diffusion_factor(i, j, k, k, k, grid, auxiliary, fields, κE, Δt)
-            left_neighbor = k == 1  ? zero(Δt) : column_energy_diffusion_factor(i, j, k, k, k-1, grid, auxiliary, fields, κE, Δt)
-            right_self     = k == Nz ? zero(Δt) : column_energy_diffusion_factor(i, j, k, k+1, k, grid, auxiliary, fields, κE, Δt)
-            right_neighbor = k == Nz ? zero(Δt) : column_energy_diffusion_factor(i, j, k, k+1, k+1, grid, auxiliary, fields, κE, Δt)
+        left_self     = ifelse(k == 1, zero(Δt), column_energy_diffusion_factor(i, j, k, k, k, grid, auxiliary, fields, κE, Δt))
+        left_neighbor = ifelse(k == 1, zero(Δt), column_energy_diffusion_factor(i, j, k, k, max(1, k-1), grid, auxiliary, fields, κE, Δt))
+        right_self     = ifelse(k == Nz, zero(Δt), column_energy_diffusion_factor(i, j, k, k+1, k, grid, auxiliary, fields, κE, Δt))
+        right_neighbor = ifelse(k == Nz, zero(Δt), column_energy_diffusion_factor(i, j, k, k+1, min(Nz, k+1), grid, auxiliary, fields, κE, Δt))
 
-            boundary_factor = zero(Δt)
-            k == 1  && (boundary_factor += column_bottom_boundary_energy_factor(bcs.bottom, Qe.bottom, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt))
-            k == Nz && (boundary_factor += column_top_boundary_energy_factor(bcs.top, Qe.top, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt))
+        boundary_factor = ifelse(k == 1, column_bottom_boundary_energy_factor(bcs.bottom, Qe.bottom, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt), zero(Δt)) +
+                          ifelse(k == Nz, column_top_boundary_energy_factor(bcs.top, Qe.top, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt), zero(Δt))
+        consolidated = column_consolidated(consolidation_thickness, grid, i, j)
+        left_self = ifelse(consolidated, left_self, zero(Δt))
+        left_neighbor = ifelse(consolidated, left_neighbor, zero(Δt))
+        right_self = ifelse(consolidated, right_self, zero(Δt))
+        right_neighbor = ifelse(consolidated, right_neighbor, zero(Δt))
+        boundary_factor = ifelse(consolidated, boundary_factor, zero(Δt))
 
-            store_tridiagonal_row!(auxiliary, i, j, k, Nz, left_self, left_neighbor, right_self, right_neighbor, boundary_factor)
+        store_tridiagonal_row!(auxiliary, i, j, k, Nz, left_self, left_neighbor, right_self, right_neighbor, boundary_factor)
 
-            left_flux = k == 1 ? column_bottom_boundary_energy_flux(bcs.bottom, Qe.bottom, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) :
-                                 column_affine_conductive_flux(i, j, k, grid, auxiliary, fields)
+        left_flux = ifelse(k == 1, column_bottom_boundary_energy_flux(bcs.bottom, Qe.bottom, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt),
+                          column_affine_conductive_flux(i, j, max(2, k), grid, auxiliary, fields))
 
-            right_flux = k == Nz ? column_top_boundary_energy_flux(bcs.top, Qe.top, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) :
-                                   column_affine_conductive_flux(i, j, k+1, grid, auxiliary, fields)
+        right_flux = ifelse(k == Nz, column_top_boundary_energy_flux(bcs.top, Qe.top, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt),
+                           column_affine_conductive_flux(i, j, k+1, grid, auxiliary, fields))
 
-            flux_tendency = (right_flux + I[i, j, k+1] - left_flux - I[i, j, k]) / Δzᶜᶜᶜ(i, j, k, grid)
+        flux_tendency = (right_flux + I[i, j, k+1] - left_flux - I[i, j, k]) / Δzᶜᶜᶜ(i, j, k, grid)
 
-            # Conservative moving-grid balance: Jⁿ⁺¹ Δr Eⁿ⁺¹ = Jⁿ Δr Eⁿ + δzᵤ Eᵘᵖᵤ - δzₗ Eᵘᵖₗ + Δt (Fᵤ - Fₗ)
-            moving_tendency = (moving_face_displacement_flux(i, j, k+1, grid, initial_energy, fields, relation, bcs.bottom) -
-                               moving_face_displacement_flux(i, j, k, grid, initial_energy, fields, relation, bcs.bottom)) / Δzᶜᶜᶜ(i, j, k, grid)
+        # Conservative moving-grid balance: Jⁿ⁺¹ Δr Eⁿ⁺¹ = Jⁿ Δr Eⁿ + δzᵤ Eᵘᵖᵤ - δzₗ Eᵘᵖₗ + Δt (Fᵤ - Fₗ)
+        moving_tendency = (moving_face_displacement_flux(i, j, k+1, grid, initial_energy, fields, relation, bcs.bottom) -
+                           moving_face_displacement_flux(i, j, k, grid, initial_energy, fields, relation, bcs.bottom)) / Δzᶜᶜᶜ(i, j, k, grid)
 
-            auxiliary.energy_rhs[i, j, k] = previous_to_current_column_metric_ratio(i, j, k, grid) * initial_energy[i, j, k] + moving_tendency + Δt * flux_tendency
-        else
-            # Unconsolidated columns hold their internal energy; the slab balance in the volume update takes the growth.
-            store_tridiagonal_row!(auxiliary, i, j, k, Nz, zero(Δt), zero(Δt), zero(Δt))
-            auxiliary.energy_rhs[i, j, k] = initial_energy[i, j, k]
-        end
+        auxiliary.energy_rhs[i, j, k] = ifelse(consolidated, previous_to_current_column_metric_ratio(i, j, k, grid) * initial_energy[i, j, k] + moving_tendency + Δt * flux_tendency, initial_energy[i, j, k])
     end
 end
 
@@ -102,56 +101,45 @@ end
 
 @inline function column_surface_temperature_balance(i, j, grid, Tₛ⁻, conductance, T_top, external_flux, clock, model_fields)
     FT = eltype(grid)
-    conductance > eps(FT) || return Tₛ⁻
-    balance(T) = getflux(external_flux, i, j, grid, T, clock, model_fields) - conductance * (T_top - T)
+    C = max(conductance, eps(FT))
+    balance(T) = getflux(external_flux, i, j, grid, T, clock, model_fields) - C * (T_top - T)
     tolerance(T) = column_flux_balance_tolerance(grid,
-                                                  getflux(external_flux, i, j, grid, T, clock, model_fields),
-                                                  conductance * (T_top - T), conductance,
-                                                  max(abs(T_top), abs(T)))
+        getflux(external_flux, i, j, grid, T, clock, model_fields),
+        C * (T_top - T), C, max(abs(T_top), abs(T)))
+    normalized_balance(T) = balance(T) / tolerance(T)
 
-    # Keep the fast solve when it actually closes the heat balance. For thin
-    # snow, secant can report nonconvergence and return a remote iterate even
-    # when the physical root lies close to melting.
-    solution = find_zero(balance, SecantMethod{FT}(Tₛ⁻ + one(FT), Tₛ⁻), CompactSolution())
-    candidate = solution.root
-    if isfinite(candidate)
-        residual = balance(candidate)
-        isfinite(residual) && abs(residual) <= tolerance(candidate) && return candidate
-    end
-
-    # The surface is capped at the melting point by the caller. A root above
-    # 0°C therefore needs no solve, while a colder root can be bracketed.
     warm = zero(FT)
-    warm_residual = balance(warm)
-    isfinite(warm_residual) || return FT(NaN)
-    warm_residual <= 0 && return warm
-
     cold = min(T_top, warm) - one(FT)
     width = one(FT)
-    cold_residual = balance(cold)
-    for _ in 1:32
-        isfinite(cold_residual) || return FT(NaN)
-        cold_residual <= 0 && break
-        width *= 2
-        cold -= width
-        cold_residual = balance(cold)
+    # Precision bounds both the number of bracket doublings and bisection refinements.
+    for _ in 1:precision(FT)
+        expand = balance(cold) > 0
+        width = ifelse(expand, 2width, width)
+        cold = ifelse(expand, cold - width, cold)
     end
-    (isfinite(cold_residual) && cold_residual <= 0) || return FT(NaN)
+    solution = find_zero(normalized_balance, BisectionMethod{FT}(cold, warm),
+                         CompactSolution(), ResidualTolerance(one(FT)), precision(FT))
+    Tₛ = ifelse(abs(normalized_balance(solution.root)) <= 1, solution.root, FT(NaN))
+    Tₛ = ifelse(balance(warm) <= 0, warm, Tₛ)
+    return ifelse(conductance > eps(FT), Tₛ, Tₛ⁻)
+end
 
-    for _ in 1:64
-        trial = (cold + warm) / 2
-        residual = balance(trial)
-        isfinite(residual) || return FT(NaN)
-        abs(residual) <= tolerance(trial) && return trial
-        if residual > 0
-            warm = trial
-        else
-            cold = trial
-        end
-    end
+@inline function column_surface_temperature_balance(i, j, grid, Tₛ⁻, conductance, T_top,
+                                                    external_flux::Union{Number, AbstractArray},
+                                                    clock, model_fields)
+    FT = eltype(grid)
+    Q = getflux(external_flux, i, j, grid, zero(T_top), clock, model_fields)
+    Tₛ = FT(T_top - Q / conductance)
+    return ifelse(conductance > eps(FT), min(Tₛ, zero(Tₛ)), Tₛ⁻)
+end
 
-    trial = (cold + warm) / 2
-    return abs(balance(trial)) <= tolerance(trial) ? trial : FT(NaN)
+@inline function column_surface_temperature_balance(i, j, grid, Tₛ⁻, conductance, T_top,
+                                                    external_flux::LinearizedSurfaceFlux, clock, model_fields)
+    FT = eltype(grid)
+    Q = getflux(external_flux, i, j, grid, zero(T_top), clock, model_fields)
+    λ = getflux(external_flux.temperature_derivative, i, j, grid, zero(T_top), clock, model_fields)
+    Tₛ = FT((conductance * T_top - Q) / (conductance + λ))
+    return ifelse(conductance > eps(FT), min(Tₛ, zero(Tₛ)), Tₛ⁻)
 end
 
 @kernel function _update_column_surface_temperature!(auxiliary, fields, grid, external_flux, relation, clock, model_fields)
@@ -159,18 +147,15 @@ end
     Nz = size(grid, 3)
 
     @inbounds begin
-        # Masked cells and zero-height columns have no ice surface balance.
-        # Keep a finite diagnostic value without solving an undefined balance.
-        if Oceananigans.ImmersedBoundaries.immersed_cell(i, j, Nz, grid) ||
-           column_height(grid, i, j) <= eps(eltype(grid))
-            auxiliary.surface_temperature[i, j, 1] = fields.temperature[i, j, Nz]
-        else
-            conductance = column_boundary_temperature_conductance(i, j, Nz+1, Nz, grid, auxiliary)
-            Tₘ = melting_temperature(relation.phase_transitions.liquidus, fields.bulk_salinity[i, j, Nz])
-            Tₛ = column_surface_temperature_balance(i, j, grid, auxiliary.surface_temperature[i, j, 1], conductance,
-                                                    fields.temperature[i, j, Nz], external_flux, clock, model_fields)
-            auxiliary.surface_temperature[i, j, 1] = min(Tₛ, Tₘ)
-        end
+        active = !Oceananigans.ImmersedBoundaries.immersed_cell(i, j, Nz, grid) &
+                 (column_height(grid, i, j) > eps(eltype(grid)))
+        T_top = fields.temperature[i, j, Nz]
+        conductance = column_boundary_temperature_conductance(i, j, Nz+1, Nz, grid, auxiliary)
+        conductance = ifelse(active, conductance, zero(conductance))
+        Tₘ = melting_temperature(relation.phase_transitions.liquidus, fields.bulk_salinity[i, j, Nz])
+        Tₛ = column_surface_temperature_balance(i, j, grid, auxiliary.surface_temperature[i, j, 1], conductance,
+                                                T_top, external_flux, clock, model_fields)
+        auxiliary.surface_temperature[i, j, 1] = ifelse(active, min(Tₛ, Tₘ), T_top)
     end
 end
 
@@ -186,8 +171,8 @@ solve_column_energy_system!(thermodynamics::ColumnEnergyThermodynamics) = solve!
     Nz = size(grid, 3)
     S = fields.bulk_salinity
 
-    left_factor  = k == 1  ? zero(Δt) : diffusion_factor(i, j, k, k, grid, κS, Δt)
-    right_factor = k == Nz ? zero(Δt) : diffusion_factor(i, j, k, k+1, grid, κS, Δt)
+    left_factor  = ifelse(k == 1, zero(Δt), diffusion_factor(i, j, k, k, grid, κS, Δt))
+    right_factor = ifelse(k == Nz, zero(Δt), diffusion_factor(i, j, k, k+1, grid, κS, Δt))
     store_tridiagonal_row!(auxiliary, i, j, k, Nz, left_factor, right_factor, zero(Δt))
 
     moving_tendency = (moving_face_displacement_flux(i, j, k+1, grid, S, fields, nothing, nothing) -
