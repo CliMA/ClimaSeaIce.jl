@@ -33,18 +33,21 @@ const SSIT = SlabThermodynamics
 """
     snow_slab_thermodynamics(grid;
                              conductivity = 0.31,
+                             itd_shape = nothing,
                              kw...)
 
 Construct a `SlabThermodynamics` with default parameters appropriate for snow:
 conductivity = 0.31 W/(m K). Bulk density and all phase-transition parameters
 live on `SeaIceModel` (as `snow_density` and `phase_transitions` respectively).
+`itd_shape` scales conduction across a sub-grid thickness distribution.
 """
 function snow_slab_thermodynamics(grid;
                                   conductivity = 0.31, # W/(m K)
+                                  itd_shape = nothing,
                                   kw...)
 
     FT = eltype(grid)
-    internal_heat_flux = ConductiveFlux(FT; conductivity)
+    internal_heat_flux = ConductiveFlux(FT; conductivity, itd_shape)
     return SlabThermodynamics(grid; internal_heat_flux, kw...)
 end
 

@@ -11,6 +11,34 @@
 # Make sure to check the size on flux construction
 @inline getflux(flux::AbstractArray{<:Any, 3}, i, j, grid, args...) = @inbounds flux[i, j, 1]
 
+"""
+    LinearizedSurfaceFlux(reference_flux, reference_temperature, temperature_derivative)
+
+Represent an upward-positive surface heat flux as
+`reference_flux + temperature_derivative * (T - reference_temperature)`.
+Each argument may be a number or a horizontal field. A coupled atmosphere can
+refresh the three inputs between ice steps; the column then evaluates the flux
+at every trial ice or snow surface temperature. For an implicit surface solve,
+pass only the nonnegative part of the atmospheric temperature derivative.
+"""
+struct LinearizedSurfaceFlux{Q, T, D}
+    reference_flux :: Q
+    reference_temperature :: T
+    temperature_derivative :: D
+end
+
+Adapt.adapt_structure(to, f::LinearizedSurfaceFlux) =
+    LinearizedSurfaceFlux(adapt(to, f.reference_flux),
+                          adapt(to, f.reference_temperature),
+                          adapt(to, f.temperature_derivative))
+
+@inline function getflux(f::LinearizedSurfaceFlux, i, j, grid, T, clock, model_fields)
+    Q = getflux(f.reference_flux, i, j, grid, T, clock, model_fields)
+    Tref = getflux(f.reference_temperature, i, j, grid, T, clock, model_fields)
+    slope = getflux(f.temperature_derivative, i, j, grid, T, clock, model_fields)
+    return Q + slope * (T - Tref)
+end
+
 # Tuples
 @inline getflux(fluxes::Tuple{}, i, j, grid, args...) = zero(grid)
 @inline getflux(fluxes::Tuple{<:Any}, args...) = getflux(fluxes[1], args...)
@@ -57,13 +85,13 @@ ice-water interface.
 The wrapped callable `func` must have one of the following signatures:
 
 ```julia
-flux = func(i, j, grid, clock, top_temperature, model_fields)
+flux = func(i, j, grid, top_temperature, clock, model_fields)
 ```
 
 when `isnothing(parameters)`, or
 
 ```julia
-flux = func(i, j, grid, clock, top_temperature, model_fields, parameters)
+flux = func(i, j, grid, top_temperature, clock, model_fields, parameters)
 ```
 
 when `!isnothing(parameters)`.
@@ -76,7 +104,7 @@ Example
 
 ```julia
 @inline sensible_heat_flux(i, j, grid, Tₛ, clock, fields, coefficient) =
-    coefficient * (fields.T_air[i, j, 1] - Tₛ)
+    coefficient * (Tₛ - fields.T_air[i, j, 1])
 
 Q = FluxFunction(sensible_heat_flux; parameters = 15.0,
                  top_temperature_dependent = true)

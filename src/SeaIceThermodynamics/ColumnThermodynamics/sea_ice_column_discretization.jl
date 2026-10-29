@@ -1,4 +1,5 @@
 using Oceananigans.Architectures: architecture
+import Oceananigans.Architectures: on_architecture
 using Oceananigans.Fields: Field, Center, Face
 using Oceananigans.Grids: Grids, AbstractVerticalCoordinate, AbstractUnderlyingGrid, Bounded, rnode, new_data
 using Oceananigans.Operators: Operators
@@ -45,6 +46,19 @@ function Grids.validate_dimension_specification(T, ξ::SeaIceColumnDiscretizatio
 end
 
 Adapt.@adapt_structure SeaIceColumnDiscretization
+
+# Oceananigans moves a grid's vertical coordinate through `on_architecture`.
+# Move every reference array and interface field with it so GPU grid kernels
+# receive device-backed coordinate data.
+on_architecture(arch, z::SeaIceColumnDiscretization) =
+    SeaIceColumnDiscretization(on_architecture(arch, z.cᵃᵃᶠ),
+                               on_architecture(arch, z.cᵃᵃᶜ),
+                               on_architecture(arch, z.Δᵃᵃᶠ),
+                               on_architecture(arch, z.Δᵃᵃᶜ),
+                               on_architecture(arch, z.hsⁿ),
+                               on_architecture(arch, z.hbⁿ),
+                               on_architecture(arch, z.hs⁻),
+                               on_architecture(arch, z.hb⁻))
 
 # Materialize the reference layers and allocate the two-interface height fields during grid construction.
 function Grids.generate_coordinate(FT, topology, size, halo, coordinate::SeaIceColumnDiscretization, coordinate_name, dim::Int, arch)

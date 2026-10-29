@@ -1,6 +1,7 @@
 using ClimaSeaIce
 using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions, GammaThicknessDistribution,
-    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux, itd_factor
+    IceSnowConductiveFlux, ice_snow_conductive_flux, interface_temperature, latent_heat, slab_internal_heat_flux, itd_factor,
+    effective_conductivity, thermal_resistance
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: PrescribedTemperature, FluxFunction
 using Oceananigans
 using Oceananigans: prognostic_fields
@@ -22,6 +23,11 @@ using Test
     snow_flux = model.snow_thermodynamics.internal_heat_flux
     @test snow_flux isa ConductiveFlux
     @test snow_flux.conductivity ≈ 0.31
+
+    snow_with_distribution = snow_slab_thermodynamics(grid;
+        itd_shape = UniformThicknessDistribution(Float64; categories = 4))
+    @test slab_internal_heat_flux(snow_with_distribution.internal_heat_flux, -10.0, -1.8, 1.0) ≈
+          0.31 * 8.2 * (1 + 1/3 + 1/5 + 1/7)
 
     ice_flux = model.ice_thermodynamics.internal_heat_flux
     @test ice_flux isa ConductiveFlux
@@ -193,6 +199,8 @@ end
     flux = ConductiveFlux(Float64; conductivity=2, itd_shape=UniformThicknessDistribution(Float64; categories=5))
     @test slab_internal_heat_flux(bare, -10.0, -1.8, 1.0) ≈ 2 * 8.2
     @test slab_internal_heat_flux(flux, -10.0, -1.8, 1.0) ≈ 2 * 8.2 * (1 + 1/3 + 1/5 + 1/7 + 1/9)
+    @test effective_conductivity(flux, 1.0) ≈ 2 * (1 + 1/3 + 1/5 + 1/7 + 1/9)
+    @test thermal_resistance(flux, 1.0) ≈ 1 / effective_conductivity(flux, 1.0)
     @test UniformThicknessDistribution(Float64; categories=1).conductivity_factor == 1
 
     # The thickness-dependent correction s / (s - 1) grows as the assumed distribution widens with thickness
@@ -219,5 +227,7 @@ end
         corrected = IceSnowConductiveFlux(0.31, 2.0, itd_shape)
         @test column_flux(corrected) ≈ itd_factor(itd_shape, 1.0) * column_flux(bare)
         @test snow_ice_temperature(corrected) ≈ snow_ice_temperature(bare)
+        @test thermal_resistance(corrected, 1.0, 0.3) ≈
+              (0.3 / 0.31 + 1.0 / 2.0) / itd_factor(itd_shape, 1.0)
     end
 end

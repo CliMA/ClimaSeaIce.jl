@@ -5,6 +5,7 @@ export MeltingConstrainedFluxBalance,
        PrescribedTemperature,
        RadiativeEmission,
        FluxFunction,
+       LinearizedSurfaceFlux,
        FluxBoundary
 
 using Adapt: Adapt, adapt
