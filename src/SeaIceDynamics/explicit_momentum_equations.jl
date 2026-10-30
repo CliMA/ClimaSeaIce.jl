@@ -30,10 +30,10 @@ function time_step_momentum!(model, ::ExplicitMomentumEquation, Δt)
     basal_stress = dynamics.basal_stress
 
     launch!(arch, grid, :xy, _step_u_velocity!, u, u⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, basal_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
-    fill_halo_regions!(u)
+    fill_halo_regions!(u, clock, fields(model))
 
     launch!(arch, grid, :xy, _step_v_velocity!, v, v⁻, grid, Gⁿ, Δt, top_stress, bottom_stress, basal_stress, free_drift, minimum_mass, minimum_concentration, clock, model_fields)
-    fill_halo_regions!(v)
+    fill_halo_regions!(v, clock, fields(model))
 
     return nothing
 end

@@ -186,3 +186,30 @@ end
     @test all(abs.(uⁿ) .<= abs.(uᶠ) .+ 1e-12)
     @test maximum(abs.(uᶠ[:, 2]) .- abs.(uⁿ[:, 2])) > 0
 end
+
+@inline west_inflow(j, k, grid, clock, fields) = 0.05 * fields.ℵ[1, j, k]
+
+function inflow_after_a_step(arch, solver, rheology; Δt = 100)
+    grid = RectilinearGrid(arch; size = (8, 8, 1), x = (0, 8e4), y = (0, 8e4), z = (-10, 0),
+                           topology = (Bounded, Periodic, Bounded))
+    u_bcs = FieldBoundaryConditions(grid, (Face(), Center(), nothing);
+                                    west = NormalFlowBoundaryCondition(west_inflow, discrete_form = true))
+    dynamics = SeaIceMomentumEquation(grid; coriolis = nothing, rheology, solver)
+    model = SeaIceModel(grid; dynamics, advection = nothing, boundary_conditions = (; u = u_bcs))
+
+    set!(model, h = 1.0, ℵ = 0.8)
+    time_step!(model, Δt)
+
+    return Array(interior(model.velocities.u))[1, :, 1]
+end
+
+@testset "Discrete-form boundary conditions on ice velocities" begin
+    grid = RectilinearGrid(size = (8, 8, 1), x = (0, 8e4), y = (0, 8e4), z = (-10, 0),
+                           topology = (Bounded, Periodic, Bounded))
+
+    for (solver, rheology) in ((ExplicitSolver(), ViscousRheology(ν = 1000)),
+                               (SplitExplicitSolver(grid; substeps = 10), ElastoViscoPlasticRheology()))
+        uʷ = inflow_after_a_step(CPU(), solver, rheology)
+        @test all(uʷ .≈ 0.04)
+    end
+end
