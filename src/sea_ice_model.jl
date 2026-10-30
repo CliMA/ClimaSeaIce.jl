@@ -159,18 +159,23 @@ function SeaIceModel(grid;
     # Then we merge specified, embedded, and default boundary conditions. Specified boundary conditions
     # have precedence, followed by embedded, followed by default.
     boundary_conditions = merge(default_boundary_conditions, boundary_conditions)
-    boundary_conditions = regularize_field_boundary_conditions(boundary_conditions, grid, field_names)
+
+    # Extend the halos for the velocity fields if the dynamics is
+    # an split explicit momentum equation on a Distributed grid
+    velocity_grid = isnothing(velocities) ? maybe_extended_grid(dynamics, grid) : velocities.u.grid
+
+    # Boundary conditions that store halo-sized data must be built on the grid their field lives on
+    velocity_grid_names = (:u, :v, :h, :ℵ)
+    grid_names = filter(name -> name ∉ velocity_grid_names, keys(boundary_conditions))
+    velocity_grid_bcs = regularize_field_boundary_conditions(boundary_conditions[velocity_grid_names], velocity_grid, field_names)
+    grid_bcs = regularize_field_boundary_conditions(boundary_conditions[grid_names], grid, field_names)
+    boundary_conditions = merge(velocity_grid_bcs, grid_bcs)
 
     if isnothing(velocities)
-        # Extend the halos for the velocity fields if the dynamics is
-        # an split explicit momentum equation on a Distributed grid
-        velocity_grid = maybe_extended_grid(dynamics, grid)
         dynamics = materialize_solver(dynamics, velocity_grid)
         u = Field{Face, Center, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.u)
         v = Field{Center, Face, Nothing}(velocity_grid, boundary_conditions=boundary_conditions.v)
         velocities = (; u, v)
-    else
-        velocity_grid = velocities.u.grid
     end
 
     tracers = TracerFields(tracers, grid, boundary_conditions)

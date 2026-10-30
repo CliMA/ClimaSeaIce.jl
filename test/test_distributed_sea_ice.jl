@@ -10,6 +10,13 @@ test_distributed_halos = """
     test_extended_halos()
 """
 
+test_distributed_open_boundaries = """
+    using MPI
+    MPI.Init()
+    include("distributed_tests_utils.jl")
+    test_open_boundaries_on_extended_halos()
+"""
+
 run_distributed_grid = """
     using MPI
     MPI.Init()
@@ -40,6 +47,11 @@ run_distributed_tripolar = """
     write("distributed_halo_tests.jl", test_distributed_halos)
     run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_halo_tests.jl`)
     rm("distributed_halo_tests.jl")
+
+    @info "Testing (4, 1) Distributed sea ice open boundaries on extended halos"
+    write("distributed_open_boundary_tests.jl", test_distributed_open_boundaries)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 --check-bounds=yes distributed_open_boundary_tests.jl`)
+    rm("distributed_open_boundary_tests.jl")
 
     # Run the distributed grid simulation
     @info "Testing 4-ranks Distributed sea ice simulations equality"
