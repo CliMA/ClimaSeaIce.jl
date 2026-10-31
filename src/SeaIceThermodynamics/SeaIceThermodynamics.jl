@@ -11,6 +11,8 @@ export SlabThermodynamics,
        IceSnowConductiveFlux,
        UniformThicknessDistribution,
        GammaThicknessDistribution,
+       effective_conductivity,
+       thermal_resistance,
        FluxFunction
 
 using Adapt: Adapt

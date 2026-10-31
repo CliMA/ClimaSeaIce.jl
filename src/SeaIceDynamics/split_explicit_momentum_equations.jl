@@ -3,16 +3,10 @@ using Oceananigans.Architectures: convert_to_device, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node, connected_range,
-                          LeftConnected, RightConnected, FullyConnected,
-                          RightCenterFolded, RightFaceFolded,
-                          LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
-                          LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected
+                          Sides, Closed, Connected, RightCenterFolded, RightFaceFolded
 using Oceananigans.Utils: configure_kernel
 
-const ConnectedTopology = Union{LeftConnected, RightConnected, FullyConnected,
-                                RightCenterFolded, RightFaceFolded,
-                                LeftConnectedRightCenterFolded, LeftConnectedRightFaceFolded,
-                                LeftConnectedRightCenterConnected, LeftConnectedRightFaceConnected}
+const ConnectedTopology = Union{Sides{Connected}, Sides{Closed, Connected}, RightCenterFolded, RightFaceFolded}
 
 struct SplitExplicitSolver{I, K}
     substeps :: I
