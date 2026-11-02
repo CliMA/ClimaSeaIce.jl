@@ -18,8 +18,8 @@ Represent an upward-positive surface heat flux as
 `reference_flux + temperature_derivative * (T - reference_temperature)`.
 Each argument may be a number or a horizontal field. A coupled atmosphere can
 refresh the three inputs between ice steps; the column then evaluates the flux
-at every trial ice or snow surface temperature. For an implicit surface solve,
-pass only the nonnegative part of the atmospheric temperature derivative.
+at every trial ice or snow surface temperature. `temperature_derivative` is the
+signed derivative in W m⁻² K⁻¹.
 """
 struct LinearizedSurfaceFlux{Q, T, D}
     reference_flux :: Q

@@ -41,8 +41,7 @@ end
 
 function Grids.validate_dimension_specification(T, ξ::SeaIceColumnDiscretization, dir, N, FT)
     cᵃᵃᶠ = Grids.validate_dimension_specification(T, ξ.cᵃᵃᶠ, dir, N, FT)
-    cᵃᵃᶜ = Grids.validate_dimension_specification(T, ξ.cᵃᵃᶜ, dir, N, FT)
-    return SeaIceColumnDiscretization(cᵃᵃᶠ, cᵃᵃᶜ, ξ.Δᵃᵃᶠ, ξ.Δᵃᵃᶜ, ξ.hsⁿ, ξ.hbⁿ, ξ.hs⁻, ξ.hb⁻)
+    return SeaIceColumnDiscretization(cᵃᵃᶠ, cᵃᵃᶠ, ξ.Δᵃᵃᶠ, ξ.Δᵃᵃᶜ, ξ.hsⁿ, ξ.hbⁿ, ξ.hs⁻, ξ.hb⁻)
 end
 
 Adapt.@adapt_structure SeaIceColumnDiscretization
@@ -80,6 +79,14 @@ function Grids.generate_coordinate(FT, topology, size, halo, coordinate::SeaIceC
     fill!(hbⁿ, zero(FT)); fill!(hb⁻, zero(FT))
     fill!(hsⁿ, convert(FT, Lr)); fill!(hs⁻, convert(FT, Lr))
 
+    if !isnothing(coordinate.hsⁿ)
+        region = map(intersect, axes(hsⁿ), axes(coordinate.hsⁿ))
+        view(hsⁿ, region...) .= view(on_architecture(arch, coordinate.hsⁿ), region...)
+        view(hbⁿ, region...) .= view(on_architecture(arch, coordinate.hbⁿ), region...)
+        view(hs⁻, region...) .= view(on_architecture(arch, coordinate.hs⁻), region...)
+        view(hb⁻, region...) .= view(on_architecture(arch, coordinate.hb⁻), region...)
+    end
+
     coordinate = SeaIceColumnDiscretization(rᵃᵃᶠ, rᵃᵃᶜ, Δrᵃᵃᶠ, Δrᵃᵃᶜ, hsⁿ, hbⁿ, hs⁻, hb⁻)
 
     return Lr, coordinate
@@ -88,6 +95,11 @@ end
 const SeaIceColumnUnderlyingGrid = AbstractUnderlyingGrid{<:Any, <:Any, <:Any, <:Bounded, <:SeaIceColumnDiscretization}
 const SeaIceColumnGrid = Union{SeaIceColumnUnderlyingGrid,
                                ImmersedBoundaryGrid{<:Any, <:Any, <:Any, <:Any, <:SeaIceColumnUnderlyingGrid}}
+
+# Grid reconstruction preserves the reference faces and both interface time levels.
+Grids.cpu_face_constructor_z(grid::SeaIceColumnUnderlyingGrid) =
+    SeaIceColumnDiscretization(Grids.cpu_face_constructor_r(grid), nothing, nothing, nothing,
+                               grid.z.hsⁿ, grid.z.hbⁿ, grid.z.hs⁻, grid.z.hb⁻)
 
 @inline sea_ice_discretization(grid::SeaIceColumnUnderlyingGrid) = grid.z
 @inline sea_ice_discretization(grid::ImmersedBoundaryGrid) = grid.underlying_grid.z

@@ -15,114 +15,63 @@ end
 @inline cached_column_bottom_flux(bottom::ColumnBasalHeatFlux, cache) =
     ColumnBasalHeatFlux(cache, bottom.interface_cell, bottom.frazil)
 
-@inline update_column_surface_temperature!(top_boundary, thermodynamics, external_flux, clock, model_fields) = nothing
-
-function update_column_surface_temperature!(::MeltingConstrainedFluxBalance, thermodynamics, external_flux, clock, model_fields)
+function update_column_surface_fluxes!(top_boundary, thermodynamics, external_flux, clock, model_fields, Δt; snow = nothing, consolidation_thickness = Oceananigans.Fields.ZeroField())
+    top_boundary isa MeltingConstrainedFluxBalance || return nothing
     grid = thermodynamics.fields.internal_energy.grid
-    launch!(architecture(grid), grid, :xy, _update_column_surface_temperature!, thermodynamics.auxiliary,
-            thermodynamics.fields, grid, external_flux, thermodynamics.relation, clock, model_fields)
+    if isnothing(snow)
+        snow = (thickness = Oceananigans.Fields.ZeroField(), density = 1, conductivity = 1, latent_heat = 1,
+                itd_shape = nothing, temperature = thermodynamics.auxiliary.surface_temperature)
+    end
+    launch!(architecture(grid), grid, :xy, _update_column_surface_fluxes!, thermodynamics.auxiliary,
+            thermodynamics.fields, grid, external_flux, thermodynamics.relation, thermodynamics.heat_boundary_conditions,
+            consolidation_thickness, snow, clock, model_fields, Δt)
     return nothing
 end
 
-# A 90-minute solve can alternate between a cold surface and the melting cap:
-# each branch is implicit, but selecting the branch from the previous candidate
-# is an active-set iteration. Relax only columns whose branch changes.
-@kernel function _relax_column_energy_at_surface_switch!(E, E_previous, Tₛ, Tₛ_previous, fields, relation, grid)
-    i, j, k = @index(Global, NTuple)
-    Nz = size(grid, 3)
-    @inbounds begin
-        Tₘ = melting_temperature(relation.phase_transitions.liquidus, fields.bulk_salinity[i, j, Nz])
-        was_melting = Tₛ_previous[i, j, 1] >= Tₘ
-        is_melting = Tₛ[i, j, 1] >= Tₘ
-        E[i, j, k] = ifelse(was_melting != is_melting,
-                            (E_previous[i, j, k] + E[i, j, k]) / 2,
-                            E[i, j, k])
-    end
-end
-
-# The enthalpy-to-temperature relation is nonlinear near the melting point.
-# A Picard update can overshoot even when the conductive matrix itself is
-# implicit. Dampen a layer only when its last two updates reverse direction;
-# this leaves convergent and linear solves untouched.
-@kernel function _relax_oscillating_column_energy!(E, E_previous, E_before_previous)
-    i, j, k = @index(Global, NTuple)
-    @inbounds begin
-        previous_update = E_previous[i, j, k] - E_before_previous[i, j, k]
-        current_update = E[i, j, k] - E_previous[i, j, k]
-        E[i, j, k] = ifelse(previous_update * current_update < 0,
-                            (E[i, j, k] + E_previous[i, j, k]) / 2,
-                            E[i, j, k])
-    end
-end
-
-# Each solve uses the same start-of-step enthalpy on the right-hand side. Its
-# matrix and affine fluxes are linearized around the previous candidate, so
-# both interior conduction and the surface balance converge at the new time.
 function column_surface_energy_solve!(top_boundary, thermodynamics::ColumnEnergyThermodynamics,
-                                      external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt; max_iterations = 64)
+                                      external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt; snow = nothing)
     grid = thermodynamics.fields.internal_energy.grid
-    # The skin root is solved to an absolute flux residual of 1e-6 W/m².
-    # Its corresponding temperature can jitter by O(1e-7) K after the column
-    # energy has converged. Do not mistake that root precision for divergence.
-    surface_tolerance = max(sqrt(eps(eltype(grid))), 1e-6)
-    Tₛ = interior(thermodynamics.auxiliary.surface_temperature)
-    E = interior(thermodynamics.fields.internal_energy)
-    Nz = size(grid, 3)
-
+    auxiliary = thermodynamics.auxiliary
+    options = thermodynamics.solvers.nonlinear_solver
+    E = thermodynamics.fields.internal_energy.data
     E⁰ = copy(E)
-    interior(thermodynamics.auxiliary.surface_start_energy) .= view(E⁰, :, :, Nz:Nz)
     E⁻ = similar(E)
-    E⁻⁻ = similar(E)
-    Tₛ⁻ = copy(Tₛ)
-    energy_change = Inf
-    surface_change = Inf
+    energy_residual = Inf
+    surface_residual = Inf
 
-    for iteration in 1:max_iterations
-        E⁻ .= E
-        Tₛ⁻ .= Tₛ
+    for iteration in 1:options.maximum_iterations
+        parent(E⁻) .= parent(E)
         compute_column_thermodynamic_diagnostics!(thermodynamics)
         compute_column_transport_coefficients!(thermodynamics)
+        update_column_surface_fluxes!(top_boundary, thermodynamics, external_heat_fluxes.top, clock, model_fields, Δt; snow, consolidation_thickness)
         assemble_column_energy_system!(thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt; initial_energy = E⁰)
         solve_column_energy_system!(thermodynamics)
-        iteration > 1 && launch!(architecture(grid), grid, :xyz, _relax_oscillating_column_energy!, E, E⁻, E⁻⁻)
+
         compute_column_thermodynamic_diagnostics!(thermodynamics)
-        update_column_surface_temperature!(top_boundary, thermodynamics, external_heat_fluxes.top, clock, model_fields)
-        if top_boundary isa MeltingConstrainedFluxBalance
-            launch!(architecture(grid), grid, :xyz, _relax_column_energy_at_surface_switch!,
-                    E, E⁻, Tₛ, Tₛ⁻, thermodynamics.fields, thermodynamics.relation, grid)
-            compute_column_thermodynamic_diagnostics!(thermodynamics)
-            update_column_surface_temperature!(top_boundary, thermodynamics, external_heat_fluxes.top, clock, model_fields)
-        end
-        energy_tolerance = max(1e-8, 4eps(eltype(grid))) * max(one(eltype(grid)), maximum(abs, E))
-        energy_change = maximum(abs, E .- E⁻)
-        surface_change = maximum(abs, Tₛ .- Tₛ⁻)
-        energy_converged = energy_change <= energy_tolerance
-        surface_converged = surface_change <= surface_tolerance
-        energy_converged && surface_converged && return nothing
-        E⁻⁻ .= E⁻
+        compute_column_transport_coefficients!(thermodynamics)
+        update_column_surface_fluxes!(top_boundary, thermodynamics, external_heat_fluxes.top, clock, model_fields, Δt; snow, consolidation_thickness)
+        assemble_column_energy_system!(thermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt; initial_energy = E⁰)
+        launch!(architecture(grid), grid, :xyz, _column_energy_residual!, auxiliary,
+                thermodynamics.fields.internal_energy, E⁰, grid, options.relative_tolerance)
+        energy_residual = maximum(abs, interior(auxiliary.energy_rhs))
+        surface_residual = maximum(abs, interior(auxiliary.surface_fluxes.residual))
+        isfinite(energy_residual) && isfinite(surface_residual) || error("Column energy/surface solve produced a nonfinite residual.")
+        energy_residual <= 1 && surface_residual <= 1 && return nothing
+        parent(E) .= parent(E⁻) .+ options.relaxation .* (parent(E) .- parent(E⁻))
     end
 
-    error("Column energy/surface solve did not converge within $max_iterations iterations (energy change $energy_change, surface change $surface_change).")
+    error("Column energy/surface solve did not converge within $(options.maximum_iterations) iterations (energy residual $energy_residual, normalized surface residual $surface_residual).")
 end
 
-function column_energy_time_step!(thermodynamics::ColumnEnergyThermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt)
-    compute_column_thermodynamic_diagnostics!(thermodynamics)
+function column_energy_time_step!(thermodynamics::ColumnEnergyThermodynamics, external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt; snow = nothing)
+    fill_halo_regions!((thermodynamics.fields.internal_energy, thermodynamics.fields.bulk_salinity), clock, model_fields)
+    column_salinity_time_step!(thermodynamics, Δt)
     compute_column_shortwave_flux!(thermodynamics)
     column_surface_energy_solve!(thermodynamics.heat_boundary_conditions.top, thermodynamics, external_heat_fluxes, clock, model_fields,
-                                 consolidation_thickness, Δt)
-    compute_column_thermodynamic_diagnostics!(thermodynamics)
-    column_salinity_time_step!(thermodynamics, Δt)
+                                 consolidation_thickness, Δt; snow)
     return nothing
 end
 
 # The column carries its own enthalpy and interface heights, which RK substeps do not reset, so it steps once per full step.
 @inline apply_column_thermodynamics_this_stage(timestepper, clock) = true
 @inline apply_column_thermodynamics_this_stage(timestepper::SplitRungeKuttaTimeStepper, clock) = clock.stage == timestepper.Nstages
-
-function thermodynamic_time_step!(model, th::ColumnEnergyThermodynamics, ::Nothing, Δt)
-    apply_column_thermodynamics_this_stage(model.timestepper, model.clock) || return nothing
-    Qe = cached_external_heat_fluxes(th, model.external_heat_fluxes, model.clock, fields(model))
-    column_energy_time_step!(th, Qe, model.clock, fields(model), model.ice_consolidation_thickness, Δt)
-    column_stefan_volume_update!(th, model, Qe, Δt)
-    return nothing
-end

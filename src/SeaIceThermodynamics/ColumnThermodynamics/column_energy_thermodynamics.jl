@@ -8,7 +8,7 @@ struct ColumnThermodynamicFields{E, S, T, LF, BS, TE, TS}
     temperature_salinity_derivative :: TS
 end
 
-struct ColumnAuxiliaryFields{K, DE, CS, I, RHS, A, B, C, ST, BF, SE, SR, SM}
+struct ColumnAuxiliaryFields{K, DE, CS, I, RHS, A, B, C, ST, BF, SF}
     thermal_conductivity :: K
     effective_energy_diffusivity :: DE
     salinity_coupling_diffusivity :: CS
@@ -19,14 +19,13 @@ struct ColumnAuxiliaryFields{K, DE, CS, I, RHS, A, B, C, ST, BF, SE, SR, SM}
     upper_diagonal :: C
     surface_temperature :: ST
     bottom_external_flux :: BF
-    surface_start_energy :: SE
-    snow_surface_residual :: SR
-    snow_melt_potential :: SM
+    surface_fluxes :: SF
 end
 
-struct ColumnSolvers{ES, SS}
+struct ColumnSolvers{ES, SS, NS}
     energy_solver :: ES
     salinity_solver :: SS
+    nonlinear_solver :: NS
 end
 
 """
@@ -34,6 +33,8 @@ end
 
 One-dimensional column thermodynamics with prognostic internal energy, prescribed or prognostic bulk salinity, and
 diagnostic temperature, liquid fraction, brine salinity, and thermodynamic derivatives.
+`nonlinear_solver` specifies the maximum iteration count, relative energy-change tolerance, and relaxation
+of the coupled implicit energy and surface solve.
 """
 struct ColumnEnergyThermodynamics{R, SC, ET, ST, SW, BC, F, A, SOL}
     relation :: R
@@ -67,10 +68,13 @@ column_thermodynamic_fields(grid) = ColumnThermodynamicFields((Field{Center, Cen
 function column_auxiliary_fields(grid)
     face_fields = (Field{Center, Center, Face}(grid) for _ in 1:4)
     center_fields = (Field{Center, Center, Center}(grid) for _ in 1:4)
-    surface_fields = (Field{Center, Center, Nothing}(grid) for _ in 1:5)
-    auxiliary = ColumnAuxiliaryFields(face_fields..., center_fields..., surface_fields...)
-    set!(auxiliary.snow_surface_residual, zero(eltype(grid)))
-    return auxiliary
+    surface_fields = (Field{Center, Center, Nothing}(grid) for _ in 1:2)
+    surface_fluxes = (heat = Field{Center, Center, Nothing}(grid),
+                      conductance = Field{Center, Center, Nothing}(grid),
+                      ice_melt = Field{Center, Center, Nothing}(grid),
+                      snow_melt = Field{Center, Center, Nothing}(grid),
+                      residual = Field{Center, Center, Nothing}(grid))
+    return ColumnAuxiliaryFields(face_fields..., center_fields..., surface_fields..., surface_fluxes)
 end
 
 settable_column_field_value(value) = value
@@ -103,10 +107,10 @@ end
 salinity_profile(::PrognosticBulkSalinity) = nothing
 salinity_profile(closure::PrescribedBulkSalinity) = closure.profile
 
-function column_solvers(grid, auxiliary)
+function column_solvers(grid, auxiliary, nonlinear_solver)
     solver = BatchedTridiagonalSolver(grid; auxiliary.lower_diagonal, auxiliary.diagonal, auxiliary.upper_diagonal,
                                       tridiagonal_direction = ZDirection())
-    return ColumnSolvers(solver, solver)
+    return ColumnSolvers(solver, solver, nonlinear_solver)
 end
 
 default_column_heat_boundary_conditions() = (top = FluxBoundary(), bottom = FluxBoundary())
@@ -120,7 +124,10 @@ function ColumnEnergyThermodynamics(grid;
                                     heat_boundary_conditions = default_column_heat_boundary_conditions(),
                                     fields = column_thermodynamic_fields(grid),
                                     auxiliary = column_auxiliary_fields(grid),
-                                    solvers = column_solvers(grid, auxiliary))
+                                    nonlinear_solver = (maximum_iterations = 100,
+                                                        relative_tolerance = max(eltype(grid)(1e-8), 4eps(eltype(grid))),
+                                                        relaxation = eltype(grid)(1//2)),
+                                    solvers = column_solvers(grid, auxiliary, nonlinear_solver))
     initialize_salinity!(fields, salinity_closure)
     return ColumnEnergyThermodynamics(relation, salinity_closure, energy_transport, salinity_transport, shortwave_absorption,
                                       heat_boundary_conditions, fields, auxiliary, solvers)

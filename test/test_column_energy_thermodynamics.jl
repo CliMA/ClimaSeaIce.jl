@@ -20,14 +20,11 @@ using ClimaSeaIce.SeaIceThermodynamics:
     PrescribedTemperature,
     PrognosticBulkSalinity,
     QuadraticLiquidusEnergyRelation,
-    SnowColumnTopFlux,
     assemble_column_energy_system!,
     brine_salinity,
     column_energy_time_step!,
     column_height,
     column_salinity_time_step!,
-    column_surface_stefan_residual_flux,
-    column_surface_temperature_balance,
     column_stefan_thickness_change,
     complete_melt_energy,
     compute_column_shortwave_flux!,
@@ -43,22 +40,23 @@ using ClimaSeaIce.SeaIceThermodynamics:
     prescribed_salinity_enthalpy_thermodynamics,
     salinity_at_normalized_depth,
     salinity_at_normalized_height,
-    snow_column_fluxes,
     solve_column_energy_system!,
     temperature,
     temperature_energy_derivative,
     temperature_salinity_derivative,
-    update_column_surface_temperature!
+    update_column_surface_fluxes!
 
-using ClimaSeaIce: SeaIceModel
+using ClimaSeaIce: ClimaSeaIce, SeaIceModel
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: getflux
 using ClimaSeaIce: IncrementalRemapping, UniformThicknessDistribution, snow_slab_thermodynamics
+using ClimaSeaIce.SeaIceThermodynamics: itd_factor
 using Adapt
 using Oceananigans
 using Oceananigans.TimeSteppers: Clock, time_step!
 using Oceananigans.Fields: interior, set!, ConstantField
 using Oceananigans.AbstractOperations: KernelFunctionOperation
 using Oceananigans.Operators: Δzᶜᶜᶜ
+using Oceananigans.Grids: znode
 using Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
 using Test
 
@@ -87,6 +85,61 @@ function conservative_column_remap(source_values, source_faces, target_faces; fi
     end
 end
 
+@testset "Unconsolidated columns respect the basal reservoir and melting limit" begin
+    for FT in (Float32, Float64), salinity in (0, 4),
+        salinity_closure in (PrescribedBulkSalinity(FT(salinity)), PrognosticBulkSalinity()),
+        initial_temperature in (-30, -10, -2), basal_reference in (-1.8, 0)
+        grid = RectilinearGrid(FT; size = 4, z = SeaIceColumnDiscretization((0, 1)),
+                               topology = (Flat, Flat, Bounded))
+        relation = FixedSalinityBrinePocketEnergyRelation(FT)
+        basal_temperature = FT(basal_reference)
+        frazil_cooling = ifelse(basal_reference < 0, FT(20), FT(0))
+        ice = ColumnEnergyThermodynamics(grid; relation, salinity_closure,
+            salinity_transport = BulkSalinityDiffusion(FT; diffusivity = FT(1e-6)),
+            energy_transport = ConductiveTemperatureTransport(FT; conductivity = FT(2)),
+            heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = PrescribedTemperature(basal_temperature)))
+        snow = snow_slab_thermodynamics(grid)
+        model = SeaIceModel(grid; ice_thermodynamics = ice, snow_thermodynamics = snow,
+            phase_transitions = relation.phase_transitions, sea_ice_density = FT(900),
+            top_heat_flux = FT(0), bottom_heat_flux = ColumnBasalHeatFlux(FT(0), FT(0), -frazil_cooling),
+            timestepper = :ForwardEuler)
+        set!(model; h = 0, ℵ = 0, hs = 0)
+        set!(ice; bulk_salinity = FT(salinity), temperature = FT(initial_temperature))
+        Δt = FT(60)
+        time_step!(model, Δt)
+        volume = only(Array(interior(model.ice_thickness))) * only(Array(interior(model.ice_concentration)))
+        latent_heat = ClimaSeaIce.SeaIceThermodynamics.latent_heat(relation.phase_transitions, basal_temperature)
+        target_temperature = min(basal_temperature, melting_temperature(relation.phase_transitions.liquidus, FT(salinity)))
+        @test volume ≈ frazil_cooling * Δt / (FT(900) * latent_heat)
+        @test all(isapprox.(Array(interior(ice.fields.temperature)), target_temperature))
+        @test all(isapprox.(Array(interior(ice.fields.bulk_salinity)), FT(salinity)))
+        @test only(Array(interior(snow.top_surface_temperature))) ≈ target_temperature
+    end
+end
+
+@testset "Insulated columns conserve heat across the tripolar fold" begin
+    for FT in (Float32, Float64), salinity_closure in (PrescribedBulkSalinity(4), PrognosticBulkSalinity())
+        grid = TripolarGrid(CPU(), FT; size = (8, 8, 2), halo = (2, 2, 2),
+            z = SeaIceColumnDiscretization((0, 1)), fold_topology = Oceananigans.Grids.RightFaceFolded)
+        ice = ColumnEnergyThermodynamics(grid; salinity_closure,
+            energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+            heat_boundary_conditions = insulating_boundaries())
+        model = SeaIceModel(grid; ice_thermodynamics = ice, timestepper = :ForwardEuler)
+        set!(model; h = 1, ℵ = 1)
+        set!(ice; bulk_salinity = 4, temperature = (longitude, latitude, z) -> -5 + z)
+        E = ice.fields.internal_energy
+        initial_energy = Array(interior(E))
+        Nx, Ny, Nz = size(grid)
+        Hx, Hy, Hz = Oceananigans.Grids.halo_size(grid)
+        fold = (Hx+1:Hx+Nx, Hy+Ny+1, Hz+1:Hz+Nz)
+        mirror = (Hx+Nx:-1:Hx+1, Hy+Ny, Hz+1:Hz+Nz)
+        time_step!(model, 60)
+        temperature = Array(parent(ice.fields.temperature))
+        @test sum(Array(interior(E)); dims = 3) ≈ sum(initial_energy; dims = 3)
+        @test temperature[fold...] ≈ temperature[mirror...]
+    end
+end
+
 @testset "Float32 snow and ice surface balance at a 90-minute step" begin
     function thin_snow_step(FT)
         grid = RectilinearGrid(FT; size = (1, 1, 8), x = (0, 1), y = (0, 1),
@@ -112,8 +165,6 @@ end
                 energy = Array(interior(ice.fields.internal_energy)))
     end
 
-    # Before the root tolerance accounted for Float32 temperature roundoff,
-    # this thin snow/ice case returned NaN from the surface solve.
     f32 = thin_snow_step(Float32)
     f64 = thin_snow_step(Float64)
     @test all(isfinite, f32.energy)
@@ -1139,13 +1190,15 @@ end
     external = (top = Q, bottom = 0.0)
     compute_column_thermodynamic_diagnostics!(thermodynamics)
     compute_column_transport_coefficients!(thermodynamics)
-    update_column_surface_temperature!(
-        thermodynamics.heat_boundary_conditions.top, thermodynamics, Q, TEST_CLOCK, NO_FIELDS)
+    update_column_surface_fluxes!(
+        thermodynamics.heat_boundary_conditions.top, thermodynamics, Q, TEST_CLOCK, NO_FIELDS, Δt)
     Ts = first(interior(thermodynamics.auxiliary.surface_temperature))
     @test Ts < -relation.phase_transitions.liquidus.slope * 4.0
 
     assemble_column_energy_system!(thermodynamics, external, TEST_CLOCK, NO_FIELDS, CONSOLIDATED, Δt)
     feedback_matrix = dense_column_energy_matrix(thermodynamics)
+    update_column_surface_fluxes!(
+        thermodynamics.heat_boundary_conditions.top, thermodynamics, 80.0, TEST_CLOCK, NO_FIELDS, Δt)
     assemble_column_energy_system!(thermodynamics, (top = 80.0, bottom = 0.0), TEST_CLOCK, NO_FIELDS, CONSOLIDATED, Δt)
     constant_matrix = dense_column_energy_matrix(thermodynamics)
     C = 2 * 2.0 / Δz
@@ -1409,9 +1462,7 @@ end
     Tᵢ = first(interior(thermodynamics.fields.temperature))
     Tₘ = -relation.phase_transitions.liquidus.slope * S
     Qᶜ = 2K * (Tᵢ - Tₛ) # top-face conduction at unit column thickness
-    Qˢ = column_surface_stefan_residual_flux(thermodynamics.heat_boundary_conditions.top,
-                                             Qᵃ, 1, 1, 1, grid, thermodynamics.auxiliary,
-                                             thermodynamics.fields, relation, TEST_CLOCK, NO_FIELDS, Δt)
+    Qˢ = -first(interior(thermodynamics.auxiliary.surface_fluxes.ice_melt))
     @test Tₛ ≈ Tₘ
     @test Qˢ < 0
     @test isapprox(Qˢ, Qᵃ - Qᶜ; atol = 1e-8)
@@ -1493,6 +1544,11 @@ end
 
     set!(model, h = 0.3, ℵ = 1)
     @test isapprox(column_height(grid, 1, 1), 0.3; rtol = 1e-12)
+    copied = similar(grid)
+    expanded = Oceananigans.Grids.with_halo((0, 0, 4), grid)
+    expected_height = znode(1, 1, 4, grid, Center(), Center(), Center())
+    @test znode(1, 1, 4, copied, Center(), Center(), Center()) ≈ expected_height
+    @test znode(1, 1, 4, expanded, Center(), Center(), Center()) ≈ expected_height
 end
 
 @testset "Column implicit surface temperature solve" begin
@@ -1538,8 +1594,7 @@ end
 end
 
 @testset "Captured thin-snow surface temperature failure" begin
-    # One Arctic cell at model hour 1840.167: the old unguarded secant returned
-    # -234°C with a 1553 W/m² heat-balance error. No forcing file is needed.
+    # Arctic atmospheric state at model hour 1840.167.
     air_temperature = 277.728916422526
     air_humidity = 0.0048475598062699046
     pressure = 103132.7359375
@@ -1563,26 +1618,33 @@ end
     grid = RectilinearGrid(Float64; size = (1, 1, 8), x = (0, 1), y = (0, 1),
                            z = SeaIceColumnDiscretization((0, 1)),
                            topology = (Bounded, Bounded, Bounded))
-    snow_thickness = Field{Center, Center, Nothing}(grid)
-    ice_thickness = Field{Center, Center, Nothing}(grid)
-    set!(snow_thickness, hs)
-    set!(ice_thickness, h)
+    relation = FixedSalinityBrinePocketEnergyRelation(Float64)
+    ice = prescribed_salinity_enthalpy_thermodynamics(grid; relation, salinity_profile = 4,
+        energy_transport = ConductiveTemperatureTransport(conductivity = 0.1),
+        heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = FluxBoundary()))
+    snow = snow_slab_thermodynamics(grid)
     atmosphere = FluxFunction((i, j, grid, T, clock, fields) -> atmospheric_flux(T);
                               top_temperature_dependent = true)
-    snow_top = SnowColumnTopFlux(atmosphere, snow_thickness, ice_thickness,
-                                0.31, nothing, 330.0 * 334000.0 * hs / 60.0)
-    clock = Clock(time = 1840.1666666666667 * 3600)
-    state = NamedTuple()
-    balance(T) = getflux(snow_top, 1, 1, grid, T, clock, state) - conductance * (Ttop - T)
+    model = SeaIceModel(grid; ice_thermodynamics = ice, snow_thermodynamics = snow,
+                        top_heat_flux = atmosphere, bottom_heat_flux = 0)
+    set!(model; h, hs, ℵ = 1)
+    set!(ice; temperature = Ttop)
+    surface = (thickness = model.snow_thickness, density = model.snow_density,
+               conductivity = 0.31, latent_heat = relation.phase_transitions.reference_latent_heat,
+               itd_shape = nothing, temperature = snow.top_surface_temperature)
+    column_energy_time_step!(ice, model.external_heat_fluxes, model.clock, fields(model),
+                             model.ice_consolidation_thickness, 60; snow = surface)
+    Ti = first(interior(ice.auxiliary.surface_temperature))
+    Ts = first(interior(snow.top_surface_temperature))
+    T = last(interior(ice.fields.temperature))
+    Qmelt = first(interior(ice.auxiliary.surface_fluxes.snow_melt))
+    Qsnow = atmospheric_flux(Ts) + Qmelt
+    Qablation = first(interior(ice.auxiliary.surface_fluxes.ice_melt))
+    @test -1 < Ti < 0
+    @test abs(Qsnow + Qablation - conductance * (T - Ti)) < 1e-5
+    @test abs(0.31 * (Ti - Ts) / hs - Qsnow) < 1e-5
+    @test Qmelt == 0 && Qablation > 0
 
-    corrected = column_surface_temperature_balance(1, 1, grid, Tprevious,
-                                                   conductance, Ttop, snow_top, clock, state)
-    snow_temperature, snow_flux, snow_melt = snow_column_fluxes(1, 1, grid, snow_top, corrected, clock, state)
-    @test -1 < corrected < 0
-    @test abs(balance(corrected)) < 1e-5
-    @test abs(0.31 * (corrected - snow_temperature) / hs - snow_flux) < 1e-5
-    @test snow_melt > 0
-    @test abs(snow_flux - atmospheric_flux(snow_temperature) - snow_melt) < 1e-5
 end
 
 @testset "Column with a prescribed top temperature builds without top_heat_flux" begin
@@ -1602,7 +1664,7 @@ end
 @testset "Resolved ice column with finite slab snow closes its surface budget" begin
     function snow_case(Qatm, hs⁰; Δt = 600.0, initial_temperature = -5.0,
                        h⁰ = 1.0, snowfall = 0.0, snow_itd_shape = nothing,
-                       ice_conductivity = 2.0, ℵ⁰ = 1.0, bottom_heat_flux = 0.0)
+                       ice_conductivity = 2.0, ℵ⁰ = 1.0, bottom_heat_flux = 0.0, snow_conductivity = 0.31)
         Nz = 8
         grid = RectilinearGrid(Float64; size = (1, 1, Nz), x = (0, 1), y = (0, 1),
                                z = SeaIceColumnDiscretization((0, 1)),
@@ -1613,7 +1675,7 @@ end
             energy_transport = ConductiveTemperatureTransport(conductivity = ice_conductivity),
             heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(),
                                         bottom = FluxBoundary()))
-        snow = snow_slab_thermodynamics(grid; itd_shape = snow_itd_shape)
+        snow = snow_slab_thermodynamics(grid; conductivity = snow_conductivity, itd_shape = snow_itd_shape)
         model = SeaIceModel(grid; ice_thermodynamics = ice, snow_thermodynamics = snow,
                             phase_transitions = relation.phase_transitions,
                             top_heat_flux = Qatm, bottom_heat_flux,
@@ -1631,7 +1693,8 @@ end
         ρs = model.snow_density[1, 1, 1]
         snow_melt_energy = ρs * model.phase_transitions.reference_latent_heat * (hs⁰ - hs)
         residual = E - E⁰ + snow_melt_energy + Qatm * Δt
-        skin_residual = first(interior(ice.auxiliary.snow_surface_residual))
+        skin_residual = hs > 1e-8 ? abs(snow_conductivity * itd_factor(snow_itd_shape, h⁰) * (Ti - Ts) / hs⁰ - Qatm) : 0.0
+        skin_residual = Ts >= 0 ? 0.0 : skin_residual
         ice_mass_flux = model.mass_fluxes.thermodynamics.ice[1, 1, 1]
         snow_mass_flux = model.mass_fluxes.thermodynamics.snow[1, 1, 1]
         intercepted_snowfall = model.mass_fluxes.intercepted_snowfall[1, 1, 1]
@@ -1644,6 +1707,7 @@ end
     thin = snow_case(20.0, 1e-7)
     dust = snow_case(20.0, 1e-12)
     warm = snow_case(-100.0, 0.2)
+    insulating = snow_case(-100.0, 0.2; snow_conductivity = 0)
     exhausted = snow_case(-2000.0, 1e-4; Δt = 20.0, initial_temperature = -0.3)
     fractional_growth = snow_case(-100.0, 0.01; Δt = 5400.0, initial_temperature = -0.3,
                                   h⁰ = 0.05, ℵ⁰ = 0.1,
@@ -1651,9 +1715,6 @@ end
     bare_melt = snow_case(-100.0, 1e-12; Δt = 900.0, h⁰ = 1.5, ice_conductivity = 0.0)
     accumulating = snow_case(0.0, 0.1; snowfall = 0.003)
     flooded = snow_case(0.0, 0.2; h⁰ = 0.1)
-    # A full 90-minute step used to oscillate between a cold ice surface and
-    # its melting cap, or converge too slowly when melting snow made the top
-    # flux depend strongly on the ice surface temperature.
     cap_switch = snow_case(-500.0, 0.01; Δt = 5400.0, initial_temperature = -10.0, h⁰ = 0.15)
     snow_feedback = snow_case(-200.0, 0.01; Δt = 5400.0, initial_temperature = -10.0, h⁰ = 0.3)
     @test cold.hs == 0.2 && cold.Ts < 0
@@ -1662,9 +1723,11 @@ end
                    (distributed.Ti - distributed.Ts) / distributed.hs, 20.0; atol = 1e-5)
     @test distributed.skin_residual < 1e-6
     @test thin.hs ≈ 1e-7 && thin.Ts < 0 && thin.skin_residual < 1e-5
-    @test dust.hs ≈ 1e-12 && dust.Ts == dust.Ti && dust.skin_residual == 0
+    @test dust.hs ≈ 1e-12 && isapprox(dust.Ts, dust.Ti; atol = 1e-8)
     @test warm.hs < 0.2 && warm.Ts == 0
-    @test exhausted.hs < 1e-12 && exhausted.Ts == 0 && exhausted.ice_mass_flux < 0
+    @test insulating.Ti ≈ -5
+    @test isapprox(insulating.hs, 0.2 - 100 * 600 / (330 * 334000); atol = 1e-12)
+    @test exhausted.hs < 1e-12 && isfinite(exhausted.Ts) && exhausted.ice_mass_flux < 0
     @test 0 < exhausted.ℵ < 1
     @test isapprox(exhausted.snow_mass_flux, -330 * 1e-4 / 20; rtol = 1e-12)
     phase_transitions = FixedSalinityBrinePocketEnergyRelation(Float64).phase_transitions
@@ -1694,4 +1757,115 @@ end
     @test cap_switch.h > 0 && cap_switch.hs < 0.01
     @test snow_feedback.h > 0 && snow_feedback.hs < 0.01 && snow_feedback.Ti < 0
     @test max(cap_switch.skin_residual, snow_feedback.skin_residual) < 1e-6
+end
+
+@testset "One-cell snow melt has an analytical heat and mass budget" begin
+    grid = RectilinearGrid(size = 1, z = SeaIceColumnDiscretization((0, 1)), topology = (Flat, Flat, Bounded))
+    relation = FixedSalinityBrinePocketEnergyRelation(Float64)
+    ice = prescribed_salinity_enthalpy_thermodynamics(grid; relation, salinity_profile = 0,
+        energy_transport = ConductiveTemperatureTransport(conductivity = 5),
+        heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = FluxBoundary()))
+    snow = snow_slab_thermodynamics(grid)
+    model = SeaIceModel(grid; ice_thermodynamics = ice, snow_thermodynamics = snow,
+                        top_heat_flux = -100, bottom_heat_flux = 0, phase_transitions = relation.phase_transitions)
+    set!(model; h = 1, ℵ = 1, hs = 0.01)
+    set!(ice; temperature = -8.2)
+    Δt = 600
+    ρc = relation.phase_transitions.density * relation.phase_transitions.heat_capacity
+    C = 10
+    R = 0.01 / 0.31
+    B = C / (1 + C * R)
+    T = -8.2 / (1 + Δt * B / ρc)
+    Ti = T * C * R / (1 + C * R)
+    Qs = 100 + 0.31 * Ti / 0.01
+    hs = 0.01 - Δt * Qs / (330 * relation.phase_transitions.reference_latent_heat)
+    time_step!(model, Δt)
+    @test first(interior(snow.top_surface_temperature)) == 0
+    @test isapprox(first(interior(ice.fields.temperature)), T; atol = 1e-10)
+    @test isapprox(first(interior(ice.auxiliary.surface_temperature)), Ti; atol = 1e-10)
+    @test isapprox(first(interior(model.snow_thickness)), hs; atol = 1e-12)
+    @test isapprox(ρc * (T + 8.2) + 330 * relation.phase_transitions.reference_latent_heat * (0.01 - hs), 100Δt; atol = 1e-7)
+
+    set!(model; h = 0.04, ℵ = 0.5, hs = 0.01)
+    set!(ice; temperature = 0)
+    time_step!(model, Δt)
+    @test isapprox(first(interior(model.ice_thickness)) * first(interior(model.ice_concentration)), 0.02; atol = 1e-12)
+    @test isapprox(first(interior(model.snow_thickness)), 0.01 - 100Δt / (330 * relation.phase_transitions.reference_latent_heat); atol = 1e-12)
+    @test abs(first(interior(model.mass_fluxes.thermodynamics.ice))) < 1e-12
+end
+
+@testset "Two-column transport carries energy and salt with ice volume" begin
+    grid = RectilinearGrid(size = (2, 2, 2), x = (0, 2), y = (0, 2),
+                           z = SeaIceColumnDiscretization((0, 1)),
+                           topology = (Bounded, Bounded, Bounded), halo = (2, 2, 2))
+    ice = evolving_salinity_mushy_thermodynamics(grid)
+    model = SeaIceModel(grid; ice_thermodynamics = ice, advection = IncrementalRemapping(), timestepper = :ForwardEuler)
+    set!(model; h = 1, ℵ = 1)
+    set!(ice; internal_energy = (x, y, z) -> ifelse(x < 1, -1e7, -2e7),
+              bulk_salinity = (x, y, z) -> ifelse(x < 1, 4, 0))
+    transports = model.advection.transports
+    set!(transports.x.𝓋, (x, y) -> ifelse(x == 1, 0.25, 0))
+    set!(model.timestepper.Gⁿ.h, (x, y) -> ifelse(x < 1, -0.25, 0.25))
+    set!(model.timestepper.Gⁿ.ℵ, (x, y) -> ifelse(x < 1, -0.25, 0.25))
+    ClimaSeaIce.compute_column_transports!(ice, CPU(), grid, transports)
+    ClimaSeaIce.dynamic_time_step!(model, 1)
+    V = Array(interior(model.ice_thickness)) .* Array(interior(model.ice_concentration))
+    E = Array(interior(ice.fields.internal_energy))
+    S = Array(interior(ice.fields.bulk_salinity))
+    @test vec(V) ≈ [0.75, 1.25, 0.75, 1.25]
+    @test E[:, 1, 1] ≈ [-1e7, -1.8e7]
+    @test S[:, 1, 1] ≈ [4, 0.8]
+    @test isapprox(sum(E .* V) / 4, -3e7; rtol = 1e-14)
+    @test isapprox(sum(S .* V) / 4, 4; rtol = 1e-14)
+end
+
+@testset "A surface balance without a root fails explicitly" begin
+    grid = RectilinearGrid(size = 1, z = SeaIceColumnDiscretization((0, 1)), topology = (Flat, Flat, Bounded))
+    ice = prescribed_salinity_enthalpy_thermodynamics(grid; salinity_profile = 0,
+        energy_transport = ConductiveTemperatureTransport(conductivity = 5),
+        heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = FluxBoundary()))
+    set!(ice; temperature = -5)
+    Q = LinearizedSurfaceFlux(5, 0, -10)
+    @test_throws ErrorException column_step!(ice, (top = Q, bottom = 0), 1)
+end
+
+@testset "Prognostic salinity and surface heat close at the same new state" begin
+    grid = RectilinearGrid(size = 4, z = SeaIceColumnDiscretization((0, 1)), topology = (Flat, Flat, Bounded))
+    ice = evolving_salinity_mushy_thermodynamics(grid;
+        salinity_transport = BulkSalinityDiffusion(diffusivity = 1e-4),
+        energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+        heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = FluxBoundary()))
+    set!(ice; bulk_salinity = z -> 1 + 6z, temperature = -5)
+    E⁰ = sum(interior(ice.fields.internal_energy)) / 4
+    column_step!(ice, (top = 20, bottom = 0), 600)
+    T = last(interior(ice.fields.temperature))
+    Ts = first(interior(ice.auxiliary.surface_temperature))
+    @test isapprox(16 * (T - Ts), 20; atol = 1e-6)
+    @test isapprox(sum(interior(ice.fields.internal_energy)) / 4 - E⁰, -12000; atol = 1e-3)
+    @test isapprox(sum(interior(ice.fields.bulk_salinity)) / 4, 4; atol = 1e-12)
+end
+
+@testset "Unconsolidated snow and ice share the basal-temperature reservoir" begin
+    for initial_temperature in (-30.0, -10.0, -2.0)
+        grid = RectilinearGrid(size = 8, z = SeaIceColumnDiscretization((0, 1)), topology = (Flat, Flat, Bounded))
+        relation = FixedSalinityBrinePocketEnergyRelation(Float64)
+        Tb = -relation.phase_transitions.liquidus.slope * 34
+        ice = prescribed_salinity_enthalpy_thermodynamics(grid; relation, salinity_profile = 0,
+            energy_transport = ConductiveTemperatureTransport(conductivity = 2),
+            heat_boundary_conditions = (top = MeltingConstrainedFluxBalance(), bottom = PrescribedTemperature(Tb)))
+        model = SeaIceModel(grid; ice_thermodynamics = ice, snow_thermodynamics = snow_slab_thermodynamics(grid),
+                            phase_transitions = relation.phase_transitions, sea_ice_density = 917,
+                            top_heat_flux = -200, bottom_heat_flux = 0, timestepper = :ForwardEuler)
+        set!(model; h = 0.04, ℵ = 1, hs = 0.005)
+        set!(ice; temperature = initial_temperature)
+        Δt = 60
+        Qsnow = 200 + 0.31 * Tb / 0.005
+        time_step!(model, Δt)
+        V = first(interior(model.ice_thickness)) * first(interior(model.ice_concentration))
+        Vs = first(interior(model.snow_thickness)) * first(interior(model.ice_concentration))
+        snow_heat = 330 * relation.phase_transitions.reference_latent_heat * (0.005 - Vs) / Δt
+        @test isapprox(first(interior(ice.auxiliary.surface_temperature)), Tb; atol = 1e-12)
+        @test isapprox(snow_heat, Qsnow; atol = 1e-6)
+        @test isapprox(917 * ClimaSeaIce.SeaIceThermodynamics.latent_heat(relation.phase_transitions, Tb) * (0.04 - V) / Δt + snow_heat, 200; atol = 1e-6)
+    end
 end
