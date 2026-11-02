@@ -63,6 +63,11 @@ function ConductiveFlux(FT::DataType=Oceananigans.defaults.FloatType; conductivi
     return ConductiveFlux(convert(FT, conductivity), itd_shape)
 end
 
+@inline effective_conductivity(flux::ConductiveFlux, h) =
+    flux.conductivity * itd_factor(flux.itd_shape, h)
+
+@inline thermal_resistance(flux::ConductiveFlux, h) = h / effective_conductivity(flux, h)
+
 @inline function slab_internal_heat_flux(conductive_flux::ConductiveFlux,
                                          top_surface_temperature,
                                          bottom_temperature,
@@ -99,6 +104,9 @@ struct IceSnowConductiveFlux{K, S}
 end
 
 IceSnowConductiveFlux(snow_conductivity, ice_conductivity) = IceSnowConductiveFlux(snow_conductivity, ice_conductivity, nothing)
+
+@inline thermal_resistance(flux::IceSnowConductiveFlux, h, hs) =
+    (hs / flux.snow_conductivity + h / flux.ice_conductivity) / itd_factor(flux.itd_shape, h)
 
 Adapt.adapt_structure(to, f::IceSnowConductiveFlux) = IceSnowConductiveFlux(Adapt.adapt(to, f.snow_conductivity),
                                                                             Adapt.adapt(to, f.ice_conductivity),

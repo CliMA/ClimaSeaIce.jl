@@ -79,7 +79,6 @@ end
     κT = thermal_conductivity(energy_transport)
     κE = energy_diffusivity(energy_transport)
     store_face_transport_coefficients!(auxiliary, i, j, k, grid, fields, κT, κE)
-    k == size(grid, 3) && store_face_transport_coefficients!(auxiliary, i, j, k + 1, grid, fields, κT, κE)
 end
 
 """
@@ -89,7 +88,8 @@ Compute the face-centered energy transport coefficients of the semi-implicit ene
 """
 function compute_column_transport_coefficients!(thermodynamics::ColumnEnergyThermodynamics)
     grid = thermodynamics.fields.internal_energy.grid
-    launch!(architecture(grid), grid, :xyz, _compute_column_transport_coefficients!,
+    Nx, Ny, Nz = worksize(grid)
+    launch!(architecture(grid), grid, KernelParameters(1:Nx, 1:Ny, 1:Nz+1), _compute_column_transport_coefficients!,
             thermodynamics.auxiliary, thermodynamics.fields, grid, thermodynamics.energy_transport)
     return nothing
 end
@@ -99,7 +99,6 @@ end
     Nz = size(grid, 3)
     z_top = znode(i, j, Nz+1, grid, Center(), Center(), Face())
     @inbounds I[i, j, k] = shortwave_flux(shortwave_absorption, znode(i, j, k, grid, Center(), Center(), Face()), z_top)
-    @inbounds k == Nz && (I[i, j, Nz+1] = shortwave_flux(shortwave_absorption, z_top, z_top))
 end
 
 """
@@ -109,7 +108,8 @@ Compute the face-centered shortwave flux of the shortwave absorption closure.
 """
 function compute_column_shortwave_flux!(thermodynamics::ColumnEnergyThermodynamics)
     grid = thermodynamics.fields.internal_energy.grid
-    launch!(architecture(grid), grid, :xyz, _compute_column_shortwave_flux!,
+    Nx, Ny, Nz = worksize(grid)
+    launch!(architecture(grid), grid, KernelParameters(1:Nx, 1:Ny, 1:Nz+1), _compute_column_shortwave_flux!,
             thermodynamics.auxiliary.shortwave_flux, grid, thermodynamics.shortwave_absorption)
     return nothing
 end
@@ -161,6 +161,6 @@ end
 
 @inline column_boundary_temperature_conductance(i, j, kf, kc, grid, auxiliary) = @inbounds 2 * auxiliary.thermal_conductivity[i, j, kf] / Δzᶜᶜᶜ(i, j, kc, grid)
 
-@inline column_consolidated(consolidation_thickness, grid, i, j) = column_height(grid, i, j) ≥ @inbounds consolidation_thickness[i, j, 1]
+@inline column_consolidated(height, consolidation_thickness) = (height > 0) & (height ≥ consolidation_thickness)
 
 @inline column_energy_to_complete_melt(relation, E, S, Δz) = (complete_melt_energy(relation, S) - E) * Δz
