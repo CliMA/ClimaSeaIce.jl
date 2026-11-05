@@ -79,6 +79,14 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
                                   mom.minimum_mass)
 end
 
+# Same clock and fields as `update_state!`, so discrete-form boundary conditions can be evaluated
+fill_halo_arguments(φ, grid, clock, fields) =
+    (φ.data, φ.boundary_conditions, φ.indices, instantiated_location(φ), grid, clock, fields)
+
+# Distributed fills take the communication buffers before the boundary-condition arguments
+fill_halo_arguments(φ, grid::DistributedGrid, clock, fields) =
+    (φ.data, φ.boundary_conditions, φ.indices, instantiated_location(φ), grid, φ.communication_buffers, clock, fields)
+
 # Reset the velocities to the previous time step
 # This does nothing for a FE model, but is necessary for an RK model.
 reset_velocities!(u, v, timestepper) = nothing
@@ -143,8 +151,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     u_args = (u, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, u_immersed_bc, top_stress, bottom_stress, basal_stress, u_forcing)
     v_args = (v, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, v_immersed_bc, top_stress, bottom_stress, basal_stress, v_forcing)
 
-    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
-    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
+    u_fill_halo_args = fill_halo_arguments(u, grid, clock, fields(model))
+    v_fill_halo_args = fill_halo_arguments(v, grid, clock, fields(model))
     stresses_args    = (model_fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
