@@ -50,6 +50,9 @@ struct SeaIceModel{GR, TD, SNT, D, TS, CL, U, T, IT, IC, SNH, ID, SND, PT, CT, S
     advection :: A
 end
 
+snow_field_names(::Nothing) = ()
+snow_field_names(snow_thermodynamics) = (:hs,)
+
 """
     SeaIceModel(grid;
                 clock                       = Clock{eltype(grid)}(time = 0),
@@ -117,7 +120,8 @@ Keyword Arguments
 - `ice_thermodynamics`: Ice thermodynamics model. Default:
                         `sea_ice_slab_thermodynamics(grid)`.
 - `snow_thermodynamics`: Optional snow thermodynamics model. When provided, the
-                         model allocates prognostic snow thickness `hs`.
+                         model allocates prognostic snow thickness `hs`, whose
+                         boundary conditions are `boundary_conditions.hs`.
 - `snowfall`: Snowfall forcing applied only when `snow_thermodynamics` is
               present. May be a constant, `Field`, or `FieldTimeSeries`.
 - `dynamics`: Optional sea-ice dynamics model, for example,
@@ -151,7 +155,7 @@ function SeaIceModel(grid;
     tracers = tupleit(tracers) # supports tracers=:c keyword argument (for example)
 
     # Next, we form a list of default boundary conditions:
-    field_names = (:u, :v, :h, :ℵ, :S, tracernames(tracers)...)
+    field_names = (:u, :v, :h, :ℵ, :S, snow_field_names(snow_thermodynamics)..., tracernames(tracers)...)
 
     bc_tuple = Tuple(default_sea_ice_boundary_conditions(grid, name) for name in field_names)
     default_boundary_conditions = NamedTuple{field_names}(bc_tuple)
@@ -190,7 +194,7 @@ function SeaIceModel(grid;
     snow_thickness = if isnothing(snow_thermodynamics)
         nothing
     else
-        Field{Center, Center, Nothing}(grid)
+        Field{Center, Center, Nothing}(grid, boundary_conditions=boundary_conditions.hs)
     end
 
     # Wrap snowfall in a field (but preserve FieldTimeSeries)
