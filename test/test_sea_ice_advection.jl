@@ -340,3 +340,21 @@ end
         true
     end
 end
+
+@testset "Prescribed velocities carry ice across a periodic seam" begin
+    @info "Testing ice crossing a periodic seam with a prescribed velocity"
+
+    grid = remapping_grid(20)   # periodic in x
+    model = remapping_model(grid, Field{Face, Center, Center}(grid), Field{Center, Face, Center}(grid))
+
+    band(x) = 0.75 < x < 0.95
+    set!(model, u = 0.1, h = (x, y) -> band(x) ? 1.0 : 0.0, ℵ = (x, y) -> band(x) ? 0.9 : 0.0)
+
+    volume(model) = sum(interior(model.ice_thickness) .* interior(model.ice_concentration))
+    V₀ = volume(model)
+    for _ in 1:60
+        time_step!(model, 0.05)   # the band moves 0.3 east, across x = 1 ≡ 0
+    end
+
+    @test volume(model) ≈ V₀
+end
