@@ -280,21 +280,21 @@ end
 ##### Transport through the swept region of a face
 #####
 
-# Swept region: (x, y)(η, s) = p(η) - s Δt 𝐮(η) on [0, 1]², with `p` along the face and `𝐮` the interpolated corner
-# velocity, local to the face midpoint. The signed Jacobian subtracts the two lobes of a sign-changing face.
+# Swept region: (x, y)(η, s) = p(η) - s Δt 𝐮(η) on [0, 1]², with `p` along the face and `𝐮` the corner velocity,
+# local to the face midpoint. The tangential corner velocity is interpolated; the normal one is uniform along the face
+# and sized so the swept area equals the C-grid area flux Δt uᶠ Δy seen by the momentum equations.
 @inline function x_face_transport(i, j, k, grid, ::Val{N}, Δt, u, v, ℵ, h, hs, r) where N
     FT = eltype(grid)
 
     Δy = Δyᶠᶜᶜ(i, j, k, grid)
     xᶜ = Δxᶜᶜᶜ(i, j, k, grid) / 2
 
-    u₁ = ℑyᵃᶠᵃ(i, j,   k, grid, u)
     v₁ = ℑxᶠᵃᵃ(i, j,   k, grid, v)
-    u₂ = ℑyᵃᶠᵃ(i, j+1, k, grid, u)
     v₂ = ℑxᶠᵃᵃ(i, j+1, k, grid, v)
-
-    δu = u₂ - u₁
     δv = v₂ - v₁
+
+    u₁ = @inbounds u[i, j, k] * Δy / (Δy - Δt * δv / 2)
+    δu = zero(u₁)
 
     𝔉ℵ = zero(FT)
     𝔉𝓋 = zero(FT)
@@ -329,12 +329,11 @@ end
     yᶜ = Δyᶜᶜᶜ(i, j, k, grid) / 2
 
     u₁ = ℑyᵃᶠᵃ(i,   j, k, grid, u)
-    v₁ = ℑxᶠᵃᵃ(i,   j, k, grid, v)
     u₂ = ℑyᵃᶠᵃ(i+1, j, k, grid, u)
-    v₂ = ℑxᶠᵃᵃ(i+1, j, k, grid, v)
-
     δu = u₂ - u₁
-    δv = v₂ - v₁
+
+    v₁ = @inbounds v[i, j, k] * Δx / (Δx - Δt * δu / 2)
+    δv = zero(v₁)
 
     𝔉ℵ = zero(FT)
     𝔉𝓋 = zero(FT)
