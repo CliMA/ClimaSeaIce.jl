@@ -2,10 +2,10 @@ using JLD2
 using MPI
 using Test
 using Oceananigans
-using Oceananigans.Grids: halo_size, topology
+using Oceananigans.Grids: connected_range, halo_size, topology
 using Oceananigans.Utils: KernelParameters
 using Oceananigans.DistributedComputations: @root, ranks, reconstruct_global_field, reconstruct_global_grid
-using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.BoundaryConditions: TracerReservoir, fill_halo_regions!
 using Oceananigans.OrthogonalSphericalShellGrids: TripolarGrid
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid, GridFittedBottom
 using Oceananigans.Units
@@ -35,6 +35,41 @@ function test_extended_halos()
 
     kp = model.dynamics.solver.kernel_parameters
     @test kp == KernelParameters(-Hx+2:Nx+Hx-1, 1:Ny)
+end
+
+function test_open_boundaries_on_extended_halos()
+    arch = Distributed(CPU(), partition = Partition(4, 1))
+    grid = RectilinearGrid(arch; size=(48, 8, 1), extent=(1, 1, 1),
+                           halo=(4, 4, 4),
+                           topology=(Bounded, Bounded, Bounded))
+
+    substeps = 8
+    solver   = SplitExplicitSolver(grid; substeps)
+    dynamics = SeaIceMomentumEquation(grid; solver, rheology=ElastoViscoPlasticRheology(eltype(grid)))
+
+    reservoir(value) = ValueBoundaryCondition(value; scheme=TracerReservoir(inflow_length_scale=1))
+    h_bcs = FieldBoundaryConditions(grid, (Center(), Center(), nothing); south=reservoir(1), north=reservoir(1))
+    ℵ_bcs = FieldBoundaryConditions(grid, (Center(), Center(), nothing); south=reservoir(0.5), north=reservoir(0.5))
+
+    model = ClimaSeaIce.SeaIceModel(grid; dynamics, boundary_conditions=(h=h_bcs, ℵ=ℵ_bcs))
+
+    h = model.ice_thickness
+    Nx = size(h.grid, 1)
+    Hx = halo_size(h.grid, 1)
+    @test Hx == max(2substeps + 3, halo_size(grid, 1))
+
+    tangential_range = connected_range(Center(), topology(h.grid, 1), Nx, Hx)
+
+    for c in (h, model.ice_concentration), side in (:south, :north)
+        reservoir_storage = getproperty(c.boundary_conditions, side).classification.scheme.cʳ
+        @test axes(reservoir_storage, 1) == tangential_range
+    end
+
+    set!(model, h=1, ℵ=0.5)
+    time_step!(model, 1minutes)
+
+    @test all(isfinite, interior(h))
+    @test all(isfinite, interior(model.ice_concentration))
 end
 
 function test_distributed_simulations()
