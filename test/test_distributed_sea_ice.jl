@@ -17,6 +17,13 @@ run_distributed_grid = """
     test_distributed_simulations()
 """
 
+run_halo_exchange_interval = """
+    using MPI
+    MPI.Init()
+    include("distributed_tests_utils.jl")
+    test_halo_exchange_interval()
+"""
+
 run_distributed_jld2writer = """
     using MPI
     MPI.Init()
@@ -46,6 +53,11 @@ run_distributed_tripolar = """
     write("distributed_simulation_tests.jl", run_distributed_grid)
     run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_simulation_tests.jl`)
     rm("distributed_simulation_tests.jl")
+
+    @info "Testing 4-ranks Distributed sea ice simulations with periodic halo exchange"
+    write("distributed_halo_exchange_tests.jl", run_halo_exchange_interval)
+    run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project -O0 distributed_halo_exchange_tests.jl`)
+    rm("distributed_halo_exchange_tests.jl")
 
     # Distributed vs serial equality on a TripolarGrid, driven by prescribed Field stresses and
     # ocean velocities (exercises the extended-halo external-stress path on the tripolar fold)
