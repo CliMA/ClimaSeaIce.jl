@@ -263,15 +263,14 @@ end
     sᶠᶠᶜ = sqrt((ϵ̇₁₁ᶠᶠᶜ - ϵ̇₂₂ᶠᶠᶜ)^2 + 4ϵ̇₁₂ᶠᶠᶜ^2)
 
     # Visco - Plastic parameter
-    # if Δ is very small we assume a linear viscous response
-    # adding a minimum Δ_min (at Centers)
-    Δᶜᶜᶜ = max(sqrt(δᶜᶜᶜ^2 + sᶜᶜᶜ^2 * e⁻²), Δm)
-    Δᶠᶠᶜ = max(sqrt(δᶠᶠᶜ^2 + sᶠᶠᶜ^2 * e⁻²), Δm)
+    # if Δ is very small we assume a linear viscous response: Δ_min caps the viscosities
+    Δᶜᶜᶜ = sqrt(δᶜᶜᶜ^2 + sᶜᶜᶜ^2 * e⁻²)
+    Δᶠᶠᶜ = sqrt(δᶠᶠᶜ^2 + sᶠᶠᶜ^2 * e⁻²)
     Pᶜᶜᶜ = @inbounds P[i, j, 1]
     Pᶠᶠᶜ = ℑxyᶠᶠᵃ(i, j, 1, grid, P)
 
-    @inbounds fields.ζᶠᶠᶜ[i, j, 1] = Pᶠᶠᶜ / 2Δᶠᶠᶜ
-    @inbounds fields.ζᶜᶜᶜ[i, j, 1] = Pᶜᶜᶜ / 2Δᶜᶜᶜ
+    @inbounds fields.ζᶠᶠᶜ[i, j, 1] = Pᶠᶠᶜ / 2max(Δᶠᶠᶜ, Δm)
+    @inbounds fields.ζᶜᶜᶜ[i, j, 1] = Pᶜᶜᶜ / 2max(Δᶜᶜᶜ, Δm)
     @inbounds fields.Δ[i, j, 1] = Δᶜᶜᶜ
 end
 

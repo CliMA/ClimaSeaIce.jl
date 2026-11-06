@@ -79,6 +79,21 @@ end
     end
 end
 
+@testset "Ice at rest carries no stress" begin
+    @info "Testing that the replacement pressure vanishes for undeformed ice..."
+
+    grid = RectilinearGrid(size = (8, 8, 1), x = (0, 10_000), y = (0, 10_000),
+                           z = (-1, 0), halo = (4, 4, 4), topology = (Periodic, Periodic, Bounded))
+
+    dynamics = SeaIceMomentumEquation(grid; rheology = ElastoViscoPlasticRheology(),
+                                      solver = SplitExplicitSolver(grid; substeps=10))
+    model = SeaIceModel(grid; dynamics)
+    set!(model, h = 1, ℵ = 1, u = 0, v = 0)
+    time_step!(model, 60)
+
+    @test maximum(abs, interior(model.dynamics.auxiliaries.fields.σ₁₁)) < 1e-10
+end
+
 @testset "SemiImplicitStress computes its external velocities" begin
     @info "Testing that computed external velocities follow their source..."
 
