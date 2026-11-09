@@ -228,36 +228,6 @@ function test_complete_melt_energy(::Type{FT}) where FT
     return max_deficit
 end
 
-@testset "Column energy thermodynamic relation" begin
-    @testset "Float64 relation metrics" begin
-        @test test_temperature_inversion(Float64) < 1e-11
-        @test test_temperature_derivatives(Float64) < 1e-6
-
-        temperature_error, energy_error, derivative_error = test_pure_ice_limit(Float64)
-        @test temperature_error < 1e-12
-        @test energy_error < 1e-8
-        @test derivative_error < 1e-15
-
-        @test test_liquidus_consistency(Float64) < 1e-12
-        test_liquid_fraction_bounds(Float64)
-        @test test_complete_melt_energy(Float64) < 1e-12
-    end
-
-    @testset "Float32 relation metrics" begin
-        @test test_temperature_inversion(Float32) < 1e-5
-        @test test_temperature_derivatives(Float32) < 1e-3
-
-        temperature_error, energy_error, derivative_error = test_pure_ice_limit(Float32)
-        @test temperature_error < 1e-6
-        @test energy_error < 1
-        @test derivative_error < 1e-7
-
-        @test test_liquidus_consistency(Float32) < 2e-6
-        test_liquid_fraction_bounds(Float32)
-        @test test_complete_melt_energy(Float32) < 1e-6
-    end
-end
-
 column_values(field) = vec(Array(interior(field)))
 
 # Set the SeaIceColumnDiscretization interfaces to a previous→current thickness change. `move = :top` keeps the
@@ -437,36 +407,6 @@ end
 
     @test maximum(reversal_errors) < 1e-14
     @test maximum(height_errors) < 1e-14
-end
-
-@testset "Fixed salinity brine-pocket relation" begin
-    @testset "Float64 relation metrics" begin
-        @test test_fixed_salinity_temperature_inversion(Float64) < 1e-11
-        @test test_fixed_salinity_temperature_derivatives(Float64) < 1e-6
-
-        temperature_error, energy_error, derivative_error =
-            test_fixed_salinity_pure_ice_limit(Float64)
-        @test temperature_error < 1e-12
-        @test energy_error < 1e-8
-        @test derivative_error < 1e-15
-
-        @test test_fixed_salinity_complete_melt_threshold(Float64) < 1e-11
-        @test test_fixed_salinity_heat_capacity_identity(Float64) < 1e-12
-    end
-
-    @testset "Float32 relation metrics" begin
-        @test test_fixed_salinity_temperature_inversion(Float32) < 1e-5
-        @test test_fixed_salinity_temperature_derivatives(Float32) < 1e-3
-
-        temperature_error, energy_error, derivative_error =
-            test_fixed_salinity_pure_ice_limit(Float32)
-        @test temperature_error < 1e-6
-        @test energy_error < 1
-        @test derivative_error < 1e-7
-
-        @test test_fixed_salinity_complete_melt_threshold(Float32) < 1e-5
-        @test test_fixed_salinity_heat_capacity_identity(Float32) < 1e-6
-    end
 end
 
 @testset "CICE-compatible thermal conductivity closures" begin

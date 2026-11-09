@@ -40,7 +40,8 @@ export SlabThermodynamics,
        IceSnowConductiveFlux,
        UniformThicknessDistribution,
        GammaThicknessDistribution,
-       FluxFunction
+       FluxFunction,
+       LinearizedSurfaceFlux
 
 using Adapt: Adapt
 using Oceananigans: Oceananigans, fields
@@ -211,7 +212,7 @@ include("HeatBoundaryConditions/HeatBoundaryConditions.jl")
 using Oceananigans.Fields: field, Field, Center, Face, ConstantField
 
 using .HeatBoundaryConditions: IceWaterThermalEquilibrium, MeltingConstrainedFluxBalance,
-                               RadiativeEmission, FluxFunction, PrescribedTemperature,
+                               RadiativeEmission, FluxFunction, LinearizedSurfaceFlux, PrescribedTemperature,
                                FluxBoundary, bottom_temperature, getflux
 
 # Enthalpy thermodynamics is not included in this module yet.
