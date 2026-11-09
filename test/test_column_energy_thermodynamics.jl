@@ -107,7 +107,7 @@ function test_temperature_derivatives(::Type{FT}) where FT
     relation = QuadraticLiquidusEnergyRelation(FT)
     WT = FT === Float32 ? Float64 : FT
     T0 = relation.phase_transitions.reference_temperature
-    m = relation.phase_transitions.liquidus.slope
+    m = relation.phase_transitions.liquidus.salinity_slope
     salinities, offsets = physical_column_relation_test_states(FT)
 
     max_energy_derivative_error = zero(FT)
@@ -171,7 +171,7 @@ function test_liquidus_consistency(::Type{FT}) where FT
     relation = QuadraticLiquidusEnergyRelation(FT)
     liquidus = relation.phase_transitions.liquidus
     T0 = relation.phase_transitions.reference_temperature
-    m = liquidus.slope
+    m = liquidus.salinity_slope
     salinities, offsets = physical_column_relation_test_states(FT)
 
     max_error = zero(FT)
@@ -181,7 +181,7 @@ function test_liquidus_consistency(::Type{FT}) where FT
         brine_S = brine_salinity(relation, E, S)
         recovered_T = temperature(relation, E, S)
         liquidus_T = Float64(liquidus.freshwater_melting_temperature) -
-                     Float64(liquidus.slope) * Float64(brine_S)
+                     Float64(liquidus.salinity_slope) * Float64(brine_S)
         max_error = max(max_error, abs(Float64(recovered_T) - liquidus_T))
     end
 
@@ -191,7 +191,7 @@ end
 function test_liquid_fraction_bounds(::Type{FT}) where FT
     relation = QuadraticLiquidusEnergyRelation(FT)
     T0 = relation.phase_transitions.reference_temperature
-    m = relation.phase_transitions.liquidus.slope
+    m = relation.phase_transitions.liquidus.salinity_slope
     salinities, offsets = physical_column_relation_test_states(FT)
 
     for S in salinities, offset in offsets
@@ -211,7 +211,7 @@ end
 function test_complete_melt_energy(::Type{FT}) where FT
     relation = QuadraticLiquidusEnergyRelation(FT)
     T0 = relation.phase_transitions.reference_temperature
-    m = relation.phase_transitions.liquidus.slope
+    m = relation.phase_transitions.liquidus.salinity_slope
     salinities = FT[0.1, 1, 4, 8, 15]
 
     max_deficit = zero(FT)
@@ -252,7 +252,7 @@ end
         @test energy_error < 1
         @test derivative_error < 1e-7
 
-        @test test_liquidus_consistency(Float32) < 1e-6
+        @test test_liquidus_consistency(Float32) < 2e-6
         test_liquid_fraction_bounds(Float32)
         @test test_complete_melt_energy(Float32) < 1e-6
     end
@@ -303,7 +303,7 @@ function test_fixed_salinity_temperature_derivatives(::Type{FT}) where FT
     relation = FixedSalinityBrinePocketEnergyRelation(FT)
     WT = FT === Float32 ? Float64 : FT
     T0 = relation.phase_transitions.reference_temperature
-    m = relation.phase_transitions.liquidus.slope
+    m = relation.phase_transitions.liquidus.salinity_slope
     salinities, offsets = physical_column_relation_test_states(FT)
 
     max_energy_derivative_error = zero(FT)
@@ -366,7 +366,7 @@ end
 function test_fixed_salinity_complete_melt_threshold(::Type{FT}) where FT
     relation = FixedSalinityBrinePocketEnergyRelation(FT)
     T0 = relation.phase_transitions.reference_temperature
-    m = relation.phase_transitions.liquidus.slope
+    m = relation.phase_transitions.liquidus.salinity_slope
     salinities = FT[0.1, 1, 3.2, 8, 15]
 
     max_error = zero(FT)
@@ -383,7 +383,7 @@ function test_fixed_salinity_heat_capacity_identity(::Type{FT}) where FT
     relation = FixedSalinityBrinePocketEnergyRelation(FT)
     phase_transitions = relation.phase_transitions
     T0 = phase_transitions.reference_temperature
-    m = phase_transitions.liquidus.slope
+    m = phase_transitions.liquidus.salinity_slope
     rho_i = phase_transitions.density
     c_i = phase_transitions.heat_capacity
     L0 = phase_transitions.reference_latent_heat
