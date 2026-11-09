@@ -48,8 +48,6 @@ extended_external_variable(src, grid) = src
 
 function extended_external_variable(src::Field, grid)
     grids_match(src, grid) && return src
-    # Keep the source's indices: a k = Nz view of a three-dimensional ocean velocity is copied as a two-dimensional
-    # slab, rather than as a full three-dimensional field (with three-dimensional halo buffers) on the extended grid.
     field = Field{Oceananigans.location(src)...}(grid; boundary_conditions = src.boundary_conditions, indices = src.indices)
     interior(field) .= interior(src)
     return field
