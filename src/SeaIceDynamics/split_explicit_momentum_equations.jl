@@ -3,10 +3,12 @@ using Oceananigans.Architectures: convert_to_device, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node, connected_range,
-                          Sides, Closed, Connected, RightCenterFolded, RightFaceFolded
+                          TwoSided, Connected, CenterFolded, FaceFolded, CenterFoldConnected, FaceFoldConnected
 using Oceananigans.Utils: configure_kernel
 
-const ConnectedTopology = Union{Sides{Connected}, Sides{Closed, Connected}, RightCenterFolded, RightFaceFolded}
+# Sides whose halos are filled by communication or by a fold
+const ConnectedSide = Union{Connected, CenterFolded, FaceFolded, CenterFoldConnected, FaceFoldConnected}
+const ConnectedTopology = Union{TwoSided{<:ConnectedSide}, TwoSided{<:Any, <:ConnectedSide}}
 
 struct SplitExplicitSolver{I, K}
     substeps :: I

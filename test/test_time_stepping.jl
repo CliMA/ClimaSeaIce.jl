@@ -53,6 +53,17 @@ end
     end
 end
 
+@testset "Sea ice dynamics without a rheology" begin
+    @info "Testing sea ice dynamics without a rheology..."
+
+    grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
+
+    for solver in (ExplicitSolver(), SplitExplicitSolver())
+        dynamics = SeaIceMomentumEquation(grid; rheology = nothing, solver)
+        @test time_step_sea_ice_model_works(grid; dynamics)
+    end
+end
+
 @testset "SemiImplicitStress ocean drag" begin
     @info "Testing SemiImplicitStress ocean drag for explicit and split-explicit solvers..."
 
