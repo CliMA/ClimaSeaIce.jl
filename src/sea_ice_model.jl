@@ -375,7 +375,8 @@ function Oceananigans.TimeSteppers.update_state!(model::SIM, callbacks=[])
 
     update_model_field_time_series!(model, model.clock)
 
-    foreach(prognostic_fields(model)) do field
+    # Velocities are prognostic only with dynamics; prescribed ones need their halos filled too
+    foreach(merge(prognostic_fields(model), model.velocities)) do field
         mask_immersed_field_xy!(field, k=size(model.grid, 3))
         fill_halo_regions!(field, model.clock, fields(model))
     end
