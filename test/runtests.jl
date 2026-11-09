@@ -68,6 +68,7 @@ end
 if TEST_GROUP == "all" || TEST_GROUP == "column_energy"
     include("test_column_energy_thermodynamics.jl")
     include("test_column_energy_relations.jl")
+    include("test_column_energy_state.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "netcdf"

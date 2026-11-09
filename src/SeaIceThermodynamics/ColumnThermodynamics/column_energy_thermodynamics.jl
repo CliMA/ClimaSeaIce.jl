@@ -70,9 +70,25 @@ function column_auxiliary_fields(grid)
 end
 
 settable_column_field_value(value) = value
-settable_column_field_value(profile::FixedDrainedIceSalinityProfile) = z -> salinity_at_normalized_height(profile, z)
 
 set_column_field!(field, value) = set!(field, settable_column_field_value(value))
+
+@kernel function _set_fixed_salinity_profile!(field, grid, profile)
+    i, j, k = @index(Global, NTuple)
+    rᵇ = rnode(i, j, 1, grid, Center(), Center(), Face())
+    rᵗ = rnode(i, j, size(grid, 3)+1, grid, Center(), Center(), Face())
+    r = rnode(i, j, k, grid, Center(), Center(), Center())
+    ζ = (r - rᵇ) / (rᵗ - rᵇ)
+    @inbounds field[i, j, k] = salinity_at_normalized_height(profile, ζ)
+end
+
+function set_column_field!(field, profile::FixedDrainedIceSalinityProfile)
+    grid = field.grid
+    # Profile initialization follows set!(field, value) semantics and includes
+    # inactive cells, which can still hold prescribed initial ice concentration.
+    launch!(architecture(grid), grid, size(grid), _set_fixed_salinity_profile!, field, grid, profile)
+    return nothing
+end
 
 function initialize_salinity!(fields, salinity_closure)
     profile = salinity_profile(salinity_closure)
@@ -162,4 +178,3 @@ function Oceananigans.restore_prognostic_state!(thermodynamics::ColumnEnergyTher
 end
 
 Oceananigans.restore_prognostic_state!(::ColumnEnergyThermodynamics, ::Nothing) = nothing
-

@@ -387,28 +387,6 @@ function bubbly_brine_reference(conductivity, temperature, salinity)
     return max(K, conductivity.minimum_conductivity)
 end
 
-@testset "Fixed drained-ice salinity profile" begin
-    profile = FixedDrainedIceSalinityProfile(Float64)
-    depths = [(2k - 1) // 14 for k in 1:7]
-    expected = Float64[bl99_salinity_reference(s) for s in depths]
-    actual = [salinity_at_normalized_depth(profile, Float64(s)) for s in depths]
-
-    @test maximum(abs.(actual .- expected)) < 1e-14
-    @test abs(salinity_at_normalized_depth(profile, 0.0)) < 1e-14
-    @test abs(salinity_at_normalized_depth(profile, 1.0) - profile.maximum_salinity) < 1e-14
-
-    zetas = range(0, 1, length = 17)
-    reversal_errors = [abs(profile(zeta) -
-                       salinity_at_normalized_depth(profile, 1 - zeta))
-                       for zeta in zetas]
-    height_errors = [abs(salinity_at_normalized_height(profile, zeta) -
-                         salinity_at_normalized_depth(profile, 1 - zeta))
-                     for zeta in zetas]
-
-    @test maximum(reversal_errors) < 1e-14
-    @test maximum(height_errors) < 1e-14
-end
-
 @testset "CICE-compatible thermal conductivity closures" begin
     maykut = MaykutUntersteinerConductivity(Float64)
     bubbly = BubblyBrineConductivity(Float64)
@@ -605,82 +583,6 @@ function temporal_manufactured_solution_error(dt; N = 128,
     return maximum(abs.(numerical_energy .- expected_energy))
 end
 
-
-@testset "Column energy thermodynamics containers" begin
-    grid = RectilinearGrid(size = 4,
-                           z = SeaIceColumnDiscretization((0, 1)),
-                           topology = (Flat, Flat, Bounded))
-
-    relation = QuadraticLiquidusEnergyRelation(Float64)
-    heat_boundary_conditions = (top = FluxBoundary(), bottom = FluxBoundary())
-    shortwave = ExponentialShortwaveAbsorption(surface_transmission = 0.3,
-                                               attenuation_scale = 0.4)
-
-    fixed = prescribed_salinity_enthalpy_thermodynamics(grid;
-        relation,
-        salinity_profile = 5.0,
-        energy_transport = ConductiveTemperatureTransport(conductivity = 2.0),
-        shortwave_absorption = shortwave,
-        heat_boundary_conditions)
-
-    @test fixed isa ColumnEnergyThermodynamics
-    @test fixed.salinity_closure isa PrescribedBulkSalinity
-    @test fixed.salinity_transport isa NoSalinityTransport
-    @test fixed.shortwave_absorption === shortwave
-    @test keys(fields(fixed)) == (:E,
-                                  :bulk_salinity,
-                                  :T,
-                                  :liquid_fraction,
-                                  :brine_salinity,
-                                  :temperature_energy_derivative,
-                                  :temperature_salinity_derivative)
-    @test keys(prognostic_fields(fixed)) == (:E,)
-    @test all(interior(fixed.fields.bulk_salinity) .== 5.0)
-
-    set!(fixed; bulk_salinity = 4.0,
-                temperature = -5.0)
-
-    E = internal_energy(relation, -5.0, 4.0)
-    phi = liquid_fraction(relation, E, 4.0)
-    brine_S = brine_salinity(relation, E, 4.0)
-
-    @test all(interior(fixed.fields.internal_energy) .≈ E)
-    @test all(interior(fixed.fields.bulk_salinity) .== 4.0)
-    @test all(interior(fixed.fields.temperature) .≈ -5.0)
-    @test all(interior(fixed.fields.liquid_fraction) .≈ phi)
-    @test all(interior(fixed.fields.brine_salinity) .≈ brine_S)
-
-    evolving = evolving_salinity_mushy_thermodynamics(grid;
-        relation,
-        energy_transport = ConductiveTemperatureTransport(conductivity = 2.0, diffusivity = 1e-9),
-        salinity_transport = BulkSalinityDiffusion(diffusivity = 2e-9),
-        shortwave_absorption = NoShortwaveAbsorption(),
-        heat_boundary_conditions)
-
-    @test evolving.salinity_closure isa PrognosticBulkSalinity
-    @test evolving.salinity_transport isa BulkSalinityDiffusion
-    @test keys(prognostic_fields(evolving)) == (:E, :bulk_salinity)
-    @test Adapt.adapt(CPU(), evolving) isa ColumnEnergyThermodynamics
-
-    set!(evolving; internal_energy = 3.0, bulk_salinity = 6.0)
-    state = deepcopy(prognostic_state(evolving))
-    set!(evolving; internal_energy = 4.0, bulk_salinity = 7.0)
-    restore_prognostic_state!(evolving, state)
-
-    @test all(interior(evolving.fields.internal_energy) .== 3.0)
-    @test all(interior(evolving.fields.bulk_salinity) .== 6.0)
-
-    model = SeaIceModel(grid;
-                        ice_thermodynamics = evolving,
-                        top_heat_flux = 0,
-                        bottom_heat_flux = 0)
-
-    @test model.ice_thermodynamics === evolving
-    @test :E in keys(prognostic_fields(model))
-    @test :bulk_salinity in keys(prognostic_fields(model))
-    @test fields(model).E === evolving.fields.internal_energy
-    @test fields(model).bulk_salinity === evolving.fields.bulk_salinity
-end
 
 @testset "Column energy fixed-grid time step" begin
     grid = RectilinearGrid(size = 8,
@@ -1132,7 +1034,7 @@ end
     model = SeaIceModel(grid; ice_thermodynamics = thermodynamics)
 
     set!(model, h = 0.3, ℵ = 1)
-    @test isapprox(column_height(grid, 1, 1), 0.3; rtol = 1e-12)
+    @test isapprox(column_height(1, 1, grid), 0.3; rtol = 1e-12)
 end
 
 @testset "Column implicit surface temperature solve" begin
