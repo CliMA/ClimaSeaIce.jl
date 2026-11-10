@@ -11,8 +11,21 @@ function cached_external_heat_fluxes(th::ColumnEnergyThermodynamics, Qe, clock, 
     return (top = Qe.top, bottom = cache)
 end
 
+# Without a snow layer the surface budget sees zero snow thickness, so the placeholder properties never enter it.
+column_surface_snow(thermodynamics, ::Nothing) = (thickness = Oceananigans.Fields.ZeroField(), density = 1, conductivity = 1, latent_heat = 1,
+                                                  itd_shape = nothing, temperature = thermodynamics.auxiliary.surface_temperature)
+column_surface_snow(thermodynamics, snow) = snow
+
 # Only a melting-constrained top solves a surface budget.
 update_column_surface_fluxes!(top_boundary, thermodynamics, external_flux, clock, model_fields, Δt; snow = nothing, consolidation_thickness = Oceananigans.Fields.ZeroField()) = nothing
+
+function update_column_surface_fluxes!(::MeltingConstrainedFluxBalance, thermodynamics, external_flux, clock, model_fields, Δt; snow = nothing, consolidation_thickness = Oceananigans.Fields.ZeroField())
+    grid = thermodynamics.fields.internal_energy.grid
+    launch!(architecture(grid), grid, :xy, _update_column_surface_fluxes!, thermodynamics.auxiliary,
+            thermodynamics.fields, grid, external_flux, thermodynamics.relation, thermodynamics.heat_boundary_conditions,
+            consolidation_thickness, column_surface_snow(thermodynamics, snow), clock, model_fields, Δt)
+    return nothing
+end
 
 function column_surface_energy_solve!(top_boundary, thermodynamics::ColumnEnergyThermodynamics,
                                       external_heat_fluxes, clock, model_fields, consolidation_thickness, Δt; snow = nothing)
