@@ -41,7 +41,8 @@ export SlabThermodynamics,
        UniformThicknessDistribution,
        GammaThicknessDistribution,
        FluxFunction,
-       LinearizedSurfaceFlux
+       LinearizedSurfaceFlux,
+       ColumnBasalHeatFlux
 
 using Adapt: Adapt
 using Oceananigans: Oceananigans, fields

@@ -2,7 +2,7 @@ using Oceananigans: prognostic_state, prognostic_fields, restore_prognostic_stat
 using KernelAbstractions: @kernel, @index
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.Fields: AbstractField, interior, set!
+using Oceananigans.Fields: interior, set!
 using Oceananigans.Grids: ZDirection, rnode, znode
 using Oceananigans.Operators: Δzᶜᶜᶜ, Δzᶜᶜᶠ, σ⁻, σⁿ
 using Oceananigans.Solvers: BatchedTridiagonalSolver, solve!

@@ -223,18 +223,3 @@ end
     end
     return -Q + C * TE * E
 end
-
-@inline column_surface_stefan_residual_flux(bc, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt) = zero(eltype(grid))
-
-@inline function column_surface_stefan_residual_flux(bc::MeltingConstrainedFluxBalance, ext, i, j, k, grid, auxiliary, fields, relation, clock, model_fields, Δt)
-    Δz = Δzᶜᶜᶜ(i, j, k, grid)
-    # the cap is evaluated against the start-of-step enthalpy, the same one the surface solve used
-    E  = @inbounds auxiliary.surface_start_energy[i, j, 1]
-    S  = @inbounds fields.bulk_salinity[i, j, k]
-    Tₛ = @inbounds auxiliary.surface_temperature[i, j, 1]
-    requested = - getflux(ext, i, j, grid, Tₛ, clock, model_fields)
-    available = column_energy_to_complete_melt(relation, E, S, Δz) / Δt
-    applied = min(requested, max(available, zero(available)))
-    return applied - requested
-end
-

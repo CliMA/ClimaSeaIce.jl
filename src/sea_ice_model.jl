@@ -14,6 +14,7 @@ using .SeaIceDynamics: materialize_solver, maybe_extended_grid
 using .SeaIceThermodynamics: PrescribedTemperature, FluxFunction, SlabThermodynamics,
                              PhaseTransitions, internal_flux_function,
                              writable_top_surface_temperature,
+                             validate_snow_coupling,
                              ColumnEnergyThermodynamics, initialize_column_interfaces!
 using .SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
@@ -230,6 +231,8 @@ function SeaIceModel(grid;
     if !isnothing(ice_thermodynamics) && !isnothing(snow_thermodynamics)
         ice_thermodynamics = writable_top_surface_temperature(ice_thermodynamics, grid)
     end
+
+    validate_snow_coupling(ice_thermodynamics, snow_thermodynamics)
 
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)

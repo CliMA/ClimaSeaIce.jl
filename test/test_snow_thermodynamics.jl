@@ -24,6 +24,11 @@ using Test
     @test snow_flux isa ConductiveFlux
     @test snow_flux.conductivity ≈ 0.31
 
+    snow_with_distribution = snow_slab_thermodynamics(grid;
+        itd_shape = UniformThicknessDistribution(Float64; categories = 4))
+    @test slab_internal_heat_flux(snow_with_distribution.internal_heat_flux, -10.0, -1.8, 1.0) ≈
+          0.31 * 8.2 * (1 + 1/3 + 1/5 + 1/7)
+
     ice_flux = model.ice_thermodynamics.internal_heat_flux
     @test ice_flux isa ConductiveFlux
 

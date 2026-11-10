@@ -8,8 +8,12 @@ function cached_external_heat_fluxes(th::ColumnEnergyThermodynamics, Qe, clock, 
     grid = th.fields.internal_energy.grid
     cache = th.auxiliary.bottom_external_flux
     launch!(architecture(grid), grid, :xy, _cache_column_bottom_external_flux!, cache, th.fields, grid, Qe.bottom, clock, model_fields)
-    return (top = Qe.top, bottom = cache)
+    return (top = Qe.top, bottom = cached_column_bottom_flux(Qe.bottom, cache))
 end
+
+@inline cached_column_bottom_flux(bottom, cache) = cache
+@inline cached_column_bottom_flux(bottom::ColumnBasalHeatFlux, cache) =
+    ColumnBasalHeatFlux(cache, bottom.interface_cell, bottom.frazil)
 
 # Without a snow layer the surface budget sees zero snow thickness, so the placeholder properties never enter it.
 column_surface_snow(thermodynamics, ::Nothing) = (thickness = Oceananigans.Fields.ZeroField(), density = 1, conductivity = 1, latent_heat = 1,
@@ -74,11 +78,3 @@ end
 # The column carries its own enthalpy and interface heights, which RK substeps do not reset, so it steps once per full step.
 @inline apply_column_thermodynamics_this_stage(timestepper, clock) = true
 @inline apply_column_thermodynamics_this_stage(timestepper::SplitRungeKuttaTimeStepper, clock) = clock.stage == timestepper.Nstages
-
-function thermodynamic_time_step!(model, th::ColumnEnergyThermodynamics, ::Nothing, Δt)
-    apply_column_thermodynamics_this_stage(model.timestepper, model.clock) || return nothing
-    Qe = cached_external_heat_fluxes(th, model.external_heat_fluxes, model.clock, fields(model))
-    column_energy_time_step!(th, Qe, model.clock, fields(model), model.ice_consolidation_thickness, Δt)
-    column_stefan_volume_update!(th, model, Qe, Δt)
-    return nothing
-end
