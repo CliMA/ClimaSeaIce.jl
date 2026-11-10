@@ -117,7 +117,7 @@ end
 @inline diffusion_factor(i, j, kᶜ, kᶠ, grid, K::Number, Δt) = Δt * K / (Δzᶜᶜᶜ(i, j, kᶜ, grid) * Δzᶜᶜᶠ(i, j, kᶠ, grid))
 @inline diffusion_factor(i, j, kᶜ, kᶠ, grid, K, Δt) = diffusion_factor(i, j, kᶜ, kᶠ, grid, @inbounds(K[i, j, kᶠ]), Δt)
 
-@inline previous_to_current_column_metric_ratio(i, j, k, grid::SeaIceColumnGrid) = previous_column_height(grid, i, j) / column_height(grid, i, j)
+@inline previous_to_current_column_metric_ratio(i, j, k, grid::SeaIceColumnGrid) = previous_column_height(i, j, grid) / column_height(i, j, grid)
 
 # Swept-face displacement: base motion plus the thickness-stretch term (σⁿ - σ⁻) r.
 @inline function column_face_displacement(i, j, k, grid::SeaIceColumnGrid)
@@ -131,6 +131,10 @@ end
 const ColumnDirichletBoundary = Union{PrescribedTemperature, IceWaterThermalEquilibrium}
 
 @inline column_dirichlet_temperature(bc, i, j, grid, relation) = bottom_temperature(i, j, grid, bc, relation.phase_transitions.liquidus)
+# #183 made IceWaterThermalEquilibrium read the ice base height from the model fields, which this column does not
+# pass, so the column keeps the surface melting temperature it used before.
+@inline column_dirichlet_temperature(bc::IceWaterThermalEquilibrium, i, j, grid, relation) =
+    melting_temperature(relation.phase_transitions.liquidus, HeatBoundaryConditions.get_tracer(i, j, 1, grid, bc.salinity))
 
 @inline column_bottom_reference_temperature(bc, i, j, grid, fields, relation) = @inbounds fields.temperature[i, j, 1]
 @inline column_bottom_reference_temperature(bc::ColumnDirichletBoundary, i, j, grid, fields, relation) = column_dirichlet_temperature(bc, i, j, grid, relation)
@@ -161,6 +165,6 @@ end
 
 @inline column_boundary_temperature_conductance(i, j, kf, kc, grid, auxiliary) = @inbounds 2 * auxiliary.thermal_conductivity[i, j, kf] / Δzᶜᶜᶜ(i, j, kc, grid)
 
-@inline column_consolidated(consolidation_thickness, grid, i, j) = column_height(grid, i, j) ≥ @inbounds consolidation_thickness[i, j, 1]
+@inline column_consolidated(consolidation_thickness, grid, i, j) = column_height(i, j, grid) ≥ @inbounds consolidation_thickness[i, j, 1]
 
 @inline column_energy_to_complete_melt(relation, E, S, Δz) = (complete_melt_energy(relation, S) - E) * Δz
