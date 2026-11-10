@@ -9,7 +9,7 @@ density that scales the liquid properties).
 """
 abstract type AbstractColumnEnergyRelation end
 
-@inline liquidus_slope(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.liquidus.slope
+@inline liquidus_slope(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.liquidus.salinity_slope
 @inline reference_temperature(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.reference_temperature
 
 @inline solid_volumetric_heat_capacity(relation::AbstractColumnEnergyRelation) = relation.phase_transitions.density * relation.phase_transitions.heat_capacity

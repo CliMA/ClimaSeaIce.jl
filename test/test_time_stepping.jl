@@ -78,3 +78,24 @@ end
         @test maximum(u) ≤ uₒ  # but never overshoots the ocean velocity
     end
 end
+
+@testset "SemiImplicitStress computes its external velocities" begin
+    @info "Testing that computed external velocities follow their source..."
+
+    grid = RectilinearGrid(size = (8, 8, 1), x = (0, 10_000), y = (0, 10_000),
+                           z = (-1, 0), halo = (4, 4, 4), topology = (Periodic, Periodic, Bounded))
+
+    for solver in (ExplicitSolver(), SplitExplicitSolver(grid; substeps=10))
+        uₒ = Field{Face, Center, Nothing}(grid)
+        τₒ  = SemiImplicitStress(uₑ = Field(2 * uₒ))
+        dynamics = SeaIceMomentumEquation(grid; bottom_momentum_stress = τₒ,
+                                          rheology = ElastoViscoPlasticRheology(), solver)
+        model = SeaIceModel(grid; dynamics)
+        set!(model, h = 1, ℵ = 1, u = 0, v = 0)
+        set!(uₒ, 0.05)
+
+        time_step!(model, 60)
+
+        @test maximum(interior(model.velocities.u)) > 0
+    end
+end

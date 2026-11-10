@@ -131,6 +131,10 @@ end
 const ColumnDirichletBoundary = Union{PrescribedTemperature, IceWaterThermalEquilibrium}
 
 @inline column_dirichlet_temperature(bc, i, j, grid, relation) = bottom_temperature(i, j, grid, bc, relation.phase_transitions.liquidus)
+# #183 made IceWaterThermalEquilibrium read the ice base height from the model fields, which this column does not
+# pass, so the column keeps the surface melting temperature it used before.
+@inline column_dirichlet_temperature(bc::IceWaterThermalEquilibrium, i, j, grid, relation) =
+    melting_temperature(relation.phase_transitions.liquidus, HeatBoundaryConditions.get_tracer(i, j, 1, grid, bc.salinity))
 
 @inline column_bottom_reference_temperature(bc, i, j, grid, fields, relation) = @inbounds fields.temperature[i, j, 1]
 @inline column_bottom_reference_temperature(bc::ColumnDirichletBoundary, i, j, grid, fields, relation) = column_dirichlet_temperature(bc, i, j, grid, relation)
