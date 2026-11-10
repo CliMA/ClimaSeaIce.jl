@@ -66,9 +66,11 @@ if TEST_GROUP == "all" || TEST_GROUP == "energy_conservation"
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "column_energy"
+    include("column_energy_test_utils.jl")
     include("test_column_energy_thermodynamics.jl")
     include("test_column_energy_relations.jl")
     include("test_column_energy_state.jl")
+    include("test_column_energy_heat_solve.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "netcdf"
