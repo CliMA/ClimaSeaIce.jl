@@ -45,7 +45,13 @@ function dynamic_time_step!(model::FESeaIceModel, Δt)
     Gⁿ = model.timestepper.Gⁿ
     ℵᵐⁱⁿ = minimum_ice_concentration(eltype(grid), model.advection)
 
+    # Remap column properties while h and ℵ still contain the donor-cell state.
+    remap_column_tracers!(model, model.advection, Δt)
+
     launch!(arch, grid, :xy, _dynamic_step_tracers!, h, ℵ, h, ℵ, hs, hs, tracers, Gⁿ, Δt, ℵᵐⁱⁿ)
+
+    # Horizontal transport changes thickness before the column solve.
+    sync_column_grid_interfaces!(model.ice_thermodynamics, grid, h)
 
     return nothing
 end
