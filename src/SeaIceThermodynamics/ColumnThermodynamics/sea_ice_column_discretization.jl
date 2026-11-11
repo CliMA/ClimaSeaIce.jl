@@ -1,4 +1,5 @@
 using Oceananigans.Architectures: architecture
+import Oceananigans.Architectures: on_architecture
 using Oceananigans.Fields: Field, Center, Face
 using Oceananigans.Grids: Grids, AbstractVerticalCoordinate, AbstractUnderlyingGrid, Bounded, rnode, new_data
 using Oceananigans.Operators: Operators
@@ -40,11 +41,32 @@ end
 
 function Grids.validate_dimension_specification(T, ξ::SeaIceColumnDiscretization, dir, N, FT)
     cᵃᵃᶠ = Grids.validate_dimension_specification(T, ξ.cᵃᵃᶠ, dir, N, FT)
-    cᵃᵃᶜ = Grids.validate_dimension_specification(T, ξ.cᵃᵃᶜ, dir, N, FT)
-    return SeaIceColumnDiscretization(cᵃᵃᶠ, cᵃᵃᶜ, ξ.Δᵃᵃᶠ, ξ.Δᵃᵃᶜ, ξ.hsⁿ, ξ.hbⁿ, ξ.hs⁻, ξ.hb⁻)
+    return SeaIceColumnDiscretization(cᵃᵃᶠ, cᵃᵃᶠ, ξ.Δᵃᵃᶠ, ξ.Δᵃᵃᶜ, ξ.hsⁿ, ξ.hbⁿ, ξ.hs⁻, ξ.hb⁻)
 end
 
 Adapt.@adapt_structure SeaIceColumnDiscretization
+
+# Oceananigans moves a grid's vertical coordinate through `on_architecture`.
+# Move every reference array and interface field with it so GPU grid kernels
+# receive device-backed coordinate data.
+on_architecture(arch, z::SeaIceColumnDiscretization) =
+    SeaIceColumnDiscretization(on_architecture(arch, z.cᵃᵃᶠ),
+                               on_architecture(arch, z.cᵃᵃᶜ),
+                               on_architecture(arch, z.Δᵃᵃᶠ),
+                               on_architecture(arch, z.Δᵃᵃᶜ),
+                               on_architecture(arch, z.hsⁿ),
+                               on_architecture(arch, z.hbⁿ),
+                               on_architecture(arch, z.hs⁻),
+                               on_architecture(arch, z.hb⁻))
+
+# A grid rebuilt from an existing one keeps its interface heights. A fresh grid has none to copy.
+copy_column_interface!(destination, ::Nothing, arch) = nothing
+
+function copy_column_interface!(destination, source, arch)
+    region = map(intersect, axes(destination), axes(source))
+    view(destination, region...) .= view(on_architecture(arch, source), region...)
+    return nothing
+end
 
 # Materialize the reference layers and allocate the two-interface height fields during grid construction.
 function Grids.generate_coordinate(FT, topology, size, halo, coordinate::SeaIceColumnDiscretization, coordinate_name, dim::Int, arch)
@@ -66,6 +88,11 @@ function Grids.generate_coordinate(FT, topology, size, halo, coordinate::SeaIceC
     fill!(hbⁿ, zero(FT)); fill!(hb⁻, zero(FT))
     fill!(hsⁿ, convert(FT, Lr)); fill!(hs⁻, convert(FT, Lr))
 
+    copy_column_interface!(hsⁿ, coordinate.hsⁿ, arch)
+    copy_column_interface!(hbⁿ, coordinate.hbⁿ, arch)
+    copy_column_interface!(hs⁻, coordinate.hs⁻, arch)
+    copy_column_interface!(hb⁻, coordinate.hb⁻, arch)
+
     coordinate = SeaIceColumnDiscretization(rᵃᵃᶠ, rᵃᵃᶜ, Δrᵃᵃᶠ, Δrᵃᵃᶜ, hsⁿ, hbⁿ, hs⁻, hb⁻)
 
     return Lr, coordinate
@@ -75,20 +102,28 @@ const SeaIceColumnUnderlyingGrid = AbstractUnderlyingGrid{<:Any, <:Any, <:Any, <
 const SeaIceColumnGrid = Union{SeaIceColumnUnderlyingGrid,
                                ImmersedBoundaryGrid{<:Any, <:Any, <:Any, <:Any, <:SeaIceColumnUnderlyingGrid}}
 
+# Grid reconstruction preserves the reference faces and both interface time levels.
+Grids.cpu_face_constructor_z(grid::SeaIceColumnUnderlyingGrid) =
+    SeaIceColumnDiscretization(Grids.cpu_face_constructor_r(grid), nothing, nothing, nothing,
+                               grid.z.hsⁿ, grid.z.hbⁿ, grid.z.hs⁻, grid.z.hb⁻)
+
 @inline sea_ice_discretization(grid::SeaIceColumnUnderlyingGrid) = grid.z
 @inline sea_ice_discretization(grid::ImmersedBoundaryGrid) = grid.underlying_grid.z
 
-@inline column_height(grid, i, j) = @inbounds sea_ice_discretization(grid).hsⁿ[i, j, 1] - sea_ice_discretization(grid).hbⁿ[i, j, 1]
-@inline previous_column_height(grid, i, j) = @inbounds sea_ice_discretization(grid).hs⁻[i, j, 1] - sea_ice_discretization(grid).hb⁻[i, j, 1]
+@inline column_height(i, j, grid) = @inbounds sea_ice_discretization(grid).hsⁿ[i, j, 1] - sea_ice_discretization(grid).hbⁿ[i, j, 1]
+@inline previous_column_height(i, j, grid) = @inbounds sea_ice_discretization(grid).hs⁻[i, j, 1] - sea_ice_discretization(grid).hb⁻[i, j, 1]
 
 # z-star metric: σ = column height / reference height.
-@inline Operators.σⁿ(i, j, k, grid::SeaIceColumnUnderlyingGrid, ℓx, ℓy, ℓz) = column_height(grid, i, j) / grid.Lz
-@inline Operators.σ⁻(i, j, k, grid::SeaIceColumnUnderlyingGrid, ℓx, ℓy, ℓz) = previous_column_height(grid, i, j) / grid.Lz
+@inline Operators.σⁿ(i, j, k, grid::SeaIceColumnUnderlyingGrid, ℓx, ℓy, ℓz) = column_height(i, j, grid) / grid.Lz
+@inline Operators.σ⁻(i, j, k, grid::SeaIceColumnUnderlyingGrid, ℓx, ℓy, ℓz) = previous_column_height(i, j, grid) / grid.Lz
 
 @inline Operators.Δzᶜᶜᶜ(i, j, k, grid::SeaIceColumnGrid) = Operators.Δrᶜᶜᶜ(i, j, k, grid) * Operators.σⁿ(i, j, k, grid, Center(), Center(), Center())
 @inline Operators.Δzᶜᶜᶠ(i, j, k, grid::SeaIceColumnGrid) = Operators.Δrᶜᶜᶠ(i, j, k, grid) * Operators.σⁿ(i, j, k, grid, Center(), Center(), Face())
 
-@inline Grids.znode(i, j, k, grid::SeaIceColumnUnderlyingGrid, ::Center, ::Center, ℓz) = rnode(i, j, k, grid, Center(), Center(), ℓz) * Operators.σⁿ(i, j, k, grid, Center(), Center(), ℓz) + @inbounds grid.z.hbⁿ[i, j, 1]
+# Reference height above the column base, r - r_bottom.
+@inline column_reference_height(i, j, k, grid, ℓz) = rnode(i, j, k, grid, Center(), Center(), ℓz) - rnode(i, j, 1, grid, Center(), Center(), Face())
+
+@inline Grids.znode(i, j, k, grid::SeaIceColumnUnderlyingGrid, ::Center, ::Center, ℓz) = column_reference_height(i, j, k, grid, ℓz) * Operators.σⁿ(i, j, k, grid, Center(), Center(), ℓz) + @inbounds grid.z.hbⁿ[i, j, 1]
 
 # Columns at rest: surface at z = 0, base at z = -ice_thickness.
 @kernel function _initialize_column_interfaces!(z, ice_thickness)

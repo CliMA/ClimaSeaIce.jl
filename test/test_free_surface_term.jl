@@ -69,3 +69,21 @@ end
         @test all(u[2:8, :, 1] .≈ - g * ∂η∂x * Δt)
     end
 end
+
+@testset "The default ocean surface height has the grid's float type" begin
+    @info "Testing the float type of the default ocean surface height..."
+
+    for FT in (Float32, Float64)
+        grid = RectilinearGrid(FT; size = (8, 8), x = (0, 8e4), y = (0, 8e4), topology = (Bounded, Bounded, Flat))
+        dynamics = SeaIceMomentumEquation(grid; coriolis = nothing, rheology = ViscousRheology(ν = 0))
+
+        @test eltype(dynamics.free_surface.η) == FT
+
+        model = SeaIceModel(grid; dynamics, advection = nothing, ice_thermodynamics = nothing,
+                            timestepper = :ForwardEuler)
+        set!(model, h = 1, ℵ = 1)
+        time_step!(model, 60)
+
+        @test iszero(Array(interior(model.velocities.u)))
+    end
+end
