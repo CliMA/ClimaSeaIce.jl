@@ -55,13 +55,20 @@ assumed_sea_ice_field_location(name) = name === :u  ? (Face,   Center, Nothing) 
                                        name === :v  ? (Center, Face,   Nothing) :
                                                       (Center, Center, Nothing)
 
-function default_sea_ice_boundary_conditions(grid, name)
-    bcs = FieldBoundaryConditions(grid, instantiate.(assumed_sea_ice_field_location(name)))
-    if (name === :u || name === :v) && bcs.north isa BoundaryCondition && bcs.north.classification isa Zipper
+# Velocities and transports change sign across a tripolar fold.
+function fold_antisymmetric_boundary_conditions(grid, location)
+    bcs = FieldBoundaryConditions(grid, location)
+    if bcs.north isa BoundaryCondition && bcs.north.classification isa Zipper
         north = BoundaryCondition(bcs.north.classification, - bcs.north.condition)
         bcs = FieldBoundaryConditions(bcs.west, bcs.east, bcs.south, north, bcs.bottom, bcs.top, bcs.immersed)
     end
     return bcs
+end
+
+function default_sea_ice_boundary_conditions(grid, name)
+    location = instantiate.(assumed_sea_ice_field_location(name))
+    return name === :u || name === :v ? fold_antisymmetric_boundary_conditions(grid, location) :
+                                        FieldBoundaryConditions(grid, location)
 end
 
 # Candidate for upstreaming to Oceananigans.
