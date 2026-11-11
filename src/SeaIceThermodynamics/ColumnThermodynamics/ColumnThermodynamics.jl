@@ -1,13 +1,13 @@
 using Oceananigans: prognostic_state, prognostic_fields, restore_prognostic_state!
 using KernelAbstractions: @kernel, @index
-using RootSolvers: SecantMethod, find_zero, CompactSolution
 using Oceananigans.Architectures: architecture
-using Oceananigans.Fields: AbstractField, interior, set!
+using Oceananigans.BoundaryConditions: fill_halo_regions!
+using Oceananigans.Fields: interior, set!
 using Oceananigans.Grids: ZDirection, rnode, znode
 using Oceananigans.Operators: Δzᶜᶜᶜ, Δzᶜᶜᶠ, σ⁻, σⁿ
 using Oceananigans.Solvers: BatchedTridiagonalSolver, solve!
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
-using Oceananigans.Utils: launch!
+using Oceananigans.Utils: launch!, KernelParameters, worksize
 
 # Enthalpy/temperature/salinity relations and the moving two-interface vertical coordinate.
 include("column_energy_relations.jl")

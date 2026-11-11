@@ -14,6 +14,7 @@ using .SeaIceDynamics: materialize_solver, maybe_extended_grid
 using .SeaIceThermodynamics: PrescribedTemperature, FluxFunction, SlabThermodynamics,
                              PhaseTransitions, internal_flux_function,
                              writable_top_surface_temperature,
+                             validate_snow_coupling,
                              ColumnEnergyThermodynamics, initialize_column_interfaces!
 using .SeaIceThermodynamics.HeatBoundaryConditions: flux_summary
 
@@ -231,14 +232,16 @@ function SeaIceModel(grid;
         ice_thermodynamics = writable_top_surface_temperature(ice_thermodynamics, grid)
     end
 
+    validate_snow_coupling(ice_thermodynamics, snow_thermodynamics)
+
     if !isnothing(ice_thermodynamics)
         if isnothing(top_heat_flux)
             if isnothing(snow_thermodynamics) && ice_thermodynamics isa SlabThermodynamics &&
                ice_thermodynamics.heat_boundary_conditions.top isa PrescribedTemperature
                 # Default: external top flux is in equilibrium with internal fluxes.
-                # Build a FluxFunction wrapper using the model's shared liquidus.
+                # Build a FluxFunction wrapper using the model's shared phase transitions.
                 top_heat_flux = internal_flux_function(ice_thermodynamics.internal_heat_flux,
-                                                       phase_transitions.liquidus,
+                                                       phase_transitions,
                                                        ice_thermodynamics.heat_boundary_conditions.bottom)
             else
                 # Default: no external top surface flux
@@ -353,6 +356,9 @@ Oceananigans.TimeSteppers.reset!(::SIM) = nothing
 snow_fields(::Nothing) = NamedTuple()
 snow_fields(hs) = (; hs)
 
+snow_fields(::Nothing, ρs) = NamedTuple()
+snow_fields(hs, ρs) = (; hs, ρs)
+
 component_fields(component) = fields(component)
 component_fields(::Nothing) = NamedTuple()
 
@@ -364,7 +370,7 @@ component_prognostic_fields(model, ::Nothing) = NamedTuple()
 Oceananigans.fields(model::SIM) = merge((; h  = model.ice_thickness,
                                            ℵ  = model.ice_concentration,
                                            ρi = model.sea_ice_density),
-                                        snow_fields(model.snow_thickness),
+                                        snow_fields(model.snow_thickness, model.snow_density),
                                         model.tracers,
                                         model.velocities,
                                         component_fields(model.ice_thermodynamics),

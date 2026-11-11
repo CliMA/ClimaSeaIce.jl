@@ -6,6 +6,39 @@ using Oceananigans.Units: Time
 # No ice, no thermodynamics!
 thermodynamic_time_step!(model, ::Nothing, snow_thermodynamics, Δt) = nothing
 
+# Checked once, when the model is built.
+validate_snow_coupling(ice_thermodynamics, snow_thermodynamics) = nothing
+
+function validate_snow_coupling(th::ColumnEnergyThermodynamics, snow::SlabThermodynamics)
+    th.heat_boundary_conditions.top isa MeltingConstrainedFluxBalance ||
+        throw(ArgumentError("Column ice with slab snow requires MeltingConstrainedFluxBalance at the ice surface"))
+    snow.heat_boundary_conditions.top isa MeltingConstrainedFluxBalance ||
+        throw(ArgumentError("Column ice with slab snow requires MeltingConstrainedFluxBalance at the snow surface"))
+    snow.internal_heat_flux isa ConductiveFlux ||
+        throw(ArgumentError("Column ice with slab snow requires conductive slab snow"))
+    snow.top_surface_temperature === th.auxiliary.surface_temperature &&
+        throw(ArgumentError("Snow and ice surface temperatures must use separate fields"))
+    return nothing
+end
+
+column_snow_coupling(model, th, ::Nothing) = nothing
+
+function column_snow_coupling(model, th, snow::SlabThermodynamics)
+    return (thickness = model.snow_thickness, density = model.snow_density,
+            conductivity = snow.internal_heat_flux.conductivity,
+            latent_heat = model.phase_transitions.reference_latent_heat,
+            itd_shape = snow.internal_heat_flux.itd_shape, temperature = snow.top_surface_temperature)
+end
+
+function thermodynamic_time_step!(model, th::ColumnEnergyThermodynamics, snow::Union{Nothing, SlabThermodynamics}, Δt)
+    apply_column_thermodynamics_this_stage(model.timestepper, model.clock) || return nothing
+    snow = column_snow_coupling(model, th, snow)
+    Qe = cached_external_heat_fluxes(th, model.external_heat_fluxes, model.clock, fields(model))
+    column_energy_time_step!(th, Qe, model.clock, fields(model), model.ice_consolidation_thickness, Δt; snow)
+    column_stefan_volume_update!(th, model, Qe, Δt; snow)
+    return nothing
+end
+
 # Only slab ice
 function thermodynamic_time_step!(model, ice_thermodynamics::SlabThermodynamics, ::Nothing, Δt)
     grid = model.grid
@@ -163,7 +196,7 @@ end
     bottom_bc = ice_thermodynamics.heat_boundary_conditions.bottom
     @inbounds Si = model_fields.S[i, j, 1]
 
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    Tb = bottom_temperature(i, j, grid, bottom_bc, phase_transitions, model_fields)
     Tm = melting_temperature(liquidus, Si)
 
     # Snow surface solve using the combined snow+ice conductive flux with a
@@ -173,10 +206,7 @@ end
     combined_flux = IceSnowConductiveFlux(ks, ki, ice_thermodynamics.internal_heat_flux.itd_shape)
 
     # Column internal heat flux
-    Qic = internal_flux_function(combined_flux, liquidus, bottom_bc)
-
-    # Ice-only flux wrapper for the ice-interior evaluation at Tsi.
-    Qii = internal_flux_function(ice_thermodynamics.internal_heat_flux, liquidus, bottom_bc)
+    Qic = internal_flux_function(combined_flux, phase_transitions, bottom_bc)
 
     snow_top_bc = snow_thermodynamics.heat_boundary_conditions.top
     Tu = snow_thermodynamics.top_surface_temperature
@@ -200,7 +230,7 @@ end
 
     # Tsi = Tb + (Tus - Tb) * Ri / (Rs + Ri)
     # When hs = 0: Tsi = Tus (snow layer has zero resistance)
-    Tsi = interface_temperature(i, j, grid, combined_flux, bottom_bc, liquidus, Tus, model_fields)
+    Tsi = interface_temperature(i, j, grid, combined_flux, bottom_bc, phase_transitions, Tus, model_fields)
 
     # Store Tsi as the ice top surface temperature
     @inbounds ice_thermodynamics.top_surface_temperature[i, j, 1] = Tsi
@@ -258,12 +288,9 @@ end
     # Pass the cached Qbi scalar (not the closure) so the bottom-flux closure is evaluated exactly once per step
     Quiᵉᶠᶠ = Qui + Qs * ℵtmp
     ∂t_𝓋 = ice_melt_freeze_tendency(i, j, 1, grid,
-                                    ice_thermodynamics,
                                     phase_transitions,
                                     sea_ice_density,
-                                    Qii,
                                     Tsi,
-                                    ice_thickness, ice_consolidation_thickness,
                                     Quiᵉᶠᶠ, Qbi,
                                     clock, model_fields)
 

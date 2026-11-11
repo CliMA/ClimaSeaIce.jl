@@ -54,7 +54,7 @@ function compute_column_thermodynamic_diagnostics!(thermodynamics::ColumnEnergyT
 end
 
 # Boundary faces (k = 1 and k = Nz + 1) take the adjacent cell values.
-@inline function store_face_transport_coefficients!(auxiliary, i, j, k, grid, fields, κT, κE)
+@inline function store_face_transport_coefficients!(i, j, k, grid, auxiliary, fields, κT)
     Nz = size(grid, 3)
     kᵇ = max(k - 1, 1)
     kᵗ = min(k, Nz)
@@ -62,34 +62,26 @@ end
     @inbounds begin
         T = fields.temperature
         S = fields.bulk_salinity
-        TE = (fields.temperature_energy_derivative[i, j, kᵇ] + fields.temperature_energy_derivative[i, j, kᵗ]) / 2
-        TS = (fields.temperature_salinity_derivative[i, j, kᵇ] + fields.temperature_salinity_derivative[i, j, kᵗ]) / 2
-
-        K = ifelse(kᵇ == kᵗ, ice_thermal_conductivity(κT, T[i, j, kᵗ], S[i, j, kᵗ]),
-                   face_thermal_conductivity(κT, T[i, j, kᵇ], S[i, j, kᵇ], Δzᶜᶜᶜ(i, j, kᵇ, grid), T[i, j, kᵗ], S[i, j, kᵗ], Δzᶜᶜᶜ(i, j, kᵗ, grid)))
-
-        auxiliary.thermal_conductivity[i, j, k] = K
-        auxiliary.effective_energy_diffusivity[i, j, k] = K * TE + κE
-        auxiliary.salinity_coupling_diffusivity[i, j, k] = K * TS
+        auxiliary.thermal_conductivity[i, j, k] = ifelse(kᵇ == kᵗ, ice_thermal_conductivity(κT, T[i, j, kᵗ], S[i, j, kᵗ]),
+            face_thermal_conductivity(κT, T[i, j, kᵇ], S[i, j, kᵇ], Δzᶜᶜᶜ(i, j, kᵇ, grid), T[i, j, kᵗ], S[i, j, kᵗ], Δzᶜᶜᶜ(i, j, kᵗ, grid)))
     end
 end
 
 @kernel function _compute_column_transport_coefficients!(auxiliary, fields, grid, energy_transport)
     i, j, k = @index(Global, NTuple)
     κT = thermal_conductivity(energy_transport)
-    κE = energy_diffusivity(energy_transport)
-    store_face_transport_coefficients!(auxiliary, i, j, k, grid, fields, κT, κE)
-    k == size(grid, 3) && store_face_transport_coefficients!(auxiliary, i, j, k + 1, grid, fields, κT, κE)
+    store_face_transport_coefficients!(i, j, k, grid, auxiliary, fields, κT)
 end
 
 """
     compute_column_transport_coefficients!(thermodynamics)
 
-Compute the face-centered energy transport coefficients of the semi-implicit energy solve.
+Compute the face thermal conductivity of the semi-implicit energy solve.
 """
 function compute_column_transport_coefficients!(thermodynamics::ColumnEnergyThermodynamics)
     grid = thermodynamics.fields.internal_energy.grid
-    launch!(architecture(grid), grid, :xyz, _compute_column_transport_coefficients!,
+    Nx, Ny, Nz = worksize(grid)
+    launch!(architecture(grid), grid, KernelParameters(1:Nx, 1:Ny, 1:Nz+1), _compute_column_transport_coefficients!,
             thermodynamics.auxiliary, thermodynamics.fields, grid, thermodynamics.energy_transport)
     return nothing
 end
@@ -99,7 +91,6 @@ end
     Nz = size(grid, 3)
     z_top = znode(i, j, Nz+1, grid, Center(), Center(), Face())
     @inbounds I[i, j, k] = shortwave_flux(shortwave_absorption, znode(i, j, k, grid, Center(), Center(), Face()), z_top)
-    @inbounds k == Nz && (I[i, j, Nz+1] = shortwave_flux(shortwave_absorption, z_top, z_top))
 end
 
 """
@@ -109,7 +100,8 @@ Compute the face-centered shortwave flux of the shortwave absorption closure.
 """
 function compute_column_shortwave_flux!(thermodynamics::ColumnEnergyThermodynamics)
     grid = thermodynamics.fields.internal_energy.grid
-    launch!(architecture(grid), grid, :xyz, _compute_column_shortwave_flux!,
+    Nx, Ny, Nz = worksize(grid)
+    launch!(architecture(grid), grid, KernelParameters(1:Nx, 1:Ny, 1:Nz+1), _compute_column_shortwave_flux!,
             thermodynamics.auxiliary.shortwave_flux, grid, thermodynamics.shortwave_absorption)
     return nothing
 end
@@ -117,50 +109,61 @@ end
 @inline diffusion_factor(i, j, kᶜ, kᶠ, grid, K::Number, Δt) = Δt * K / (Δzᶜᶜᶜ(i, j, kᶜ, grid) * Δzᶜᶜᶠ(i, j, kᶠ, grid))
 @inline diffusion_factor(i, j, kᶜ, kᶠ, grid, K, Δt) = diffusion_factor(i, j, kᶜ, kᶠ, grid, @inbounds(K[i, j, kᶠ]), Δt)
 
-@inline previous_to_current_column_metric_ratio(i, j, k, grid::SeaIceColumnGrid) = previous_column_height(grid, i, j) / column_height(grid, i, j)
+@inline previous_to_current_column_metric_ratio(i, j, k, grid::SeaIceColumnGrid) = previous_column_height(i, j, grid) / column_height(i, j, grid)
 
-# Swept-face displacement: base motion plus the thickness-stretch term (σⁿ - σ⁻) r.
+# Swept-face displacement: base motion plus the thickness-stretch term (σⁿ - σ⁻) (r - r_bottom).
 @inline function column_face_displacement(i, j, k, grid::SeaIceColumnGrid)
     z = sea_ice_discretization(grid)
     δbase = @inbounds z.hbⁿ[i, j, 1] - z.hb⁻[i, j, 1]
     σᶜᶜⁿ = σⁿ(i, j, k, grid, Center(), Center(), Face())
     σᶜᶜ⁻ = σ⁻(i, j, k, grid, Center(), Center(), Face())
-    return δbase + (σᶜᶜⁿ - σᶜᶜ⁻) * rnode(i, j, k, grid, Center(), Center(), Face())
+    return δbase + (σᶜᶜⁿ - σᶜᶜ⁻) * column_reference_height(i, j, k, grid, Face())
 end
 
 const ColumnDirichletBoundary = Union{PrescribedTemperature, IceWaterThermalEquilibrium}
 
-@inline column_dirichlet_temperature(bc, i, j, grid, relation) = bottom_temperature(i, j, grid, bc, relation.phase_transitions.liquidus)
+@inline column_dirichlet_temperature(i, j, grid, bc, relation, model_fields) = bottom_temperature(i, j, grid, bc, relation.phase_transitions, model_fields)
 
-@inline column_bottom_reference_temperature(bc, i, j, grid, fields, relation) = @inbounds fields.temperature[i, j, 1]
-@inline column_bottom_reference_temperature(bc::ColumnDirichletBoundary, i, j, grid, fields, relation) = column_dirichlet_temperature(bc, i, j, grid, relation)
+@inline column_bottom_reference_temperature(i, j, grid, bc, fields, relation, model_fields) = @inbounds fields.temperature[i, j, 1]
+@inline column_bottom_reference_temperature(i, j, grid, bc::ColumnDirichletBoundary, fields, relation, model_fields) = column_dirichlet_temperature(i, j, grid, bc, relation, model_fields)
 
 # Congelation at a Dirichlet base lays down ice at the interface temperature (the BL99 new-ice enthalpy).
-@inline moving_bottom_boundary_value(boundary, i, j, grid, fields, relation, default) = default
+@inline moving_bottom_boundary_value(i, j, grid, boundary, fields, relation, default, model_fields) = default
 
-@inline function moving_bottom_boundary_value(boundary::ColumnDirichletBoundary, i, j, grid, fields, relation, default)
-    Tᵇ = column_dirichlet_temperature(boundary, i, j, grid, relation)
+@inline function moving_bottom_boundary_value(i, j, grid, boundary::ColumnDirichletBoundary, fields, relation, default, model_fields)
+    Tᵇ = column_dirichlet_temperature(i, j, grid, boundary, relation, model_fields)
     return internal_energy(relation, Tᵇ, @inbounds(fields.bulk_salinity[i, j, 1]))
 end
 
-# Upwind value swept across face k; boundary faces sweep in the bottom (top) boundary value when the ice grows.
-@inline function moving_face_displacement_flux(i, j, k, grid, c, fields, relation, bottom_boundary)
+# Integrate the piecewise-constant old profile across every layer swept by face k.
+# Beyond the old column the sweep takes the bottom boundary value or the top cell value.
+@inline function moving_face_displacement_flux(i, j, k, grid, c, fields, relation, bottom_boundary, model_fields)
     Nz = size(grid, 3)
     δz = column_face_displacement(i, j, k, grid)
+    stretch = σ⁻(i, j, k, grid, Center(), Center(), Face())
+    old_face = stretch * rnode(i, j, k, grid, Center(), Center(), Face())
+    lower, upper = minmax(old_face, old_face + δz)
+    integral = zero(δz)
 
     @inbounds begin
-        cᵇ = moving_bottom_boundary_value(bottom_boundary, i, j, grid, fields, relation, c[i, j, 1])
-        interior_value = ifelse(δz >= 0, c[i, j, min(k, Nz)], c[i, j, max(k-1, 1)])
-        value = ifelse((k == 1) & (δz < 0), cᵇ, interior_value)
+        for cell in 1:Nz
+            bottom = stretch * rnode(i, j, cell, grid, Center(), Center(), Face())
+            top = stretch * rnode(i, j, cell+1, grid, Center(), Center(), Face())
+            overlap = max(min(upper, top) - max(lower, bottom), zero(δz))
+            integral += overlap * c[i, j, cell]
+        end
+        bottom = stretch * rnode(i, j, 1, grid, Center(), Center(), Face())
+        top = stretch * rnode(i, j, Nz+1, grid, Center(), Center(), Face())
+        cᵇ = moving_bottom_boundary_value(i, j, grid, bottom_boundary, fields, relation, c[i, j, 1], model_fields)
+        integral += max(min(upper, bottom) - lower, zero(δz)) * cᵇ
+        integral += max(upper - max(lower, top), zero(δz)) * c[i, j, Nz]
     end
 
-    return δz * value
+    return ifelse(δz > 0, integral, -integral)
 end
-
-@inline salinity_coupling_flux(i, j, k, grid, C, S) = @inbounds(C[i, j, k] * (S[i, j, k] - S[i, j, k-1]) / Δzᶜᶜᶠ(i, j, k, grid))
 
 @inline column_boundary_temperature_conductance(i, j, kf, kc, grid, auxiliary) = @inbounds 2 * auxiliary.thermal_conductivity[i, j, kf] / Δzᶜᶜᶜ(i, j, kc, grid)
 
-@inline column_consolidated(consolidation_thickness, grid, i, j) = column_height(grid, i, j) ≥ @inbounds consolidation_thickness[i, j, 1]
+@inline column_consolidated(height, consolidation_thickness) = (height > 0) & (height ≥ consolidation_thickness)
 
 @inline column_energy_to_complete_melt(relation, E, S, Δz) = (complete_melt_energy(relation, S) - E) * Δz

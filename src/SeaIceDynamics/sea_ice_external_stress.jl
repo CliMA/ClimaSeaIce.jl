@@ -1,6 +1,6 @@
 using Adapt
 using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.Fields: ZeroField, interior
+using Oceananigans.Fields: ZeroField, compute!, interior
 using Oceananigans.Grids: halo_size
 
 # Default no-op implicit stress coefficients for stress types without
@@ -60,6 +60,8 @@ function refresh_and_fill_external_field!(dst::Field, src)
     return nothing
 end
 
+refresh_and_fill_external_field!(::ZeroField, ::ZeroField) = nothing
+
 materialize_stress(stress, grid) = extended_external_variable(stress, grid)
 
 function materialize_stress(stress::NamedTuple, grid)
@@ -68,10 +70,12 @@ function materialize_stress(stress::NamedTuple, grid)
     return (; u, v)
 end
 
-# Fill the external stresses' halos once per time step, before substepping (coupler owns interiors).
+# Compute the external stresses and fill their halos once per time step, before substepping.
 update_external_stress!(stress, grid) = nothing
 
 function update_external_stress!(stress::NamedTuple, grid)
+    compute!(stress.u)
+    compute!(stress.v)
     stress.u isa Field && fill_halo_regions!(stress.u)
     stress.v isa Field && fill_halo_regions!(stress.v)
     return nothing
@@ -89,6 +93,8 @@ end
 
 extended_surface_height(η₀, grid) = η₀
 
+extended_surface_height(::ZeroField, grid) = ZeroField(eltype(grid))
+
 function extended_surface_height(η₀::Field, grid)
     Oceananigans.location(η₀) === (Center, Center, Nothing) && grids_match(η₀, grid) && return η₀
     η = Field{Center, Center, Nothing}(grid)
@@ -99,6 +105,7 @@ end
 
 function update_free_surface!(free_surface)
     η, η₀ = free_surface
+    compute!(η₀)
     η === η₀ || refresh_and_fill_external_field!(η, η₀)
     return nothing
 end
@@ -172,6 +179,8 @@ Adapt.adapt_structure(to, τ::SemiImplicitStress) =
                        τ.Cᴰ)
 
 function update_external_stress!(τ::SemiImplicitStress, grid)
+    compute!(τ.uₑ₀)
+    compute!(τ.vₑ₀)
     τ.uₑ === τ.uₑ₀ || refresh_and_fill_external_field!(τ.uₑ, τ.uₑ₀)
     τ.vₑ === τ.vₑ₀ || refresh_and_fill_external_field!(τ.vₑ, τ.vₑ₀)
     return nothing
