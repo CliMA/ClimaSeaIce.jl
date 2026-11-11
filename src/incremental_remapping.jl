@@ -280,21 +280,19 @@ end
 ##### Transport through the swept region of a face
 #####
 
-# Swept region: (x, y)(η, s) = p(η) - s Δt 𝐮(η) on [0, 1]², with `p` along the face and `𝐮` the interpolated corner
-# velocity, local to the face midpoint. The signed Jacobian subtracts the two lobes of a sign-changing face.
+# Swept region: (x, y)(η, s) = p(η) - s Δt 𝐮(η) on [0, 1]², with `p` along the face and `𝐮` local to the face midpoint.
+# The tangential velocity is interpolated between corners; the uniform normal velocity makes the swept area Δt uᶠ Δy.
 @inline function x_face_transport(i, j, k, grid, ::Val{N}, Δt, u, v, ℵ, h, hs, r) where N
     FT = eltype(grid)
 
     Δy = Δyᶠᶜᶜ(i, j, k, grid)
     xᶜ = Δxᶜᶜᶜ(i, j, k, grid) / 2
 
-    u₁ = ℑyᵃᶠᵃ(i, j,   k, grid, u)
     v₁ = ℑxᶠᵃᵃ(i, j,   k, grid, v)
-    u₂ = ℑyᵃᶠᵃ(i, j+1, k, grid, u)
     v₂ = ℑxᶠᵃᵃ(i, j+1, k, grid, v)
-
-    δu = u₂ - u₁
     δv = v₂ - v₁
+
+    uᶠ = @inbounds u[i, j, k] * Δy / (Δy - Δt * δv / 2)
 
     𝔉ℵ = zero(FT)
     𝔉𝓋 = zero(FT)
@@ -303,13 +301,12 @@ end
     rule = quadrature_rule(FT, Val(N))
 
     for (η, wη) in rule, (s, ws) in rule
-        uη = u₁ + η * δu
         vη = v₁ + η * δv
 
-        x = - s * Δt * uη
+        x = - s * Δt * uᶠ
         y = - Δy/2 + η * Δy - s * Δt * vη
 
-        𝒥 = Δt * uη * Δy + s * Δt^2 * (δu * vη - uη * δv)
+        𝒥 = Δt * uᶠ * (Δy - s * Δt * δv)
 
         ℵ̃, h̃, h̃s = reconstruct(i, j, k, grid, x - xᶜ, y, ℵ, h, hs, r)
 
@@ -329,12 +326,10 @@ end
     yᶜ = Δyᶜᶜᶜ(i, j, k, grid) / 2
 
     u₁ = ℑyᵃᶠᵃ(i,   j, k, grid, u)
-    v₁ = ℑxᶠᵃᵃ(i,   j, k, grid, v)
     u₂ = ℑyᵃᶠᵃ(i+1, j, k, grid, u)
-    v₂ = ℑxᶠᵃᵃ(i+1, j, k, grid, v)
-
     δu = u₂ - u₁
-    δv = v₂ - v₁
+
+    vᶠ = @inbounds v[i, j, k] * Δx / (Δx - Δt * δu / 2)
 
     𝔉ℵ = zero(FT)
     𝔉𝓋 = zero(FT)
@@ -344,12 +339,11 @@ end
 
     for (ξ, wξ) in rule, (s, ws) in rule
         uξ = u₁ + ξ * δu
-        vξ = v₁ + ξ * δv
 
         x = - Δx/2 + ξ * Δx - s * Δt * uξ
-        y = - s * Δt * vξ
+        y = - s * Δt * vᶠ
 
-        𝒥 = Δt * vξ * Δx + s * Δt^2 * (δv * uξ - vξ * δu)
+        𝒥 = Δt * vᶠ * (Δx - s * Δt * δu)
 
         ℵ̃, h̃, h̃s = reconstruct(i, j, k, grid, x, y - yᶜ, ℵ, h, hs, r)
 
