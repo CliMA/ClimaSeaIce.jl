@@ -323,6 +323,84 @@ end
     @test all(isfinite, h)
 end
 
+#####
+##### Positivity-preserving advection
+#####
+
+function positivity_preserving_model(grid, u, v; timestepper = :SplitRungeKutta3, snow = false)
+    snow_thermodynamics = snow ? snow_slab_thermodynamics(grid) : nothing
+    return SeaIceModel(grid; velocities = (; u, v),
+                       advection = PositivityPreservingAdvection(WENO(order = 5)),
+                       ice_thermodynamics = nothing,
+                       snow_thermodynamics,
+                       dynamics = nothing,
+                       timestepper)
+end
+
+@testset "Positivity-preserving advection conserves ∫(ℵ·h) dA without negative ice" begin
+    @info "Testing positivity-preserving WENO advection"
+
+    for timestepper in (:SplitRungeKutta3, :ForwardEuler)
+        grid = remapping_grid(48)
+        u, v = swirling_velocities(grid)
+        model = positivity_preserving_model(grid, u, v; timestepper, snow = true)
+
+        iced(x, y) = ((x - 1/2)^2 + (y - 1/2)^2) < 0.2^2
+        set!(model, ℵ = (x, y) -> iced(x, y) ? 0.5 : 0.0,
+                    h = (x, y) -> iced(x, y) ? 1.5 : 0.0,
+                    hs = (x, y) -> iced(x, y) ? 0.3 : 0.0)
+
+        content(m) = Field(Integral(m.ice_concentration * m.ice_thickness))[1, 1, 1]
+        snow(m) = Field(Integral(m.ice_concentration * m.snow_thickness))[1, 1, 1]
+
+        𝓋₀, 𝓋s₀ = content(model), snow(model)
+
+        for _ in 1:200
+            time_step!(model, 0.02)
+        end
+
+        h = Array(interior(model.ice_thickness))
+        hs = Array(interior(model.snow_thickness))
+        ℵ = Array(interior(model.ice_concentration))
+
+        @test isapprox(content(model), 𝓋₀; rtol = 1e-12)
+        @test isapprox(snow(model), 𝓋s₀; rtol = 1e-12)
+        @test minimum(ℵ) ≥ 0
+        @test maximum(ℵ) ≤ 1
+        @test minimum(h) ≥ 0
+        @test maximum(h) ≤ 1.5 * (1 + 1e-8)
+        @test maximum(hs) ≤ 0.3 * (1 + 1e-8)
+    end
+end
+
+@testset "Positivity-preserving advection across an immersed boundary" begin
+    @info "Testing positivity-preserving WENO advection against an immersed island"
+
+    underlying_grid = remapping_grid(48)
+    island(x, y, z) = ((x - 1/2)^2 + (y - 1/2)^2) < 0.12^2
+    grid = ImmersedBoundaryGrid(underlying_grid, GridFittedBoundary(island))
+
+    u = Field{Face, Center, Center}(grid); set!(u, 0.1); fill_halo_regions!(u)
+    v = Field{Center, Face, Center}(grid); set!(v, 0.037); fill_halo_regions!(v)
+
+    model = positivity_preserving_model(grid, u, v)
+    set!(model, ℵ = 0.3, h = 1.5)
+    Oceananigans.TimeSteppers.update_state!(model)
+
+    content(m) = sum(interior(m.ice_concentration, :, :, 1) .* interior(m.ice_thickness, :, :, 1))
+    𝓋₀ = content(model)
+
+    for _ in 1:200
+        time_step!(model, 0.02)
+    end
+
+    ℵ = Array(interior(model.ice_concentration, :, :, 1))
+
+    @test isapprox(content(model), 𝓋₀; rtol = 1e-10)
+    @test minimum(ℵ) ≥ 0
+    @test all(isfinite, interior(model.ice_thickness))
+end
+
 @testset "Sea ice momentum equations" begin
     @info "Running sea ice momentum equations test"
 
