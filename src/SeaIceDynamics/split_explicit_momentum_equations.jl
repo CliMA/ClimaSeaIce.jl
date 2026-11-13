@@ -1,12 +1,15 @@
 using Oceananigans: instantiated_location
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid
 using Oceananigans.Architectures: convert_to_device, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
 using Oceananigans.Grids: AbstractGrid, halo_size, topology, with_halo, peripheral_node, connected_range,
-                          Sides, Closed, Connected, RightCenterFolded, RightFaceFolded
+                          TwoSided, Connected, CenterFolded, FaceFolded, CenterFoldConnected, FaceFoldConnected
 using Oceananigans.Utils: configure_kernel
 
-const ConnectedTopology = Union{Sides{Connected}, Sides{Closed, Connected}, RightCenterFolded, RightFaceFolded}
+# Sides whose halos are filled by communication or by a fold
+const ConnectedSide = Union{Connected, CenterFolded, FaceFolded, CenterFoldConnected, FaceFoldConnected}
+const ConnectedTopology = Union{TwoSided{<:ConnectedSide}, TwoSided{<:Any, <:ConnectedSide}}
 
 struct SplitExplicitSolver{I, K}
     substeps :: I
@@ -52,8 +55,17 @@ function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
     if new_halos == old_halos
         return grid
     else
-        return with_halo(new_halos, grid)
+        return extended_sea_ice_grid(new_halos, grid)
     end
+end
+
+# The sea-ice fields are two-dimensional, so the halo-extended copy of an immersed ocean grid is built without a
+# three-dimensional active-cells map, which would otherwise be duplicated for every extended grid.
+extended_sea_ice_grid(halo, grid) = with_halo(halo, grid)
+
+function extended_sea_ice_grid(halo, grid::ImmersedBoundaryGrid)
+    underlying_grid = with_halo(halo, grid.underlying_grid)
+    return ImmersedBoundaryGrid(underlying_grid, grid.immersed_boundary; active_cells_map = false)
 end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
@@ -78,6 +90,14 @@ function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
                                   mom.minimum_concentration,
                                   mom.minimum_mass)
 end
+
+# Same clock and fields as `update_state!`, so discrete-form boundary conditions can be evaluated
+fill_halo_arguments(φ, grid, clock, fields) =
+    (φ.data, φ.boundary_conditions, φ.indices, instantiated_location(φ), grid, clock, fields)
+
+# Distributed fills take the communication buffers before the boundary-condition arguments
+fill_halo_arguments(φ, grid::DistributedGrid, clock, fields) =
+    (φ.data, φ.boundary_conditions, φ.indices, instantiated_location(φ), grid, φ.communication_buffers, clock, fields)
 
 # Reset the velocities to the previous time step
 # This does nothing for a FE model, but is necessary for an RK model.
@@ -143,8 +163,8 @@ function time_step_momentum!(model, dynamics::SplitExplicitMomentumEquation, Δt
     u_args = (u, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, u_immersed_bc, top_stress, bottom_stress, basal_stress, u_forcing)
     v_args = (v, grid, Δt, substeps, rheology, model_fields, free_drift, clock, coriolis, massmin, ℵmin, v_immersed_bc, top_stress, bottom_stress, basal_stress, v_forcing)
 
-    u_fill_halo_args = (u.data, u.boundary_conditions, u.indices, instantiated_location(u), grid, u.communication_buffers)
-    v_fill_halo_args = (v.data, v.boundary_conditions, v.indices, instantiated_location(v), grid, v.communication_buffers)
+    u_fill_halo_args = fill_halo_arguments(u, grid, clock, fields(model))
+    v_fill_halo_args = fill_halo_arguments(v, grid, clock, fields(model))
     stresses_args    = (model_fields, grid, rheology, Δt, u_immersed_bc, v_immersed_bc)
 
     GC.@preserve v_args u_args u_fill_halo_args v_fill_halo_args stresses_args begin
