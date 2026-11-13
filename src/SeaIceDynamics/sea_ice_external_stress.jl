@@ -48,7 +48,7 @@ extended_external_variable(src, grid) = src
 
 function extended_external_variable(src::Field, grid)
     grids_match(src, grid) && return src
-    field = Field{Oceananigans.location(src)...}(grid; boundary_conditions = src.boundary_conditions)
+    field = Field{Oceananigans.location(src)...}(grid; boundary_conditions = src.boundary_conditions, indices = src.indices)
     interior(field) .= interior(src)
     return field
 end

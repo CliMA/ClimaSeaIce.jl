@@ -42,6 +42,7 @@ end
 if TEST_GROUP == "all" || TEST_GROUP == "timestepping"
     include("test_time_stepping.jl")
     include("test_free_surface_term.jl")
+    include("test_boundary_time_series.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "vertical_grid"
@@ -67,6 +68,10 @@ end
 
 if TEST_GROUP == "all" || TEST_GROUP == "netcdf"
     include("test_netcdf_writer.jl")
+end
+
+if TEST_GROUP == "all" || TEST_GROUP == "extended_halo"
+    include("test_extended_halo_copies.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "distributed"

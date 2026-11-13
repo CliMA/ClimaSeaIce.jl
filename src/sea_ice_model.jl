@@ -373,6 +373,8 @@ Oceananigans.prognostic_fields(model::SIM) = merge((; h  = model.ice_thickness,
 
 function Oceananigans.TimeSteppers.update_state!(model::SIM, callbacks=[])
 
+    update_model_field_time_series!(model, model.clock)
+
     foreach(prognostic_fields(model)) do field
         mask_immersed_field_xy!(field, k=size(model.grid, 3))
         fill_halo_regions!(field, model.clock, fields(model))
@@ -383,15 +385,14 @@ function Oceananigans.TimeSteppers.update_state!(model::SIM, callbacks=[])
     mask_immersed_field_xy!(model.mass_fluxes.thermodynamics.snow,  k=Nz)
     mask_immersed_field_xy!(model.mass_fluxes.intercepted_snowfall, k=Nz)
 
-    update_model_field_time_series!(model, model.clock)
-
     return nothing
 end
 
 function Oceananigans.Models.update_model_field_time_series!(model::SIM, clock::Clock)
     time = Time(clock.time)
 
-    possible_fts = (model.tracers, model.external_heat_fluxes, model.snowfall, model.dynamics)
+    possible_fts = (model.velocities, model.ice_thickness, model.ice_concentration,
+                    model.tracers, model.external_heat_fluxes, model.snowfall, model.dynamics)
     time_series_tuple = extract_field_time_series(possible_fts)
     time_series_tuple = flattened_unique_values(time_series_tuple)
 
