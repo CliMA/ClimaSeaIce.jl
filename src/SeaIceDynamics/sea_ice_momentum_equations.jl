@@ -113,6 +113,7 @@ end
 
 Oceananigans.fields(mom::SeaIceMomentumEquation) = mom.auxiliaries.fields
 Oceananigans.prognostic_fields(model, mom::SeaIceMomentumEquation) = merge(model.velocities, prognostic_fields(mom, mom.rheology))
+Oceananigans.prognostic_fields(::SeaIceMomentumEquation, ::Nothing) = NamedTuple()
 
 # Fallback: keep the same grid and dynamics
 maybe_extended_grid(mom, grid) = grid
