@@ -41,7 +41,7 @@ function test_open_boundaries_on_extended_halos()
     arch = Distributed(CPU(), partition = Partition(4, 1))
     grid = RectilinearGrid(arch; size=(48, 8, 1), extent=(1, 1, 1),
                            halo=(4, 4, 4),
-                           topology=(Bounded, Bounded, Bounded))
+                           topology=(Bounded, Open, Bounded))
 
     substeps = 8
     solver   = SplitExplicitSolver(grid; substeps)
@@ -61,7 +61,7 @@ function test_open_boundaries_on_extended_halos()
     tangential_range = connected_range(Center(), topology(h.grid, 1), Nx, Hx)
 
     for c in (h, model.ice_concentration), side in (:south, :north)
-        reservoir_storage = getproperty(c.boundary_conditions, side).classification.scheme.cʳ
+        reservoir_storage = getproperty(c.boundary_conditions, side).classification.scheme.φ⁻
         @test axes(reservoir_storage, 1) == tangential_range
     end
 
