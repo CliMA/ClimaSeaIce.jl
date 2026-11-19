@@ -1,4 +1,5 @@
 using Oceananigans.Fields: flattened_unique_values, ZeroField
+using Oceananigans.BoundaryConditions: cache_boundary_conditions!, initialize_boundary_conditions!, step_boundary_conditions!
 using Oceananigans.ImmersedBoundaries: mask_immersed_field_xy!
 using Oceananigans.OutputReaders: extract_field_time_series, update_field_time_series!
 using Oceananigans.Units: Time
@@ -13,7 +14,12 @@ const FESeaIceModel = SeaIceModel{<:Any, <:Any, <:Any, <:Any, <:ForwardEulerTime
 function Oceananigans.TimeSteppers.time_step!(model::FESeaIceModel, Δt; kwargs...)
 
     # Be paranoid and update state at iteration 0
-    model.clock.iteration == 0 && update_state!(model)
+    if model.clock.iteration == 0
+        initialize_boundary_conditions!(model)
+        update_state!(model)
+    end
+
+    cache_boundary_conditions!(model)
 
     # Compute advective tendencies and update advected tracers
     compute_tendencies!(model, Δt)
@@ -23,6 +29,7 @@ function Oceananigans.TimeSteppers.time_step!(model::FESeaIceModel, Δt; kwargs.
 
     # Dynamic step for tracers
     dynamic_time_step!(model, Δt)
+    step_boundary_conditions!(prognostic_fields(model), model.clock, fields(model), Δt)
 
     # Perform the thermodynamic step
     thermodynamic_time_step!(model, model.ice_thermodynamics, model.snow_thermodynamics, Δt)

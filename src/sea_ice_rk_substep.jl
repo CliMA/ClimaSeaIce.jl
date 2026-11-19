@@ -1,3 +1,4 @@
+using Oceananigans.BoundaryConditions: step_boundary_conditions!
 using Oceananigans.TimeSteppers: SplitRungeKuttaTimeStepper
 
 using .SeaIceDynamics: time_step_momentum!
@@ -51,7 +52,7 @@ The substep consists of three sequential operations:
 
 1. **Dynamic step**: Compute advective tendencies and update ice thickness `h`
    and concentration `ℵ` via [`dynamic_time_step!`](@ref
-   ClimaSeaIce.dynamic_time_step!).
+   ClimaSeaIce.dynamic_time_step!), then step the exterior states of open boundaries.
 
 2. **Thermodynamic step**: Apply column physics (melting/freezing) via
    `thermodynamic_time_step!`. This step is performed all at once since thermodynamics
@@ -87,6 +88,7 @@ function Oceananigans.TimeSteppers.rk_substep!(model::RKSeaIceModel, Δτ, callb
     time_step_momentum!(model, model.dynamics, Δτ)
 
     dynamic_time_step!(model, Δτ)
+    step_boundary_conditions!(prognostic_fields(model), model.clock, fields(model), Δτ)
 
     thermodynamic_time_step!(model, model.ice_thermodynamics, model.snow_thermodynamics, Δτ)
 

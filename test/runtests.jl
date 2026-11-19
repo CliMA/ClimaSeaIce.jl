@@ -43,6 +43,7 @@ if TEST_GROUP == "all" || TEST_GROUP == "timestepping"
     include("test_time_stepping.jl")
     include("test_free_surface_term.jl")
     include("test_boundary_time_series.jl")
+    include("test_open_boundary_reservoir.jl")
 end
 
 if TEST_GROUP == "all" || TEST_GROUP == "vertical_grid"
