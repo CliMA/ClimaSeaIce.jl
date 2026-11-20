@@ -282,6 +282,14 @@ function finalize_rheology!(fields, ::ElastoViscoPlasticRheology)
     return nothing
 end
 
+# The stresses are prognostic within the substep loop, so they take part in the periodic halo exchange
+function fill_stress_halos!(fields, ::ElastoViscoPlasticRheology)
+    fill_halo_regions!(fields.σ₁₁)
+    fill_halo_regions!(fields.σ₁₂)
+    fill_halo_regions!(fields.σ₂₂)
+    return nothing
+end
+
 @inline ice_pressure(i, j, k, grid, ::IceStrength, r, fields) = @inbounds fields.P[i, j, k]
 
 @inline function ice_pressure(i, j, k, grid, ::ReplacementPressure, r, fields)
