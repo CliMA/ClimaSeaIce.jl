@@ -160,7 +160,8 @@ overlying ice and snow, and ``\rho_w`` is the `liquid_density` of [`PhaseTransit
 that sets the freeboard for snow-ice formation.
 
 This is appropriate when the ocean mixed layer is well-mixed and maintains thermal
-equilibrium with the ice bottom.
+equilibrium with the ice bottom, and is expressed with the
+[`IceWaterThermalEquilibrium`](@ref) boundary condition.
 
 ## External heat fluxes
 
