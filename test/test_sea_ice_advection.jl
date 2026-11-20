@@ -180,6 +180,38 @@ end
     @test maximum(interior(model.ice_thickness)) ≤ 1.5 * (1 + 1e-12)
 end
 
+@testset "Incremental remapping face fluxes match the C-grid velocities" begin
+    @info "Testing that incremental remapping transports along the C-grid face velocities"
+
+    grid = remapping_grid(16)
+    Nx, Ny, _ = size(grid)
+
+    # A checkerboard averages to zero at every cell corner, so only the face velocities can move ice.
+    u = Field{Face, Center, Center}(grid); set!(u, (x, y, z) -> 0.1 * sign(sin(16π * x + π/32) * sin(16π * y)))
+    v = Field{Center, Face, Center}(grid); set!(v, (x, y, z) -> 0.07 * sign(sin(16π * x) * sin(16π * y + π/32)))
+    fill_halo_regions!(u)
+    fill_halo_regions!(v)
+
+    model = remapping_model(grid, u, v)
+    ℵ₀ = 0.5
+    set!(model, ℵ = ℵ₀, h = 1.5)
+
+    Δt = 0.05
+    time_step!(model, Δt)
+
+    ℵ = Array(interior(model.ice_concentration, :, :, 1))
+    U = Array(interior(u, :, :, 1))
+    V = Array(interior(v, :, :, 1))
+    Δx = Δy = 1 / Nx
+
+    # With uniform ℵ, the change in each cell is exactly the C-grid flux divergence.
+    divergence = [(U[mod1(i+1, Nx), j] - U[i, j]) / Δx + (V[i, mod1(j+1, Ny)] - V[i, j]) / Δy for i in 1:Nx, j in 1:Ny]
+    expected = @. ℵ₀ * (1 - Δt * divergence)
+
+    @test maximum(abs, divergence) > 0
+    @test maximum(abs, ℵ .- expected) ≤ 1e-12
+end
+
 @testset "Incremental remapping conserves ∫(ℵ·h) dA" begin
     @info "Testing incremental remapping conservation"
 
