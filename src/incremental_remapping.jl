@@ -4,6 +4,8 @@ using Oceananigans.ImmersedBoundaries: immersed_cell
 using Oceananigans.Operators: Azᶜᶜᶜ, Δxᶜᶜᶜ, Δyᶜᶜᶜ, Δxᶠᶜᶜ, Δyᶠᶜᶜ, Δxᶜᶠᶜ, Δyᶜᶠᶜ, ℑxᶠᵃᵃ, ℑyᵃᶠᵃ
 using Oceananigans.Utils: KernelParameters
 
+transport_field(grid, LX, LY, LZ) = Field{LX, LY, LZ}(grid; boundary_conditions = fold_antisymmetric_boundary_conditions(grid, (LX(), LY(), LZ())))
+
 """
     struct IncrementalRemapping
 
@@ -59,12 +61,12 @@ function Oceananigans.Advection.materialize_advection(scheme::IncrementalRemappi
                       hsx = center_field(), hsy = center_field(),
                       xa = center_field(), ya = center_field())
 
-    transports = (x = (ℵ = Field{Face, Center, Nothing}(grid),
-                       𝓋 = Field{Face, Center, Nothing}(grid),
-                       𝓋s = Field{Face, Center, Nothing}(grid)),
-                  y = (ℵ = Field{Center, Face, Nothing}(grid),
-                       𝓋 = Field{Center, Face, Nothing}(grid),
-                       𝓋s = Field{Center, Face, Nothing}(grid)))
+    transports = (x = (ℵ = transport_field(grid, Face, Center, Nothing),
+                       𝓋 = transport_field(grid, Face, Center, Nothing),
+                       𝓋s = transport_field(grid, Face, Center, Nothing)),
+                  y = (ℵ = transport_field(grid, Center, Face, Nothing),
+                       𝓋 = transport_field(grid, Center, Face, Nothing),
+                       𝓋s = transport_field(grid, Center, Face, Nothing)))
 
     R = typeof(reconstruction)
     T = typeof(transports)
@@ -458,6 +460,9 @@ function compute_tracer_tendencies!(model::SIM, advection::IncrementalRemapping{
 
     launch!(arch, grid, KernelParameters(1:Nx+1, 1:Ny), _compute_x_transports!, transports.x, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
     launch!(arch, grid, KernelParameters(1:Nx, 1:Ny+1), _compute_y_transports!, transports.y, grid, nodes, Δt, u, v, ℵ, h, hs, reconstruction)
+    fill_halo_regions!((transports.x.ℵ, transports.y.ℵ))
+    fill_halo_regions!((transports.x.𝓋, transports.y.𝓋))
+    fill_halo_regions!((transports.x.𝓋s, transports.y.𝓋s))
     launch!(arch, grid, :xy, _compute_remapping_tendencies!, model.timestepper.Gⁿ, grid, transports, Δt, hs)
 
     return nothing

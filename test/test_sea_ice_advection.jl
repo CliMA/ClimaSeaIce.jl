@@ -2,8 +2,9 @@ using ClimaSeaIce
 using Oceananigans
 using Oceananigans: prognostic_fields
 using Oceananigans.Architectures: architecture
+using Oceananigans.TimeSteppers: update_state!
 using Oceananigans.BoundaryConditions: fill_halo_regions!
-using Oceananigans.Operators: Δxᶜᶠᶜ, Δyᶠᶜᶜ
+using Oceananigans.Operators: Azᶜᶜᶜ, Δxᶜᶠᶜ, Δyᶠᶜᶜ
 
 @testset "Sea ice advection" begin
     @info "Running sea ice advection test"
@@ -32,7 +33,7 @@ end
     @test model.velocities.u.boundary_conditions.north.condition == -1
     @test model.velocities.v.boundary_conditions.north.condition == -1
 
-    grid  = TripolarGrid(size = (10, 10, 1), fold_topology = Oceananigans.Grids.RightFaceFolded)
+    grid  = TripolarGrid(size = (10, 10, 1), fold_topology = Oceananigans.Grids.FaceFolded)
     model = SeaIceModel(grid)
 
     @test model.velocities.u.boundary_conditions.north.condition == -1
@@ -321,6 +322,36 @@ end
     @test maximum(ℵ) ≤ 1
     @test minimum(ℵ) ≥ 0
     @test all(isfinite, h)
+end
+
+@testset "Remapping fluxes close through a tripolar fold" begin
+    for fold_topology in (Oceananigans.Grids.FaceFolded, Oceananigans.Grids.CenterFolded)
+        Nx, Ny = 16, 16
+        grid = TripolarGrid(CPU(), Float64; size = (Nx, Ny, 1), halo = (4, 4, 1), z = (-1, 0), fold_topology)
+        model = SeaIceModel(grid; ice_thermodynamics = nothing, snow_thermodynamics = nothing,
+                            advection = IncrementalRemapping(), timestepper = :ForwardEuler, dynamics = nothing)
+        h, ℵ, v = model.ice_thickness, model.ice_concentration, model.velocities.v
+
+        # An ice edge across the fold, and a flow through it. The southern wall stays closed.
+        interior(h) .= 1.5
+        interior(ℵ) .= [0.5 + 0.4 * cos(2π * i / Nx) for i in 1:Nx, j in 1:Ny, k in 1:1]
+        fill_halo_regions!((h, ℵ))
+        for j in 2:size(interior(v), 2), i in 1:Nx
+            v[i, j, 1] = 0.02 * sin(2π * (i - 1/2) / Nx)
+        end
+        fill_halo_regions!(v)
+        update_state!(model)
+        ClimaSeaIce.compute_tendencies!(model, 600.0)
+
+        # Row Ny of a center fold holds each cell twice, so only its left half counts.
+        counted(i, j) = fold_topology === Oceananigans.Grids.CenterFolded && j == Ny && i > Nx ÷ 2 ? 0 : 1
+        G(i, j) = counted(i, j) * Azᶜᶜᶜ(i, j, 1, grid) * model.timestepper.Gⁿ.h[i, j, 1]
+        net = sum(G(i, j) for i in 1:Nx, j in 1:Ny)
+        gross = sum(abs(G(i, j)) for i in 1:Nx, j in 1:Ny)
+
+        @test gross > 0
+        @test abs(net) ≤ 1e-12 * gross
+    end
 end
 
 @testset "Sea ice momentum equations" begin
