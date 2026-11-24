@@ -1,5 +1,18 @@
-import Oceananigans: fields, prognostic_fields, prognostic_state, restore_prognostic_state!
+using Oceananigans: prognostic_state, restore_prognostic_state!
+using Oceananigans.Fields: set!
 
+"""
+    ProportionalEvolution()
+
+Parameterize sea-ice concentration changes by partitioning thermodynamic volume
+change between lateral and vertical growth using the proportional-evolution rule
+introduced by [Hibler 1979](@cite Hibler1979).
+
+References
+==========
+
+- Hibler, W. D. III (1979). A Dynamic Thermodynamic Sea Ice Model. Journal of Physical Oceanography, 9(4), 815-846. doi:10.1175/1520-0485(1979)009<0815:ADTSIM>2.0.CO;2.
+"""
 struct ProportionalEvolution end
 
 struct SlabThermodynamics{ST, HBC, CF, CE}
@@ -18,18 +31,23 @@ Adapt.adapt_structure(to, t::SlabThermodynamics) =
 const SSIT = SlabThermodynamics
 
 """
-    snow_slab_thermodynamics(grid; kw...)
+    snow_slab_thermodynamics(grid;
+                             conductivity = 0.31,
+                             itd_shape = nothing,
+                             kw...)
 
 Construct a `SlabThermodynamics` with default parameters appropriate for snow:
-conductivity = 0.31 W/(m K). Bulk density and all phase-transition parameters
-live on `SeaIceModel` (as `snow_density` and `phase_transitions` respectively).
+conductivity = 0.31 W/(m K), conducting through the sub-grid thickness distribution `itd_shape` of the snow.
+Bulk density and all phase-transition parameters live on `SeaIceModel` (as `snow_density` and `phase_transitions`
+respectively).
 """
 function snow_slab_thermodynamics(grid;
-                                  conductivity = 0.31,
+                                  conductivity = 0.31, # W/(m K)
+                                  itd_shape = nothing,
                                   kw...)
 
     FT = eltype(grid)
-    internal_heat_flux = ConductiveFlux(FT, conductivity = conductivity)
+    internal_heat_flux = ConductiveFlux(FT; conductivity, itd_shape)
     return SlabThermodynamics(grid; internal_heat_flux, kw...)
 end
 
@@ -40,18 +58,25 @@ function Base.show(io::IO, therm::SSIT)
     print(io, "└── top_surface_temperature: ", summary(therm.top_surface_temperature))
 end
 
-fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
-prognostic_fields(therm::SSIT) = NamedTuple()
+Oceananigans.fields(therm::SSIT) = (; Tu = therm.top_surface_temperature)
+Oceananigans.prognostic_fields(therm::SSIT) = NamedTuple()
 
 """
     SlabThermodynamics(grid; kw...)
 
-A minimal slab representation of a single sea-ice or snow layer. Stores
-the top surface temperature, top/bottom heat boundary conditions, the raw
-internal-flux coefficient (e.g. a `ConductiveFlux`), and the concentration
-evolution rule. Phase-transition parameters (densities, latent heats,
-liquidus) are stored at the `SeaIceModel` level and threaded into the
-tendency kernels via `model.phase_transitions`.
+A minimal slab representation of a single sea-ice or snow layer.
+
+The object stores:
+
+- the prognostic top surface temperature,
+- top and bottom heat boundary conditions,
+- an internal heat-flux model (for example `ConductiveFlux`), and
+- the concentration-evolution rule used when thermodynamic growth or melt
+  changes ice volume.
+
+Shared thermodynamic material properties such as densities, latent heat, and
+the liquidus relation are stored at the `SeaIceModel` level and threaded into
+the tendency kernels via `model.phase_transitions`.
 """
 function SlabThermodynamics(grid;
                             top_surface_temperature        = nothing,
@@ -88,17 +113,28 @@ on `SeaIceModel` (as `sea_ice_density` and `phase_transitions` respectively).
 """
 sea_ice_slab_thermodynamics(grid; kw...) = SlabThermodynamics(grid; kw...)
 
+writable_top_surface_temperature(therm, grid) = therm
+
+function writable_top_surface_temperature(therm::SSIT{<:ConstantField}, grid)
+    Tu = Field{Center, Center, Nothing}(grid)
+    set!(Tu, therm.top_surface_temperature[1, 1, 1])
+    return SlabThermodynamics(Tu,
+                              therm.heat_boundary_conditions,
+                              therm.internal_heat_flux,
+                              therm.concentration_evolution)
+end
+
 #####
 ##### Flux-function assembly (used by tendency kernels)
 #####
 
 """
-    internal_flux_function(flux, liquidus, bottom_heat_boundary_condition)
+    internal_flux_function(flux, phase_transitions, bottom_heat_boundary_condition)
 
 Wrap a raw internal-flux coefficient (`ConductiveFlux`, `IceSnowConductiveFlux`,
 user `Function`, or user struct) in the `FluxFunction` shape expected by the
 surface-temperature solver and by `getflux`. The wrapper is built at the
-tendency-kernel level so that `liquidus` and `bottom_heat_boundary_condition`
+tendency-kernel level so that `phase_transitions` and `bottom_heat_boundary_condition`
 can be read from `model.phase_transitions` and the slab's heat BCs without
 threading those values through `SlabThermodynamics` at construction time.
 
@@ -133,9 +169,9 @@ coefficient carries a `.conductivity` field and that the coupling is
 resistors-in-series. Custom flux types for a layered column are out of
 scope for this refactor.
 """
-@inline function internal_flux_function(flux, liquidus, bottom_heat_boundary_condition)
+@inline function internal_flux_function(flux, phase_transitions, bottom_heat_boundary_condition)
     parameters = (flux = flux,
-                  liquidus = liquidus,
+                  phase_transitions = phase_transitions,
                   bottom_heat_boundary_condition = bottom_heat_boundary_condition)
 
     return FluxFunction(flux_kernel(flux);
@@ -144,7 +180,7 @@ scope for this refactor.
 end
 
 # Pass-through when the user has already assembled the `FluxFunction` wrapper.
-@inline internal_flux_function(f::FluxFunction, liquidus, bottom_heat_boundary_condition) = f
+@inline internal_flux_function(f::FluxFunction, phase_transitions, bottom_heat_boundary_condition) = f
 
 """
     flux_kernel(flux)
@@ -160,6 +196,21 @@ ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::MyFlux) = my_flux_kernel
 where `my_flux_kernel(i, j, grid, Tu, clock, fields, parameters)` returns a
 heat flux with `parameters.flux::MyFlux`.
 
+Minimal example:
+
+```julia
+struct MyFlux{T}
+    coefficient :: T
+end
+
+@inline function my_flux_kernel(i, j, grid, Tu, clock, fields, parameters)
+    flux = parameters.flux
+    return flux.coefficient * (fields.h[i, j, 1] - Tu)
+end
+
+ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::MyFlux) = my_flux_kernel
+```
+
 Built-in dispatches:
 
 - `ConductiveFlux` → `slab_internal_heat_flux` (single-layer Fourier)
@@ -174,11 +225,12 @@ Built-in dispatches:
 ##### Checkpointing
 #####
 
-function prognostic_state(therm::SlabThermodynamics)
-    return (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
-end
+Oceananigans.prognostic_state(therm::SlabThermodynamics) =
+    (top_surface_temperature = prognostic_state(therm.top_surface_temperature),)
 
-function restore_prognostic_state!(therm::SlabThermodynamics, state)
+function Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, state)
     restore_prognostic_state!(therm.top_surface_temperature, state.top_surface_temperature)
     return therm
 end
+
+Oceananigans.restore_prognostic_state!(therm::SlabThermodynamics, ::Nothing) = nothing

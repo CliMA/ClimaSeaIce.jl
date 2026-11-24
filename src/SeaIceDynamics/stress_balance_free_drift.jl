@@ -11,7 +11,7 @@ end
 
 A free drift parameterization that computes the free drift velocities as a balance between top and bottom stresses ``τₐ ≈ τₒ``.
 
-The only supported configuration is when either the `top_momentum_stess` or the `bottom_momentum_stress` are a
+The only supported configuration is when either the `top_momentum_stress` or the `bottom_momentum_stress` are a
 `SemiImplicitStress`. The model will compute the free drift velocity exactly assuming that the other stress does
 not depend on the sea ice velocity.
 
@@ -23,11 +23,11 @@ function StressBalanceFreeDrift(; top_momentum_stress = nothing,
 
     if top_momentum_stress isa SemiImplicitStress
         if bottom_momentum_stress isa SemiImplicitStress
-            throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for the `top_momentum_stess` or the `bottom_momentum_stress`, not both"))
+            throw(ArgumentError("`StressBalanceFreeDrift` supports a `SemiImplicitStress` only for the `top_momentum_stress` or the `bottom_momentum_stress`, not both"))
         end
     else
         if !(bottom_momentum_stress isa SemiImplicitStress)
-            throw(ArgumentError("`StressBalanceFreeDrift` requires using a `SemiImplicitStress` for either the `top_momentum_stess` or the `bottom_momentum_stress`"))
+            throw(ArgumentError("`StressBalanceFreeDrift` requires using a `SemiImplicitStress` for either the `top_momentum_stress` or the `bottom_momentum_stress`"))
         end
     end
 
@@ -38,15 +38,23 @@ Adapt.adapt_structure(to, s::StressBalanceFreeDrift) =
     StressBalanceFreeDrift(Adapt.adapt(to, s.top_momentum_stress),
                            Adapt.adapt(to, s.bottom_momentum_stress))
 
-fields(::StressBalanceFreeDrift) = NamedTuple()
+# Repoint a free drift at already-materialized external stresses (see `materialize_solver`).
+materialize_free_drift(free_drift, top_momentum_stress, bottom_momentum_stress) = free_drift
+materialize_free_drift(::StressBalanceFreeDrift, top_momentum_stress, bottom_momentum_stress) =
+    StressBalanceFreeDrift(top_momentum_stress, bottom_momentum_stress)
 
-# Stress balance when either the top or the bottom stresses do not depend on ice velocity
-# In this case we have a simplified form of the free drift velocity.
-# All other formulations are not supported at the moment and would require
-# (1) knowing which stress is velocity-dependent
-# (2) A nonlinear solve in case both stresses are velocity-dependent
+Oceananigans.fields(::StressBalanceFreeDrift) = NamedTuple()
+
+# Stress balance when exactly one of the top or bottom stresses is
+# ice-velocity dependent. In this case we have a simplified closed-form
+# expression for the free-drift velocity.
+#
+# If both stresses are velocity dependent, the free-drift velocity would
+# require a nonlinear solve, so we define an explicit mixed-case dispatch
+# that throws an informative error.
 const TISB = StressBalanceFreeDrift{<:Any, <:SemiImplicitStress}
 const BISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:Any}
+const TBISB = StressBalanceFreeDrift{<:SemiImplicitStress, <:SemiImplicitStress}
 
 # Stress balance when only the bottom stress is ice-velocity dependent:
 # Then: 𝒰ᵢ = 𝒰ᴮ - τᵀ / sqrt(Cᴮ * ||τᵀ||)
@@ -81,7 +89,7 @@ end
     τyᴮ = ℑxyᶠᶜᵃ(i, j, k, grid, y_momentum_stress, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
-    τᵀ = f.top_momentum_stess
+    τᵀ = f.top_momentum_stress
     uᵀ = @inbounds τᵀ.uₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
@@ -93,12 +101,19 @@ end
     τyᴮ = y_momentum_stress(i, j, k, grid, f.bottom_momentum_stress, clock, fields)
     τᴮ  = sqrt(τxᴮ^2 + τyᴮ^2)
 
-    τᵀ = f.top_momentum_stess
+    τᵀ = f.top_momentum_stress
     vᵀ = @inbounds τᵀ.vₑ[i, j, k]
     Cᵀ = τᵀ.ρₑ * τᵀ.Cᴰ
 
     return vᵀ - ifelse(τᴮ == 0, τᴮ, τyᴮ / sqrt(Cᵀ * τᴮ))
 end
+
+@noinline function unsupported_mixed_stress_balance_free_drift()
+    throw(ArgumentError("`StressBalanceFreeDrift` does not support both `top_momentum_stress` and `bottom_momentum_stress` being `SemiImplicitStress`. This mixed `TBISB` case requires a nonlinear solve that is not implemented."))
+end
+
+@inline free_drift_u(i, j, k, grid, ::TBISB, clock, fields) = unsupported_mixed_stress_balance_free_drift()
+@inline free_drift_v(i, j, k, grid, ::TBISB, clock, fields) = unsupported_mixed_stress_balance_free_drift()
 
 const NoFreeDrift = StressBalanceFreeDrift{<:Nothing, <:Nothing}
 
@@ -106,8 +121,8 @@ const NoFreeDrift = StressBalanceFreeDrift{<:Nothing, <:Nothing}
 @inline free_drift_v(i, j, k, grid, ::NoFreeDrift, clock, fields) = zero(grid)
 
 # Fallbacks for a given velocity field.
-@inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.u[i, j, k]
-@inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, fields)  = @inbounds f.v[i, j, k]
+@inline free_drift_u(i, j, k, grid, f::NamedTuple, clock, fields) = @inbounds f.u[i, j, k]
+@inline free_drift_v(i, j, k, grid, f::NamedTuple, clock, fields) = @inbounds f.v[i, j, k]
 
 # Passing no velocities
 @inline free_drift_u(i, j, k, grid, ::Nothing, clock, fields) = zero(grid)

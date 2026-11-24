@@ -93,12 +93,21 @@ conductive_flux = ConductiveFlux(Float64; conductivity = 2.0)
 At each interface, the difference between incoming and outgoing heat fluxes drives
 melting or freezing:
 ```math
-w_u = \frac{Q_x - Q_i}{\mathscr{L}(T_u)}, \quad w_b = \frac{Q_i - Q_b}{\mathscr{L}(T_b)}
+w_u = \frac{Q_x - Q_i}{\rho_i \mathscr{L}_0}, \quad w_b = \frac{Q_i - Q_b}{\rho_i \mathscr{L}_0}
 ```
 where:
 - ``Q_x`` is the external (atmospheric) heat flux into the top surface
 - ``Q_i`` is the internal conductive flux
 - ``Q_b`` is the oceanic heat flux at the bottom
+
+The slab carries no sensible heat and stores the energy ``- \rho_i \mathscr{L}_0`` per unit volume, so the
+same latent heat is exchanged at both interfaces, independently from their temperatures, and the column
+conserves energy. The internal flux only moves energy between the two interfaces and cancels from the thickness
+tendency,
+```math
+w_u + w_b = \frac{Q_x - Q_b}{\rho_i \mathscr{L}_0} ,
+```
+so that ``Q_i`` enters the evolution of the slab only through the surface temperature.
 
 Negative velocities indicate melting; positive velocities indicate freezing.
 
@@ -141,10 +150,14 @@ top_bc = PrescribedTemperature(-5.0)
 ## Bottom boundary condition
 
 The default bottom boundary condition, `IceWaterThermalEquilibrium`, assumes the ice-ocean
-interface is at the salinity-dependent melting temperature:
+interface is at the melting temperature of the water at the base of the ice:
 ```math
-T_b = T_m(S)
+T_b = T_m(S, z_b) , \qquad z_b = - \frac{\rho_i h_i + \rho_s h_s}{\rho_w} ,
 ```
+
+where ``z_b`` is the height of the base of floating ice relative to the sea surface, set by the weight of the
+overlying ice and snow, and ``\rho_w`` is the `liquid_density` of [`PhaseTransitions`](@ref), the same density
+that sets the freeboard for snow-ice formation.
 
 This is appropriate when the ocean mixed layer is well-mixed and maintains thermal
 equilibrium with the ice bottom.
@@ -210,9 +223,9 @@ The value you pass via `internal_heat_flux = ...` to `SlabThermodynamics`
 (and to its `sea_ice_slab_thermodynamics` and `snow_slab_thermodynamics`
 helpers) is the *raw coefficient* of the layer's internal flux — not a
 `FluxFunction`. The tendency kernel wraps it in a `FluxFunction` on the
-fly, threading in `model.phase_transitions.liquidus` and the slab's bottom
-boundary condition as parameters. This avoids baking the shared liquidus
-into each slab at construction time.
+fly, threading in `model.phase_transitions` and the slab's bottom
+boundary condition as parameters. This avoids baking the shared phase
+transitions into each slab at construction time.
 
 Four shapes are supported out of the box:
 
@@ -236,7 +249,7 @@ parameters) -> Q`:
 ```@example thermodynamics
 @inline function radiative_internal_flux(i, j, grid, Tu, clock, fields, parameters)
     hi = @inbounds fields.h[i, j, 1]
-    # parameters.flux is the function itself; parameters.liquidus and
+    # parameters.flux is the function itself; parameters.phase_transitions and
     # parameters.bottom_heat_boundary_condition are injected by the slab.
     return ifelse(hi ≤ 0, zero(hi), -5.0 * Tu)  # toy radiative model
 end
@@ -250,7 +263,7 @@ ice_thermodynamics_rad = SlabThermodynamics(grid;
 If you have already packaged the kernel, its parameters, and the
 temperature-dependence flag in a `FluxFunction`, you can pass it directly.
 The slab stores it unchanged; the tendency kernel does *not* inject its
-own `liquidus` / `bottom_heat_boundary_condition`:
+own `phase_transitions` / `bottom_heat_boundary_condition`:
 
 ```@example thermodynamics
 using ClimaSeaIce.SeaIceThermodynamics: FluxFunction
@@ -260,11 +273,11 @@ user_flux = FluxFunction(radiative_internal_flux;
                          top_temperature_dependent = true)
 
 ice_thermodynamics_fn = SlabThermodynamics(grid;
-    internal_heat_flux = user_flux)
+                                           internal_heat_flux = user_flux)
 ```
 
 This is the right choice when your flux needs parameters that the default
-liquidus/bottom-BC injection cannot supply.
+phase-transitions/bottom-BC injection cannot supply.
 
 ### A custom flux struct (extend `flux_kernel`)
 
@@ -280,18 +293,19 @@ end
 @inline function nonlinear_conductive_flux(i, j, grid, Tu, clock, fields, parameters)
     flux = parameters.flux           # ::NonLinearConductiveFlux
     bottom_bc = parameters.bottom_heat_boundary_condition
-    liquidus = parameters.liquidus
-    Tb = bottom_temperature(i, j, grid, bottom_bc, liquidus)
+    phase_transitions = parameters.phase_transitions
+    Tb = bottom_temperature(i, j, grid, bottom_bc, phase_transitions, fields)
     hi = @inbounds fields.h[i, j, 1]
     k_eff = flux.k0 * (1 + flux.α * Tu)
     return ifelse(hi ≤ 0, zero(hi), -k_eff * (Tu - Tb) / hi)
 end
 
 # Extend the dispatch so the slab knows how to wrap NonLinearConductiveFlux
-ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::NonLinearConductiveFlux) = nonlinear_conductive_flux
+ClimaSeaIce.SeaIceThermodynamics.flux_kernel(::NonLinearConductiveFlux) =
+    nonlinear_conductive_flux
 
 SlabThermodynamics(grid;
-    internal_heat_flux = NonLinearConductiveFlux(2.0, 0.01))
+                   internal_heat_flux = NonLinearConductiveFlux(2.0, 0.01))
 ```
 
 The benefit over the bare-function approach is that the flux coefficient is
@@ -300,8 +314,8 @@ own type parameters.
 
 !!! note "Layered snow + ice coupling"
     The layered path in `_layered_thermodynamic_time_step!` assumes that
-    each layer's flux carries a `.conductivity` field and that the coupling
-    is `IceSnowConductiveFlux` (resistors in series). Replacing the
+    each layer's flux is a `ConductiveFlux` and that the coupling is
+    `IceSnowConductiveFlux` (resistors in series). Replacing the
     internal flux with a non-conductive formulation in the layered case
     requires changes to the layered kernel and is out of scope for the
     current refactor.
@@ -384,9 +398,9 @@ grid = RectilinearGrid(size=(), topology=(Flat, Flat, Flat))
 snow_thermodynamics = snow_slab_thermodynamics(grid)
 
 model = SeaIceModel(grid;
-    snow_thermodynamics,
-    snow_density = 330,
-    snowfall = 3e-6) # kg/m²/s
+                    snow_thermodynamics,
+                    snow_density = 330,
+                    snowfall = 3e-6) # kg/m²/s
 
 set!(model, h=1, ℵ=1, hs=0.1) # 10 cm snow on 1 m ice
 ```
@@ -404,7 +418,7 @@ When running a pure-dynamics simulation (no phase physics), pass
 path works without a thermodynamic step:
 
 ```@example thermodynamics
-model_dyn = SeaIceModel(grid;
-    ice_thermodynamics = nothing,
-    sea_ice_density = 900)
+model = SeaIceModel(grid;
+                    ice_thermodynamics = nothing,
+                    sea_ice_density = 900)
 ```

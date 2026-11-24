@@ -34,7 +34,6 @@ struct FluxFunction{P, T, F}
     end
 end
 
-
 function Adapt.adapt_structure(to, ff::FluxFunction{P, T}) where {P, T}
     return FluxFunction{T}(adapt(to, ff.func),
                            adapt(to, ff.parameters))
@@ -52,21 +51,36 @@ Base.show(io::IO, flux::FluxFunction) = print(io, summary(flux))
 """
     FluxFunction(func; parameters=nothing, top_temperature_dependent=false)
 
-Return `FluxFunction` representing a flux across an air-ice, air-snow, or ice-water interface.
-The flux is computed by `func` with the signature
+Return a `FluxFunction` representing a flux across an air-ice, air-snow, or
+ice-water interface.
+
+The wrapped callable `func` must have one of the following signatures:
 
 ```julia
 flux = func(i, j, grid, clock, top_temperature, model_fields)
 ```
 
-if `isnothing(parameters)`, or
+when `isnothing(parameters)`, or
 
 ```julia
 flux = func(i, j, grid, clock, top_temperature, model_fields, parameters)
 ```
 
-if `!isnothing(parameters)`. If `func` is `top_temperature_dependent`, then it will be recomputed
-during a diagnostic solve for the top temperature.
+when `!isnothing(parameters)`.
+
+Set `top_temperature_dependent = true` when the flux must be recomputed during
+the diagnostic solve for the surface temperature.
+
+Example
+=======
+
+```julia
+@inline sensible_heat_flux(i, j, grid, Tₛ, clock, fields, coefficient) =
+    coefficient * (fields.T_air[i, j, 1] - Tₛ)
+
+Q = FluxFunction(sensible_heat_flux; parameters = 15.0,
+                 top_temperature_dependent = true)
+```
 """
 function FluxFunction(func; parameters=nothing, top_temperature_dependent=false)
     T = top_temperature_dependent ? SurfaceTemperatureDependent() : Nothing
@@ -88,9 +102,12 @@ struct RadiativeEmission{FT}
 end
 
 """
-    RadiativeEmission(FT=Oceananigans.defaults.FloatType; kw...)
+    RadiativeEmission(FT=Oceananigans.defaults.FloatType;
+                      emissivity = 1,
+                      stefan_boltzmann_constant = 5.67e-8,
+                      reference_temperature = 273.15)
 
-Returns a flux representing radiative emission from a surface.
+Return a flux representing radiative emission from a surface.
 """
 function RadiativeEmission(FT=Oceananigans.defaults.FloatType;
                            emissivity = 1,
@@ -98,20 +115,20 @@ function RadiativeEmission(FT=Oceananigans.defaults.FloatType;
                            reference_temperature = 273.15)
 
     return RadiativeEmission(convert(FT, emissivity),
-                             convert(FT, stefan_boltzmann_constant), 
+                             convert(FT, stefan_boltzmann_constant),
                              convert(FT, reference_temperature))
 end
 
 @inline function getflux(emission::RadiativeEmission, i, j, grid, T, clock, fields)
-    ϵ = emission.emissivity
-    σ = emission.stefan_boltzmann_constant
+    ϵ  = emission.emissivity
+    σ  = emission.stefan_boltzmann_constant
     Tᵣ = emission.reference_temperature
-    return ϵ * σ * (T + Tᵣ)^4 
+    return ϵ * σ * (T + Tᵣ)^4
 end
 
 function Base.summary(flux::RadiativeEmission)
-    σ = flux.stefan_boltzmann_constant
-    ϵ = flux.emissivity
+    σ  = flux.stefan_boltzmann_constant
+    ϵ  = flux.emissivity
     Tᵣ = flux.reference_temperature
     return string("RadiativeEmission(",
                   "emissivity = ", summary(ϵ), ", ",
