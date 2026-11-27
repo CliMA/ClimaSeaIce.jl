@@ -3,7 +3,8 @@ using KernelAbstractions: @kernel, @index
 using Oceananigans.Architectures: architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: synchronize_communication!
-using Oceananigans.Grids: AbstractGrid, halo_size
+using Oceananigans.Grids: AbstractGrid, Flat, topology, halo_size
+using Oceananigans.Utils: worksize
 
 using ClimaSeaIce: default_sea_ice_boundary_conditions
 
@@ -138,13 +139,28 @@ function ElastoViscoPlasticRheology(FT::DataType = Oceananigans.defaults.FloatTy
                                       pressure_formulation)
 end
 
+function evp_kernel_parameters(grid)
+    Sx, Sy, _ = worksize(grid)
+    TX, TY, _ = topology(grid)
+    Hx, Hy, _ = halo_size(grid)
+    single_column_grid = Sx == 1 && Sy == 1
+
+    if single_column_grid
+        return KernelParameters(1:1, 1:1)
+    end
+
+    # Folded and connected topologies need halo-inclusive launches so the
+    # fold-adjacent EVP updates populate the rows used by stress diagnostics.
+    x_range = TX === Flat ? (1:Sx) : (-Hx+2:Sx+Hx-1)
+    y_range = TY === Flat ? (1:Sy) : (-Hy+2:Sy+Hy-1)
+    return KernelParameters(x_range, y_range)
+end
+
 # Extend Auxiliaries to hold auxiliaries for the ElastoViscoPlasticRheology
 function Auxiliaries(r::ElastoViscoPlasticRheology, grid::AbstractGrid)
 
     arch       = architecture(grid)
-    Nx, Ny, _  = size(grid)
-    Hx, Hy, _  = halo_size(grid)
-    parameters = KernelParameters(-Hx+2:Nx+Hx-1, -Hy+2:Ny+Hy-1)
+    parameters = evp_kernel_parameters(grid)
 
     σ₁₁ = Field{Center, Center, Nothing}(grid)
     σ₂₂ = Field{Center, Center, Nothing}(grid)
