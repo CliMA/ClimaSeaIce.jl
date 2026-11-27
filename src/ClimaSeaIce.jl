@@ -28,6 +28,7 @@ export SeaIceModel,
        ViscousRheology,
        ElastoViscoPlasticRheology,
        IncrementalRemapping,
+       PositivityPreservingAdvection,
        FreeSlip,
        NoSlip
 
@@ -70,6 +71,7 @@ include("sea_ice_model.jl")
 include("sea_ice_advection.jl")
 include("incremental_remapping.jl")
 include("tracer_tendency_kernel_functions.jl")
+include("positivity_preserving_advection.jl")
 include("EnthalpyMethodSeaIceModel.jl")
 
 using .SeaIceThermodynamics
