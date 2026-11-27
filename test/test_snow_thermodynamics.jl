@@ -6,6 +6,7 @@ using ClimaSeaIce.SeaIceThermodynamics: ConductiveFlux, PhaseTransitions, GammaT
 using ClimaSeaIce.SeaIceThermodynamics.HeatBoundaryConditions: PrescribedTemperature, FluxFunction, IceWaterThermalEquilibrium
 using Oceananigans
 using Oceananigans: prognostic_fields
+using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.Fields: interior
 using Test
 
@@ -32,6 +33,22 @@ using Test
     model_no_snow = SeaIceModel(grid)
     @test isnothing(model_no_snow.snow_thermodynamics)
     @test isnothing(model_no_snow.snow_thickness)
+end
+
+@testset "Snow thickness boundary conditions" begin
+    grid = RectilinearGrid(size=(10, 10), x=(0, 1), y=(0, 1), topology=(Bounded, Bounded, Flat))
+
+    hs_bcs = FieldBoundaryConditions(west = ValueBoundaryCondition(0.3))
+    model = SeaIceModel(grid; snow_thermodynamics = snow_slab_thermodynamics(grid),
+                        boundary_conditions = (; hs = hs_bcs))
+
+    hs = model.snow_thickness
+    @test hs.boundary_conditions.west.condition == 0.3
+
+    # The boundary face takes the prescribed value
+    set!(hs, 0.1)
+    fill_halo_regions!(hs)
+    @test (hs[0, 5, 1] + hs[1, 5, 1]) / 2 ≈ 0.3
 end
 
 @testset "Backward compatibility without snow" begin
