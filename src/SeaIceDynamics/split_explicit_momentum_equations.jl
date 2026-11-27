@@ -1,4 +1,5 @@
 using Oceananigans: instantiated_location
+using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid
 using Oceananigans.Architectures: convert_to_device, architecture
 using Oceananigans.BoundaryConditions: fill_halo_regions!
 using Oceananigans.DistributedComputations: DistributedGrid
@@ -54,8 +55,17 @@ function maybe_extended_grid(solver::SplitExplicitSolver, grid::DistributedGrid)
     if new_halos == old_halos
         return grid
     else
-        return with_halo(new_halos, grid)
+        return extended_sea_ice_grid(new_halos, grid)
     end
+end
+
+# The sea-ice fields are two-dimensional, so the halo-extended copy of an immersed ocean grid is built without a
+# three-dimensional active-cells map, which would otherwise be duplicated for every extended grid.
+extended_sea_ice_grid(halo, grid) = with_halo(halo, grid)
+
+function extended_sea_ice_grid(halo, grid::ImmersedBoundaryGrid)
+    underlying_grid = with_halo(halo, grid.underlying_grid)
+    return ImmersedBoundaryGrid(underlying_grid, grid.immersed_boundary; active_cells_map = false)
 end
 
 function materialize_solver(mom::SplitExplicitMomentumEquation, grid)
